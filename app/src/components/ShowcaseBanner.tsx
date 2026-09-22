@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
+import { isHoverVideoActive, subscribeHoverVideo } from '../lib/videoGuard'
 
 // Düz 2 durak (renk -> transparent) çizgisel gradyan göze hâlâ keskin/kesik gibi görünüyor —
 // insan gözü doğrusal alfa geçişini "aniden başlayıp aniden biten" bir kesim gibi algılıyor.
@@ -53,6 +54,7 @@ export default function ShowcaseBanner({
   const [ready, setReady] = useState(false)
   const [muted, setMuted] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YTPlayer | null>(null)
 
   useEffect(() => {
@@ -154,6 +156,33 @@ export default function ShowcaseBanner({
     setStopped(false)
   }
 
+  // Kullanıcı "vitrindeki video aşağı kaydırılınca oynatması dursun" dedi — ekranın dışına
+  // kaydırılınca oynatıcıyı duraklatıyoruz, geri kaydırılınca (manuel durdurulmadıysa) devam ediyor.
+  const [isIntersecting, setIsIntersecting] = useState(true)
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    const io = new IntersectionObserver(([entry]) => setIsIntersecting(entry.isIntersecting), { threshold: 0.15 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  // Bir karta gelince açılan önizleme videosuyla (bkz. HoverPreviewVideo/videoGuard.ts) aynı anda
+  // oynamasın diye — kullanıcı "aynı anda iki tane olmasın" dedi.
+  const hoverVideoActive = useSyncExternalStore(subscribeHoverVideo, isHoverVideoActive)
+
+  // Yukarıdaki üç sebepten (görünürlük, kart önizlemesi, manuel durdur/bitti) TEK bir "şu an
+  // oynamalı mı" değeri türetip, sadece bu değer GERÇEKTEN değiştiğinde play/pause çağırıyoruz —
+  // ayrı ayrı effect'ler birbirinin play/pause çağrısını geçersiz kılabilirdi.
+  const shouldPlay = ready && !stopped && !ended && !hoverVideoActive && isIntersecting
+  const wasPlayingRef = useRef(shouldPlay)
+  useEffect(() => {
+    if (!playerRef.current) return
+    if (shouldPlay && !wasPlayingRef.current) playerRef.current.playVideo?.()
+    else if (!shouldPlay && wasPlayingRef.current) playerRef.current.pauseVideo?.()
+    wasPlayingRef.current = shouldPlay
+  }, [shouldPlay])
+
   const showImage = !videoId || ended || stopped
 
   useEffect(() => {
@@ -162,7 +191,10 @@ export default function ShowcaseBanner({
   }, [showImage, videoId])
 
   return (
-    <div className={`relative w-full ${aspect === '16/9' ? 'aspect-video' : 'aspect-[21/9]'} rounded-xl overflow-hidden bg-neutral-900`}>
+    <div
+      ref={wrapperRef}
+      className={`relative w-full ${aspect === '16/9' ? 'aspect-video' : 'aspect-[21/9]'} rounded-xl overflow-hidden bg-neutral-900`}
+    >
       <img
         src="/logoblue.png"
         alt=""

@@ -10,6 +10,7 @@ export interface YTPlayer {
   setSize: (width: number, height: number) => void
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void
   playVideo: () => void
+  pauseVideo: () => void
 }
 
 declare global {
