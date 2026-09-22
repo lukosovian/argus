@@ -91,9 +91,13 @@ function PlayCircleIcon() {
 // görüntüsü değil, kutu/çizgi düzeyinde bir taslak (klasik "wireframe" dili): görsel/kapak
 // alanları dolu (fill) dikdörtgenlerle, metin/arayüz elemanları ince çizgilerle gösteriliyor.
 // Hepsi aynı 0 0 300 160 viewBox'ı kullanıyor ki WireframeCard içinde aynı oranda otursunlar.
-const WF_FILL = '#262626' // neutral-800 — "görsel/kapak" alanları
-const WF_STROKE = '#525252' // neutral-600 — kutu çerçeveleri
-const WF_LINE = '#404040' // neutral-700 — metin/etiket çizgileri
+// Sabit hex yerine CSS değişkenine (bkz. index.css'teki açık tema override'ı) işaret ediyorlar —
+// böylece bu taslaklar da açık temada otomatik olarak doğru renklere dönüyor, aynı `neutral-*`
+// skalasının geri kalanı gibi. Kullanıcı "ordaki çizimler... beyaz temaya uygun değil" dedi.
+const WF_FILL = 'var(--color-neutral-800)' // "görsel/kapak" alanları
+const WF_STROKE = 'var(--color-neutral-600)' // kutu çerçeveleri
+const WF_LINE = 'var(--color-neutral-700)' // metin/etiket çizgileri
+const WF_EMPHASIS = 'var(--color-neutral-400)' // vurgulu (daha büyük/önemli) metin çizgileri
 
 function WireframeCard({ children }: { children: ReactNode }) {
   return (
@@ -135,7 +139,7 @@ function AnaSayfaWireframe() {
     <WireframeCard>
       <rect x={15} y={15} width={270} height={55} rx={10} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
       <path d="M35 34v18l16-9-16-9Z" fill={BRAND_TEXT} />
-      <rect x={62} y={50} width={70} height={7} rx={3.5} fill="#a3a3a3" />
+      <rect x={62} y={50} width={70} height={7} rx={3.5} fill={WF_EMPHASIS} />
       {cards.map((x) => (
         <rect key={x} x={x} y={85} width={46} height={48} rx={7} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
       ))}
@@ -174,7 +178,7 @@ function VeritabaniWireframe() {
       {cols.slice(1, -1).map((x) => (
         <line key={x} x1={x} y1={15} x2={x} y2={145} stroke={WF_STROKE} strokeWidth={1} />
       ))}
-      <rect x={30} y={24} width={45} height={8} rx={4} fill="#a3a3a3" />
+      <rect x={30} y={24} width={45} height={8} rx={4} fill={WF_EMPHASIS} />
     </WireframeCard>
   )
 }
@@ -191,7 +195,7 @@ function AyarlarWireframe() {
         <g key={y}>
           <rect x={25} y={y} width={110} height={8} rx={4} fill={WF_LINE} />
           <rect x={230} y={y - 7} width={44} height={22} rx={11} fill={on ? BRAND_TEXT : WF_FILL} stroke={WF_STROKE} strokeWidth={on ? 0 : 2} />
-          <circle cx={on ? 262 : 241} cy={y + 4} r={7} fill={on ? '#0a0a0a' : WF_STROKE} />
+          <circle cx={on ? 262 : 241} cy={y + 4} r={7} fill={on ? 'white' : WF_STROKE} />
         </g>
       ))}
     </WireframeCard>
@@ -203,14 +207,14 @@ function AramaWireframe() {
   return (
     <WireframeCard>
       <rect x={20} y={18} width={260} height={32} rx={16} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
-      <circle cx={38} cy={34} r={7} fill="none" stroke="#a3a3a3" strokeWidth={2} />
-      <line x1={43} y1={39} x2={48} y2={44} stroke="#a3a3a3" strokeWidth={2} strokeLinecap="round" />
+      <circle cx={38} cy={34} r={7} fill="none" stroke={WF_EMPHASIS} strokeWidth={2} />
+      <line x1={43} y1={39} x2={48} y2={44} stroke={WF_EMPHASIS} strokeWidth={2} strokeLinecap="round" />
       <rect x={58} y={31} width={90} height={6} rx={3} fill={WF_LINE} />
       {results.map((y) => (
         <g key={y}>
           <rect x={20} y={y} width={28} height={28} rx={6} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
           <rect x={58} y={y + 5} width={130} height={7} rx={3.5} fill={WF_LINE} />
-          <rect x={58} y={y + 17} width={80} height={6} rx={3} fill="#333333" />
+          <rect x={58} y={y + 17} width={80} height={6} rx={3} fill={WF_LINE} />
         </g>
       ))}
     </WireframeCard>
@@ -224,7 +228,7 @@ function DetayWireframe() {
       <rect x={15} y={15} width={270} height={70} rx={10} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
       <circle cx={150} cy={50} r={14} fill="none" stroke={BRAND_TEXT} strokeWidth={2} />
       <path d="M146 44v12l11-6-11-6Z" fill={BRAND_TEXT} />
-      <rect x={15} y={98} width={140} height={10} rx={4} fill="#a3a3a3" />
+      <rect x={15} y={98} width={140} height={10} rx={4} fill={WF_EMPHASIS} />
       <rect x={15} y={115} width={90} height={7} rx={3.5} fill={WF_LINE} />
       {cast.map((x) => (
         <rect key={x} x={x} y={130} width={28} height={28} rx={14} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
@@ -249,7 +253,7 @@ const SECTIONS: { icon: ReactNode; title: string; text: string; wireframe: React
   {
     icon: <MoodFaceIcon />,
     title: '3. Mod satırı',
-    text: '"İzlenecek" listenden, tanımladığın ruh hallerine (modlara) göre önerilen içerikleri gösteren özel bir satır. Her modun kendi görseli ve tür/kategori filtresi vardır; gösterilen içerik günde bir kez yenilenir. Ayarlar → Ana Sayfa Ayarları → Mod Ekle’den kendi modlarını tanımlarsın.',
+    text: '"İzlenecek" listenden, tanımladığın ruh hallerine (modlara) göre önerilen içerikleri gösteren özel bir satır. Her modun kendi görseli ve tür/kategori filtresi vardır; gösterilen içerik günde bir kez yenilenir. Ayarlar → Ana Sayfa Ayarları → Modlar’dan kendi modlarını tanımlarsın — 10 hazır modla başlarsın, açıp kapatabilir, düzenleyebilir ya da yenisini ekleyebilirsin.',
     wireframe: <ModWireframe />,
   },
   {
@@ -261,13 +265,13 @@ const SECTIONS: { icon: ReactNode; title: string; text: string; wireframe: React
   {
     icon: <GearIcon />,
     title: '5. Ana Sayfa Ayarları',
-    text: 'Ana sayfanın hangi arşivi göstereceğini, görünüm tarzını (yatay kaydırmalı ya da ızgara), vitrin ve mod satırının açık/kapalı olmasını buradan yönetirsin. "Sayfalar" kısmından, bir türe/kategoriye göre kendi listelerini oluşturup üst menüye ya da ana sayfanın gövdesine ekleyebilirsin.',
+    text: 'Dört sekme: Görünüm (hangi arşiv gösterilsin, kartların Yatay/Dikey görünüm tarzı ve boyutu, vitrin, "Tümü" satırı), Sayfalar (bir türe/kategoriye göre kendi listelerini oluşturup üst menüye ya da ana sayfanın gövdesine eklersin), Modlar (mod satırındaki ruh hallerini yönetirsin) ve Ne İzlesem? (üstteki arama kutusunun yanındaki karttan rastgele bir kayıt seçtirdiğinde hangi havuzdan seçileceğini buradan ayarlarsın).',
     wireframe: <AyarlarWireframe />,
   },
   {
     icon: <SearchIcon />,
     title: '6. Arama',
-    text: 'Sağ üstteki büyüteç ikonuyla her yerden ulaşabileceğin genel arama — başlık, oyuncu, tür ya da ülke adına göre sonuç getirir; başlığa tam uyanlar en üstte çıkar.',
+    text: 'Sağ üstteki büyüteç ikonuyla her yerden ulaşabileceğin genel arama — başlık, oyuncu, tür ya da ülke adına göre sonuç getirir; başlığa tam uyanlar en üstte çıkar. Hemen yanındaki kart ikonu ise "Ne İzlesem?" — tıklayınca arşivinden rastgele bir kayıt seçip detayını açar.',
     wireframe: <AramaWireframe />,
   },
   {

@@ -8,9 +8,12 @@ import { BRAND_TEXT } from '../../lib/theme'
 // (WireframeCard, filled=görsel alanı/stroke=arayüz çerçevesi/BRAND_TEXT=tek vurgu rengi
 // kuralı) çiziliyor, aynı dosyada tutuluyor (YardimMerkezi.tsx'e coupling yaratmamak için
 // bilerek küçük bir tekrar).
-const WF_FILL = '#262626'
-const WF_STROKE = '#525252'
-const WF_LINE = '#404040'
+// Sabit hex yerine CSS değişkenine işaret ediyorlar (bkz. YardimMerkezi.tsx'teki aynı not) —
+// açık temada da doğru renklere dönsünler diye.
+const WF_FILL = 'var(--color-neutral-800)'
+const WF_STROKE = 'var(--color-neutral-600)'
+const WF_LINE = 'var(--color-neutral-700)'
+const WF_EMPHASIS = 'var(--color-neutral-400)'
 
 function WireframeCard({ children }: { children: React.ReactNode }) {
   return (
@@ -36,7 +39,7 @@ function ArsivlerWireframe() {
       {cards.map((x) => (
         <g key={x}>
           <rect x={x} y={20} width={84} height={80} rx={8} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
-          <rect x={x + 12} y={35} width={55} height={8} rx={3} fill="#a3a3a3" />
+          <rect x={x + 12} y={35} width={55} height={8} rx={3} fill={WF_EMPHASIS} />
           <rect x={x + 12} y={52} width={35} height={6} rx={3} fill={WF_LINE} />
         </g>
       ))}
@@ -57,7 +60,7 @@ function SablonlarWireframe() {
   ]
   return (
     <WireframeCard>
-      <rect x={15} y={20} width={200} height={10} rx={4} fill="#a3a3a3" />
+      <rect x={15} y={20} width={200} height={10} rx={4} fill={WF_EMPHASIS} />
       {badges.map(([x, y], i) => (
         <rect key={i} x={x} y={y} width={40} height={14} rx={7} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.2} />
       ))}
@@ -78,7 +81,7 @@ function IceAktarWireframe() {
       <line x1={150} y1={55} x2={285} y2={55} stroke={WF_STROKE} strokeWidth={1} />
       <line x1={200} y1={35} x2={200} y2={110} stroke={WF_STROKE} strokeWidth={1} />
       <line x1={245} y1={35} x2={245} y2={110} stroke={WF_STROKE} strokeWidth={1} />
-      <rect x={158} y={42} width={35} height={7} rx={3} fill="#a3a3a3" />
+      <rect x={158} y={42} width={35} height={7} rx={3} fill={WF_EMPHASIS} />
     </WireframeCard>
   )
 }
@@ -112,7 +115,7 @@ function RowMenuWireframe() {
       <rect x={130} y={21} width={40} height={8} rx={3} fill={WF_LINE} />
 
       <rect x={15} y={55} width={160} height={78} rx={8} fill={WF_FILL} stroke={BRAND_TEXT} strokeWidth={1.5} />
-      <rect x={27} y={67} width={70} height={7} rx={3} fill="#a3a3a3" />
+      <rect x={27} y={67} width={70} height={7} rx={3} fill={WF_EMPHASIS} />
       <rect x={27} y={80} width={50} height={6} rx={3} fill={WF_LINE} />
       <rect x={27} y={94} width={55} height={6} rx={3} fill={WF_LINE} />
       <rect x={27} y={108} width={45} height={6} rx={3} fill={WF_LINE} />
@@ -127,7 +130,7 @@ function ToggleRow({ y, on }: { y: number; on: boolean }) {
     <g>
       <rect x={25} y={y} width={130} height={8} rx={4} fill={WF_LINE} />
       <rect x={230} y={y - 7} width={44} height={22} rx={11} fill={on ? BRAND_TEXT : WF_FILL} stroke={WF_STROKE} strokeWidth={on ? 0 : 1.5} />
-      <circle cx={on ? 262 : 241} cy={y + 4} r={7} fill={on ? '#0a0a0a' : WF_STROKE} />
+      <circle cx={on ? 262 : 241} cy={y + 4} r={7} fill={on ? 'white' : WF_STROKE} />
     </g>
   )
 }

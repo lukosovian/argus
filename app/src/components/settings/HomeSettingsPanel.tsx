@@ -17,9 +17,12 @@ const TABS = [
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
-const WF_FILL = '#262626'
-const WF_STROKE = '#525252'
-const WF_LINE = '#404040'
+// Sabit hex yerine CSS değişkenine işaret ediyorlar (bkz. YardimMerkezi.tsx'teki aynı not) —
+// açık temada da doğru renklere dönsünler diye.
+const WF_FILL = 'var(--color-neutral-800)'
+const WF_STROKE = 'var(--color-neutral-600)'
+const WF_LINE = 'var(--color-neutral-700)'
+const WF_EMPHASIS = 'var(--color-neutral-400)'
 
 // İki taslak da AYNI yapıyı (sayfa boyunca alt alta dizilen, HER BİRİ kendi içinde sağa-sola
 // kaydırmalı satırlar) gösteriyor — kullanıcı "bu dikey görünümün farkı dikey posterlerin
@@ -76,7 +79,7 @@ function VitrinSvg() {
       <rect x={4} y={4} width={172} height={48} rx={6} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.2} />
       <circle cx={28} cy={28} r={10} fill="none" stroke={BRAND_TEXT} strokeWidth={1.6} />
       <path d="M25 23v10l9-5-9-5Z" fill={BRAND_TEXT} />
-      <rect x={48} y={18} width={62} height={7} rx={3} fill="#a3a3a3" />
+      <rect x={48} y={18} width={62} height={7} rx={3} fill={WF_EMPHASIS} />
       <rect x={48} y={30} width={42} height={5} rx={2.5} fill={WF_LINE} />
       {[4, 62, 120].map((x) => (
         <rect key={x} x={x} y={60} width={54} height={26} rx={4} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1} />
