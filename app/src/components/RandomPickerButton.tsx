@@ -46,6 +46,24 @@ function eliminatePhaseMs(nonWinnerCount: number) {
 const GROW_MS = 900
 const FADE_MS = 650
 
+// Bir satırın posteri olarak önce arşivin "kapak" diye işaretlediği sütuna bakılır, o boşsa
+// (ya da hiç kapak sütunu seçilmemişse) arşivdeki DİĞER tüm görsel sütunları sırayla denenir —
+// kullanıcının arkadaşının arşivinde kapak sütunu hiç seçilmemiş ama Banner sütunu doluydu,
+// eskiden bu durumda havuz tamamen boş sayılıyordu.
+function resolveCoverImage(board: Board, row: Row): string {
+  const imageProps = board.properties.filter((p) => p.type === 'image')
+  const coverProp = imageProps.find((p) => p.id === board.coverPropertyId)
+  if (coverProp) {
+    const v = row.values[coverProp.id]
+    if (v) return v as string
+  }
+  for (const p of imageProps) {
+    const v = row.values[p.id]
+    if (v) return v as string
+  }
+  return ''
+}
+
 type Candidate = {
   row: Row
   left: number
@@ -77,7 +95,6 @@ export default function RandomPickerButton() {
   // hepsini aynı anda indirip çözmeye çalışıp ana iş parçacığını tıkamasını (kullanıcının
   // bildirdiği donma) önlüyor — indirme/çözme işi doğal olarak zamana yayılıyor.
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
-  const coverProp = board?.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
 
   async function handleClick() {
     if (loading || phase !== 'idle') return
@@ -93,15 +110,15 @@ export default function RandomPickerButton() {
         notify('Arşiv bulunamadı.', 'danger')
         return
       }
-      const coverProp = b.properties.find((p) => p.id === b.coverPropertyId && p.type === 'image')
       const filter = settings.randomPickerFilter
       // Hiç filtre ayarlanmadıysa (propertyId yok) arşivin TAMAMI havuz olur — kullanıcının
       // "hiç bi ayar yapılmadıysa default olarak tüm içerikleri gösterebilsin" isteği.
       const base = filter?.propertyId && filter.optionIds.length > 0 ? rowsForFilter(filter, allRows) : allRows
-      // Poster olmadan dağılma animasyonu boş kutulara döner — bu yüzden sadece kapak
-      // görseli olan kayıtlar havuza giriyor (ana sayfanın genel "kapaksızları gizle"
-      // ayarından bağımsız, bu özellik için her zaman geçerli bir kısıt).
-      const pool = coverProp ? base.filter((r) => Boolean(r.values[coverProp.id])) : []
+      // Poster olmadan dağılma animasyonu boş kutulara döner — bu yüzden sadece herhangi bir
+      // görsel sütununda değeri olan kayıtlar havuza giriyor (sadece "kapak" olarak işaretli
+      // sütuna değil — arşivde kapak hiç seçilmemiş ama başka bir görsel sütunu (ör. Banner)
+      // dolu olabilir).
+      const pool = base.filter((r) => Boolean(resolveCoverImage(b, r)))
       if (pool.length === 0) {
         notify('Bu filtreye uyan, kapak görseli olan bir içerik bulunamadı.', 'danger')
         return
@@ -148,7 +165,7 @@ export default function RandomPickerButton() {
       setRevealed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
     }
     candidates.forEach((c) => {
-      const url = coverProp ? (c.row.values[coverProp.id] as string) : ''
+      const url = board ? resolveCoverImage(board, c.row) : ''
       if (!url) {
         markReady(c.row.id)
         return
@@ -169,7 +186,7 @@ export default function RandomPickerButton() {
       cancelled = true
       clearTimeout(fallback)
     }
-  }, [phase, candidates, coverProp])
+  }, [phase, candidates, board])
 
   // Herkes (bkz. yukarıdaki effect) hazır olunca kısa bir bekleme payı ver, sonra sıradaki faza
   // geç — kazanandan başka aday yoksa eleme fazı tamamen atlanır.
@@ -275,7 +292,7 @@ export default function RandomPickerButton() {
           )}
           {candidates.map((c) => {
             const isWinner = c.row.id === winnerId
-            const cover = coverProp ? (c.row.values[coverProp.id] as string) : ''
+            const cover = board ? resolveCoverImage(board, c.row) : ''
             // 'entering' fazında kendi sırası gelmeden (bkz. yukarıdaki `revealed` effect'i)
             // görseli hiç mount etme — sonraki fazlarda (eliminating/growing/fading) zaten
             // görülmüş olduğu için normal render ediliyor.
