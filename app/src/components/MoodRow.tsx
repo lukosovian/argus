@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Board, Mood, Row } from '../types'
-import { titleText } from '../types'
+import { titleText, BUILTIN_MOODS } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { hoverCardMeta } from '../lib/rowMeta'
 import { isScrolling } from '../lib/scrollGuard'
@@ -12,11 +12,15 @@ import { gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
 // Uygulamayla gelen 10 varsayılan mod görseli koyu temada duracak şekilde (beyaz ikon,
 // saydam arka plan) hazırlandı — açık temada, ana sayfanın kendi (artık açık) zemini üzerinde
 // bu beyaz ikonlar kayboluyor/okunmuyordu. Kullanıcının kendi yüklediği mod görsellerine
-// KARIŞMADAN (onlar `/medya/...` yolunda, bunlar `app/public/moods/...`) sadece bu 10 tanesini
-// açık temada ters çevirip (invert) siyaha dönüştürüyoruz — kullanıcı "kullanıcının kendi
-// eklediği görsellerde falan karışmayalım ama bu defaultlara karışalım" dedi.
+// KARIŞMADAN, sadece bu 10 tanesini açık temada ters çevirip (invert) siyaha dönüştürüyoruz —
+// kullanıcı "kullanıcının kendi eklediği görsellerde falan karışmayalım ama bu defaultlara
+// karışalım" dedi. Klasöre göre değil DOSYA ADINA göre eşleştiriyoruz — bu görseller bu oturumda
+// `/medya/...`'dan `/moods/...`'a taşındı (bkz. types.ts) ama kullanıcının ZATEN seçili olan
+// modları hâlâ eski `/medya/enerjik.png` gibi yolları taşıyor (o veri geriye dönük güncellenmedi);
+// sadece klasöre bakan bir kontrol bu yüzden gerçek veride hiç eşleşmiyordu.
+const DEFAULT_MOOD_FILENAMES = new Set(BUILTIN_MOODS.map((m) => m.image.split('/').pop()))
 function isDefaultMoodImage(path: string): boolean {
-  return path.startsWith('/moods/')
+  return DEFAULT_MOOD_FILENAMES.has(path.split('/').pop())
 }
 
 // Dinlenme genişliği (dikey poster) ve üzerine gelince açılan yatay genişlik — MoodCard'ın
