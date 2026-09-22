@@ -236,7 +236,12 @@ export interface Profile {
 // Hazır avatar seçenekleri — kullanıcının medya/ klasörüne eklediği 24 karikatür ikon.
 // Netflix'teki "kim izliyor" ekranındaki gibi kendi fotoğrafını yüklemek istemeyen biri
 // için varsayılan bir seçenek listesi.
-export const PRESET_AVATARS: string[] = Array.from({ length: 24 }, (_, i) => `/medya/profil${i + 1}.png`)
+// Uygulamayla birlikte gelen (kullanıcının kişisel medya/ klasörü DEĞİL, `app/public/avatars/`
+// altında repo'yla giden) hazır avatarlar — bu yüzden profil oluştururken arkadaşın bilgisayarında
+// da boş gelmiyorlar. Eski profillerin `photo` alanında hâlâ `/medya/profil*.png` yolu olabilir
+// (bu değişiklikten önce seçilmiş) — o yollar bu bilgisayarda medya/ klasöründe hâlâ durduğu için
+// bozulmaz, sadece BUNDAN SONRA seçilecekler yeni (taşınabilir) yolu kullanır.
+export const PRESET_AVATARS: string[] = Array.from({ length: 24 }, (_, i) => `/avatars/profil${i + 1}.png`)
 
 export type HomeLayout = 'yatay' | 'izgara'
 
@@ -304,17 +309,21 @@ export interface BuiltinMoodTemplate {
   genreLabels: string[]
 }
 
+// Aynı taşınabilirlik nedeniyle bu görseller de artık `app/public/moods/` altında (repo'yla
+// gider) — eskiden kullanıcının kişisel medya/ klasöründeydi, bu yüzden arkadaşın bilgisayarında
+// bu 10 mod her zaman kırık görsel olarak gelirdi. Dosya adları hâlâ aynı (mojibake'li 4 tanesi
+// dahil — bkz. aşağıdaki not), sadece kopyalanıp klasörü değişti, ayrı bir düzeltme değil.
 export const BUILTIN_MOODS: BuiltinMoodTemplate[] = [
-  { name: 'Enerjik', image: '/medya/enerjik.png', genreLabels: ['Aksiyon', 'Macera', 'Süper Kahraman'] },
-  { name: 'Neşeli', image: '/medya/neÅ\u009feli.png', genreLabels: ['Komedi', 'Animasyon', 'Sitcom'] },
-  { name: 'Romantik', image: '/medya/romantik.png', genreLabels: ['Romantik', 'Romantik Komedi'] },
-  { name: 'Hüzünlü', image: '/medya/hÃ¼zÃ¼nlÃ¼.png', genreLabels: ['Dram', 'Biyografi'] },
-  { name: 'Gergin', image: '/medya/gergin.png', genreLabels: ['Gerilim', 'Korku'] },
-  { name: 'Meraklı', image: '/medya/meraklÄ±.png', genreLabels: ['Casusluk', 'Gizem', 'Dedektif', 'Polisiye'] },
-  { name: 'Hayalperest', image: '/medya/hayalperest.png', genreLabels: ['Bilim Kurgu', 'Fantastik'] },
-  { name: 'Huzurlu', image: '/medya/huzurlu.png', genreLabels: ['Aile', 'Belgesel'] },
-  { name: 'Nostaljik', image: '/medya/nostaljik.png', genreLabels: ['Tarihi', 'Tarih'] },
-  { name: 'Öfkeli', image: '/medya/Ã¶fkeli.png', genreLabels: ['Suç'] },
+  { name: 'Enerjik', image: '/moods/enerjik.png', genreLabels: ['Aksiyon', 'Macera', 'Süper Kahraman'] },
+  { name: 'Neşeli', image: '/moods/neÅ\u009feli.png', genreLabels: ['Komedi', 'Animasyon', 'Sitcom'] },
+  { name: 'Romantik', image: '/moods/romantik.png', genreLabels: ['Romantik', 'Romantik Komedi'] },
+  { name: 'Hüzünlü', image: '/moods/hÃ¼zÃ¼nlÃ¼.png', genreLabels: ['Dram', 'Biyografi'] },
+  { name: 'Gergin', image: '/moods/gergin.png', genreLabels: ['Gerilim', 'Korku'] },
+  { name: 'Meraklı', image: '/moods/meraklÄ±.png', genreLabels: ['Casusluk', 'Gizem', 'Dedektif', 'Polisiye'] },
+  { name: 'Hayalperest', image: '/moods/hayalperest.png', genreLabels: ['Bilim Kurgu', 'Fantastik'] },
+  { name: 'Huzurlu', image: '/moods/huzurlu.png', genreLabels: ['Aile', 'Belgesel'] },
+  { name: 'Nostaljik', image: '/moods/nostaljik.png', genreLabels: ['Tarihi', 'Tarih'] },
+  { name: 'Öfkeli', image: '/moods/Ã¶fkeli.png', genreLabels: ['Suç'] },
 ]
 
 // Bir board'a göre BUILTIN_MOODS'u gerçek Mood[] kayıtlarına çevirir — HER ZAMAN 10'unu da
