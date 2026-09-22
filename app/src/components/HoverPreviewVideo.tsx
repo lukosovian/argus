@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
+import { beginHoverVideo, endHoverVideo } from '../lib/videoGuard'
 
 // Kart üzerine gelince kapak görseli yerine sessiz, kontrolsüz bir YouTube önizlemesi oynatır.
 // ShowcaseBanner'daki büyük oynatıcıyla aynı fikir (zoom + ortalama ile kenar taşmasını kırpma)
@@ -11,6 +12,10 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+    // Bu bileşen zaten sadece hover sırasında mount ediliyor ({hovering && yt ? ... : null}) —
+    // mount/unmount'un kendisi "bir önizleme videosu şu an aktif" sinyali olarak yeterli,
+    // vitrindeki/detay penceresindeki büyük videonun aynı anda oynamaması için (bkz. videoGuard.ts).
+    beginHoverVideo()
     const mount = document.createElement('div')
     container.appendChild(mount)
     const ZOOM = 1.15
@@ -75,6 +80,7 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
       playerRef.current?.destroy?.()
       playerRef.current = null
       mount.remove()
+      endHoverVideo()
     }
   }, [videoId, startSeconds])
 
