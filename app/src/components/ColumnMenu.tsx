@@ -2,6 +2,8 @@ import { useState, type RefObject } from 'react'
 import { OPTION_COLORS, type PropertyDef, type PropertyType, type RatingCriterion, type SelectOption } from '../types'
 import AnchoredMenu from './AnchoredMenu'
 import PropertyTypePicker from './PropertyTypePicker'
+import Checkbox from './Checkbox'
+import { useToast } from '../hooks/useToast'
 
 function CriterionRow({
   criterion,
@@ -39,11 +41,20 @@ function OptionRow({
   onRename,
   onChangeColor,
   onDelete,
+  bulkMode,
+  selected,
+  onToggleSelect,
 }: {
   option: SelectOption
   onRename: (label: string) => void
   onChangeColor: (colorIndex: number) => void
   onDelete: () => void
+  // Toplu seçim modu — açıkken renk noktasının solunda bir onay kutusu belirir (kullanıcı
+  // "sütun bazlı silme ekle... toplu olarak onları silebilme gelsin" dedi, ör. Oyuncular
+  // sütununda birikmiş onlarca etiketi tek tek değil topluca silebilmek için).
+  bulkMode?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }) {
   const [label, setLabel] = useState(option.label)
   const [pickingColor, setPickingColor] = useState(false)
@@ -55,6 +66,7 @@ function OptionRow({
   return (
     <div className="mb-1.5">
       <div className="flex items-center gap-1">
+        {bulkMode && <Checkbox checked={Boolean(selected)} onChange={() => onToggleSelect?.()} label={`${option.label} seç`} />}
         <button
           type="button"
           onClick={() => setPickingColor((v) => !v)}
@@ -130,6 +142,7 @@ export default function ColumnMenu({
   onRenameOption,
   onChangeOptionColor,
   onDeleteOption,
+  onDeleteOptions,
   onAddCriterion,
   onRenameCriterion,
   onDeleteCriterion,
@@ -148,17 +161,48 @@ export default function ColumnMenu({
   onRenameOption: (optionId: string, label: string) => void
   onChangeOptionColor: (optionId: string, colorIndex: number) => void
   onDeleteOption: (optionId: string) => void
+  onDeleteOptions: (optionIds: string[]) => void
   onAddCriterion: (name: string) => string
   onRenameCriterion: (criterionId: string, name: string) => void
   onDeleteCriterion: (criterionId: string) => void
   onToggleCover?: () => void
   onToggleTitleImage?: () => void
 }) {
+  const { confirm } = useToast()
   const [name, setName] = useState(property.name)
   const hasOptions = property.type === 'select' || property.type === 'multiselect'
+  const [bulkMode, setBulkMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   function commitName() {
     if (name.trim() && name.trim() !== property.name) onRename(name.trim())
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function exitBulkMode() {
+    setBulkMode(false)
+    setSelectedIds(new Set())
+  }
+
+  async function handleBulkDelete() {
+    const count = selectedIds.size
+    if (count === 0) return
+    const ok = await confirm({
+      message: `${count} seçeneği kalıcı olarak silmek istediğine emin misin?`,
+      confirmLabel: 'Sil',
+      tone: 'danger',
+    })
+    if (!ok) return
+    onDeleteOptions(Array.from(selectedIds))
+    exitBulkMode()
   }
 
   return (
@@ -205,7 +249,16 @@ export default function ColumnMenu({
 
         {hasOptions && (property.options?.length ?? 0) > 0 && (
           <div className="mt-3 pt-3 border-t border-neutral-800">
-            <p className="text-[11px] text-neutral-500 mb-1.5">Seçenekler (renk için soldaki noktaya tıkla)</p>
+            <div className="flex items-center justify-between mb-1.5 gap-2">
+              <p className="text-[11px] text-neutral-500">Seçenekler (renk için soldaki noktaya tıkla)</p>
+              <button
+                type="button"
+                onClick={() => (bulkMode ? exitBulkMode() : setBulkMode(true))}
+                className="text-[11px] text-sky-400 hover:text-sky-300 shrink-0"
+              >
+                {bulkMode ? 'Vazgeç' : 'Toplu Seç'}
+              </button>
+            </div>
             {property.options!.map((o) => (
               <OptionRow
                 key={o.id}
@@ -213,8 +266,21 @@ export default function ColumnMenu({
                 onRename={(label) => onRenameOption(o.id, label)}
                 onChangeColor={(colorIndex) => onChangeOptionColor(o.id, colorIndex)}
                 onDelete={() => onDeleteOption(o.id)}
+                bulkMode={bulkMode}
+                selected={selectedIds.has(o.id)}
+                onToggleSelect={() => toggleSelect(o.id)}
               />
             ))}
+            {bulkMode && (
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={selectedIds.size === 0}
+                className="w-full text-left text-xs text-rose-400 hover:text-rose-300 disabled:opacity-40 disabled:hover:text-rose-400 mt-1 pt-2 border-t border-neutral-800"
+              >
+                Seçilenleri Sil ({selectedIds.size})
+              </button>
+            )}
           </div>
         )}
 

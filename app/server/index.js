@@ -477,7 +477,9 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
 
     const titleTr = titleProp ? row.values[titleProp.id] : ''
     const titleOrig = origProp ? row.values[origProp.id] : ''
-    if (!titleTr && !titleOrig) return res.status(400).json({ error: 'Önce bir başlık yazmalısın' })
+    if (!titleTr && !titleOrig) {
+      return res.status(400).json({ error: 'Önce "Türkçe Adı" (ya da "Orjinal Adı") sütununu doldurmalısın.' })
+    }
 
     let year = null
     if (vizyonProp) {
@@ -507,7 +509,12 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
         mediaType = multi.media_type
       }
     }
-    if (!result) return res.status(404).json({ error: 'TMDB eşleşmesi bulunamadı' })
+    if (!result) {
+      return res.status(404).json({
+        error:
+          'TMDB eşleşmesi bulunamadı — başlığın yazımını kontrol et; "Kategori" sütununu Film ya da Dizi olarak doldurursan arama daha isabetli sonuç verir.',
+      })
+    }
 
     const details =
       mediaType === 'tv'

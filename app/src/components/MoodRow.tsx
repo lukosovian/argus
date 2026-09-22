@@ -10,17 +10,19 @@ import HoverPreviewVideo from './HoverPreviewVideo'
 import { gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
 
 // Uygulamayla gelen 10 varsayılan mod görseli koyu temada duracak şekilde (beyaz ikon,
-// saydam arka plan) hazırlandı — açık temada, ana sayfanın kendi (artık açık) zemini üzerinde
-// bu beyaz ikonlar kayboluyor/okunmuyordu. Kullanıcının kendi yüklediği mod görsellerine
-// KARIŞMADAN, sadece bu 10 tanesini açık temada ters çevirip (invert) siyaha dönüştürüyoruz —
-// kullanıcı "kullanıcının kendi eklediği görsellerde falan karışmayalım ama bu defaultlara
-// karışalım" dedi. Klasöre göre değil DOSYA ADINA göre eşleştiriyoruz — bu görseller bu oturumda
-// `/medya/...`'dan `/moods/...`'a taşındı (bkz. types.ts) ama kullanıcının ZATEN seçili olan
-// modları hâlâ eski `/medya/enerjik.png` gibi yolları taşıyor (o veri geriye dönük güncellenmedi);
-// sadece klasöre bakan bir kontrol bu yüzden gerçek veride hiç eşleşmiyordu.
+// saydam arka plan) hazırlandı. CSS `filter: invert()` denendi ama güvenilir çalışmadı
+// (kullanıcı "onu da düzelt gerekirse siyah hallerini mods un içine at onu kullan hep" dedi) —
+// bunun yerine `app/public/moods/siyah/` altında GERÇEK siyah PNG kopyaları var (aynı dosya
+// adlarıyla, sadece RGB kanalları ters çevrilmiş, saydamlık korunmuş), açık temada doğrudan o
+// dosya gösteriliyor. Kullanıcının kendi yüklediği mod görsellerine KARIŞMIYOR — sadece bu 10
+// tanesi. Klasöre göre değil DOSYA ADINA göre eşleştiriyoruz çünkü kullanıcının ZATEN seçili
+// olan modları hâlâ eski `/medya/enerjik.png` gibi yolları taşıyabiliyor (o veri geriye dönük
+// güncellenmedi) — sadece `/moods/` önekine bakan bir kontrol bu yüzden gerçek veride eşleşmezdi.
 const DEFAULT_MOOD_FILENAMES = new Set(BUILTIN_MOODS.map((m) => m.image.split('/').pop()))
-function isDefaultMoodImage(path: string): boolean {
-  return DEFAULT_MOOD_FILENAMES.has(path.split('/').pop())
+function resolveMoodImageSrc(path: string, theme: 'dark' | 'light'): string {
+  const filename = path.split('/').pop()
+  if (theme !== 'light' || !filename || !DEFAULT_MOOD_FILENAMES.has(filename)) return path
+  return `/moods/siyah/${filename}`
 }
 
 // Dinlenme genişliği (dikey poster) ve üzerine gelince açılan yatay genişlik — MoodCard'ın
@@ -335,16 +337,13 @@ export default function MoodRow({
                   poster kartı bu soluk kısmın üzerine bindiriliyor (negatif margin), kullanıcının
                   attığı "Top 10" referansındaki numara/poster üst üste binmesiyle aynı görünüm. */}
               <img
-                src={mood.image}
+                src={resolveMoodImageSrc(mood.image, theme)}
                 alt={mood.name}
                 title={mood.name}
                 className="shrink-0 h-auto w-auto object-contain"
                 style={{
                   height: REST_WIDTH * 1.5,
-                  filter:
-                    theme === 'light' && isDefaultMoodImage(mood.image)
-                      ? 'invert(1) grayscale(45%) brightness(0.85)'
-                      : 'grayscale(45%) brightness(0.85)',
+                  filter: 'grayscale(45%) brightness(0.85)',
                   WebkitMaskImage: 'linear-gradient(to right, black 35%, transparent 85%)',
                   maskImage: 'linear-gradient(to right, black 35%, transparent 85%)',
                 }}

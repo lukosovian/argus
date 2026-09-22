@@ -837,6 +837,19 @@ export default function BoardView() {
     )
   }
 
+  // Tek tek deleteOption'ı bir döngüde çağırmak GÜVENLİ değil — her çağrı `board.properties`'i
+  // aynı (henüz güncellenmemiş) kapanıştan okuyup sunucuya ayrı bir PATCH atar, sonuncusu
+  // öbürlerinin üzerine yazar (Oyuncular gibi çok seçenekli bir sütunda toplu silme "sadece
+  // sonuncusu silindi" gibi görünürdü). Bu yüzden filtrelemeyi TEK seferde, tek bir setProperties
+  // çağrısıyla yapıyoruz.
+  function deleteOptions(propertyId: string, optionIds: string[]) {
+    if (!board) return
+    const toRemove = new Set(optionIds)
+    setProperties(
+      board.properties.map((p) => (p.id !== propertyId ? p : { ...p, options: (p.options ?? []).filter((o) => !toRemove.has(o.id)) })),
+    )
+  }
+
   function resizeProperty(propertyId: string, width: number) {
     if (!board) return
     setProperties(board.properties.map((p) => (p.id === propertyId ? { ...p, width } : p)))
@@ -1057,6 +1070,7 @@ export default function BoardView() {
           onRenameOption={renameOption}
           onChangeOptionColor={changeOptionColor}
           onDeleteOption={deleteOption}
+          onDeleteOptions={deleteOptions}
           onAddOption={addOptionToProperty}
           onAddCriterion={addCriterionToProperty}
           onRenameCriterion={renameCriterion}
