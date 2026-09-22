@@ -494,28 +494,39 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
     if (!row) return res.status(404).json({ error: 'Kayıt bulunamadı' })
 
     const titleProp = findProp(board, 'Türkçe Adı')
-    const origProp = findProp(board, 'Orjinal Adı')
-    const kategoriProp = findProp(board, 'Kategori', 'select')
-    const vizyonProp = findProp(board, 'Vizyon Tarihi', 'date')
-    const bannerProp = findProp(board, 'Banner', 'image')
-    const posterProp = findProp(board, 'Poster', 'image')
-    const kapakAdiProp = findProp(board, 'KAPAK ADI', 'image')
-    const ulkeProp = findProp(board, 'Ülke', 'multiselect')
-    const turProp = findProp(board, 'Tür', 'multiselect')
-    const yonetmenProp = findProp(board, 'Yönetmen', 'text')
-    const sinopsisProp = board.properties.find((p) => p.type === 'longtext')
-    const oyuncularProp = findProp(board, 'Oyuncular', 'multiselect')
-    const videoProp = findProp(board, 'video', 'url')
 
-    let sureProp = findProp(board, 'Süre', 'number')
-    if (!sureProp) {
-      sureProp = { id: makeId(), name: 'Süre', type: 'number' }
-      board.properties.push(sureProp)
+    // Board'da bu sütunlardan biri hiç yoksa (kullanıcı hazır şablonu kullanmadan kendi
+    // arşivini elle kurduysa, ya da bir sütunu sildiyse) TMDB doldurma eskiden sessizce o
+    // alanı atlıyordu — arkadaşının arşivinde "KAPAK ADI" sütunu hiç eklenmemiş olması TAM
+    // OLARAK bu yüzden hiç doldurulmuyordu. Artık Süre/Yaş Sınırı'nda zaten var olan
+    // "yoksa oluştur" deseni TÜM TMDB alanlarına uygulanıyor — güncelle butonuna basmak
+    // eksik sütunları da kendisi ekliyor.
+    function ensureProp(name, type, extra) {
+      let p = findProp(board, name, type)
+      if (!p) {
+        p = { id: makeId(), name, type, ...(extra ?? {}) }
+        board.properties.push(p)
+      }
+      return p
     }
-    let yasProp = findProp(board, 'Yaş Sınırı', 'text')
-    if (!yasProp) {
-      yasProp = { id: makeId(), name: 'Yaş Sınırı', type: 'text' }
-      board.properties.push(yasProp)
+
+    const origProp = ensureProp('Orjinal Adı', 'text')
+    const kategoriProp = ensureProp('Kategori', 'select', { options: [] })
+    const vizyonProp = ensureProp('Vizyon Tarihi', 'date')
+    const bannerProp = ensureProp('Banner', 'image')
+    const posterProp = ensureProp('Poster', 'image')
+    const kapakAdiProp = ensureProp('KAPAK ADI', 'image')
+    const ulkeProp = ensureProp('Ülke', 'multiselect', { options: [] })
+    const turProp = ensureProp('Tür', 'multiselect', { options: [] })
+    const yonetmenProp = ensureProp('Yönetmen', 'text')
+    const oyuncularProp = ensureProp('Oyuncular', 'multiselect', { options: [] })
+    const videoProp = ensureProp('video', 'url')
+    const sureProp = ensureProp('Süre', 'number')
+    const yasProp = ensureProp('Yaş Sınırı', 'text')
+    let sinopsisProp = board.properties.find((p) => p.type === 'longtext')
+    if (!sinopsisProp) {
+      sinopsisProp = { id: makeId(), name: 'Sinopsis', type: 'longtext' }
+      board.properties.push(sinopsisProp)
     }
 
     const titleTr = titleProp ? row.values[titleProp.id] : ''
@@ -577,11 +588,14 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
 
     if (kategoriProp && (overwrite || !kategoriId) && !exclude.has('kategori')) {
       const wantLabel = mediaType === 'tv' ? 'Dizi' : 'Film'
-      const opt = kategoriProp.options?.find((o) => o.label === wantLabel)
-      if (opt) {
-        row.values[kategoriProp.id] = opt.id
-        filled.push('Kategori')
+      if (!kategoriProp.options) kategoriProp.options = []
+      let opt = kategoriProp.options.find((o) => o.label === wantLabel)
+      if (!opt) {
+        opt = { id: makeId(), label: wantLabel, colorIndex: kategoriProp.options.length % 9 }
+        kategoriProp.options.push(opt)
       }
+      row.values[kategoriProp.id] = opt.id
+      filled.push('Kategori')
     }
 
     if (origProp && (overwrite || !titleOrig) && !exclude.has('orjinalAdi')) {
