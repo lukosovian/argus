@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logoblue.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ARGUS — Medya Arşivi</title>
+    <script>
+      // Tema (açık/koyu) tercihini CSS/React hiç yüklenmeden ÖNCE, senkron olarak uygular —
+      // yoksa sayfa bir an koyu (varsayılan) gösterip sonra açığa geçerdi ("flaş" etkisi).
+      // Koyu tema varsayılan/geriye dönük uyumlu durum: <html>'de hiç data-theme yoksa koyu
+      // sayılır, bu yüzden burada sadece "light" ise özellik ekleniyor (bkz. hooks/useThemeMode.ts).
+      try {
+        if (localStorage.getItem('argus_theme') === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

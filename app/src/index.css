@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--color-neutral-950);
+  color-scheme: dark;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * Açık tema: Tailwind'in neutral-* renk skalasını burada tersine çeviriyoruz
+ * (neutral-900 ↔ neutral-100 gibi, 500 ortada sabit kalıyor). Bu sayede
+ * kod tabanındaki HER "bg-neutral-900" / "text-neutral-300" / "border-neutral-700"
+ * kullanımı, tek tek bileşen değiştirmeden, otomatik olarak açık temaya uyar
+ * (Tailwind v4 bu class'ları var(--color-neutral-900) gibi CSS değişkenlerine
+ * derliyor, sabit değere değil — bkz. node_modules/tailwindcss/theme.css).
+ * Değerler Tailwind'in kendi oklch lightness rakamlarının aynısı, sadece
+ * eşlemesi ters (950'nin açıklığı 50'ye, 900'ün ki 100'e verildi, vs.).
+ */
+:root[data-theme='light'] {
+  --color-neutral-50: oklch(14.5% 0 none);
+  --color-neutral-100: oklch(20.5% 0 none);
+  --color-neutral-200: oklch(26.9% 0 none);
+  --color-neutral-300: oklch(37.1% 0 none);
+  --color-neutral-400: oklch(43.9% 0 none);
+  --color-neutral-500: oklch(55.6% 0 none);
+  --color-neutral-600: oklch(70.8% 0 none);
+  --color-neutral-700: oklch(87% 0 none);
+  --color-neutral-800: oklch(92.2% 0 none);
+  --color-neutral-900: oklch(97% 0 none);
+  --color-neutral-950: oklch(98.5% 0 none);
+  color-scheme: light;
+}
+
+:root[data-theme='light'] body {
+  color-scheme: light;
+}
+
+/* Uygulama içi bildirim kartlarının (bkz. hooks/useToast.tsx) giriş animasyonu. */
+@keyframes argus-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
