@@ -125,25 +125,6 @@ function migrateFlatDataToFirstProfile() {
 }
 migrateFlatDataToFirstProfile()
 
-// TMDB anahtarı eskiden kod içine gömülüydü (tek kullanıcı, geliştiricinin kendi anahtarı) —
-// artık her profil kendi anahtarını girmek zorunda (uygulamayı başkalarının da kullanabilmesi
-// için, bkz. Ayarlar → Veritabanı → API). Zaten arşivi olan (gerçekten kullanılan) profiller bu
-// değişiklikle aniden bozulmasın diye, henüz kendi anahtarı olmayan ama en az bir arşivi zaten
-// var olan profillere, TEK SEFERLİK, eski gömülü anahtar otomatik yazılır — sonradan eklenecek
-// yeni/boş profiller bu göçe girmez, onlar kendi anahtarlarını girmek zorunda.
-const LEGACY_SHARED_TMDB_KEY = 'aed6863a2ea912a4a7a961e41da4a58a'
-function seedExistingProfilesWithLegacyApiKey() {
-  if (!fs.existsSync(PROFILES_DIR)) return
-  for (const entry of fs.readdirSync(PROFILES_DIR, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
-    const profileId = entry.name
-    if (fs.existsSync(profileApiKeyFile(profileId))) continue
-    const boards = readJson(profileBoardsFile(profileId), [])
-    if (boards.length === 0) continue
-    writeJson(profileApiKeyFile(profileId), { tmdbApiKey: LEGACY_SHARED_TMDB_KEY })
-  }
-}
-seedExistingProfilesWithLegacyApiKey()
 
 const app = express()
 app.use(cors())
@@ -296,8 +277,8 @@ app.delete('/api/profiles/:id', (req, res) => {
 })
 
 // ---- TMDB API anahtarı (profile başına) ----
-// bkz. yukarıdaki seedExistingProfilesWithLegacyApiKey — her profil kendi anahtarını girer,
-// girilmemişse 🔄 (TMDB'den doldur) uç noktası 400 döner.
+// Her profil kendi anahtarını Ayarlar → Veritabanı → API'den girer, girilmemişse 🔄 (TMDB'den
+// doldur) uç noktası 400 döner.
 
 app.get('/api/profiles/:profileId/api-key', (req, res) => {
   res.json({ tmdbApiKey: readProfileApiKey(req.params.profileId) })
