@@ -24,6 +24,14 @@ npm install
 npm run dev
 ```
 
+## Güncellemeler
+
+Bu klasör bir git deposu — `Sunucuyu Baslat.bat` her açılışta otomatik olarak en son sürümü çeker (`git pull`),
+sen hiçbir şey yapmana gerek yok. Uygulama açıkken de arka planda periyodik olarak kontrol eder, yeni bir
+güncelleme çıkarsa uygulama içinde bir bildirim gösterir — o güncelleme uygulamayı kapatıp yeniden açtığında
+devreye girer (çalışırken kendi kendini değiştirmez). **Kendi verin (`data/`, `medya/`) bu güncellemelerden hiç
+etkilenmez**, sadece kod (`app/` klasörü) güncellenir.
+
 ## Nasıl çalışıyor
 
 Herkes kendi profiliyle girer ("Kim izliyor?" ekranı), her profilin arşivleri/ayarları birbirinden bağımsızdır.
