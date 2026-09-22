@@ -15,7 +15,11 @@ Kod `app/` klasöründe.
 
 En kolayı: bu klasördeki **`ARGUS.bat`** dosyasına (ya da masaüstündeki ARGUS kısayoluna) çift tıkla. Hem siteyi
 hem de verileri/medyayı yöneten yardımcı sunucuyu birlikte başlatır ve tarayıcıda `http://localhost:5173`
-adresini açar. Sunucu küçültülmüş, görev çubuğunda duran bir pencerede çalışır — ekranda açık bir terminal durmaz.
+adresini açar. Sunucu tamamen görünmez çalışır — ne ekranda ne görev çubuğunda bir terminal/pencere kalır,
+sadece arka planda çalışmaya devam eder.
+
+Kapatmak istersen: **`ARGUS Durdur.bat`**'a çift tıkla (görünür bir pencere olmadığı için bilgisayarı kapatana
+kadar ARGUS zaten kendiliğinden arka planda çalışmaya devam eder — istersen hiç kapatmana gerek yok).
 
 Elle çalıştırmak istersen:
 
