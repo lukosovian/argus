@@ -412,7 +412,8 @@ async function searchMulti(query, year, apiKey) {
 }
 
 function findProp(board, name, type) {
-  return board.properties.find((p) => p.name === name && (!type || p.type === type))
+  const target = name.trim().toLocaleLowerCase('tr')
+  return board.properties.find((p) => p.name.trim().toLocaleLowerCase('tr') === target && (!type || p.type === type))
 }
 
 function rankTrailers(results) {
