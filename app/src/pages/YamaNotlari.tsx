@@ -1,8 +1,12 @@
 // pp menüsündeki "Yama Notları" ile açılan, ARGUS'un geçmiş güncellemelerini anlatan sayfa —
 // kullanıcı "yama notları kısmını ekle... yama notlarını alta doğru sırala" dedi. Liste elle
 // tutuluyor (otomatik bir kaynak yok) — yeni bir özellik/düzeltme eklendikçe en üste yeni bir
-// ENTRIES kaydı eklenmesi yeterli, en yeni en üstte.
+// ENTRIES kaydı eklenmesi yeterli, en yeni en üstte. `version` alanı lib/version.ts'teki
+// APP_VERSION ile elle senkron tutulur (kullanıcı "versiyon numarası ekleyelim güncellendiği
+// anlaşılmıyo" dedi).
+import { APP_VERSION } from '../lib/version'
 interface PatchEntry {
+  version: string
   date: string
   title: string
   items: string[]
@@ -10,6 +14,16 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.5',
+    date: '22 Eylül 2026',
+    title: 'Versiyon numarası, tek tıkla güncelleme',
+    items: [
+      'Artık her sürümün bir numarası var (pp menüsünde görünür) — güncellendiğini anlamak kolaylaştı.',
+      'Sağ altta "yeni güncelleme var" bildirimi çıkınca artık orada bekleyip uygulamayı yeniden açmana gerek yok, "Şimdi Güncelle"ye basman yeterli.',
+    ],
+  },
+  {
+    version: 'v1.4',
     date: '22 Eylül 2026',
     title: 'Toplu işlemler, açık tema, güvenlik',
     items: [
@@ -23,6 +37,7 @@ const ENTRIES: PatchEntry[] = [
     ],
   },
   {
+    version: 'v1.3',
     date: '20-21 Eylül 2026',
     title: 'Mod satırı, bölüm/sezon takibi',
     items: [
@@ -32,6 +47,7 @@ const ENTRIES: PatchEntry[] = [
     ],
   },
   {
+    version: 'v1.2',
     date: '14-15 Eylül 2026',
     title: 'TMDB entegrasyonu, puanlama',
     items: [
@@ -41,6 +57,7 @@ const ENTRIES: PatchEntry[] = [
     ],
   },
   {
+    version: 'v1.1',
     date: '11 Eylül 2026',
     title: 'Bulutsuz, tamamen yerel',
     items: [
@@ -49,6 +66,7 @@ const ENTRIES: PatchEntry[] = [
     ],
   },
   {
+    version: 'v1.0',
     date: 'Başlangıç',
     title: 'ARGUS\'un temelleri',
     items: [
@@ -63,13 +81,18 @@ export default function YamaNotlari() {
       <div className="flex flex-col items-center text-center mb-12">
         <img src="/logoblue.png" alt="ARGUS" className="h-16 w-16 mb-4" />
         <h1 className="text-2xl md:text-3xl font-semibold text-neutral-50 mb-2">Yama Notları</h1>
-        <p className="text-neutral-500 text-sm max-w-md">ARGUS'ta zaman içinde neler değişti, kısaca burada.</p>
+        <p className="text-neutral-500 text-sm max-w-md mb-2">ARGUS'ta zaman içinde neler değişti, kısaca burada.</p>
+        <span className="text-xs text-neutral-600 bg-neutral-900 border border-neutral-800 rounded-full px-2.5 py-1">
+          Şu an kurulu sürüm: {APP_VERSION}
+        </span>
       </div>
 
       <div className="space-y-10">
         {ENTRIES.map((entry) => (
-          <div key={entry.date} className="border-l-2 border-neutral-800 pl-5">
-            <p className="text-xs text-sky-400 font-medium mb-1">{entry.date}</p>
+          <div key={entry.version} className="border-l-2 border-neutral-800 pl-5">
+            <p className="text-xs text-sky-400 font-medium mb-1">
+              {entry.version} · {entry.date}
+            </p>
             <h2 className="text-base font-semibold text-neutral-100 mb-2">{entry.title}</h2>
             <ul className="space-y-1.5">
               {entry.items.map((item, i) => (

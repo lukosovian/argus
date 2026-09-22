@@ -7,6 +7,7 @@ import { sortByOrder } from './HomeSectionEditor'
 import GlobalSearch from './GlobalSearch'
 import RandomPickerButton from './RandomPickerButton'
 import { gradientBorderStyle } from '../lib/theme'
+import { APP_VERSION } from '../lib/version'
 
 function SunIcon() {
   return (
@@ -167,6 +168,7 @@ export default function Navbar() {
                   >
                     <img src="/logoblue.png" alt="" className="h-4 w-4 object-contain" />
                     Yama Notları
+                    <span className="text-[10px] text-neutral-600 ml-auto">{APP_VERSION}</span>
                   </Link>
                   <button
                     onClick={toggleTheme}
