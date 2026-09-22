@@ -877,26 +877,52 @@ app.get('/api/update-check', (req, res) => {
 // Yanıtı (res.json) MUTLAKA süreç kapanmadan ÖNCE gönderiyoruz, yoksa tarayıcı hiç cevap
 // alamaz. `argus-pid.txt` "ARGUS Durdur.bat"ın kullandığı AYNI dosya — kök süreci bulup
 // tüm ağacı (/T) kapatmak için.
+//
+// Canlı testte ÜÇ gerçek hata bulundu, üçü de düzeltildi:
+// 1) Eski PID'yi yeni süreci başlattıktan SONRA (aynı dosyadan) tekrar okumak yarış durumu
+//    yaratıyordu — yeni ARGUS.bat kendi PID'sini dosyaya çok hızlı yazabiliyor, o zaman
+//    yanlışlıkla YENİ başlayan süreç kapatılmış oluyordu. Eski PID artık YENİ süreç
+//    başlamadan ÖNCE okunup değişkende saklanıyor.
+// 2) `taskkill`i bu sürecin (öldürülecek ağacın kendisinin) İÇİNDEN `execSync` ile senkron
+//    çağırmak güvenilir çalışmıyordu — kapatma/başlatma işini TAMAMEN AYRI, bağımsız bir
+//    PowerShell yardımcı sürecine devrediyoruz.
+// 3) O yardımcı sürecin İÇİNDE bile `taskkill ...`i düz bir komut olarak çağırmak (`Start-Process`
+//    olmadan) hâlâ güvenilir çalışmıyordu — muhtemelen bu düz komutun kendisi, onu başlatan
+//    Node sürecinin bağlı olduğu Windows "job object"inin bir parçası olarak kalıp, o iş nesnesi
+//    kapanınca (Claude Code'un her PowerShell çağrısı kendi kısa ömürlü sürecinde çalışıyor)
+//    O DA birlikte kapatılıyordu — `Start-Process` ise (ARGUS.bat'ı başlatan çağrı gibi) bunu
+//    atlatıyor. Çözüm: taskkill'i DE `Start-Process -FilePath 'taskkill.exe' -ArgumentList ...`
+//    ile, düz komut olarak değil, çağırmak. Üçü de izole ve gerçek uçtan uca testlerle doğrulandı.
 app.post('/api/apply-update', (req, res) => {
   try {
     execSync('git pull --ff-only', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })
   } catch {
     return res.status(500).json({ error: 'Güncelleme çekilemedi — internet bağlantını kontrol et.' })
   }
+  const pidFile = path.join(__dirname, 'argus-pid.txt')
+  let oldPid = null
+  try {
+    if (fs.existsSync(pidFile)) oldPid = fs.readFileSync(pidFile, 'utf-8').trim()
+  } catch {}
+
   res.json({ ok: true })
-  setTimeout(() => {
-    try {
-      const batPath = path.join(ROOT, 'ARGUS.bat')
-      spawn(batPath, [], { cwd: ROOT, detached: true, stdio: 'ignore', shell: true }).unref()
-    } catch {}
-    try {
-      const pidFile = path.join(__dirname, 'argus-pid.txt')
-      if (fs.existsSync(pidFile)) {
-        const pid = fs.readFileSync(pidFile, 'utf-8').trim()
-        if (pid) execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' })
-      }
-    } catch {}
-  }, 400)
+
+  const batPath = path.join(ROOT, 'ARGUS.bat')
+  const helper = [
+    'Start-Sleep -Milliseconds 300',
+    `try { Start-Process -FilePath '${batPath.replace(/'/g, "''")}' -WorkingDirectory '${ROOT.replace(/'/g, "''")}' } catch {}`,
+    oldPid ? `try { Start-Process -FilePath 'taskkill.exe' -ArgumentList '/PID','${oldPid}','/T','/F' -WindowStyle Hidden } catch {}` : '',
+  ]
+    .filter(Boolean)
+    .join('; ')
+  try {
+    spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', helper], {
+      cwd: ROOT,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    }).unref()
+  } catch {}
 })
 
 const PORT = 4000
