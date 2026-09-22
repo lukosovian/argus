@@ -683,14 +683,40 @@ export default function BoardView() {
   const sortableProps = useMemo(() => board?.properties.filter((p) => SORTABLE_TYPES.has(p.type)) ?? [], [board])
   const sortProperty = sortableProps.find((p) => p.id === sortPropertyId) ?? null
 
+  // Arama kutusu seçim/çoklu-seçim sütunlarındaki (Tür/Ülke/Oyuncular gibi) ETİKETLERİ de
+  // taramalı — değerler board'da bir option ID olarak tutuluyor, aramadan önce ID -> etiket
+  // eşlemesi gerekiyor. Oyuncular gibi binlerce seçenekli bir sütunda her tuş vuruşunda
+  // `.find()` ile taramak yerine (GlobalSearch.tsx'teki aynı performans deseni) tek seferlik
+  // bir Map inşa edilip filtre geçişinde O(1) bakılıyor.
+  const searchOptionMaps = useMemo(() => {
+    const maps = new Map<string, Map<string, string>>()
+    if (!board) return maps
+    for (const p of board.properties) {
+      if (p.type !== 'select' && p.type !== 'multiselect') continue
+      const m = new Map<string, string>()
+      for (const o of p.options ?? []) m.set(o.id, o.label)
+      maps.set(p.id, m)
+    }
+    return maps
+  }, [board])
+
   const filteredRows = useMemo(() => {
     if (!board) return []
     const result = rows.filter((row) => {
       if (!rowMatchesFilter(row, filterPropertyId, filterOptionId)) return false
       if (search.trim()) {
         const q = search.trim().toLocaleLowerCase('tr')
-        const hay = Object.values(row.values)
-          .map((v) => (typeof v === 'string' ? v : Array.isArray(v) ? '' : ''))
+        const hay = board.properties
+          .map((p) => {
+            const v = row.values[p.id]
+            if (v === undefined || v === null || v === '') return ''
+            if (p.type === 'select') return searchOptionMaps.get(p.id)?.get(v as string) ?? ''
+            if (p.type === 'multiselect' && Array.isArray(v)) {
+              const m = searchOptionMaps.get(p.id)
+              return m ? v.map((optId) => m.get(optId) ?? '').join(' ') : ''
+            }
+            return typeof v === 'string' ? v : ''
+          })
           .join(' ')
           .toLocaleLowerCase('tr')
         const title = ((row.values[board.titlePropertyId] as string) ?? '').toLocaleLowerCase('tr')
@@ -710,7 +736,7 @@ export default function BoardView() {
       })
     }
     return result
-  }, [rows, filterPropertyId, filterOptionId, search, board, sortProperty, sortDirection])
+  }, [rows, filterPropertyId, filterOptionId, search, board, sortProperty, sortDirection, searchOptionMaps])
 
   // Yeni eklenen satır listede gerçekten görününce (bkz. pendingScrollRowId'nin tanımındaki not)
   // BoardTable'a kaydırma komutunu veriyor.
