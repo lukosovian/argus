@@ -7,7 +7,7 @@ import { useToast } from './useToast'
 // /api/update-check) — kullanıcı "güncelleme de her açılışta baksın ve belli periyotlarla
 // güncellesin uygulama açıksa bile" dedi. Bulunca sadece BİR KERE (oturum başına) bildirim
 // gösterir — gerçek güncelleme kod çalışırken uygulanmıyor (bu ortasında bir şey yapan
-// kullanıcıyı keserdi), bir sonraki Sunucuyu Baslat.bat açılışında kendiliğinden gelir.
+// kullanıcıyı keserdi), bir sonraki ARGUS.bat açılışında kendiliğinden gelir.
 const CHECK_INTERVAL_MS = 30 * 60 * 1000
 
 export function useUpdateCheck() {
