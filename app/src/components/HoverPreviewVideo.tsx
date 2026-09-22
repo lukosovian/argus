@@ -1,13 +1,17 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
 import { beginHoverVideo, endHoverVideo } from '../lib/videoGuard'
 
-// Kart üzerine gelince kapak görseli yerine sessiz, kontrolsüz bir YouTube önizlemesi oynatır.
-// ShowcaseBanner'daki büyük oynatıcıyla aynı fikir (zoom + ortalama ile kenar taşmasını kırpma)
-// ama kart küçük olduğu için daha basit: sadece container'ı dolduran, tıklanamayan bir katman.
+// Kart üzerine gelince kapak görseli yerine, sessiz başlayan (tarayıcıların otomatik oynatma
+// kuralı gereği) ama küçük bir hoparlör düğmesiyle sesi açılabilen bir YouTube önizlemesi
+// oynatır — kullanıcı "üzerine gelince açılan pencerede videoların sesi yok" dedi, ShowcaseBanner'
+// daki büyük oynatıcıyla aynı fikir (zoom + ortalama ile kenar taşmasını kırpma, sessiz-başla +
+// sesi aç düğmesi) ama kart küçük olduğu için daha basit.
 export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: string; startSeconds: number }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YTPlayer | null>(null)
+  const [ready, setReady] = useState(false)
+  const [muted, setMuted] = useState(true)
 
   useEffect(() => {
     const container = containerRef.current
@@ -70,6 +74,7 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
               playerRef.current?.setSize?.(width, height)
             })
             ro.observe(container)
+            setReady(true)
           },
         },
       })
@@ -84,5 +89,37 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
     }
   }, [videoId, startSeconds])
 
-  return <div ref={containerRef} className="absolute inset-0 pointer-events-none overflow-hidden" />
+  function toggleMute(e: React.SyntheticEvent) {
+    // Bu bileşen bir `<button>`ın (HomeCard/MoodCard'ın dış sarmalayıcısı) İÇİNDE render
+    // ediliyor — buraya gerçek bir `<button>` daha koymak geçersiz (iç içe buton) olurdu, bu
+    // yüzden tıklanabilir bir `<span role="button">` kullanılıyor; olayın dışarıdaki karta
+    // tıklanmış gibi algılanıp detay penceresini açmaması için stopPropagation şart.
+    e.stopPropagation()
+    if (!playerRef.current) return
+    if (muted) {
+      playerRef.current.unMute()
+      setMuted(false)
+    } else {
+      playerRef.current.mute()
+      setMuted(true)
+    }
+  }
+
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <div ref={containerRef} className="absolute inset-0 pointer-events-none" />
+      {ready && (
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={toggleMute}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleMute(e)}
+          title={muted ? 'Sesi aç' : 'Sesi kapat'}
+          className="absolute bottom-1.5 right-1.5 z-10 h-6 w-6 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white text-xs pointer-events-auto cursor-pointer transition"
+        >
+          {muted ? '🔇' : '🔊'}
+        </span>
+      )}
+    </div>
+  )
 }
