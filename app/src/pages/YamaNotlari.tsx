@@ -78,35 +78,69 @@ const ENTRIES: PatchEntry[] = [
 export default function YamaNotlari() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
-      <div className="flex flex-col items-center text-center mb-12">
-        <img src="/logoblue.png" alt="ARGUS" className="h-16 w-16 mb-4" />
+      <div className="flex flex-col items-center text-center mb-14">
+        <div className="relative mb-5">
+          <div className="absolute inset-0 rounded-full bg-[#00c0fa]/20 blur-2xl" />
+          <img src="/logoblue.png" alt="ARGUS" className="relative h-16 w-16" />
+        </div>
         <h1 className="text-2xl md:text-3xl font-semibold text-neutral-50 mb-2">Yama Notları</h1>
-        <p className="text-neutral-500 text-sm max-w-md mb-2">ARGUS'ta zaman içinde neler değişti, kısaca burada.</p>
-        <span className="text-xs text-neutral-600 bg-neutral-900 border border-neutral-800 rounded-full px-2.5 py-1">
+        <p className="text-neutral-500 text-sm max-w-md mb-3">ARGUS'ta zaman içinde neler değişti, kısaca burada.</p>
+        <span className="text-xs text-[#00c0fa] bg-[#00c0fa]/10 border border-[#00c0fa]/25 rounded-full px-3 py-1 font-medium">
           Şu an kurulu sürüm: {APP_VERSION}
         </span>
       </div>
 
-      <div className="space-y-10">
-        {ENTRIES.map((entry) => (
-          <div key={entry.version} className="border-l-2 border-neutral-800 pl-5">
-            <p className="text-xs text-sky-400 font-medium mb-1">
-              {entry.version} · {entry.date}
-            </p>
-            <h2 className="text-base font-semibold text-neutral-100 mb-2">{entry.title}</h2>
-            <ul className="space-y-1.5">
-              {entry.items.map((item, i) => (
-                <li key={i} className="text-sm text-neutral-400 leading-relaxed flex gap-2">
-                  <span className="text-neutral-600 shrink-0">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      <div className="space-y-0">
+        {ENTRIES.map((entry, i) => {
+          const isLatest = i === 0
+          const isLast = i === ENTRIES.length - 1
+          return (
+            <div key={entry.version} className="flex gap-4">
+              <div className="flex flex-col items-center">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full shrink-0 mt-2 ${
+                    isLatest ? 'bg-[#00c0fa] shadow-[0_0_0_4px_rgba(0,192,250,0.18)]' : 'bg-neutral-700'
+                  }`}
+                />
+                {!isLast && <span className="w-px flex-1 bg-neutral-800 my-1" />}
+              </div>
+              <div
+                className={`flex-1 min-w-0 rounded-xl border p-4 mb-5 ${
+                  isLatest ? 'border-[#00c0fa]/25 bg-[#00c0fa]/[0.04]' : 'border-neutral-800 bg-neutral-900/40'
+                }`}
+              >
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <span
+                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      isLatest ? 'bg-[#00c0fa]/15 text-[#00c0fa]' : 'bg-neutral-800 text-neutral-400'
+                    }`}
+                  >
+                    {entry.version}
+                  </span>
+                  <span className="text-xs text-neutral-600">{entry.date}</span>
+                  {isLatest && (
+                    <span className="text-[10px] text-emerald-400 font-medium ml-auto flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      Güncel
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-[15px] font-semibold text-neutral-100 mb-2.5">{entry.title}</h2>
+                <ul className="space-y-1.5">
+                  {entry.items.map((item, j) => (
+                    <li key={j} className="text-sm text-neutral-400 leading-relaxed flex gap-2.5">
+                      <span className="h-1 w-1 rounded-full bg-neutral-600 shrink-0 mt-2" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      <div className="mt-16 text-center border-t border-neutral-800 pt-8">
+      <div className="mt-6 text-center rounded-xl border border-neutral-800 bg-neutral-900/40 px-6 py-8">
         <p className="text-sm text-neutral-500 max-w-md mx-auto">
           ARGUS şu an geliştirme aşamasında — değişiklikleri test edip bize geri bildirim verirseniz mutlu oluruz :)
         </p>

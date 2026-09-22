@@ -166,7 +166,6 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition"
                   >
-                    <img src="/logoblue.png" alt="" className="h-4 w-4 object-contain" />
                     Yama Notları
                     <span className="text-[10px] text-neutral-600 ml-auto">{APP_VERSION}</span>
                   </Link>
