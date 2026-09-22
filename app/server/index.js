@@ -937,11 +937,11 @@ app.post('/api/medya/upload', upload.single('file'), (req, res) => {
 })
 
 // ---- Güncelleme kontrolü ----
-// ARGUS klasörü bir git deposuysa (Sunucuyu Baslat.bat ile klonlanmışsa) uzak depoda yeni
+// ARGUS klasörü bir git deposuysa (ARGUS.bat ile klonlanmışsa) uzak depoda yeni
 // commit'ler var mı diye bakar — kullanıcı uygulama AÇIKKEN de bir güncelleme çıkarsa haberdar
 // olsun istedi. Kod kendi kendini çalışırken değiştirip yeniden başlatmıyor (bu ortasında bir şey
 // yapan birini keserdi) — sadece haber veriyor, gerçek güncelleme bir sonraki açılışta
-// Sunucuyu Baslat.bat'ın kendi `git pull`'ıyla uygulanıyor. Git kurulu değilse/depo değilse/
+// ARGUS.bat'ın kendi `git pull`'ıyla uygulanıyor. Git kurulu değilse/depo değilse/
 // internet yoksa sessizce "güncelleme yok" döner, hiçbir zaman hata fırlatmaz.
 app.get('/api/update-check', (req, res) => {
   try {

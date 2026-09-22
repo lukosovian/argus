@@ -93,6 +93,6 @@ seçersin, dosya otomatik olarak `medya/` klasörüne (orijinal haliyle, sıkı�
 
 ## Not: sadece bu bilgisayardan çalışır
 
-Bu haliyle ARGUS sadece bu bilgisayarda, `Sunucuyu Baslat.bat` çalışırken kullanılabilir — telefondan ya da başka
+Bu haliyle ARGUS sadece bu bilgisayarda, `ARGUS.bat` çalışırken kullanılabilir — telefondan ya da başka
 bir bilgisayardan erişilemez, çünkü veriler internete değil bu bilgisayardaki `data/`/`medya/` klasörlerine
 yazılıyor. İleride başka cihazlardan da erişmek istersen bu mimarinin değişmesi gerekir (o zaman tekrar konuşuruz).
