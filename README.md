@@ -13,8 +13,9 @@ Kod `app/` klasöründe.
 
 ## Çalıştırmak
 
-En kolayı: bu klasördeki **`Sunucuyu Baslat.bat`** dosyasına çift tıkla. Hem siteyi hem de verileri/medyayı
-yöneten yardımcı sunucuyu birlikte başlatır ve tarayıcıda `http://localhost:5173` adresini açar.
+En kolayı: bu klasördeki **`ARGUS.bat`** dosyasına (ya da masaüstündeki ARGUS kısayoluna) çift tıkla. Hem siteyi
+hem de verileri/medyayı yöneten yardımcı sunucuyu birlikte başlatır ve tarayıcıda `http://localhost:5173`
+adresini açar. Sunucu küçültülmüş, görev çubuğunda duran bir pencerede çalışır — ekranda açık bir terminal durmaz.
 
 Elle çalıştırmak istersen:
 
@@ -26,7 +27,7 @@ npm run dev
 
 ## Güncellemeler
 
-Bu klasör bir git deposu — `Sunucuyu Baslat.bat` her açılışta otomatik olarak en son sürümü çeker (`git pull`),
+Bu klasör bir git deposu — `ARGUS.bat` her açılışta otomatik olarak en son sürümü çeker (`git pull`),
 sen hiçbir şey yapmana gerek yok. Uygulama açıkken de arka planda periyodik olarak kontrol eder, yeni bir
 güncelleme çıkarsa uygulama içinde bir bildirim gösterir — o güncelleme uygulamayı kapatıp yeniden açtığında
 devreye girer (çalışırken kendi kendini değiştirmez). **Kendi verin (`data/`, `medya/`) bu güncellemelerden hiç
