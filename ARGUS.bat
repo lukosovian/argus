@@ -100,9 +100,8 @@ exit /b 1
 :launch
 echo ARGUS sunucusu baslatiliyor...
 cd /d "%~dp0app"
-REM Sunucu ayri, kucultulmus (gorev cubugunda duran) bir pencerede calisir - ekranda acik bir
-REM terminal durmaz. Bu kurulum penceresi isini bitirince kendiliginden kapanir.
-start "ARGUS Sunucu" /min cmd /c "npm run dev"
-timeout /t 2 /nobreak >nul
-start "" "http://localhost:5173/"
+del /q argus-pid.txt >nul 2>nul
+REM Sunucu tamamen gizli calisir - ne ekranda ne gorev cubugunda bir pencere/simge kalir.
+REM PID bir dosyaya yaziliyor ki "ARGUS Durdur.bat" onu tam olarak bulup kapatabilsin.
+powershell -NoProfile -WindowStyle Hidden -Command "$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c npm run dev' -WorkingDirectory '%CD%' -WindowStyle Hidden -PassThru; Set-Content -Path 'argus-pid.txt' -Value $p.Id; Start-Sleep -Seconds 2; Start-Process 'http://localhost:5173/'"
 exit /b 0
