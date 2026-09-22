@@ -53,6 +53,11 @@ export const api = {
     request<{ ok: true }>(profilePath(`/boards/${boardId}/rows/${id}`), { method: 'DELETE' }),
   bulkAddRows: (boardId: string, items: Omit<Row, 'id'>[]) =>
     request<{ ok: true; count: number }>(profilePath(`/boards/${boardId}/rows/bulk`), { method: 'POST', ...json(items) }),
+  // Bir sütunun değerini TÜM satırlarda tek seferde boşaltır (ör. Banner'ları silip API'den
+  // yeniden çektirmek için) — kullanıcı "genel olarak olsun... bi sütunun altındaki
+  // satırlardakileri komple silebilmek" dedi, sadece Seçim/Çoklu Seçim'e özel değil.
+  clearColumn: (boardId: string, propertyId: string) =>
+    request<{ ok: true; count: number }>(profilePath(`/boards/${boardId}/clear-column/${propertyId}`), { method: 'POST' }),
 
   // Profillerin kendisi (isim/fotoğraf) profile-scoped DEĞİL — hepsi ortak, aktif profil
   // seçilmeden de listelenebilmesi/oluşturulabilmesi gerekiyor (kim izliyor ekranı için).
@@ -78,10 +83,10 @@ export const api = {
   getWatched: () => request<WatchedMap>(profilePath('/watched')),
   saveRowWatched: (rowId: string, map: Record<string, string[]>) =>
     request<{ ok: true }>(profilePath(`/watched/${rowId}`), { method: 'PUT', ...json(map) }),
-  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = []) =>
+  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false) =>
     request<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number }>(
       profilePath(`/fetch-tmdb/${boardId}/${rowId}`),
-      { method: 'POST', ...json({ exclude }) },
+      { method: 'POST', ...json({ exclude, overwrite }) },
     ),
 
   // Profile bağlı değil — ARGUS klasörünün git durumuna göre (bkz. server/index.js).

@@ -180,6 +180,47 @@ app.post('/api/profiles/:profileId/boards/:id/rows/bulk', (req, res) => {
   res.json({ ok: true, count: newOnes.length })
 })
 
+function defaultValueForType(type) {
+  switch (type) {
+    case 'checkbox':
+      return false
+    case 'multiselect':
+    case 'multidate':
+      return []
+    case 'rating':
+      return {}
+    default:
+      return ''
+  }
+}
+
+function isEmptyPropertyValue(v) {
+  if (v === undefined || v === null || v === '') return true
+  if (Array.isArray(v)) return v.length === 0
+  if (typeof v === 'object') return Object.keys(v).length === 0
+  return false
+}
+
+app.post('/api/profiles/:profileId/boards/:id/clear-column/:propertyId', (req, res) => {
+  const { profileId, id: boardId, propertyId } = req.params
+  const boards = readJson(profileBoardsFile(profileId), [])
+  const board = boards.find((b) => b.id === boardId)
+  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  const prop = board.properties.find((p) => p.id === propertyId)
+  if (!prop) return res.status(404).json({ error: 'Sütun bulunamadı' })
+
+  const rowsFile = profileRowsFile(profileId, boardId)
+  const rows = readJson(rowsFile, [])
+  const empty = defaultValueForType(prop.type)
+  let count = 0
+  for (const row of rows) {
+    if (!isEmptyPropertyValue(row.values[propertyId])) count++
+    row.values[propertyId] = empty
+  }
+  writeJson(rowsFile, rows)
+  res.json({ ok: true, count })
+})
+
 app.get('/api/profiles/:profileId/templates', (req, res) => {
   res.json(readJson(profileTemplatesFile(req.params.profileId), []))
 })
@@ -441,6 +482,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       return res.status(400).json({ error: 'Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.' })
     }
     const exclude = new Set(Array.isArray(req.body?.exclude) ? req.body.exclude : [])
+    const overwrite = Boolean(req.body?.overwrite)
     const boardsFile = profileBoardsFile(profileId)
     const boards = readJson(boardsFile, [])
     const board = boards.find((b) => b.id === req.params.boardId)
@@ -532,7 +574,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
 
     const filled = []
 
-    if (kategoriProp && !kategoriId && !exclude.has('kategori')) {
+    if (kategoriProp && (overwrite || !kategoriId) && !exclude.has('kategori')) {
       const wantLabel = mediaType === 'tv' ? 'Dizi' : 'Film'
       const opt = kategoriProp.options?.find((o) => o.label === wantLabel)
       if (opt) {
@@ -541,7 +583,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (origProp && !titleOrig && !exclude.has('orjinalAdi')) {
+    if (origProp && (overwrite || !titleOrig) && !exclude.has('orjinalAdi')) {
       const orig = mediaType === 'tv' ? details.original_name : details.original_title
       if (orig) {
         row.values[origProp.id] = orig
@@ -549,7 +591,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (vizyonProp && !row.values[vizyonProp.id] && !exclude.has('vizyonTarihi')) {
+    if (vizyonProp && (overwrite || !row.values[vizyonProp.id]) && !exclude.has('vizyonTarihi')) {
       const date = mediaType === 'tv' ? details.first_air_date : details.release_date
       if (date) {
         row.values[vizyonProp.id] = date
@@ -557,12 +599,12 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (sinopsisProp && !row.values[sinopsisProp.id] && details.overview && !exclude.has('sinopsis')) {
+    if (sinopsisProp && (overwrite || !row.values[sinopsisProp.id]) && details.overview && !exclude.has('sinopsis')) {
       row.values[sinopsisProp.id] = details.overview
       filled.push('Sinopsis')
     }
 
-    if (posterProp && !row.values[posterProp.id] && details.poster_path && !exclude.has('poster')) {
+    if (posterProp && (overwrite || !row.values[posterProp.id]) && details.poster_path && !exclude.has('poster')) {
       const filename = `tmdb_poster_${row.id}.jpg`
       if (await downloadTmdbImage(`${TMDB_IMG_BASE}/w500${details.poster_path}`, path.join(MEDYA_DIR, filename))) {
         row.values[posterProp.id] = `/medya/${filename}`
@@ -570,7 +612,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (bannerProp && !row.values[bannerProp.id] && details.backdrop_path && !exclude.has('banner')) {
+    if (bannerProp && (overwrite || !row.values[bannerProp.id]) && details.backdrop_path && !exclude.has('banner')) {
       const filename = `tmdb_backdrop_${row.id}.jpg`
       if (await downloadTmdbImage(`${TMDB_IMG_BASE}/w1280${details.backdrop_path}`, path.join(MEDYA_DIR, filename))) {
         row.values[bannerProp.id] = `/medya/${filename}`
@@ -578,7 +620,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (kapakAdiProp && !row.values[kapakAdiProp.id] && !exclude.has('kapakAdi')) {
+    if (kapakAdiProp && (overwrite || !row.values[kapakAdiProp.id]) && !exclude.has('kapakAdi')) {
       const logo = pickLogo(details.images)
       if (logo) {
         const filename = `tmdb_logo_${row.id}.png`
@@ -589,7 +631,11 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (turProp && (!Array.isArray(row.values[turProp.id]) || row.values[turProp.id].length === 0) && !exclude.has('tur')) {
+    if (
+      turProp &&
+      (overwrite || !Array.isArray(row.values[turProp.id]) || row.values[turProp.id].length === 0) &&
+      !exclude.has('tur')
+    ) {
       const genres = details.genres ?? []
       if (genres.length) {
         const turByName = new Map(turProp.options.map((o) => [normalizeText(o.label), o.id]))
@@ -609,7 +655,11 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (ulkeProp && (!Array.isArray(row.values[ulkeProp.id]) || row.values[ulkeProp.id].length === 0) && !exclude.has('ulke')) {
+    if (
+      ulkeProp &&
+      (overwrite || !Array.isArray(row.values[ulkeProp.id]) || row.values[ulkeProp.id].length === 0) &&
+      !exclude.has('ulke')
+    ) {
       const countries = details.production_countries ?? []
       if (countries.length) {
         const ulkeByName = new Map(ulkeProp.options.map((o) => [normalizeText(stripFlagEmoji(o.label)), o.id]))
@@ -630,7 +680,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (yonetmenProp && !(row.values[yonetmenProp.id] ?? '').trim() && !exclude.has('yonetmen')) {
+    if (yonetmenProp && (overwrite || !(row.values[yonetmenProp.id] ?? '').trim()) && !exclude.has('yonetmen')) {
       let directors = []
       if (mediaType === 'movie') {
         directors = (details.credits?.crew ?? []).filter((c) => c.job === 'Director').map((c) => c.name)
@@ -643,12 +693,12 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (mediaType === 'movie' && sureProp && !row.values[sureProp.id] && details.runtime && !exclude.has('sure')) {
+    if (mediaType === 'movie' && sureProp && (overwrite || !row.values[sureProp.id]) && details.runtime && !exclude.has('sure')) {
       row.values[sureProp.id] = details.runtime
       filled.push('Süre')
     }
 
-    if (yasProp && !(row.values[yasProp.id] ?? '').trim() && !exclude.has('yasSiniri')) {
+    if (yasProp && (overwrite || !(row.values[yasProp.id] ?? '').trim()) && !exclude.has('yasSiniri')) {
       const cert = mediaType === 'movie' ? await getMovieCertification(result.id, apiKey) : await getTvCertification(result.id, apiKey)
       if (cert) {
         row.values[yasProp.id] = cert
@@ -656,7 +706,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       }
     }
 
-    if (videoProp && !(row.values[videoProp.id] ?? '').trim() && !exclude.has('video')) {
+    if (videoProp && (overwrite || !(row.values[videoProp.id] ?? '').trim()) && !exclude.has('video')) {
       const trailerUrl = await getTrailerUrl(mediaType, result.id, apiKey)
       if (trailerUrl) {
         row.values[videoProp.id] = trailerUrl

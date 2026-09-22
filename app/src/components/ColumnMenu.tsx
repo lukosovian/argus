@@ -143,6 +143,7 @@ export default function ColumnMenu({
   onChangeOptionColor,
   onDeleteOption,
   onDeleteOptions,
+  onClearColumn,
   onAddCriterion,
   onRenameCriterion,
   onDeleteCriterion,
@@ -162,6 +163,7 @@ export default function ColumnMenu({
   onChangeOptionColor: (optionId: string, colorIndex: number) => void
   onDeleteOption: (optionId: string) => void
   onDeleteOptions: (optionIds: string[]) => void
+  onClearColumn: () => void
   onAddCriterion: (name: string) => string
   onRenameCriterion: (criterionId: string, name: string) => void
   onDeleteCriterion: (criterionId: string) => void
@@ -300,12 +302,17 @@ export default function ColumnMenu({
         )}
 
         {canDelete && (
-          <button
-            onClick={onDelete}
-            className="w-full text-left text-rose-400 hover:text-rose-300 text-xs mt-3 pt-3 border-t border-neutral-800"
-          >
-            Sütunu Sil
-          </button>
+          <>
+            <button
+              onClick={onClearColumn}
+              className="w-full text-left text-amber-400 hover:text-amber-300 text-xs mt-3 pt-3 border-t border-neutral-800"
+            >
+              Sütunu Temizle (tüm kayıtlarda boşalt)
+            </button>
+            <button onClick={onDelete} className="w-full text-left text-rose-400 hover:text-rose-300 text-xs mt-1.5">
+              Sütunu Sil
+            </button>
+          </>
         )}
       </div>
     </AnchoredMenu>

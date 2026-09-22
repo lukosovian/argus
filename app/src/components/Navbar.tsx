@@ -160,6 +160,14 @@ export default function Navbar() {
                   >
                     Yardım Merkezi
                   </Link>
+                  <Link
+                    to="/yama-notlari"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition"
+                  >
+                    <img src="/logoblue.png" alt="" className="h-4 w-4 object-contain" />
+                    Yama Notları
+                  </Link>
                   <button
                     onClick={toggleTheme}
                     className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition border-t border-neutral-800"

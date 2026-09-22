@@ -2,14 +2,168 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Papa from 'papaparse'
 import { useBoards } from '../hooks/useBoards'
+import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
-import { makeId, mediaTemplateProperties, PROPERTY_TYPE_LABELS, type PropertyDef, type PropertyType, type PropertyValue, type Row } from '../types'
+import { makeId, mediaTemplateProperties, titleText, PROPERTY_TYPE_LABELS, type PropertyDef, type PropertyType, type PropertyValue, type Row } from '../types'
 import { buildProperty, inferColumnType, mergeOptionsFromValues, parseCellValue } from '../lib/csvImport'
 import { api } from '../lib/api'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import HelpHint from '../components/HelpHint'
 import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
+
+function normalizeMatchText(s: string): string {
+  return s
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .toLocaleLowerCase('tr')
+}
+
+function baseFilename(name: string): string {
+  const idx = name.lastIndexOf('.')
+  return idx > 0 ? name.slice(0, idx) : name
+}
+
+// Var olan bir arşive SONRADAN toplu görsel eklemek için — kullanıcı "aktarırken görselleri
+// aktarmadım ama sonradan görselleri toplu aktarmak istiyorum böyle bi seçeneğim yok onu da
+// ekle" dedi. Yeniden bir CSV gerektirmiyor: her görsel dosyasının adı (uzantısız), o arşivdeki
+// bir kaydın başlığıyla BİREBİR eşleşirse (normalize edilip karşılaştırılır — büyük/küçük harf,
+// Türkçe karakterler önemsiz) o kaydın seçilen görsel sütununa yüklenir.
+function ExistingBoardImagesPanel() {
+  const { boards } = useBoards()
+  const [boardId, setBoardId] = useState('')
+  const board = boards.find((b) => b.id === boardId) ?? null
+  const { rows, saveRow, reload } = useRows(boardId || undefined)
+  const [propertyId, setPropertyId] = useState('')
+  const [imageFiles, setImageFiles] = useState<Map<string, File>>(new Map())
+  const [overwrite, setOverwrite] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [result, setResult] = useState<{ matched: number; unmatched: string[] } | null>(null)
+
+  const imageProps = board?.properties.filter((p) => p.type === 'image') ?? []
+
+  function handleFolder(fileList: FileList) {
+    const map = new Map<string, File>()
+    Array.from(fileList).forEach((f) => map.set(f.name, f))
+    setImageFiles(map)
+    setResult(null)
+  }
+
+  async function handleMatch() {
+    if (!board || !propertyId || imageFiles.size === 0) return
+    const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+    if (!titleProp) return
+    setImporting(true)
+    setProgress(0)
+    const filesByNormName = new Map<string, File>()
+    for (const [name, file] of imageFiles) filesByNormName.set(normalizeMatchText(baseFilename(name)), file)
+    const usedKeys = new Set<string>()
+    let matched = 0
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      setProgress(i + 1)
+      const current = row.values[propertyId]
+      if (!overwrite && current) continue
+      const title = titleText(titleProp, row.values[titleProp.id])
+      if (!title) continue
+      const key = normalizeMatchText(title)
+      const file = filesByNormName.get(key)
+      if (!file) continue
+      const uploaded = await api.uploadMedya(file).catch(() => null)
+      if (!uploaded) continue
+      await saveRow({ values: { ...row.values, [propertyId]: `/medya/${uploaded.filename}` }, createdAt: row.createdAt, updatedAt: Date.now() }, row.id)
+      usedKeys.add(key)
+      matched++
+    }
+
+    const unmatched = [...filesByNormName.keys()].filter((k) => !usedKeys.has(k))
+    setResult({ matched, unmatched })
+    setImporting(false)
+    await reload()
+  }
+
+  return (
+    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
+      <p className="text-sm text-neutral-400">
+        Var olan bir arşivdeki kayıtlara toplu görsel ekler — görsel dosyasının adı (uzantısız), kaydın başlığıyla
+        birebir eşleşirse o kayda yüklenir. Yeni bir CSV'ye gerek yok, sadece görsel klasörünü seçmen yeterli.
+      </p>
+      <div>
+        <label className="block text-xs text-neutral-400 mb-1">Hangi arşive eklensin</label>
+        <Select
+          value={boardId}
+          onChange={(v) => {
+            setBoardId(v)
+            setPropertyId('')
+            setResult(null)
+          }}
+          options={[{ value: '', label: 'Seçilmedi' }, ...boards.map((b) => ({ value: b.id, label: b.name }))]}
+        />
+      </div>
+      {board && (
+        <div>
+          <label className="block text-xs text-neutral-400 mb-1">Hangi görsel sütununa eklensin</label>
+          <Select
+            value={propertyId}
+            onChange={setPropertyId}
+            options={[{ value: '', label: 'Seçilmedi' }, ...imageProps.map((p) => ({ value: p.id, label: p.name }))]}
+          />
+          {imageProps.length === 0 && <p className="text-xs text-amber-400 mt-1">Bu arşivde görsel tipinde bir sütun yok.</p>}
+        </div>
+      )}
+      {board && propertyId && (
+        <>
+          <div>
+            <label className="block text-xs text-neutral-400 mb-1">Görsel klasörünü seç</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => e.target.files && handleFolder(e.target.files)}
+              className="block text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-neutral-200"
+            />
+            {imageFiles.size > 0 && <p className="text-sm text-emerald-400 mt-2">✓ {imageFiles.size} dosya bulundu.</p>}
+            <p className="text-xs text-neutral-600 mt-1">
+              Ör. "Breaking Bad.jpg" adlı dosya, başlığı "Breaking Bad" olan kayda eşleşir.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-neutral-400 cursor-pointer">
+            <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
+            Zaten görseli olan kayıtların üzerine de yaz
+          </label>
+          {importing ? (
+            <p className="text-sm text-neutral-400">
+              Eşleştiriliyor... {progress}/{rows.length}
+            </p>
+          ) : (
+            <button
+              onClick={handleMatch}
+              disabled={imageFiles.size === 0}
+              style={primaryButtonStyle}
+              className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
+            >
+              Eşleştir ve Yükle
+            </button>
+          )}
+          {result && (
+            <div className="text-sm">
+              <p className="text-emerald-400">{result.matched} kayda görsel eklendi.</p>
+              {result.unmatched.length > 0 && (
+                <p className="text-amber-400 mt-1">
+                  {result.unmatched.length} dosya hiçbir kayıtla eşleşmedi (dosya adı ile başlık birebir uyuşmuyor
+                  olabilir).
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
 
 interface ColumnPlan {
   header: string
@@ -44,6 +198,7 @@ export default function Import() {
   const { createBoard, deleteBoard } = useBoards()
   const { selectBoardIfNone } = useHomeSettings()
 
+  const [mode, setMode] = useState<'yeni' | 'gorsel'>('yeni')
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([])
   const [plans, setPlans] = useState<ColumnPlan[]>([])
   const [titleHeader, setTitleHeader] = useState('')
@@ -293,9 +448,33 @@ export default function Import() {
         </HelpHint>
       </h1>
       <p className="text-sm text-neutral-500 mb-6">
-        Bir CSV dosyasından (Notion'dan ya da başka bir yerden) yeni bir arşiv oluştur.
+        Bir CSV dosyasından (Notion'dan ya da başka bir yerden) yeni bir arşiv oluştur, ya da var olan bir arşive
+        sonradan toplu görsel ekle.
       </p>
 
+      <div className="flex gap-2 mb-6 border-b border-neutral-800">
+        {(
+          [
+            ['yeni', 'Yeni Arşiv'],
+            ['gorsel', 'Var Olan Arşive Görsel Ekle'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setMode(key)}
+            className={`text-sm font-semibold px-4 py-2.5 -mb-px border-b-2 transition ${
+              mode === key ? 'text-neutral-50 border-[#00c0fa]' : 'text-neutral-400 border-transparent hover:text-neutral-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'gorsel' ? (
+        <ExistingBoardImagesPanel />
+      ) : (
+        <>
       <div className="flex items-center justify-between gap-2.5 bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6">
         <span className="flex items-center gap-1.5 flex-1">
           <span className="font-medium text-neutral-100 text-sm">Medya Arşivi şablonuyla eşleştir</span>
@@ -455,6 +634,8 @@ export default function Import() {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   )

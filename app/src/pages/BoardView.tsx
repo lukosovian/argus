@@ -90,15 +90,23 @@ const FETCHABLE_FIELDS: { key: string; label: string }[] = [
 function TmdbFieldsPopover({
   excludedKeys,
   onToggle,
+  overwriteExisting,
+  onToggleOverwrite,
 }: {
   excludedKeys: Set<string>
   onToggle: (key: string) => void
+  overwriteExisting: boolean
+  onToggleOverwrite: () => void
 }) {
   const [open, setOpen] = useState(false)
 
   return (
     <div className="relative">
-      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title="API'den hangi alanlar çekilsin" active={excludedKeys.size > 0}>
+      <ToolbarIconButton
+        onClick={() => setOpen((v) => !v)}
+        title="API'den hangi alanlar çekilsin"
+        active={excludedKeys.size > 0 || overwriteExisting}
+      >
         <GearIcon />
       </ToolbarIconButton>
       {open && (
@@ -106,9 +114,13 @@ function TmdbFieldsPopover({
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-11 z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-xl p-2 shadow-lg">
             <p className="text-[11px] text-neutral-500 px-2 pb-1.5">
-              "API eşitle" (tek satır ya da Genel Güncelleme) sadece işaretli alanları doldursun — zaten dolu bir
-              alana yine de asla dokunulmaz, bu sadece boşken doldurulsun mu diye seçiyor.
+              "API eşitle" (tek satır ya da Genel Güncelleme) sadece işaretli alanları doldursun — aşağıdaki anahtar
+              kapalıyken zaten dolu bir alana dokunulmaz, sadece boşken doldurulur.
             </p>
+            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-neutral-800 border-b border-neutral-800 mb-1">
+              <span className="text-sm text-neutral-300">Dolu alanları da güncelle</span>
+              <ToggleSwitch checked={overwriteExisting} onChange={onToggleOverwrite} label="Dolu alanları da güncelle" />
+            </div>
             <div className="max-h-72 overflow-y-auto space-y-0.5">
               {FETCHABLE_FIELDS.map((f) => (
                 <div key={f.key} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-neutral-800">
@@ -592,6 +604,34 @@ export default function BoardView() {
     })
   }
 
+  // "API eşitle" varsayılan olarak sadece BOŞ alanları doldurur — kullanıcı "sadece boş olan
+  // satırları dolduruyo ya doluları da güncelleyim mi diye sorsun" dedi. Bu açık olunca zaten
+  // dolu bir alanın üzerine de TMDB'nin güncel verisi yazılır (ör. eski bannerları silip API'den
+  // yeniden çektirmek için). Alanlar-hariç-tutma ayarıyla aynı kalıcılık deseni.
+  const tmdbOverwriteKey = id ? `argus_tmdb_overwrite_${id}` : null
+  const [tmdbOverwriteExisting, setTmdbOverwriteExisting] = useState(false)
+  useEffect(() => {
+    if (!tmdbOverwriteKey) return
+    try {
+      setTmdbOverwriteExisting(localStorage.getItem(tmdbOverwriteKey) === '1')
+    } catch {
+      setTmdbOverwriteExisting(false)
+    }
+  }, [tmdbOverwriteKey])
+
+  function toggleTmdbOverwrite() {
+    if (!tmdbOverwriteKey) return
+    setTmdbOverwriteExisting((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(tmdbOverwriteKey, next ? '1' : '0')
+      } catch {
+        // localStorage dolu/kapalı olabilir — sorun değil, sadece bu oturumda hatırlanmaz
+      }
+      return next
+    })
+  }
+
   // "Genel Güncelleme" — tek tek satırlardaki 🔄 butonunun toplu hali: eksik görünen (poster/
   // sinopsis/ülke/yönetmen/fragmanından biri boş) her kaydı sırayla TMDB'den doldurur.
   // Tek seferde tüm satırları paralel çağırmak yerine sırayla gidiyor (TMDB'yi yormamak için,
@@ -694,12 +734,15 @@ export default function BoardView() {
     (p): p is PropertyDef => Boolean(p),
   )
 
-  function isIncomplete(row: Row): boolean {
+  function hasTitleFilled(row: Row): boolean {
     if (!board) return false
     const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
     const titleValue = titleProp ? row.values[titleProp.id] : undefined
-    const hasTitle = typeof titleValue === 'string' ? titleValue.trim().length > 0 : Boolean(titleValue)
-    if (!hasTitle) return false
+    return typeof titleValue === 'string' ? titleValue.trim().length > 0 : Boolean(titleValue)
+  }
+
+  function isIncomplete(row: Row): boolean {
+    if (!hasTitleFilled(row)) return false
     return incompletenessChecks.some((p) => {
       const v = row.values[p.id]
       return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
@@ -850,6 +893,23 @@ export default function BoardView() {
     )
   }
 
+  // Bir sütunun değerini TÜM satırlarda boşaltır — herhangi bir tip için, sadece Seçim/Çoklu
+  // Seçim'e özel değil (kullanıcı: "amaç bi sütunun altındaki satırlardakileri komple
+  // silebilmek mesela banner eklenmiş ama ben o bannerları silicem api den çektiricem").
+  // Sunucuda TEK seferde yazılıyor (bkz. server/index.js) — satır sayısı çok olabileceği için.
+  async function clearColumn(propertyId: string, propertyName: string) {
+    if (!board) return
+    const ok = await confirm({
+      message: `"${propertyName}" sütununun değeri TÜM kayıtlarda boşaltılacak. Bu geri alınamaz, emin misin?`,
+      confirmLabel: 'Temizle',
+      tone: 'danger',
+    })
+    if (!ok) return
+    const result = await api.clearColumn(board.id, propertyId)
+    await reloadRows()
+    notify(`"${propertyName}" ${result.count} kayıtta temizlendi.`, 'success')
+  }
+
   function resizeProperty(propertyId: string, width: number) {
     if (!board) return
     setProperties(board.properties.map((p) => (p.id === propertyId ? { ...p, width } : p)))
@@ -937,24 +997,28 @@ export default function BoardView() {
   // buradaki state'i tazeler.
   async function fetchTmdb(rowId: string) {
     if (!board) return
-    const result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields])
+    const result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields], tmdbOverwriteExisting)
     await Promise.all([reloadBoard(), reloadRows()])
     return result
   }
 
   // Üstteki "Genel Güncelleme" butonu — tüm arşivi tarayıp eksik görünen (poster/sinopsis/
-  // ülke/yönetmen/fragmanından biri boş) her kaydı sırayla TMDB'den doldurur. Zaten dolu
-  // kayıtlara dokunmaz, sadece gerçekten eksik olanları işler.
+  // ülke/yönetmen/fragmanından biri boş) her kaydı sırayla TMDB'den doldurur. "Dolu alanları da
+  // güncelle" açıksa (tmdbOverwriteExisting) bunun yerine başlığı olan HER kayıt hedef olur —
+  // eksik olsun olmasın, zaten dolu alanların üzerine de TMDB'nin güncel verisi yazılır.
   async function handleBulkUpdate() {
     if (!board || bulkUpdating) return
-    const targets = rows.filter(isIncomplete)
+    const targets = tmdbOverwriteExisting ? rows.filter(hasTitleFilled) : rows.filter(isIncomplete)
     if (targets.length === 0) {
-      notify('Eksik görünen bir kayıt yok, hepsi dolu görünüyor.')
+      notify(tmdbOverwriteExisting ? 'Başlığı dolu bir kayıt yok.' : 'Eksik görünen bir kayıt yok, hepsi dolu görünüyor.')
       return
     }
     const ok = await confirm({
-      message: `${targets.length} kayıt eksik görünüyor (poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş). TMDB'den doldurulsun mu? Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`,
+      message: tmdbOverwriteExisting
+        ? `"Dolu alanları da güncelle" açık — ${targets.length} kaydın TÜMÜ (eksik olsun olmasın) TMDB'nin güncel verisiyle güncellenecek. Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`
+        : `${targets.length} kayıt eksik görünüyor (poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş). TMDB'den doldurulsun mu? Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`,
       confirmLabel: 'Doldur',
+      tone: tmdbOverwriteExisting ? 'danger' : 'info',
     })
     if (!ok) return
 
@@ -967,7 +1031,7 @@ export default function BoardView() {
       if (bulkCancelRef.current) break
       setBulkProgress({ done: i, total: targets.length })
       try {
-        await api.fetchTmdb(board.id, targets[i].id, [...tmdbExcludeFields])
+        await api.fetchTmdb(board.id, targets[i].id, [...tmdbExcludeFields], tmdbOverwriteExisting)
         updated++
       } catch {
         failed++
@@ -1028,7 +1092,12 @@ export default function BoardView() {
             hiddenIds={hiddenColumnIds}
             onToggle={toggleColumnHidden}
           />
-          <TmdbFieldsPopover excludedKeys={tmdbExcludeFields} onToggle={toggleTmdbField} />
+          <TmdbFieldsPopover
+            excludedKeys={tmdbExcludeFields}
+            onToggle={toggleTmdbField}
+            overwriteExisting={tmdbOverwriteExisting}
+            onToggleOverwrite={toggleTmdbOverwrite}
+          />
 
           {bulkUpdating ? (
             <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
@@ -1071,6 +1140,7 @@ export default function BoardView() {
           onChangeOptionColor={changeOptionColor}
           onDeleteOption={deleteOption}
           onDeleteOptions={deleteOptions}
+          onClearColumn={clearColumn}
           onAddOption={addOptionToProperty}
           onAddCriterion={addCriterionToProperty}
           onRenameCriterion={renameCriterion}
