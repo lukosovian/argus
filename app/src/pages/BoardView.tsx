@@ -15,8 +15,10 @@ import {
   type SelectOption,
 } from '../types'
 import { rowMatchesFilter } from '../components/BoardGallery'
+import { hasAnyImage } from '../lib/rowMeta'
 import BoardTable, { type BoardTableHandle } from '../components/BoardTable'
 import RowDetailModal from '../components/RowDetailModal'
+import HealthCheckModal from '../components/HealthCheckModal'
 import OptionBadge from '../components/OptionBadge'
 import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
@@ -153,6 +155,15 @@ function SortIcon() {
       <path d="M7 20V4" />
       <path d="m21 8-4-4-4 4" />
       <path d="M17 4v16" />
+    </svg>
+  )
+}
+
+function HealthIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+      <path d="M6 12h3l1.5-3L12 15l1.5-3H18" />
     </svg>
   )
 }
@@ -775,6 +786,16 @@ export default function BoardView() {
     })
   }
 
+  // Sağlık Kontrolü panelinin ilk iki listesi — board+rows'tan saf istemci tarafında
+  // hesaplanabiliyor, üçüncü liste (bozuk dosya bağlantıları) modalın kendisi açılınca
+  // ayrıca sunucudan çekiliyor (bkz. HealthCheckModal.tsx).
+  const [healthOpen, setHealthOpen] = useState(false)
+  const missingImageRows = useMemo(
+    () => (board ? rows.filter((r) => hasTitleFilled(r) && !hasAnyImage(board, r)) : []),
+    [board, rows, hasTitleFilled],
+  )
+  const incompleteRowsForHealth = useMemo(() => rows.filter(isIncomplete), [rows, isIncomplete])
+
   if (boardLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
   if (!board) {
     // boards.length 1 ya da >1 ise yukarıdaki effect zaten yönlendirmiş olacak (o gerçekleşene
@@ -960,6 +981,15 @@ export default function BoardView() {
     const row = rows.find((r) => r.id === rowId)
     if (!row) return
     saveRow({ values: { ...row.values, [propertyId]: value }, createdAt: row.createdAt, updatedAt: Date.now() }, rowId)
+    // Başlık sütununa yazınca, aynı isimde başka bir kayıt zaten varsa bilgilendir — yanlışlıkla
+    // aynı içeriği iki kez eklemenin önüne geçmek için (kaydı engellemiyor, sadece uyarıyor).
+    if (board && propertyId === board.titlePropertyId && typeof value === 'string' && value.trim()) {
+      const norm = value.trim().toLocaleLowerCase('tr')
+      const dup = rows.find(
+        (r) => r.id !== rowId && typeof r.values[propertyId] === 'string' && (r.values[propertyId] as string).trim().toLocaleLowerCase('tr') === norm,
+      )
+      if (dup) notify(`"${value.trim()}" adında zaten bir kayıt var — yine de aynı isimde ikinci bir kayıt eklendi.`)
+    }
   }
 
   // "+ Yeni Ekle" tıklanınca sadece boş bir satır eklemekle kalmıyor, kullanıcıyı da o satıra
@@ -1124,6 +1154,9 @@ export default function BoardView() {
             overwriteExisting={tmdbOverwriteExisting}
             onToggleOverwrite={toggleTmdbOverwrite}
           />
+          <ToolbarIconButton onClick={() => setHealthOpen(true)} title="Sağlık Kontrolü — sorunlu kayıtları listele">
+            <HealthIcon />
+          </ToolbarIconButton>
 
           {bulkUpdating ? (
             <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
@@ -1192,6 +1225,20 @@ export default function BoardView() {
           onClose={() => setDetailRow(null)}
           editable
           onFetchTmdb={fetchTmdb}
+        />
+      )}
+
+      {healthOpen && (
+        <HealthCheckModal
+          board={board}
+          rows={rows}
+          missingImageRows={missingImageRows}
+          incompleteRows={incompleteRowsForHealth}
+          onOpenRow={(row) => {
+            setHealthOpen(false)
+            setDetailRow(row)
+          }}
+          onClose={() => setHealthOpen(false)}
         />
       )}
     </div>
