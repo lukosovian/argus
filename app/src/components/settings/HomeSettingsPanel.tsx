@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useBoards } from '../../hooks/useBoards'
 import { useHomeSettings } from '../../hooks/useHomeSettings'
 import { HOME_LAYOUT_LABELS, type HomeLayout, type HomeSection, type MoodRowSettings } from '../../types'
@@ -88,6 +88,50 @@ function VitrinSvg() {
   )
 }
 
+// Düz bir sayısal <input>, her tuş vuruşunda `onChange`de min/max'a kırpıp kaydediyorsa
+// (önceki sürüm) çok basamaklı bir sayı yazmak imkansız oluyor — ör. min=6 iken "45" yazmak
+// isteyince ilk "4" hemen "6"ya kırpılıyor, ikinci tuşla "65" oluyor. Kullanıcı "sayı
+// giremiyorum düzgünce" dedi. Bunun yerine serbestçe yazılabilen bir taslak tutuluyor,
+// kırpma/kaydetme sadece odak kaybedince (blur) ya da Enter'a basınca oluyor.
+function ClampedNumberInput({
+  value,
+  min,
+  max,
+  onCommit,
+  className,
+}: {
+  value: number
+  min: number
+  max: number
+  onCommit: (v: number) => void
+  className?: string
+}) {
+  const [draft, setDraft] = useState(String(value))
+
+  useEffect(() => {
+    setDraft(String(value))
+  }, [value])
+
+  function commit() {
+    const n = Math.max(min, Math.min(max, Number(draft) || min))
+    setDraft(String(n))
+    if (n !== value) onCommit(n)
+  }
+
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      className={className}
+    />
+  )
+}
+
 function moveInArray<T>(arr: T[], index: number, dir: -1 | 1): T[] {
   const next = index + dir
   if (index < 0 || next < 0 || next >= arr.length) return arr
@@ -119,7 +163,12 @@ export default function HomeSettingsPanel() {
   const [tab, setTab] = useState<TabId>('gorunum')
 
   async function handleBoardIdChange(id: string) {
-    // Farklı bir arşive geçiliyor — eski arşivin sütunlarına bağlı sayfalar/vitrin filtresi geçersiz olur.
+    // Farklı bir arşive geçiliyor — eski arşivin sütunlarına bağlı sayfalar/vitrin filtresi geçersiz
+    // olur. Modlar da (moodRow.moods) eski arşivin "Tür" sütununun propertyId/optionIds'lerini
+    // taşıyordu — sıfırlanmayınca yeni arşivde hiçbir satıra eşleşmediği için "modlar ekrana
+    // gelemiyor" gibi görünüyordu (satır sayısı 0 olunca satırın kendisi hiç render edilmiyor).
+    // `seeded: false` + boş `moods` ile AnaSayfa.tsx'teki seed effect'i yeni arşive göre otomatik
+    // yeniden dolduruyor; enabled/title/position (görünüm tercihleri, arşive bağlı değil) korunuyor.
     await saveSettings({
       ...settings,
       boardId: id || null,
@@ -128,6 +177,13 @@ export default function HomeSettingsPanel() {
       bodyOrder: [],
       showcaseFilter: { propertyId: null, optionIds: [] },
       randomPickerFilter: { propertyId: null, optionIds: [] },
+      moodRow: {
+        enabled: settings.moodRow?.enabled ?? false,
+        title: settings.moodRow?.title ?? 'Bunları da İzle',
+        position: settings.moodRow?.position ?? 1,
+        moods: [],
+        seeded: false,
+      },
     })
   }
 
@@ -331,17 +387,11 @@ export default function HomeSettingsPanel() {
             {settings.autoFill?.enabled && (
               <div className="flex items-center gap-2 pt-1">
                 <label className="text-xs text-neutral-400 shrink-0">Kaç satır gelsin</label>
-                <input
-                  type="number"
+                <ClampedNumberInput
+                  value={settings.autoFill?.count ?? 4}
                   min={1}
                   max={20}
-                  value={settings.autoFill?.count ?? 4}
-                  onChange={(e) =>
-                    saveSettings({
-                      ...settings,
-                      autoFill: { enabled: true, count: Math.max(1, Math.min(20, Number(e.target.value) || 1)) },
-                    })
-                  }
+                  onCommit={(n) => saveSettings({ ...settings, autoFill: { enabled: true, count: n } })}
                   className="w-20 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
                 />
                 <span className="text-xs text-neutral-600">(1-20 arası)</span>
@@ -441,14 +491,11 @@ export default function HomeSettingsPanel() {
 
           <div className="flex items-center gap-2 pt-2">
             <label className="text-xs text-neutral-400 shrink-0">Ekranda kaç poster dağılsın</label>
-            <input
-              type="number"
+            <ClampedNumberInput
+              value={settings.randomPickerCount ?? 30}
               min={6}
               max={60}
-              value={settings.randomPickerCount ?? 30}
-              onChange={(e) =>
-                saveSettings({ ...settings, randomPickerCount: Math.max(6, Math.min(60, Number(e.target.value) || 6)) })
-              }
+              onCommit={(n) => saveSettings({ ...settings, randomPickerCount: n })}
               className="w-20 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
             />
             <span className="text-xs text-neutral-600">(6-60 arası)</span>

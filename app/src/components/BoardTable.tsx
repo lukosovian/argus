@@ -408,6 +408,10 @@ const BoardTable = forwardRef<
     onRenameOption: (propertyId: string, optionId: string, label: string) => void
     onChangeOptionColor: (propertyId: string, optionId: string, colorIndex: number) => void
     onDeleteOption: (propertyId: string, optionId: string) => void
+    // Toplu seçenek silme (ör. Oyuncular sütunundaki birikmiş onlarca oyuncu etiketini tek tek
+    // silmek yerine seçip topluca kaldırmak) — kullanıcı "sütun bazlı silme ekle... toplu olarak
+    // onları silebilme gelsin" dedi.
+    onDeleteOptions: (propertyId: string, optionIds: string[]) => void
     onAddOption: (propertyId: string, label: string) => string
     onAddCriterion: (propertyId: string, name: string) => string
     onRenameCriterion: (propertyId: string, criterionId: string, name: string) => void
@@ -447,6 +451,7 @@ const BoardTable = forwardRef<
     onRenameOption,
     onChangeOptionColor,
     onDeleteOption,
+    onDeleteOptions,
     onAddOption,
     onAddCriterion,
     onRenameCriterion,
@@ -928,6 +933,7 @@ const BoardTable = forwardRef<
           onRenameOption={(optionId, label) => onRenameOption(menuProp.id, optionId, label)}
           onChangeOptionColor={(optionId, colorIndex) => onChangeOptionColor(menuProp.id, optionId, colorIndex)}
           onDeleteOption={(optionId) => onDeleteOption(menuProp.id, optionId)}
+          onDeleteOptions={(optionIds) => onDeleteOptions(menuProp.id, optionIds)}
           onAddCriterion={(name) => onAddCriterion(menuProp.id, name)}
           onRenameCriterion={(criterionId, name) => onRenameCriterion(menuProp.id, criterionId, name)}
           onDeleteCriterion={(criterionId) => onDeleteCriterion(menuProp.id, criterionId)}
