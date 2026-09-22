@@ -1,0 +1,38 @@
+{
+  "name": "argus",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n vite,sunucu -c blue,green \"vite\" \"node server/index.js\"",
+    "server": "node server/index.js",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "flag-icons": "^7.5.0",
+    "multer": "^2.0.1",
+    "papaparse": "^5.7.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "autoprefixer": "^10.5.5",
+    "concurrently": "^9.1.2",
+    "oxlint": "^1.79.0",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}

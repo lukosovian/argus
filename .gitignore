@@ -1,0 +1,10 @@
+# Varsayılan: kök dizindeki HER ŞEYİ yoksay — aşağıda sadece GitHub'a gitmesi gereken birkaç
+# şeyi tek tek beyaza alıyoruz. Böylece kişisel verin (data/, medya/), yedekler, notion export'u
+# ve kök dizindeki dağınık kişisel dosyalar (profil fotoğrafları, zip'ler vb.) hiçbir zaman
+# yanlışlıkla commit'lenmez — yeni bir kişisel dosya eklense bile otomatik dışarıda kalır.
+/*
+
+!/app/
+!/Sunucuyu Baslat.bat
+!/README.md
+!/.gitignore
