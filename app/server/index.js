@@ -4,7 +4,7 @@ import multer from 'multer'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -868,6 +868,35 @@ app.get('/api/update-check', (req, res) => {
   } catch {
     res.json({ updateAvailable: false, commitsBehind: 0 })
   }
+})
+
+// "Şimdi Güncelle" — kullanıcı bekleyip uygulamayı kendisi kapatıp açmak yerine tek tıkla
+// güncellensin istedi. Kodu hemen çeker, sonra kendi sunucu sürecini (ve ARGUS.bat'ın
+// başlattığı tüm ağacı — Vite dahil) kapatıp YERİNE yeni bir ARGUS.bat başlatır; o da zaten
+// git pull + node kontrolü + gizli sunucu başlatma işini kendisi yapar (bkz. ARGUS.bat).
+// Yanıtı (res.json) MUTLAKA süreç kapanmadan ÖNCE gönderiyoruz, yoksa tarayıcı hiç cevap
+// alamaz. `argus-pid.txt` "ARGUS Durdur.bat"ın kullandığı AYNI dosya — kök süreci bulup
+// tüm ağacı (/T) kapatmak için.
+app.post('/api/apply-update', (req, res) => {
+  try {
+    execSync('git pull --ff-only', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })
+  } catch {
+    return res.status(500).json({ error: 'Güncelleme çekilemedi — internet bağlantını kontrol et.' })
+  }
+  res.json({ ok: true })
+  setTimeout(() => {
+    try {
+      const batPath = path.join(ROOT, 'ARGUS.bat')
+      spawn(batPath, [], { cwd: ROOT, detached: true, stdio: 'ignore', shell: true }).unref()
+    } catch {}
+    try {
+      const pidFile = path.join(__dirname, 'argus-pid.txt')
+      if (fs.existsSync(pidFile)) {
+        const pid = fs.readFileSync(pidFile, 'utf-8').trim()
+        if (pid) execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' })
+      }
+    } catch {}
+  }, 400)
 })
 
 const PORT = 4000

@@ -91,6 +91,10 @@ export const api = {
 
   // Profile bağlı değil — ARGUS klasörünün git durumuna göre (bkz. server/index.js).
   checkUpdate: () => request<{ updateAvailable: boolean; commitsBehind: number }>('/api/update-check'),
+  // Sunucu kodu hemen çeker, sonra kendini kapatıp yerine yeni bir ARGUS.bat başlatır — bu
+  // yüzden istek "tamamlanmadan" bağlantı kopabilir, çağıran taraf bunu normal karşılamalı
+  // (bkz. useUpdateCheck.ts).
+  applyUpdate: () => request<{ ok: true }>('/api/apply-update', { method: 'POST' }),
 
   // Medya klasörü tüm profiller arasında ortak (görsel dosyaları profile özel değil).
   getMedyaFiles: () => request<string[]>('/api/medya'),
