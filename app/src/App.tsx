@@ -10,6 +10,7 @@ import Boards from './pages/Boards'
 import BoardView from './pages/BoardView'
 import YardimMerkezi from './pages/YardimMerkezi'
 import Istatistikler from './pages/Istatistikler'
+import YamaNotlari from './pages/YamaNotlari'
 
 // Bir profil ilk kez aktif olduğunda (o profil daha önce hiç görmediyse) Yardım Merkezi'ni
 // otomatik açar — "ilk girişte gelsin" isteği. `localStorage`'da profil başına bir bayrak
@@ -91,6 +92,14 @@ function AppRoutes() {
         element={
           <Shell>
             <Istatistikler />
+          </Shell>
+        }
+      />
+      <Route
+        path="/yama-notlari"
+        element={
+          <Shell>
+            <YamaNotlari />
           </Shell>
         }
       />

@@ -412,6 +412,10 @@ const BoardTable = forwardRef<
     // silmek yerine seçip topluca kaldırmak) — kullanıcı "sütun bazlı silme ekle... toplu olarak
     // onları silebilme gelsin" dedi.
     onDeleteOptions: (propertyId: string, optionIds: string[]) => void
+    // Bir sütunun değerini TÜM satırlarda boşaltır — herhangi bir sütun tipi için (sadece
+    // Seçim/Çoklu Seçim değil), kullanıcı "genel olarak olsun... bi sütunun altındaki
+    // satırlardakileri komple silebilmek" dedi.
+    onClearColumn: (propertyId: string, propertyName: string) => void
     onAddOption: (propertyId: string, label: string) => string
     onAddCriterion: (propertyId: string, name: string) => string
     onRenameCriterion: (propertyId: string, criterionId: string, name: string) => void
@@ -452,6 +456,7 @@ const BoardTable = forwardRef<
     onChangeOptionColor,
     onDeleteOption,
     onDeleteOptions,
+    onClearColumn,
     onAddOption,
     onAddCriterion,
     onRenameCriterion,
@@ -934,6 +939,7 @@ const BoardTable = forwardRef<
           onChangeOptionColor={(optionId, colorIndex) => onChangeOptionColor(menuProp.id, optionId, colorIndex)}
           onDeleteOption={(optionId) => onDeleteOption(menuProp.id, optionId)}
           onDeleteOptions={(optionIds) => onDeleteOptions(menuProp.id, optionIds)}
+          onClearColumn={() => onClearColumn(menuProp.id, menuProp.name)}
           onAddCriterion={(name) => onAddCriterion(menuProp.id, name)}
           onRenameCriterion={(criterionId, name) => onRenameCriterion(menuProp.id, criterionId, name)}
           onDeleteCriterion={(criterionId) => onDeleteCriterion(menuProp.id, criterionId)}
