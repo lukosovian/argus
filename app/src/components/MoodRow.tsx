@@ -5,8 +5,19 @@ import { parseYouTubeUrl } from '../lib/youtube'
 import { hoverCardMeta } from '../lib/rowMeta'
 import { isScrolling } from '../lib/scrollGuard'
 import { useProfiles } from '../hooks/useProfiles'
+import { useThemeMode } from '../hooks/useThemeMode'
 import HoverPreviewVideo from './HoverPreviewVideo'
 import { gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
+
+// Uygulamayla gelen 10 varsayılan mod görseli koyu temada duracak şekilde (beyaz ikon,
+// saydam arka plan) hazırlandı — açık temada, ana sayfanın kendi (artık açık) zemini üzerinde
+// bu beyaz ikonlar kayboluyor/okunmuyordu. Kullanıcının kendi yüklediği mod görsellerine
+// KARIŞMADAN (onlar `/medya/...` yolunda, bunlar `app/public/moods/...`) sadece bu 10 tanesini
+// açık temada ters çevirip (invert) siyaha dönüştürüyoruz — kullanıcı "kullanıcının kendi
+// eklediği görsellerde falan karışmayalım ama bu defaultlara karışalım" dedi.
+function isDefaultMoodImage(path: string): boolean {
+  return path.startsWith('/moods/')
+}
 
 // Dinlenme genişliği (dikey poster) ve üzerine gelince açılan yatay genişlik — MoodCard'ın
 // kendi ölçüleri, satırın kaydırma miktarını hesaplarken de kullanılıyor.
@@ -250,6 +261,7 @@ export default function MoodRow({
   onOpenDetail: (row: Row) => void
 }) {
   const { activeProfileId } = useProfiles()
+  const { theme } = useThemeMode()
   // Kapatılan (silinmeyen, sadece devre dışı bırakılan) modlar ana sayfada hiç görünmez —
   // bkz. MoodRowEditor.tsx'teki ToggleSwitch, Mood.enabled eski kayıtlarda yoksa true sayılır.
   const enabledMoods = useMemo(() => moods.filter((m) => m.enabled ?? true), [moods])
@@ -325,7 +337,10 @@ export default function MoodRow({
                 className="shrink-0 h-auto w-auto object-contain"
                 style={{
                   height: REST_WIDTH * 1.5,
-                  filter: 'grayscale(45%) brightness(0.85)',
+                  filter:
+                    theme === 'light' && isDefaultMoodImage(mood.image)
+                      ? 'invert(1) grayscale(45%) brightness(0.85)'
+                      : 'grayscale(45%) brightness(0.85)',
                   WebkitMaskImage: 'linear-gradient(to right, black 35%, transparent 85%)',
                   maskImage: 'linear-gradient(to right, black 35%, transparent 85%)',
                 }}
