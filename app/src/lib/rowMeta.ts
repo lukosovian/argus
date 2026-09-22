@@ -101,6 +101,13 @@ export function rowsForFilter(filter: { propertyId: string | null; optionIds: st
   })
 }
 
+// Bir satırın board'daki HERHANGİ bir görsel sütununda değeri var mı — Sağlık Kontrolü'nün
+// "kapak görseli olmayan kayıtlar" listesi bunu kullanıyor (sadece board'un "kapak" olarak
+// işaretlediği tek sütuna değil, tüm görsel sütunlara bakar).
+export function hasAnyImage(board: Board, row: Row): boolean {
+  return board.properties.some((p) => p.type === 'image' && Boolean(row.values[p.id]))
+}
+
 // Fisher-Yates — "Tümü" satırının karışık sırası ve RandomPickerButton'ın vitrin-tarzı
 // scatter animasyonu için gösterilecek örneklem ikisi de aynı basit karıştırmayı kullanıyor.
 export function shuffle<T>(arr: T[]): T[] {

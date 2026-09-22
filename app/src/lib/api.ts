@@ -58,6 +58,10 @@ export const api = {
   // satırlardakileri komple silebilmek" dedi, sadece Seçim/Çoklu Seçim'e özel değil.
   clearColumn: (boardId: string, propertyId: string) =>
     request<{ ok: true; count: number }>(profilePath(`/boards/${boardId}/clear-column/${propertyId}`), { method: 'POST' }),
+  getBoardHealth: (boardId: string) =>
+    request<{ brokenImages: { rowId: string; propertyId: string; propertyName: string; value: string }[] }>(
+      profilePath(`/boards/${boardId}/health`),
+    ),
 
   // Profillerin kendisi (isim/fotoğraf) profile-scoped DEĞİL — hepsi ortak, aktif profil
   // seçilmeden de listelenebilmesi/oluşturulabilmesi gerekiyor (kim izliyor ekranı için).

@@ -144,6 +144,30 @@ app.get('/api/profiles/:profileId/boards/:id/rows', (req, res) => {
   res.json(readJson(profileRowsFile(req.params.profileId, req.params.id), []))
 })
 
+// "Sağlık Kontrolü" paneli için — bir görsel sütununun değeri diskte gerçekten var olmayan bir
+// dosyaya işaret ediyorsa (ör. `medya/` klasöründen elle silinmiş bir dosya) bunu istemci
+// tarafından bilemeyiz, sadece sunucu diski kontrol edebilir. Eksik başlık/kapak gibi diğer
+// sağlık kontrolleri board+rows verisinden türetilebildiği için tamamen istemci tarafında.
+app.get('/api/profiles/:profileId/boards/:id/health', (req, res) => {
+  const boardsFile = profileBoardsFile(req.params.profileId)
+  const boards = readJson(boardsFile, [])
+  const board = boards.find((b) => b.id === req.params.id)
+  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  const rows = readJson(profileRowsFile(req.params.profileId, board.id), [])
+  const imageProps = board.properties.filter((p) => p.type === 'image')
+  const brokenImages = []
+  for (const row of rows) {
+    for (const p of imageProps) {
+      const v = row.values[p.id]
+      if (typeof v !== 'string' || !v.startsWith('/medya/')) continue
+      if (!fs.existsSync(path.join(ROOT, v))) {
+        brokenImages.push({ rowId: row.id, propertyId: p.id, propertyName: p.name, value: v })
+      }
+    }
+  }
+  res.json({ brokenImages })
+})
+
 app.post('/api/profiles/:profileId/boards/:id/rows', (req, res) => {
   const rowsFile = profileRowsFile(req.params.profileId, req.params.id)
   const rows = readJson(rowsFile, [])
