@@ -1,3 +1,5 @@
+import { resolveRole, type RoleKey, type StatusKey } from './lib/roles'
+
 export type PropertyType =
   | 'text'
   | 'number'
@@ -153,6 +155,14 @@ export interface Board {
   titleImagePropertyId: string | null
   properties: PropertyDef[]
   statMapping?: StatMapping
+  // Hangi sütunun hangi görevi gördüğü (Poster, Durum, Tür…) — bkz. lib/roles.ts. Yoksa
+  // görevler varsayılan sütun adlarından otomatik bulunur.
+  roles?: Partial<Record<RoleKey, string | null>>
+  // Durum sütununun hangi seçeneğinin "İzlenecek/İzleniyor/İzlendi" anlamına geldiği — yoksa
+  // etiketine göre bulunur (bkz. resolveStatusOption).
+  statusOptions?: Partial<Record<StatusKey, string>>
+  // Sağlık Kontrolü'nde "bu kayıtta bu alan yok, bir daha sorma" denenler: rowId → sütun id'leri.
+  healthIgnore?: Record<string, string[]>
   createdAt: number
   updatedAt: number
 }
@@ -336,7 +346,7 @@ export const BUILTIN_MOODS: BuiltinMoodTemplate[] = [
 // id'lerle üretilir; bundan sonra sıradan bir Mood kaydı gibi davranır, ayrı bir "yerleşik
 // mod" izleme mekanizması yok.
 export function resolveBuiltinMoods(board: Board): Mood[] {
-  const turProp = board.properties.find((p) => p.name === 'Tür' && (p.type === 'multiselect' || p.type === 'select'))
+  const turProp = resolveRole(board, 'tur')
   const labelToId = new Map((turProp?.options ?? []).map((o) => [o.label, o.id]))
   return BUILTIN_MOODS.map((tpl) => {
     const optionIds = tpl.genreLabels.map((l) => labelToId.get(l)).filter((id): id is string => Boolean(id))
@@ -402,6 +412,9 @@ export interface HomeSettings {
   // ya da 'yatay' (banner gibi). Boşsa önce dikey görsel, o yoksa yatay olan kullanılır.
   // Sütunların şekli görsellerin gerçek en/boy oranından anlaşılır (bkz. RandomPickerButton).
   randomPickerImageShape?: 'dikey' | 'yatay' | null
+  // Ana sayfanın en üstündeki "Yeni Bölümler" satırı (İzleniyor durumundaki dizilerin yeni
+  // bölümleri). Eski kayıtlarda yok, yoksa açık kabul edilir.
+  newEpisodesRow?: boolean
 }
 
 export const emptyHomeSettings: HomeSettings = {
@@ -422,6 +435,7 @@ export const emptyHomeSettings: HomeSettings = {
   randomPickerFilter: { propertyId: null, optionIds: [] },
   randomPickerCount: 30,
   randomPickerImageShape: null,
+  newEpisodesRow: true,
 }
 
 export function makeTitleProperty(name = 'Ad'): PropertyDef {

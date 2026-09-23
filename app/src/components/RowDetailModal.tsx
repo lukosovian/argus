@@ -4,6 +4,7 @@ import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../ty
 import { titleText, episodeKey, todayIso } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { metaSummary, formatRuntime } from '../lib/rowMeta'
+import { resolveRole } from '../lib/roles'
 import { normalizeAgeRating } from '../lib/ageRating'
 import { BRAND_TEXT } from '../lib/theme'
 import { useCast } from '../hooks/useCast'
@@ -14,6 +15,7 @@ import ShowcaseBanner from './ShowcaseBanner'
 import OptionBadge from './OptionBadge'
 import OptionDetailModal from './OptionDetailModal'
 import SeasonsBrowser from './SeasonsBrowser'
+import TmdbExtras from './TmdbExtras'
 import AgeRatingChip from './AgeRatingChip'
 
 function formatDate(v: string) {
@@ -59,10 +61,13 @@ function AgeRatingBadge({ raw }: { raw: string }) {
 function DetailValue({
   property,
   value,
+  isRuntime,
   onOptionClick,
 }: {
   property: PropertyDef
   value: PropertyValue
+  // Bu sütun "Süre" görevindeyse (bkz. lib/roles.ts) dakika "1 sa 52 dk" gibi gösterilir.
+  isRuntime: boolean
   onOptionClick: (propertyId: string, option: SelectOption) => void
 }) {
   if (property.type === 'checkbox') return <span className="text-neutral-300 text-base">{value ? 'Evet' : 'Hayır'}</span>
@@ -72,7 +77,7 @@ function DetailValue({
     if (dates.length === 0) return null
     return <span className="text-neutral-300 text-base">{dates.map(formatDate).join(', ')}</span>
   }
-  if (property.name === 'Süre' && property.type === 'number' && typeof value === 'number') {
+  if (isRuntime && typeof value === 'number') {
     return <span className="text-neutral-300 text-base">{formatRuntime(value)}</span>
   }
   if (property.type === 'multiselect') {
@@ -179,15 +184,16 @@ export default function RowDetailModal({
   const coverProp = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const titleImageProp = board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image')
-  const synopsisProp = board.properties.find((p) => p.type === 'longtext')
-  const urlProp = board.properties.find((p) => p.type === 'url')
+  const synopsisProp = resolveRole(board, 'sinopsis')
+  const urlProp = resolveRole(board, 'video')
   // "Poster" (dikey afiş) ve "Oyuncular" bu pencerede kendi özel alanlarında ayrıca
   // gösteriliyor — genel ızgaraya/özete tekrar düşmesinler diye usedIds'e ekleniyor.
-  const posterProp = board.properties.find((p) => p.name === 'Poster' && p.type === 'image')
-  const oyuncularProp = board.properties.find((p) => p.name === 'Oyuncular' && p.type === 'multiselect')
+  const posterProp = resolveRole(board, 'poster')
+  const oyuncularProp = resolveRole(board, 'oyuncular')
   // "Yaş Sınırı" de kendi rozet+açıklama gösterimine sahip, genel metin ızgarasına düşmesin diye
   // aynı şekilde usedIds'e ekleniyor (bkz. AgeRatingBadge).
-  const yasProp = board.properties.find((p) => p.name === 'Yaş Sınırı' && p.type === 'text')
+  const yasProp = resolveRole(board, 'yas')
+  const sureProp = resolveRole(board, 'sure')
 
   const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
   const titleImage = titleImageProp ? ((row.values[titleImageProp.id] as string) ?? '') : ''
@@ -355,7 +361,7 @@ export default function RowDetailModal({
                         <p className="text-xs font-bold mb-1" style={{ color: BRAND_TEXT }}>
                           {p.name}
                         </p>
-                        <DetailValue property={p} value={v} onOptionClick={(propId, opt) => handleOptionClick(propId, opt)} />
+                        <DetailValue property={p} value={v} isRuntime={p.id === sureProp?.id} onOptionClick={(propId, opt) => handleOptionClick(propId, opt)} />
                       </div>
                     )
                   })}
@@ -416,6 +422,8 @@ export default function RowDetailModal({
               </div>
             </div>
           )}
+
+          <TmdbExtras board={board} row={row} />
         </div>
       </div>
       {detailOption && (

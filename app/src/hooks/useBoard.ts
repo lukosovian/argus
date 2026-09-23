@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Board, PropertyDef } from '../types'
 import { api } from '../lib/api'
 import { useProfiles } from './useProfiles'
+import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 
 export function useBoard(boardId: string | undefined) {
   const { activeProfileId } = useProfiles()
@@ -31,10 +32,21 @@ export function useBoard(boardId: string | undefined) {
     reload()
   }, [reload])
 
+  useEffect(
+    () =>
+      onDataChanged((changed) => {
+        if (!boardId || !activeProfileId || (changed && changed !== boardId)) return
+        api.getBoards().then((all) => setBoard(all.find((b) => b.id === boardId) ?? null)).catch(() => {})
+      }),
+    [boardId, activeProfileId],
+  )
+
   async function saveBoard(patch: Partial<Omit<Board, 'id'>>) {
     if (!boardId) return
     const updated = await api.patchBoard(boardId, patch)
     setBoard(updated)
+    // Aynı arşivi gösteren diğer açık ekranlar (ör. arşiv adı, sütun görevleri) de güncellensin.
+    notifyDataChanged(boardId)
   }
 
   async function setProperties(properties: PropertyDef[]) {

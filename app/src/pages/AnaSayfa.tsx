@@ -8,12 +8,14 @@ import { useHomeSettings } from '../hooks/useHomeSettings'
 import { titleText, resolveBuiltinMoods, type Board, type Row } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { showcaseMeta, hoverCardMeta, rowsForFilter, shuffle } from '../lib/rowMeta'
+import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { useEpisodes } from '../hooks/useEpisodes'
 import { isScrolling } from '../lib/scrollGuard'
 import ShowcaseBanner from '../components/ShowcaseBanner'
 import RowDetailModal from '../components/RowDetailModal'
 import HoverPreviewVideo from '../components/HoverPreviewVideo'
 import MoodRow from '../components/MoodRow'
+import NewEpisodesRow from '../components/NewEpisodesRow'
 import AgeRatingChip from '../components/AgeRatingChip'
 import { sortByOrder } from '../components/HomeSectionEditor'
 import { PRIMARY_BUTTON, primaryButtonStyle, gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
@@ -151,7 +153,7 @@ export function HomeCard({
   const coverProp = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
   const titleImageProp = board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image')
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
-  const urlProp = board.properties.find((p) => p.type === 'url')
+  const urlProp = resolveRole(board, 'video')
 
   const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
   const titleImage = titleImageProp ? ((row.values[titleImageProp.id] as string) ?? '') : ''
@@ -533,9 +535,9 @@ export default function AnaSayfa() {
   const titleImageProp = board
     ? board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image')
     : undefined
-  const synopsisProp = board ? board.properties.find((p) => p.type === 'longtext') : undefined
-  const urlProp = board ? board.properties.find((p) => p.type === 'url') : undefined
-  const yasProp = board ? board.properties.find((p) => p.name === 'Yaş Sınırı' && p.type === 'text') : undefined
+  const synopsisProp = resolveRole(board, 'sinopsis')
+  const urlProp = resolveRole(board, 'video')
+  const yasProp = resolveRole(board, 'yas')
 
   // Kapak görseli olmayan kayıtlar, ayardan açılınca ana sayfanın (vitrin dahil) hiçbir
   // yerinde gösterilmiyor — ama başka bir yerden (ör. arama, detay linki) doğrudan açılabilsin
@@ -545,8 +547,8 @@ export default function AnaSayfa() {
   // "Bunları da İzle" (mod) satırının havuzu: Durum'u "İzlenecek" olan tüm kayıtlar — aktif
   // bölüm/filtreden bağımsız, her zaman arşivin tamamına bakar (bkz. kullanıcı isteği
   // "izlenecekler listemden ... çekecek").
-  const durumProp = board?.properties.find((p) => p.name === 'Durum' && p.type === 'select')
-  const izlenecekOptionId = durumProp?.options?.find((o) => o.label === 'İzlenecek')?.id
+  const durumProp = resolveRole(board, 'durum')
+  const izlenecekOptionId = board ? resolveStatusOption(board, 'izlenecek') : undefined
   const izlenecekPool =
     durumProp && izlenecekOptionId ? visibleRows.filter((r) => r.values[durumProp.id] === izlenecekOptionId) : []
 
@@ -596,7 +598,13 @@ export default function AnaSayfa() {
   // değilsek Ana Sayfa Ayarları'ndaki vitrin filtresi (yoksa arşivin tamamı). Anlık oyuncu/seçenek
   // filtresinde vitrin hiç gösterilmiyor — rastgele bir video/afişin araya girmesi yerine, sade
   // bir liste olarak kalsın istendi.
-  const showcasePool = adHocFilter
+  // Filtre/bölüm sayfası olup olmadığı adres çubuğundan (URL) HEMEN belli — arşiv bilgisinin
+  // yüklenmesini beklemiyoruz. Eskiden kayıtlar arşiv bilgisinden önce yüklenirse vitrin
+  // "filtre yok" sanıp arşivin tamamından rastgele bir kayıt seçiyor, arşiv sonra yüklenip filtre
+  // anlaşılınca da o seçim temizlenmediği için oyuncu sayfasının üstünde vitrin kalıyordu.
+  const adHocRequested = Boolean(filterPropId)
+  const sectionPending = Boolean(bolumId) && !activeSection
+  const showcasePool = adHocRequested || sectionPending
     ? []
     : activeSection
       ? scopedRows
@@ -608,7 +616,7 @@ export default function AnaSayfa() {
   // Anlık oyuncu/seçenek filtresi de havuz anahtarına dahil — yoksa uygulama içinden (sayfa
   // yenilenmeden) bir rozete tıklanınca, önceki vitrin state'i temizlenmeden kalıp görünmeye devam ediyordu.
   const adHocFilterKey = `${filterPropId ?? ''}:${filterOptionId ?? ''}`
-  const poolKey = `${bolumId ?? ''}|${showcaseFilterKey}|${adHocFilterKey}`
+  const poolKey = `${bolumId ?? ''}:${activeSection?.id ?? ''}|${showcaseFilterKey}|${adHocFilterKey}`
 
   // Vitrinde her girişte havuzdan rastgele bir kayıt seçilir, ama o ziyaret boyunca (aynı
   // bölüm/filtre havuzunda kaldığı sürece) sabit kalır — art arda değişip durmaz.
@@ -775,6 +783,10 @@ export default function AnaSayfa() {
   const showAllSection = settings.showAllSection ?? true
   const moodEnabled = Boolean(settings.moodRow?.enabled) && izlenecekPool.length > 0
   let defaultViewRows: React.ReactNode[] = [...(showAllSection ? [mainContentNode] : []), ...bodyRowNodes]
+  // "Yeni Bölümler" her zaman en üstte — izlemeye devam edilen dizilerin haberi en önemli bilgi.
+  if (board && (settings.newEpisodesRow ?? true)) {
+    defaultViewRows = [<NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} />, ...defaultViewRows]
+  }
   if (moodEnabled && settings.moodRow) {
     const insertAt = Math.min(Math.max(Math.round(settings.moodRow.position ?? 1) - 1, 0), defaultViewRows.length)
     const moodNode = (
@@ -812,7 +824,7 @@ export default function AnaSayfa() {
 
   return (
     <div className="px-4 py-6 space-y-8">
-      {featured && (
+      {featured && !adHocRequested && (
         <div className="relative mx-3 sm:mx-6">
           {ambientSource && (
             // 70px'lik tam boyutlu bir blur, kaydırma sırasında her karede yeniden boyanıp

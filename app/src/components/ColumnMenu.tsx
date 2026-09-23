@@ -1,4 +1,5 @@
 import { useState, type RefObject } from 'react'
+import Select from './Select'
 import { OPTION_COLORS, type PropertyDef, type PropertyType, type RatingCriterion, type SelectOption } from '../types'
 import AnchoredMenu from './AnchoredMenu'
 import PropertyTypePicker from './PropertyTypePicker'
@@ -149,6 +150,11 @@ export default function ColumnMenu({
   onDeleteCriterion,
   onToggleCover,
   onToggleTitleImage,
+  roleChoices,
+  currentRole,
+  onChangeRole,
+  statusChoices,
+  onChangeStatusOption,
 }: {
   anchorRef: RefObject<HTMLElement | null>
   property: PropertyDef
@@ -169,6 +175,13 @@ export default function ColumnMenu({
   onDeleteCriterion: (criterionId: string) => void
   onToggleCover?: () => void
   onToggleTitleImage?: () => void
+  // Bu sütunun üstlenebileceği görevler (bkz. lib/roles.ts) — boşsa bölüm hiç gösterilmez.
+  roleChoices: { value: string; label: string }[]
+  currentRole: string
+  onChangeRole: (role: string) => void
+  // Sadece Durum görevindeki sütunda: "İzlenecek/İzleniyor/İzlendi" hangi seçenek.
+  statusChoices?: { key: string; label: string; value: string }[]
+  onChangeStatusOption?: (key: string, optionId: string) => void
 }) {
   const { confirm } = useToast()
   const [name, setName] = useState(property.name)
@@ -221,6 +234,38 @@ export default function ColumnMenu({
         />
         <p className="text-[11px] text-neutral-500 mb-1.5">Tip</p>
         <PropertyTypePicker value={property.type} onChange={onChangeType} />
+
+        {roleChoices.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-neutral-800">
+            <p className="text-[11px] text-neutral-500 mb-1">Görevi</p>
+            <Select
+              value={currentRole}
+              onChange={onChangeRole}
+              options={[{ value: '', label: 'Yok' }, ...roleChoices]}
+            />
+            <p className="text-[11px] text-neutral-600 mt-1">
+              Uygulama bu sütunu bu iş için kullanır (ör. Poster, Durum). Sütunun adını değiştirsen de görevi kalır.
+            </p>
+          </div>
+        )}
+
+        {statusChoices && statusChoices.length > 0 && onChangeStatusOption && (
+          <div className="mt-3 pt-3 border-t border-neutral-800 space-y-1.5">
+            <p className="text-[11px] text-neutral-500">Seçeneklerin anlamı</p>
+            {statusChoices.map((s) => (
+              <div key={s.key} className="flex items-center gap-2">
+                <span className="text-xs text-neutral-400 w-20 shrink-0">{s.label}</span>
+                <div className="flex-1 min-w-0">
+                  <Select
+                    value={s.value}
+                    onChange={(v) => onChangeStatusOption(s.key, v)}
+                    options={[{ value: '', label: 'Seçilmedi' }, ...(property.options ?? []).map((o) => ({ value: o.id, label: o.label }))]}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {property.type === 'image' && (
           <div className="mt-3 pt-3 border-t border-neutral-800 space-y-1">

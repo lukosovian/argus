@@ -7,6 +7,7 @@ import { useRows } from '../hooks/useRows'
 import { ratingAverage, type Board, type PropertyDef, type PropertyType, type Row, type StatMapping } from '../types'
 import { BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import HelpHint from '../components/HelpHint'
+import { ROLE_DEFS, resolveRole, type RoleKey } from '../lib/roles'
 import Select from '../components/Select'
 
 // dataviz becerisindeki doğrulanmış varsayılan paletin KOYU-mod adımları — ARGUS hep koyu
@@ -16,9 +17,6 @@ const CATEGORICAL = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#00
 const SEQUENTIAL_BLUE = '#3987e5'
 const OTHER_GRAY = '#5b5b58'
 
-function find(board: Board, name: string, type?: string): PropertyDef | undefined {
-  return board.properties.find((p) => p.name === name && (!type || p.type === type))
-}
 
 // İstatistiklerin hangi sütunu kullanacağını belirleyen 8 "yuva". "Medya Arşivi" şablonundan
 // gelen arşivlerde (ya da aynı adları kullanan herhangi bir arşivde) hiçbir ayar gerekmeden
@@ -26,39 +24,37 @@ function find(board: Board, name: string, type?: string): PropertyDef | undefine
 // arşivde ise kullanıcı "Sütunları Eşleştir" panelinden hangi sütunun hangi grafiğe gideceğini
 // elle seçer (bkz. board.statMapping, types.ts). Yeni bir istatistik eklenecekse önce buraya bir
 // yuva eklenir, `useStats` o yuvayı kullanır — böylece sütun adı hiçbir yerde iki kez yazılmaz.
+// Yuvalar artık uygulamanın genel sütun görevlerine (bkz. lib/roles.ts) bağlı — burada yapılan
+// eşleştirme tablodaki sütun menüsünün "Görevi" seçimiyle aynı şey, iki ayrı ayar değil.
 interface StatSlot {
-  key: keyof StatMapping
+  key: RoleKey
   label: string
   type: PropertyType
-  fallbackName: string
   hint: string
 }
 
 const STAT_SLOTS: StatSlot[] = [
-  { key: 'durumId', label: 'Durum', type: 'select', fallbackName: 'Durum', hint: '"İzlenen" sayısı ve durum dağılımı grafiği için — tek seçimli bir sütun (ör. İzlendi/İzlenecek).' },
-  { key: 'kategoriId', label: 'Kategori', type: 'select', fallbackName: 'Kategori', hint: 'Kategori dağılımı grafiği için — tek seçimli bir sütun (ör. Film/Dizi).' },
-  { key: 'turId', label: 'Tür', type: 'multiselect', fallbackName: 'Tür', hint: '"En çok geçen türler" için — çoklu seçim bir sütun.' },
-  { key: 'ulkeId', label: 'Ülke', type: 'multiselect', fallbackName: 'Ülke', hint: '"En çok geçen ülkeler" için — çoklu seçim bir sütun.' },
-  { key: 'vizyonId', label: 'Vizyon / Yayın Tarihi', type: 'date', fallbackName: 'Vizyon Tarihi', hint: 'Yıla göre dağılım grafiği için — tarih tipi bir sütun.' },
+  { key: 'durum', label: 'Durum', type: 'select', hint: '"İzlenen" sayısı ve durum dağılımı grafiği için — tek seçimli bir sütun (ör. İzlendi/İzlenecek).' },
+  { key: 'kategori', label: 'Kategori', type: 'select', hint: 'Kategori dağılımı grafiği için — tek seçimli bir sütun (ör. Film/Dizi).' },
+  { key: 'tur', label: 'Tür', type: 'multiselect', hint: '"En çok geçen türler" için — çoklu seçim bir sütun.' },
+  { key: 'ulke', label: 'Ülke', type: 'multiselect', hint: '"En çok geçen ülkeler" için — çoklu seçim bir sütun.' },
+  { key: 'vizyon', label: 'Vizyon / Yayın Tarihi', type: 'date', hint: 'Yıla göre dağılım grafiği için — tarih tipi bir sütun.' },
   {
-    key: 'sureId',
+    key: 'sure',
     label: 'Süre',
     type: 'number',
-    fallbackName: 'Süre',
+   
     hint: 'Toplam izleme süresi için — dakika cinsinden sayı sütunu. Not: TMDB otomatik doldurma bu alanı şu an SADECE filmler için dolduruyor, dizilerin bölüm süreleri toplanmıyor — "Toplam süre" bu yüzden aslında yalnızca izlediğin filmleri sayar.',
   },
-  { key: 'puanId', label: 'Puan', type: 'rating', fallbackName: 'Puan', hint: 'Ortalama puan için — "Puan (kriterli)" tipi bir sütun.' },
-  { key: 'oyuncularId', label: 'Oyuncular', type: 'multiselect', fallbackName: 'Oyuncular', hint: '"En çok karşına çıkan oyuncular" için — çoklu seçim bir sütun.' },
+  { key: 'puan', label: 'Puan', type: 'rating', hint: 'Ortalama puan için — "Puan (kriterli)" tipi bir sütun.' },
+  { key: 'oyuncular', label: 'Oyuncular', type: 'multiselect', hint: '"En çok karşına çıkan oyuncular" için — çoklu seçim bir sütun.' },
 ]
 
 // Bir yuva için kullanılacak gerçek sütunu bulur: kullanıcı elle bir şey seçtiyse onu (id hâlâ
 // geçerli ve tipi uyuyorsa), bilerek "kullanma" dediyse hiçbirini (undefined), hiç karar
 // vermediyse (statMapping'te bu anahtar hiç yoksa) adına+tipine göre otomatik dener.
 function resolveStatProp(board: Board, slot: StatSlot): PropertyDef | undefined {
-  const mapped = board.statMapping?.[slot.key]
-  if (mapped === null) return undefined
-  if (mapped) return board.properties.find((p) => p.id === mapped && p.type === slot.type)
-  return find(board, slot.fallbackName, slot.type)
+  return resolveRole(board, slot.key)
 }
 
 interface Bucket {
@@ -308,22 +304,26 @@ function DecadeColumns({ data }: { data: [number, number][] }) {
 // "Sütunları Eşleştir" — her yuva için bu arşivin uygun tipteki sütunlarından birini seç, ya da
 // "Otomatik"/"Kullanma" de. Kapalı başlar, sadece isteyen açsın diye ("kim izliyor" sayfasındaki
 // gibi uzun ayrıntı varsayılanda gizli kalsın ilkesiyle aynı, bkz. Import.tsx'teki HelpHint'ler).
-function MappingPanel({ board, onSave }: { board: Board; onSave: (mapping: StatMapping) => Promise<void> }) {
+function MappingPanel({ board, onSave }: { board: Board; onSave: (patch: Partial<Board>) => Promise<void> }) {
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
 
   async function handleChange(slot: StatSlot, value: string) {
     setSaving(slot.key)
-    const next: StatMapping = { ...board.statMapping }
-    if (value === '__auto__') delete next[slot.key]
-    else if (value === '__none__') next[slot.key] = null
-    else next[slot.key] = value
-    await onSave(next)
+    const roles = { ...(board.roles ?? {}) }
+    if (value === '__auto__') delete roles[slot.key]
+    else if (value === '__none__') roles[slot.key] = null
+    else roles[slot.key] = value
+    // Eski (sadece İstatistikler'e özel) eşleştirme kaydı varsa temizleniyor — artık tek kaynak roles.
+    const legacyKey = ROLE_DEFS.find((d) => d.key === slot.key)?.legacyStatKey
+    const statMapping: StatMapping = { ...board.statMapping }
+    if (legacyKey) delete statMapping[legacyKey]
+    await onSave({ roles, statMapping })
     setSaving(null)
   }
 
   function currentValue(slot: StatSlot): string {
-    const mapped = board.statMapping?.[slot.key]
+    const mapped = board.roles?.[slot.key]
     if (mapped === null) return '__none__'
     if (mapped) return mapped
     return '__auto__'
@@ -345,7 +345,7 @@ function MappingPanel({ board, onSave }: { board: Board; onSave: (mapping: StatM
             sütun adlarını kullandıysan), her grafiğin hangi sütundan besleneceğini burada elle seçebilirsin.
           </p>
           {STAT_SLOTS.map((slot) => {
-            const options = board.properties.filter((p) => p.type === slot.type)
+            const options = board.properties.filter((p) => ROLE_DEFS.find((d) => d.key === slot.key)?.types.includes(p.type))
             return (
               <div key={slot.key} className="flex items-center gap-3">
                 <div className="w-40 shrink-0 flex items-center gap-1.5">
@@ -434,7 +434,7 @@ export default function Istatistikler() {
         )}
       </div>
 
-      <MappingPanel board={board} onSave={(mapping) => saveBoard({ statMapping: mapping })} />
+      <MappingPanel board={board} onSave={(patch) => saveBoard(patch)} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile label="Toplam kayıt" value={String(stats.total)} />

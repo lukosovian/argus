@@ -264,7 +264,9 @@ function TemplateCard({
   const titleMapped = !importEnabled || csvPlans.some((p) => p.include && p.mapTo === titleProp.id)
   const hasImageColumn = importEnabled && csvPlans.some((p) => p.include && mapTargets.find((t) => t.id === p.mapTo)?.type === 'image')
   const imagesReady = !hasImageColumn || imageFiles.size > 0 || skipImages
-  const canAutoFillHere = mapTargets.some((p) => p.type === 'text' && (p.name === 'Türkçe Adı' || p.name === 'Orjinal Adı'))
+  // TMDB araması başlık ya da "Orjinal Adı" görevindeki sütunla yapılıyor — adı ne olursa olsun
+  // bir metin sütunu varsa otomatik doldurma teklif edilebilir.
+  const canAutoFillHere = mapTargets.some((p) => p.type === 'text')
   const needsApiKey = autoFillEnabled && !apiKeyInput.trim()
 
   const canSubmit =

@@ -85,3 +85,12 @@ export function BulkRefreshIcon({ spinning, className = 'h-4 w-4' }: { spinning?
     </svg>
   )
 }
+
+export function CompassIcon({ className = 'h-5 w-5' }: { className?: string } = {}) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </svg>
+  )
+}

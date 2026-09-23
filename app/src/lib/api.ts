@@ -1,5 +1,47 @@
 import type { Board, CastMap, EpisodesMap, HomeSettings, Profile, Row, Template, WatchedMap } from '../types'
 
+// TMDB'deki bir içeriğin kart bilgisi (Benzerler / Keşfet sonuçları).
+export interface TmdbCard {
+  tmdbId: number
+  mediaType: 'movie' | 'tv'
+  title: string
+  originalTitle: string
+  year: string
+  poster: string | null
+  overview: string
+  rating: number | null
+  inArchive?: boolean
+}
+
+export interface WatchProvider {
+  name: string
+  logo: string | null
+}
+
+export interface TmdbExtras {
+  needsApiKey?: boolean
+  notFound?: boolean
+  providers?: { link: string | null; flatrate: WatchProvider[]; free: WatchProvider[]; rent: WatchProvider[]; buy: WatchProvider[] } | null
+  similar?: TmdbCard[]
+}
+
+export interface EpisodeRef {
+  season: number
+  episode: number
+  name: string
+  airDate: string
+}
+
+export interface NewEpisodeItem {
+  rowId: string
+  tracking: boolean
+  unwatchedCount: number
+  nextToWatch: { season: number; episode: number } | null
+  latest: EpisodeRef
+  latestIsNew: boolean
+  upcoming: EpisodeRef | null
+}
+
 // Yerel sunucuyla konuşan tek nokta. Vite dev sunucusu /api ve /medya
 // isteklerini otomatik olarak arka plandaki Node sunucusuna (server/index.js) yönlendirir.
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -92,6 +134,23 @@ export const api = {
       profilePath(`/fetch-tmdb/${boardId}/${rowId}`),
       { method: 'POST', ...json({ exclude, overwrite }) },
     ),
+
+  // ---- TMDB keşif özellikleri (bkz. server/index.js'teki "TMDB tabanlı keşif" bölümü) ----
+  getTmdbExtras: (boardId: string, rowId: string) =>
+    request<TmdbExtras>(profilePath(`/tmdb-extras/${boardId}/${rowId}`)),
+  addFromTmdb: (
+    boardId: string,
+    item: { tmdbId: number; mediaType: 'movie' | 'tv'; status: 'izlenecek' | 'izlendi'; watchedDate?: string; rating?: number; exclude?: string[] },
+  ) => request<{ ok: true; rowId: string; title: string; filled: boolean }>(profilePath(`/tmdb-add/${boardId}`), { method: 'POST', ...json(item) }),
+  getTmdbGenres: (type: 'movie' | 'tv') =>
+    request<{ genres: { id: number; name: string }[]; needsApiKey?: boolean }>(profilePath(`/tmdb-genres?type=${type}`)),
+  discoverTmdb: (boardId: string, query: { type: 'movie' | 'tv'; genreIds: number[]; count: number; sort: 'popular' | 'top' | 'new' }) =>
+    request<{ items: TmdbCard[] }>(profilePath(`/tmdb-discover/${boardId}`), { method: 'POST', ...json(query) }),
+  dismissTmdb: (item: { tmdbId: number; mediaType: 'movie' | 'tv' }) =>
+    request<{ ok: true; count: number }>(profilePath('/tmdb-dismiss'), { method: 'POST', ...json(item) }),
+  getDismissedCount: () => request<{ count: number }>(profilePath('/tmdb-dismiss')),
+  resetDismissed: () => request<{ ok: true }>(profilePath('/tmdb-dismiss'), { method: 'DELETE' }),
+  getNewEpisodes: (boardId: string) => request<{ items: NewEpisodeItem[] }>(profilePath(`/new-episodes/${boardId}`)),
 
   // Profile bağlı değil — ARGUS klasörünün git durumuna göre (bkz. server/index.js).
   checkUpdate: () => request<{ updateAvailable: boolean; commitsBehind: number }>('/api/update-check'),

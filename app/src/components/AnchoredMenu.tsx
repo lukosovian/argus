@@ -1,10 +1,17 @@
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
 // Tabloların içindeki popover'lar (sütun ekle/düzenle menüsü) eskiden `absolute`
 // konumlanıp tablonun sarmalayıcı `overflow-x-auto` kutusunun içinde kalıyordu —
 // bu kutu dikeyde de scroll alanına dönüştüğü için popover tablonun alt sınırında
 // kesiliyordu. Bunun yerine document.body'e portal ile taşıyıp `fixed` konumluyoruz.
+// İç içe menüler (ör. sütun menüsünün İÇİNDEKİ bir açılır liste) de ayrı birer portal olduğu
+// için, içteki listeye tıklamak dıştaki menüye göre "dışarı tıklama" sayılıp dıştakini — ve
+// onunla birlikte içtekini — seçim yapılamadan kapatıyordu. Her menü, içinde açılan menülerin
+// panellerini bu context üzerinden kendine kaydettiriyor; dışarı tıklama kontrolü onları da
+// "içeride" sayıyor.
+const ChildPanelsContext = createContext<Set<HTMLElement> | null>(null)
+
 export default function AnchoredMenu({
   anchorRef,
   align = 'left',
@@ -20,6 +27,19 @@ export default function AnchoredMenu({
 }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const parentChildren = useContext(ChildPanelsContext)
+  // Sabit bir Set — içine ekleme/çıkarma render'ı tetiklemesin diye state değil, ama render
+  // sırasında Provider'a verilebilsin diye ref de değil (useState'in tembel başlangıcıyla tek sefer).
+  const [childPanels] = useState<Set<HTMLElement>>(() => new Set())
+
+  useLayoutEffect(() => {
+    const el = panelRef.current
+    if (!parentChildren || !el) return
+    parentChildren.add(el)
+    return () => {
+      parentChildren.delete(el)
+    }
+  })
 
   useLayoutEffect(() => {
     function updatePosition() {
@@ -63,17 +83,18 @@ export default function AnchoredMenu({
       const target = e.target as Node
       if (panelRef.current?.contains(target)) return
       if (anchorRef?.current?.contains(target)) return
+      for (const child of childPanels) if (child.contains(target)) return
       onClose()
     }
     document.addEventListener('mousedown', handlePointerDown)
     return () => document.removeEventListener('mousedown', handlePointerDown)
-  }, [anchorRef, onClose])
+  }, [anchorRef, onClose, childPanels])
 
   if (!pos) return null
 
   return createPortal(
     <div ref={panelRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width, zIndex: 50 }}>
-      {children}
+      <ChildPanelsContext.Provider value={childPanels}>{children}</ChildPanelsContext.Provider>
     </div>,
     document.body,
   )

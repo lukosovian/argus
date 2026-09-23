@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Board } from '../types'
 import { api } from '../lib/api'
 import { useProfiles } from './useProfiles'
+import { onDataChanged } from '../lib/dataEvents'
 
 function byCreatedAtAsc(a: Board, b: Board) {
   return a.createdAt - b.createdAt
@@ -22,6 +23,15 @@ export function useBoards() {
       .then((data) => setBoards(data.sort(byCreatedAtAsc)))
       .finally(() => setLoading(false))
   }, [activeProfileId])
+
+  useEffect(
+    () =>
+      onDataChanged(() => {
+        if (!activeProfileId) return
+        api.getBoards().then((data) => setBoards(data.sort(byCreatedAtAsc))).catch(() => {})
+      }),
+    [activeProfileId],
+  )
 
   async function createBoard(data: Omit<Board, 'id'>): Promise<string> {
     const { id } = await api.createBoard(data)
