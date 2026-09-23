@@ -16,10 +16,12 @@ import {
 } from '../types'
 import { rowMatchesFilter } from '../components/BoardGallery'
 import { hasAnyImage } from '../lib/rowMeta'
+import { assignRole, lockRolesForProperty, resolveRole, type RoleKey, type StatusKey } from '../lib/roles'
 import BoardTable, { type BoardTableHandle } from '../components/BoardTable'
 import RowDetailModal from '../components/RowDetailModal'
 import HealthCheckModal from '../components/HealthCheckModal'
 import TableGuideModal from '../components/TableGuideModal'
+import DiscoverModal from '../components/DiscoverModal'
 import OptionBadge from '../components/OptionBadge'
 import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
@@ -28,6 +30,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import {
   BulkRefreshIcon,
   ColumnsIcon,
+  CompassIcon,
   FilterIcon,
   GearIcon,
   HealthIcon,
@@ -698,11 +701,11 @@ export default function BoardView() {
   // "Genel Güncelleme"nin hangi kayıtları eksik sayacağı — TMDB'nin doldurduğu en temel
   // alanlar (bkz. server/index.js'teki aynı isimli sütunlar). Board'da bu sütunlardan hangisi
   // yoksa (kullanıcı silmişse) o alan kontrolden muaf tutulur.
-  const posterProp = board?.properties.find((p) => p.name === 'Poster' && p.type === 'image')
-  const synopsisProp = board?.properties.find((p) => p.type === 'longtext')
-  const videoProp = board?.properties.find((p) => p.name.toLocaleLowerCase('tr') === 'video' && p.type === 'url')
-  const ulkeProp = board?.properties.find((p) => p.name === 'Ülke' && p.type === 'multiselect')
-  const yonetmenProp = board?.properties.find((p) => p.name === 'Yönetmen' && p.type === 'text')
+  const posterProp = resolveRole(board, 'poster')
+  const synopsisProp = resolveRole(board, 'sinopsis')
+  const videoProp = resolveRole(board, 'video')
+  const ulkeProp = resolveRole(board, 'ulke')
+  const yonetmenProp = resolveRole(board, 'yonetmen')
   const incompletenessChecks = [posterProp, synopsisProp, videoProp, ulkeProp, yonetmenProp].filter(
     (p): p is PropertyDef => Boolean(p),
   )
@@ -716,7 +719,11 @@ export default function BoardView() {
 
   function isIncomplete(row: Row): boolean {
     if (!hasTitleFilled(row)) return false
+    // Sağlık Kontrolü'nde "bir daha sorma" denen alanlar eksik sayılmıyor — Genel Güncelleme de
+    // sırf onlar için bu kayda tekrar TMDB isteği atmasın.
+    const ignored = new Set(board?.healthIgnore?.[row.id] ?? [])
     return incompletenessChecks.some((p) => {
+      if (ignored.has(p.id)) return false
       const v = row.values[p.id]
       return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
     })
@@ -727,6 +734,7 @@ export default function BoardView() {
   // ayrıca sunucudan çekiliyor (bkz. HealthCheckModal.tsx).
   const [healthOpen, setHealthOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [discoverOpen, setDiscoverOpen] = useState(false)
   const missingImageRows = useMemo(
     () => (board ? rows.filter((r) => hasTitleFilled(r) && !hasAnyImage(board, r)) : []),
     [board, rows, hasTitleFilled],
@@ -778,7 +786,24 @@ export default function BoardView() {
 
   function renameProperty(propertyId: string, name: string) {
     if (!board) return
-    setProperties(board.properties.map((p) => (p.id === propertyId ? { ...p, name } : p)))
+    const properties = board.properties.map((p) => (p.id === propertyId ? { ...p, name } : p))
+    // Sütun bir görevi sadece varsayılan ADI sayesinde görüyorsa (ör. "Poster"), yeni ad o görevi
+    // kaybettirmesin diye görev önce bu sütuna sabitleniyor (bkz. lib/roles.ts).
+    const roles = lockRolesForProperty(board, propertyId)
+    saveBoard(roles ? { properties, roles } : { properties })
+  }
+
+  function setPropertyRole(propertyId: string, role: RoleKey | null) {
+    if (!board) return
+    saveBoard({ roles: assignRole(board, propertyId, role) })
+  }
+
+  function setStatusOption(key: StatusKey, optionId: string) {
+    if (!board) return
+    const next = { ...(board.statusOptions ?? {}) }
+    if (optionId) next[key] = optionId
+    else delete next[key]
+    saveBoard({ statusOptions: next })
   }
 
   function changePropertyType(propertyId: string, type: PropertyType) {
@@ -1109,6 +1134,10 @@ export default function BoardView() {
             </ToolbarIconButton>
           )}
 
+          <ToolbarIconButton onClick={() => setDiscoverOpen(true)} title="Keşfet — arşivinde olmayan içerikleri bul">
+            <CompassIcon />
+          </ToolbarIconButton>
+
           <ToolbarIconButton onClick={() => setGuideOpen(true)} title="Bu tablo nasıl kullanılır?">
             <InfoIcon />
           </ToolbarIconButton>
@@ -1155,6 +1184,8 @@ export default function BoardView() {
           onReorderProperties={reorderProperties}
           onSetCoverProperty={setCoverProperty}
           onSetTitleImageProperty={setTitleImageProperty}
+          onSetPropertyRole={setPropertyRole}
+          onSetStatusOption={setStatusOption}
           onFetchTmdb={fetchTmdb}
         />
       )}
@@ -1171,6 +1202,8 @@ export default function BoardView() {
 
       {guideOpen && <TableGuideModal onClose={() => setGuideOpen(false)} />}
 
+      {discoverOpen && <DiscoverModal boardId={board.id} exclude={[...tmdbExcludeFields]} onClose={() => setDiscoverOpen(false)} />}
+
       {healthOpen && (
         <HealthCheckModal
           board={board}
@@ -1178,6 +1211,14 @@ export default function BoardView() {
           missingImageRows={missingImageRows}
           incompleteRows={incompleteRowsForHealth}
           incompleteChecks={incompletenessChecks}
+          onIgnore={(rowIds, propertyId) => {
+            const next = { ...(board.healthIgnore ?? {}) }
+            for (const id of rowIds) next[id] = [...new Set([...(next[id] ?? []), propertyId])]
+            saveBoard({ healthIgnore: next })
+            const name = board.properties.find((p) => p.id === propertyId)?.name ?? 'Bu alan'
+            notify(rowIds.length === 1 ? `Bu kayıtta ${name} artık sorulmayacak.` : `${rowIds.length} kayıtta ${name} artık sorulmayacak.`)
+          }}
+          onResetIgnored={() => saveBoard({ healthIgnore: {} })}
           onOpenRow={(row) => {
             setHealthOpen(false)
             setDetailRow(row)

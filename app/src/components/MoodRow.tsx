@@ -3,6 +3,7 @@ import type { Board, Mood, Row } from '../types'
 import { titleText, BUILTIN_MOODS } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { hoverCardMeta } from '../lib/rowMeta'
+import { resolveRole } from '../lib/roles'
 import { isScrolling } from '../lib/scrollGuard'
 import { useProfiles } from '../hooks/useProfiles'
 import { useThemeMode } from '../hooks/useThemeMode'
@@ -112,9 +113,9 @@ function MoodCard({
   }
 
   const coverProp = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
-  const posterProp = board.properties.find((p) => p.name === 'Poster' && p.type === 'image')
+  const posterProp = resolveRole(board, 'poster')
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
-  const urlProp = board.properties.find((p) => p.type === 'url')
+  const urlProp = resolveRole(board, 'video')
 
   const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
   const poster = posterProp ? ((row.values[posterProp.id] as string) ?? '') : ''

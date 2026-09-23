@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Row } from '../types'
 import { api } from '../lib/api'
 import { useProfiles } from './useProfiles'
+import { onDataChanged } from '../lib/dataEvents'
 
 function byCreatedAtAsc(a: Row, b: Row) {
   return a.createdAt - b.createdAt
@@ -29,6 +30,17 @@ export function useRows(boardId: string | undefined) {
   useEffect(() => {
     reload()
   }, [reload])
+
+  // Başka bir yerden (ör. Keşfet) bu arşive kayıt eklenince sessizce yenile — "Yükleniyor..."
+  // göstermeden, mevcut liste yerinde dururken.
+  useEffect(
+    () =>
+      onDataChanged((changed) => {
+        if (!boardId || !activeProfileId || (changed && changed !== boardId)) return
+        api.getRows(boardId).then((data) => setRows(data.sort(byCreatedAtAsc))).catch(() => {})
+      }),
+    [boardId, activeProfileId],
+  )
 
   async function saveRow(row: Omit<Row, 'id'>, id?: string) {
     if (!boardId) return undefined

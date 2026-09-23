@@ -18,6 +18,8 @@ export default function HealthCheckModal({
   missingImageRows,
   incompleteRows,
   incompleteChecks,
+  onIgnore,
+  onResetIgnored,
   onOpenRow,
   onClose,
 }: {
@@ -29,6 +31,10 @@ export default function HealthCheckModal({
   // incompletenessChecks) — her kaydın yanında TAM OLARAK hangilerinin boş olduğunu
   // gösterebilmek için. Kullanıcı "bişeyi yok diyo ama nesi yok tam bilemiyorum" dedi.
   incompleteChecks: PropertyDef[]
+  // "Bu kayıtta bu alan yok, bir daha sorma" — örn. TMDB'de hiç fragmanı olmayan filmler
+  // listede sonsuza kadar "eksik" görünmesin diye (bkz. board.healthIgnore).
+  onIgnore: (rowIds: string[], propertyId: string) => void
+  onResetIgnored: () => void
   onOpenRow: (row: Row) => void
   onClose: () => void
 }) {
@@ -63,7 +69,9 @@ export default function HealthCheckModal({
   }
 
   function missingFields(row: Row): PropertyDef[] {
+    const ignored = new Set(board.healthIgnore?.[row.id] ?? [])
     return incompleteChecks.filter((p) => {
+      if (ignored.has(p.id)) return false
       const v = row.values[p.id]
       return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
     })
@@ -79,6 +87,8 @@ export default function HealthCheckModal({
   const shownIncomplete = missingFilter
     ? incompleteRows.filter((r) => missingFields(r).some((m) => m.id === missingFilter))
     : incompleteRows
+  const filterProp = incompleteChecks.find((p) => p.id === missingFilter)
+  const ignoredCount = Object.values(board.healthIgnore ?? {}).reduce((n, ids) => n + ids.length, 0)
 
   return (
     <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onClose}>
@@ -107,7 +117,7 @@ export default function HealthCheckModal({
           />
           <HealthSection
             title="Eksik bilgisi olan kayıtlar"
-            hint="Her kaydın yanında hangi alanlarının boş olduğu yazıyor — TMDB güncellemesiyle doldurulabilir."
+            hint="Her kaydın yanında boş olan alanlar yazıyor. Gerçekten olmayan bir şeyse (ör. fragmanı hiç yok) yanındaki × ile bir daha sorma."
             count={incompleteRows.length}
             filters={
               incompleteRows.length > 0 && (
@@ -122,14 +132,42 @@ export default function HealthCheckModal({
                         {m.prop.name} yok ({m.count})
                       </FilterChip>
                     ))}
+                  {filterProp && shownIncomplete.length > 0 && (
+                    <button
+                      onClick={() => {
+                        onIgnore(
+                          shownIncomplete.map((r) => r.id),
+                          filterProp.id,
+                        )
+                        setMissingFilter(null)
+                      }}
+                      className="text-xs rounded-full px-2.5 py-1 border border-dashed border-neutral-600 text-neutral-400 hover:text-neutral-50 hover:border-neutral-400 transition"
+                    >
+                      Bu {shownIncomplete.length} kayıtta "{filterProp.name}" sorulmasın
+                    </button>
+                  )}
                 </div>
+              )
+            }
+            footer={
+              ignoredCount > 0 && (
+                <p className="text-xs text-neutral-600 mt-2 px-2.5">
+                  {ignoredCount} alan "sorma" olarak işaretli ·{' '}
+                  <button onClick={onResetIgnored} className="text-neutral-400 hover:text-neutral-50 underline">
+                    hepsini tekrar sor
+                  </button>
+                </p>
               )
             }
             items={shownIncomplete.map((row) => ({
               key: row.id,
               row,
               label: rowTitle(row),
-              tags: missingFields(row).map((p) => p.name),
+              tags: missingFields(row).map((p) => ({
+                label: p.name,
+                dismissTitle: `Bu kayıtta ${p.name} yok — bir daha sorma`,
+                onDismiss: () => onIgnore([row.id], p.id),
+              })),
             }))}
             onOpenRow={onOpenRow}
           />
@@ -140,7 +178,7 @@ export default function HealthCheckModal({
             loading={brokenLoading}
             items={brokenImages.flatMap((b, i) => {
               const row = rowById(b.rowId)
-              return row ? [{ key: `${b.rowId}-${i}`, row, label: rowTitle(row), tags: [b.propertyName] }] : []
+              return row ? [{ key: `${b.rowId}-${i}`, row, label: rowTitle(row), tags: [{ label: b.propertyName }] }] : []
             })}
             onOpenRow={onOpenRow}
           />
@@ -165,7 +203,8 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
   )
 }
 
-type HealthItem = { key: string; row: Row; label: string; tags: string[] }
+type HealthTag = { label: string; dismissTitle?: string; onDismiss?: () => void }
+type HealthItem = { key: string; row: Row; label: string; tags: HealthTag[] }
 
 // Her bölüm kapalı gelir (başlık + sayı), tıklayınca açılır — üç uzun liste alt alta tek
 // seferde dökülünce panel okunmaz oluyordu. Açıkken ilk MAX_SHOWN kayıt görünür, kalanlar
@@ -176,6 +215,7 @@ function HealthSection({
   count,
   items,
   filters,
+  footer,
   loading = false,
   onOpenRow,
 }: {
@@ -184,6 +224,7 @@ function HealthSection({
   count: number
   items: HealthItem[]
   filters?: React.ReactNode
+  footer?: React.ReactNode
   loading?: boolean
   onOpenRow: (row: Row) => void
 }) {
@@ -209,27 +250,36 @@ function HealthSection({
           {loading ? 'Kontrol ediliyor...' : count === 0 ? 'Sorun yok' : `${count} kayıt ${open ? '▴' : '▾'}`}
         </span>
       </button>
+      {open && count === 0 && footer && <div className="px-4 pb-3">{footer}</div>}
       {open && count > 0 && (
         <div className="px-4 pb-4">
           {filters}
           <ul className="space-y-0.5 max-h-[50vh] overflow-y-auto">
             {visible.map((item) => (
-              <li key={item.key}>
+              <li key={item.key} className="flex items-center gap-3 rounded-lg hover:bg-neutral-800 px-2.5 py-1 transition">
                 <button
                   onClick={() => onOpenRow(item.row)}
-                  className="w-full text-left text-sm text-neutral-300 hover:text-[#00c0fa] hover:bg-neutral-800 rounded-lg px-2.5 py-1.5 transition flex items-center justify-between gap-3"
+                  className="flex-1 min-w-0 text-left text-sm text-neutral-300 hover:text-[#00c0fa] py-0.5 truncate"
                 >
-                  <span className="truncate">{item.label}</span>
-                  {item.tags.length > 0 && (
-                    <span className="flex flex-wrap justify-end gap-1 shrink-0">
-                      {item.tags.map((t) => (
-                        <span key={t} className="text-[11px] text-neutral-400 bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5">
-                          {t}
-                        </span>
-                      ))}
-                    </span>
-                  )}
+                  {item.label}
                 </button>
+                {item.tags.length > 0 && (
+                  <span className="flex flex-wrap justify-end gap-1 shrink-0">
+                    {item.tags.map((t) => (
+                      <span
+                        key={t.label}
+                        className="inline-flex items-center gap-1 text-[11px] text-neutral-400 bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5"
+                      >
+                        {t.label}
+                        {t.onDismiss && (
+                          <button onClick={t.onDismiss} title={t.dismissTitle} className="text-neutral-500 hover:text-rose-400 leading-none">
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -238,6 +288,7 @@ function HealthSection({
               {showAll ? 'Daha az göster' : `Tümünü göster (+${items.length - MAX_SHOWN} kayıt daha)`}
             </button>
           )}
+          {footer}
         </div>
       )}
     </div>

@@ -1,7 +1,9 @@
 // pp menüsündeki "Yama Notları" ile açılan, ARGUS'un geçmiş güncellemelerini anlatan sayfa —
 // kullanıcı "yama notları kısmını ekle... yama notlarını alta doğru sırala" dedi. Liste elle
 // tutuluyor (otomatik bir kaynak yok) — yeni bir özellik/düzeltme eklendikçe en üste yeni bir
-// ENTRIES kaydı eklenmesi yeterli, en yeni en üstte. `version` alanı lib/version.ts'teki
+// ENTRIES kaydı eklenmesi yeterli, en yeni en üstte. Numara kuralı (kullanıcı isteği): her yeni
+// GÜN bir üst sürüm (v1.6 → v1.7), aynı gün içindeki sonraki güncellemeler o günün alt sürümü
+// (v1.6 → v1.6.1 → v1.6.2). `version` alanı lib/version.ts'teki
 // APP_VERSION ile elle senkron tutulur (kullanıcı "versiyon numarası ekleyelim güncellendiği
 // anlaşılmıyo" dedi).
 import { APP_VERSION } from '../lib/version'
@@ -13,6 +15,23 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.6.1',
+    date: '23 Eylül 2026',
+    title: 'Keşfet, Nerede İzlenir, Yeni Bölümler',
+    items: [
+      'Keşfet: arşiv tablosunun sağ üstündeki pusula. Film ya da dizi, tür, sayı ve sıralama seçip arşivinde olmayan içerikleri getiriyor; beğendiğini "İzlenecek" olarak ekliyorsun, izlediysen tarih ve puanla "İzledim" diyorsun, istemediğini gizliyorsun.',
+      'Detay penceresinde "Nerede İzlenir": Türkiye\'de hangi platformda abonelikle, kiralık ya da satın alınarak izlenebildiği — her açılışta güncel bilgi.',
+      'Detay penceresinde "Benzer İçerikler": tek tıkla izlenecekler listene ekleyebiliyorsun.',
+      'Ana sayfada "Yeni Bölümler": izlemekte olduğun dizilerin yeni çıkan ve bu hafta çıkacak bölümleri en üstte. Ana Sayfa Ayarları\'ndan kapatılabilir.',
+      'Sütunların artık bir "Görevi" var (Poster, Durum, Tür…): sütun adlarını istediğin gibi değiştirebilirsin, poster, istatistikler ya da TMDB doldurma bozulmaz.',
+      'Sağlık Kontrolü\'nde gerçekten olmayan bir şey (ör. hiç fragmanı olmayan film) için "bir daha sorma" diyebiliyorsun.',
+      'Ayarlarda yaptığın değişiklikler artık sayfayı yenilemeden her yerde hemen geçerli.',
+      'Sütun menüsündeki açılır listelerden seçim yaparken menünün kapanması düzeltildi.',
+      'Bir oyuncuya ya da etikete tıklayınca açılan listede bazen üstte vitrin de çıkması düzeltildi.',
+      'Tablonun en altındaki satırlarda altı nokta menüsü artık ekrana sığmıyorsa yukarı doğru açılıyor, tüm seçenekler görünüyor.',
+    ],
+  },
   {
     version: 'v1.6',
     date: '23 Eylül 2026',

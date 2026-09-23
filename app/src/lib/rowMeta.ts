@@ -1,4 +1,5 @@
 import { ratingAverage, type Board, type Row } from '../types'
+import { resolveRole } from './roles'
 
 type MetaType = 'select' | 'date' | 'multiselect' | 'rating'
 
@@ -51,13 +52,13 @@ export function formatRuntime(mins: number): string {
 export function showcaseMeta(board: Board, row: Row, seasonCount?: number): string[] {
   const bits: string[] = []
 
-  const kategoriProp = board.properties.find((p) => p.name === 'Kategori' && p.type === 'select')
+  const kategoriProp = resolveRole(board, 'kategori')
   if (kategoriProp) {
     const label = kategoriProp.options?.find((o) => o.id === row.values[kategoriProp.id])?.label
     if (label) bits.push(label)
   }
 
-  const turProp = board.properties.find((p) => p.name === 'Tür' && p.type === 'multiselect')
+  const turProp = resolveRole(board, 'tur')
   if (turProp) {
     const ids = row.values[turProp.id]
     const firstId = Array.isArray(ids) ? ids[0] : undefined
@@ -65,7 +66,7 @@ export function showcaseMeta(board: Board, row: Row, seasonCount?: number): stri
     if (label) bits.push(label)
   }
 
-  const vizyonProp = board.properties.find((p) => p.name === 'Vizyon Tarihi' && p.type === 'date')
+  const vizyonProp = resolveRole(board, 'vizyon')
   if (vizyonProp) {
     const v = row.values[vizyonProp.id]
     if (typeof v === 'string') {
@@ -77,7 +78,7 @@ export function showcaseMeta(board: Board, row: Row, seasonCount?: number): stri
   if (typeof seasonCount === 'number' && seasonCount > 0) {
     bits.push(seasonCount === 1 ? '1 Sezon' : `${seasonCount} Sezon`)
   } else {
-    const sureProp = board.properties.find((p) => p.name === 'Süre' && p.type === 'number')
+    const sureProp = resolveRole(board, 'sure')
     const mins = sureProp ? row.values[sureProp.id] : undefined
     if (typeof mins === 'number' && mins > 0) {
       bits.push(formatRuntime(mins))
@@ -120,23 +121,23 @@ export function shuffle<T>(arr: T[]): T[] {
 }
 
 // Ana sayfadaki üzerine gelince büyüyen kartların alt bilgi satırı için: Durum, Kategori,
-// çıkış yılı — showcaseMeta ile aynı "isme göre bul" mantığı, sadece farklı bir alan seçimi.
+// çıkış yılı — showcaseMeta ile aynı görev (bkz. lib/roles.ts) mantığı, sadece farklı bir alan seçimi.
 export function hoverCardMeta(board: Board, row: Row): string[] {
   const bits: string[] = []
 
-  const durumProp = board.properties.find((p) => p.name === 'Durum' && p.type === 'select')
+  const durumProp = resolveRole(board, 'durum')
   if (durumProp) {
     const label = durumProp.options?.find((o) => o.id === row.values[durumProp.id])?.label
     if (label) bits.push(label)
   }
 
-  const kategoriProp = board.properties.find((p) => p.name === 'Kategori' && p.type === 'select')
+  const kategoriProp = resolveRole(board, 'kategori')
   if (kategoriProp) {
     const label = kategoriProp.options?.find((o) => o.id === row.values[kategoriProp.id])?.label
     if (label) bits.push(label)
   }
 
-  const vizyonProp = board.properties.find((p) => p.name === 'Vizyon Tarihi' && p.type === 'date')
+  const vizyonProp = resolveRole(board, 'vizyon')
   if (vizyonProp) {
     const v = row.values[vizyonProp.id]
     if (typeof v === 'string') {

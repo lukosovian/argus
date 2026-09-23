@@ -3,6 +3,7 @@ import type { WatchedMap } from '../types'
 import { api } from '../lib/api'
 import { useProfiles } from './useProfiles'
 import { useToast } from './useToast'
+import { notifyDataChanged } from '../lib/dataEvents'
 
 // episodes.json (TMDB, salt-okunur) ile aynı `{ [rowId]: ... }` şeklinde ama YAZILABİLİR —
 // RowDetailModal'daki bölüm tikleri/tekrar izleme tarihleri buradan kaydedilir.
@@ -30,6 +31,8 @@ export function useWatched() {
     setWatched((prev) => ({ ...prev, [rowId]: map }))
     try {
       await api.saveRowWatched(rowId, map)
+      // Ana sayfadaki "Yeni Bölümler" satırı izlenen bölümü düşürsün diye.
+      notifyDataChanged()
     } catch (e) {
       setWatched((prev) => ({ ...prev, [rowId]: previous ?? {} }))
       notify(e instanceof Error ? e.message : 'İzleme tarihi kaydedilemedi.', 'danger')

@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import {
   BulkRefreshIcon,
   ColumnsIcon,
+  CompassIcon,
   FilterIcon,
   GearIcon,
   HealthIcon,
@@ -92,13 +93,13 @@ function Highlight({ x, y, w, h, r = 5 }: { x: number; y: number; w: number; h: 
 
 function ToolbarWire() {
   // Gerçek araç çubuğundaki ikonların aynısı (bkz. toolbarIcons.tsx), aynı sırayla.
-  const icons = [SearchIcon, FilterIcon, SortIcon, ColumnsIcon, GearIcon, HealthIcon, BulkRefreshIcon, InfoIcon]
+  const icons = [SearchIcon, FilterIcon, SortIcon, ColumnsIcon, GearIcon, HealthIcon, BulkRefreshIcon, CompassIcon, InfoIcon]
   return (
     <Frame viewBox="0 0 520 150">
       <Box x={4} y={4} w={512} h={142} r={10} />
-      <Line x={20} y={30} w={120} />
+      <Line x={20} y={30} w={100} />
       {icons.map((Icon, i) => {
-        const x = 170 + i * 30
+        const x = 138 + i * 30
         return (
           <g key={i}>
             <Box x={x} y={18} w={24} h={24} r={6} strong />
@@ -114,7 +115,7 @@ function ToolbarWire() {
       <text x={459} y={34} fontSize={10} textAnchor="middle" fill="#fff" fontWeight={600} style={{ fontFamily: 'inherit' }}>
         + Yeni Ekle
       </text>
-      <Pin x={459} y={56} n={9} />
+      <Pin x={459} y={56} n={10} />
       {/* altında küçük tablo izlenimi */}
       <Box x={20} y={80} w={480} h={20} r={3} strong />
       {[0, 1].map((r) => (
@@ -421,8 +422,9 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
                 { n: 5, title: 'API alanları', text: 'TMDB\'den bilgi çekerken hangi alanların doldurulacağını ve dolu alanların üzerine yazılıp yazılmayacağını seçersin.' },
                 { n: 6, title: 'Sağlık Kontrolü', text: 'Görseli, fragmanı, yönetmeni vb. eksik kayıtları ve neyinin eksik olduğunu listeler.' },
                 { n: 7, title: 'Genel Güncelleme', text: 'Eksik bilgisi olan tüm kayıtları tek seferde TMDB\'den doldurur. İstediğin an durdurabilirsin.' },
-                { n: 8, title: 'Bu rehber', text: 'Şu an okuduğun sayfa.' },
-                { n: 9, title: '+ Yeni Ekle', text: 'Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "TMDB\'den Doldur" dersen gerisi otomatik gelir.' },
+                { n: 8, title: 'Keşfet', text: 'Film mi dizi mi, hangi türde, kaç tane istediğini seçersin; arşivinde OLMAYAN içerikleri getirir. Beğendiğini "+ İzlenecek" ile eklersin, izlediysen "İzledim" deyip tarih ve puan girersin, istemediğini × ile gizlersin (bir daha gelmez).' },
+                { n: 9, title: 'Bu rehber', text: 'Şu an okuduğun sayfa.' },
+                { n: 10, title: '+ Yeni Ekle', text: 'Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "TMDB\'den Doldur" dersen gerisi otomatik gelir.' },
               ]}
             />
           </Section>
@@ -445,6 +447,7 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
                 { n: 2, title: 'Sütun ayarları', text: 'Sütun adına tıkla: adını ve tipini değiştir, seçeneklerin renklerini ayarla, tüm değerleri temizle ya da sütunu sil. Görsel sütunlarında "Kapak Görseli Yap" (kartlarda görünen) ve "Vitrin Başlık Görseli Yap" (logo) da buradadır.' },
                 { n: 3, title: 'Genişlik', text: 'Sütun başlığının sağ kenarından tutup sürükle.' },
                 { n: 4, title: 'Sıra', text: 'Sütun başlığını tutup başka bir sütunun üstüne sürükle.' },
+                { title: 'Görevi', text: 'Sütun menüsündeki "Görevi" uygulamaya o sütunun ne işe yaradığını söyler (Poster, Durum, Tür, Puan…). Poster, istatistikler, TMDB doldurma ve Keşfet bunu kullanır. Görev sütunun adına bağlı değil — adını istediğin gibi değiştirebilirsin, hiçbir şey bozulmaz. Durum sütununda ayrıca hangi seçeneğin "İzlenecek / İzleniyor / İzlendi" anlamına geldiğini de seçebilirsin.' },
               ]}
             />
           </Section>
@@ -506,6 +509,8 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
                 { title: 'TMDB anahtarı', text: 'Otomatik doldurma için bir kere Ayarlar → Veritabanı → API\'den TMDB anahtarını girmen gerekir.' },
                 { title: 'Kapak ve vitrin', text: 'Ana sayfadaki kartlarda hangi görselin görüneceğini sütun ayarlarındaki "Kapak Görseli Yap" belirler.' },
                 { title: 'Fragman', text: 'Video sütununa YouTube linki koyarsan vitrinde ve kartın üzerine gelince oynar.' },
+                { title: 'Nerede izlenir ve benzerler', text: 'Bir kaydın detay penceresinin en altında Türkiye\'de hangi platformda izlenebildiği (anlık bilgi) ve benzer içerikler var; benzerleri tek tıkla "İzlenecek" olarak ekleyebilirsin.' },
+                { title: 'Yeni bölümler', text: 'Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri ana sayfanın en üstünde görünür. Bölümleri tek tek işaretliyorsan kaç bölüm geride olduğunu da yazar.' },
                 { title: 'Silme', text: 'Sütun silmek içindeki tüm bilgiyi de siler. Sadece görmek istemiyorsan gizlemek daha güvenli.' },
               ]}
             />

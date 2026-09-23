@@ -323,6 +323,20 @@ export default function HomeSettingsPanel() {
 
           <div className="flex items-center justify-between gap-2 pt-3 border-t border-neutral-800">
             <span className="text-sm text-neutral-300">
+              "Yeni Bölümler" satırını göster
+              <span className="block text-xs text-neutral-600 mt-0.5">
+                Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri, ana sayfanın en üstünde.
+              </span>
+            </span>
+            <ToggleSwitch
+              checked={settings.newEpisodesRow ?? true}
+              onChange={(v) => saveSettings({ ...settings, newEpisodesRow: v })}
+              label="Yeni Bölümler satırını göster"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-neutral-800">
+            <span className="text-sm text-neutral-300">
               Ana sayfada "Tümü" satırını göster
               <span className="block text-xs text-neutral-600 mt-0.5">
                 Vitrinin altındaki, arşivin tamamını listeleyen varsayılan satır — bölümlerin (alt sayfaların)

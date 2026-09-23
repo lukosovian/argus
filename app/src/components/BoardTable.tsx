@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { STATUS_DEFS, resolveRole, resolveStatusOption, rolesForType, rolesOfProperty, type RoleKey, type StatusKey } from '../lib/roles'
 import { createPortal } from 'react-dom'
 import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../types'
 import type { PropertyType } from '../types'
@@ -125,6 +126,7 @@ function RowMenu({
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   function handleToggle() {
     if (!open && buttonRef.current) {
@@ -133,6 +135,19 @@ function RowMenu({
     }
     setOpen((v) => !v)
   }
+
+  // Menü her zaman tutamacın ALTINA açılıyordu — ekranın en altındaki satırlarda alt seçenekler
+  // (Çoğalt, Sil) ekranın dışında kalıp görünmüyordu. Menü çizildikten sonra gerçek yüksekliği
+  // ölçülüp altta yer yoksa tutamacın ÜSTÜNE açılıyor (tarayıcı ekrana basmadan önce, titremeden).
+  useLayoutEffect(() => {
+    if (!open || !menuRef.current || !buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    const h = menuRef.current.offsetHeight
+    const below = rect.bottom + 4
+    const top = below + h > window.innerHeight - 8 ? Math.max(8, rect.top - h - 4) : below
+    const left = Math.min(rect.left, window.innerWidth - menuRef.current.offsetWidth - 8)
+    setMenuPos((p) => (p && p.top === top && p.left === left ? p : { top, left }))
+  }, [open])
 
   return (
     <div className="relative">
@@ -152,6 +167,7 @@ function RowMenu({
           <>
             <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
             <div
+              ref={menuRef}
               style={{ top: menuPos.top, left: menuPos.left }}
               className="fixed z-40 w-56 bg-neutral-900 border border-neutral-800 rounded-xl py-1 shadow-lg"
             >
@@ -436,6 +452,8 @@ const BoardTable = forwardRef<
     onReorderProperties: (orderedPropertyIds: string[]) => void
     onSetCoverProperty: (propertyId: string | null) => void
     onSetTitleImageProperty: (propertyId: string | null) => void
+    onSetPropertyRole: (propertyId: string, role: RoleKey | null) => void
+    onSetStatusOption: (key: StatusKey, optionId: string) => void
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -471,6 +489,8 @@ const BoardTable = forwardRef<
     onReorderProperties,
     onSetCoverProperty,
     onSetTitleImageProperty,
+    onSetPropertyRole,
+    onSetStatusOption,
     onFetchTmdb,
   },
   ref,
@@ -947,6 +967,17 @@ const BoardTable = forwardRef<
           onToggleTitleImage={() =>
             onSetTitleImageProperty(board.titleImagePropertyId === menuProp.id ? null : menuProp.id)
           }
+          roleChoices={
+            menuProp.id === board.titlePropertyId ? [] : rolesForType(menuProp.type).map((r) => ({ value: r.key, label: r.label }))
+          }
+          currentRole={rolesOfProperty(board, menuProp.id)[0] ?? ''}
+          onChangeRole={(role) => onSetPropertyRole(menuProp.id, (role || null) as RoleKey | null)}
+          statusChoices={
+            resolveRole(board, 'durum')?.id === menuProp.id
+              ? STATUS_DEFS.map((s) => ({ key: s.key, label: s.label, value: resolveStatusOption(board, s.key) ?? '' }))
+              : undefined
+          }
+          onChangeStatusOption={(key, optionId) => onSetStatusOption(key as StatusKey, optionId)}
         />
       )}
 
