@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { createPortal } from 'react-dom'
 import { useProfiles } from '../hooks/useProfiles'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useThemeMode } from '../hooks/useThemeMode'
@@ -110,7 +111,11 @@ export default function Navbar() {
 
             {menuOpen && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                {/* "Dışarı tıklayınca kapan" katmanı body'ye çiziliyor — header'ın içinde kalsaydı,
+                    sayfa kaydırılınca header'a eklenen bulanıklık efekti yüzünden sadece header'ı
+                    kaplıyordu (bkz. RandomPickerButton'daki not). z-[19]: header'ın (z-20) hemen
+                    altında, böylece menünün kendisi tıklanabilir kalıyor. */}
+                {createPortal(<div className="fixed inset-0 z-[19]" onClick={() => setMenuOpen(false)} />, document.body)}
                 <div className="absolute right-0 top-14 z-40 w-56 bg-neutral-900 border border-neutral-800 rounded-xl py-1 shadow-lg">
                   <p className="px-3 py-2 text-sm text-neutral-100 font-medium border-b border-neutral-800 truncate">
                     {activeProfile?.username || 'Profil'}

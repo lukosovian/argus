@@ -49,21 +49,37 @@ function Segmented<T extends string | number>({
   )
 }
 
-function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string, rating: number | null) => void; onCancel: () => void; busy: boolean }) {
-  const [date, setDate] = useState(todayIso())
+// "İzledim" formu (isteğe bağlı tarih + isteğe bağlı puan) — Ne İzlesem'in TMDB önizlemesi de
+// kullanıyor. Tarih zorunlu değil: kullanıcı "izleme tarihi hatırlamıyosam girmeyebileyim" dedi —
+// "Hatırlamıyorum" ile kaldırılınca kayıt tarihsiz eklenir.
+export function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string | null, rating: number | null) => void; onCancel: () => void; busy: boolean }) {
+  const [date, setDate] = useState<string | null>(todayIso())
   const [rating, setRating] = useState<number | null>(null)
   return (
     <div className="mt-2 space-y-2 rounded-lg bg-neutral-800/70 border border-neutral-700 p-2.5">
-      <label className="block">
-        <span className="text-[11px] text-neutral-500">İzleme tarihi</span>
-        <input
-          type="date"
-          value={date}
-          max={todayIso()}
-          onChange={(e) => setDate(e.target.value)}
-          className="mt-0.5 w-full rounded-md bg-neutral-900 border border-neutral-700 px-2 py-1 text-xs text-neutral-100 outline-none focus:border-neutral-500"
-        />
-      </label>
+      <div>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] text-neutral-500">İzleme tarihi</span>
+          {date === null ? (
+            <button onClick={() => setDate(todayIso())} className="text-[11px] text-[#00c0fa] hover:underline">
+              Tarih ekle
+            </button>
+          ) : (
+            <button onClick={() => setDate(null)} className="text-[11px] text-neutral-500 hover:text-neutral-300">
+              Hatırlamıyorum
+            </button>
+          )}
+        </div>
+        {date !== null && (
+          <input
+            type="date"
+            value={date}
+            max={todayIso()}
+            onChange={(e) => setDate(e.target.value || null)}
+            className="mt-0.5 w-full rounded-md bg-neutral-900 border border-neutral-700 px-2 py-1 text-xs text-neutral-100 outline-none focus:border-neutral-500"
+          />
+        )}
+      </div>
       <div>
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-neutral-500">Puan</span>
@@ -95,7 +111,7 @@ function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string, rating
       <div className="flex gap-1.5">
         <button
           onClick={() => onSave(date, rating)}
-          disabled={busy || !date}
+          disabled={busy}
           className="flex-1 text-[11px] rounded-md bg-[#00c0fa] text-white font-semibold py-1 disabled:opacity-50"
         >
           {busy ? 'Ekleniyor...' : 'Kaydet'}
@@ -171,14 +187,14 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
     setItems((prev) => (prev ? prev.filter((c) => !(c.tmdbId === card.tmdbId && c.mediaType === card.mediaType)) : prev))
   }
 
-  async function add(card: TmdbCard, status: 'izlenecek' | 'izlendi', watchedDate?: string, rating?: number | null) {
+  async function add(card: TmdbCard, status: 'izlenecek' | 'izlendi', watchedDate?: string | null, rating?: number | null) {
     setBusyId(card.tmdbId)
     try {
       const res = await api.addFromTmdb(boardId, {
         tmdbId: card.tmdbId,
         mediaType: card.mediaType,
         status,
-        watchedDate,
+        watchedDate: watchedDate ?? undefined,
         rating: rating ?? undefined,
         exclude,
       })
@@ -323,16 +339,18 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
                         ×
                       </button>
                     </div>
-                    <p className="text-sm text-neutral-200 font-medium mt-2 leading-tight line-clamp-2">{c.title}</p>
+                    <p className="text-sm text-neutral-200 font-medium mt-2 leading-tight line-clamp-2 min-h-[2.5em]">{c.title}</p>
                     <p className="text-xs text-neutral-500">
                       {c.year}
                       {c.originalTitle && c.originalTitle !== c.title ? ` · ${c.originalTitle}` : ''}
                     </p>
-                    {c.overview && <p className="text-xs text-neutral-400 mt-1 line-clamp-3" title={c.overview}>{c.overview}</p>}
+                    <p className="text-xs text-neutral-400 mt-1 mb-2 line-clamp-3" title={c.overview}>
+                      {c.overview}
+                    </p>
                     {watchedFormFor === c.tmdbId ? (
                       <WatchedForm busy={busy} onCancel={() => setWatchedFormFor(null)} onSave={(date, rating) => add(c, 'izlendi', date, rating)} />
                     ) : (
-                      <div className="flex gap-1.5 mt-2">
+                      <div className="flex gap-1.5 mt-auto">
                         <button
                           onClick={() => add(c, 'izlenecek')}
                           disabled={busyId !== null}

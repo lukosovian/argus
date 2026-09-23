@@ -959,6 +959,7 @@ function toCard(r, mediaType) {
     originalTitle: (type === 'tv' ? r.original_name : r.original_title) || '',
     year: date ? date.slice(0, 4) : '',
     poster: r.poster_path ? `${TMDB_IMG_BASE}/w342${r.poster_path}` : null,
+    backdrop: r.backdrop_path ? `${TMDB_IMG_BASE}/w780${r.backdrop_path}` : null,
     overview: r.overview ?? '',
     rating: typeof r.vote_average === 'number' ? Math.round(r.vote_average * 10) / 10 : null,
   }
@@ -1125,7 +1126,16 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
     const dismissed = new Set(readJson(profileDismissedFile(profileId), []))
     const out = []
     const seen = new Set()
-    for (let page = 1; page <= 15 && out.length < count; page++) {
+    // random: Ne İzlesem her tıklamada hep aynı en popüler içerikleri göstermesin diye sonuçlar
+    // ilk 25 sayfa içinden rastgele sırayla seçilen sayfalardan toplanıyor.
+    let pages = Array.from({ length: 15 }, (_, i) => i + 1)
+    if (req.body?.random) {
+      const first = await tmdbGet(`/discover/${type}`, { ...params, page: 1 }, apiKey)
+      const total = Math.max(1, Math.min(25, first?.total_pages ?? 1))
+      pages = Array.from({ length: total }, (_, i) => i + 1).sort(() => Math.random() - 0.5)
+    }
+    for (const page of pages) {
+      if (out.length >= count) break
       const data = await tmdbGet(`/discover/${type}`, { ...params, page }, apiKey)
       const results = data?.results ?? []
       for (const r of results) {
@@ -1136,12 +1146,57 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
         out.push(card)
         if (out.length >= count) break
       }
-      if (page >= (data?.total_pages ?? 0)) break
+      if (!req.body?.random && page >= (data?.total_pages ?? 0)) break
     }
     res.json({ items: out })
   } catch (e) {
     console.error('tmdb-discover hata:', e)
     res.status(500).json({ error: 'Keşfet sonuçları alınamadı' })
+  }
+})
+
+// Arşivde OLMAYAN tek bir TMDB içeriğinin önizlemesi (Ne İzlesem'in TMDB modunda kazanan için):
+// türler, süre/sezon, Türkiye'deki platformlar ve arşivde olup olmadığı.
+app.get('/api/profiles/:profileId/tmdb-item/:boardId/:mediaType/:tmdbId', async (req, res) => {
+  try {
+    const { profileId, boardId, mediaType, tmdbId } = req.params
+    if (mediaType !== 'movie' && mediaType !== 'tv') return res.status(400).json({ error: 'Geçersiz içerik' })
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) return res.status(400).json({ error: 'TMDB API anahtarı gerekli' })
+    const [d, prov, trailer] = await Promise.all([
+      tmdbGet(`/${mediaType}/${tmdbId}`, { language: 'tr-TR', append_to_response: 'images', include_image_language: 'tr,en,null' }, apiKey),
+      tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`, {}, apiKey),
+      getTrailerUrl(mediaType, tmdbId, apiKey).catch(() => null),
+    ])
+    if (!d) return res.status(404).json({ error: 'İçerik bulunamadı' })
+    const card = toCard(d, mediaType)
+    // Arşivdeki detay penceresiyle aynı görünüm için: büyük yatay görsel, başlık logosu (Kapak
+    // Adı) ve fragman.
+    const logo = pickLogo(d.images)
+    const loaded = loadBoardAndRows(profileId, boardId)
+    const tr = prov?.results?.TR
+    res.json({
+      ...card,
+      backdrop: d.backdrop_path ? `${TMDB_IMG_BASE}/w1280${d.backdrop_path}` : card.backdrop,
+      logo: logo ? `${TMDB_IMG_BASE}/w500${logo.file_path}` : null,
+      trailer: trailer ?? null,
+      inArchive: loaded ? buildArchiveIndex(profileId, loaded.board, loaded.rows).has(card) : false,
+      genres: (d.genres ?? []).map((g) => g.name),
+      runtime: mediaType === 'movie' ? d.runtime ?? null : null,
+      seasons: mediaType === 'tv' ? d.number_of_seasons ?? null : null,
+      providers: tr
+        ? {
+            link: tr.link ?? null,
+            flatrate: mapProviders(tr.flatrate),
+            free: mapProviders([...(tr.free ?? []), ...(tr.ads ?? [])]),
+            rent: mapProviders(tr.rent),
+            buy: mapProviders(tr.buy),
+          }
+        : null,
+    })
+  } catch (e) {
+    console.error('tmdb-item hata:', e)
+    res.status(500).json({ error: 'İçerik bilgisi alınamadı' })
   }
 })
 

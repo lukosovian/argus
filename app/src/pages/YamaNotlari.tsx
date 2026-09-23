@@ -16,6 +16,19 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.6.2',
+    date: '23 Eylül 2026',
+    title: "Ne İzlesem TMDB'den de seçebiliyor",
+    items: [
+      "Ne İzlesem artık arşivinde olmayan içeriklerden de seçebiliyor: Ana Sayfa Ayarları → Ne İzlesem'de \"Nereden seçilsin\" kısmından TMDB'yi seç; film, dizi ya da karışık, tür ve popüler/en yüksek puanlı seçilebiliyor.",
+      'Kazanan çıkınca arşivdeki detay penceresi gibi bir önizleme açılıyor: yatay görsel, Kapak Adı logosu, fragman, özet, türler ve Türkiye\'de nerede izlenebildiği; tek tıkla izleneceklere ekle, izlediysen tarih ve puanla kaydet ya da bir daha gösterme.',
+      'Ne İzlesem\'in animasyonu ve açtığı pencere artık sayfa aşağı kaydırılmışken kaybolmuyor, tablonun arkasında da kalmıyor.',
+      'Detay penceresindeki posterin boyu artık yanındaki yazının uzunluğuna göre değişmiyor, her kayıtta aynı boyda.',
+      "Benzer İçerikler ve Keşfet kartlarındaki düğmeler artık hepsi aynı hizada — ad kısa ya da uzun olsun kaymıyor.",
+      "Keşfet ve Ne İzlesem'de \"İzledim\" derken izleme tarihi artık zorunlu değil — hatırlamıyorsan \"Hatırlamıyorum\" deyip tarihsiz ekleyebilirsin.",
+    ],
+  },
+  {
     version: 'v1.6.1',
     date: '23 Eylül 2026',
     title: 'Keşfet, Nerede İzlenir, Yeni Bölümler',

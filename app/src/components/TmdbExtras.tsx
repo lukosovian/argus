@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Board, Row } from '../types'
-import { api, type TmdbCard, type TmdbExtras as Extras, type WatchProvider } from '../lib/api'
+import { api, type TmdbCard, type TmdbExtras as Extras, type WatchProvider, type WatchProviders } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { BRAND_TEXT } from '../lib/theme'
 import { useToast } from '../hooks/useToast'
@@ -49,14 +49,6 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
 
   const loading = data === null
   const p = data?.providers
-  const groups: { label: string; items: WatchProvider[] }[] = p
-    ? [
-        { label: 'Abonelikle', items: p.flatrate },
-        { label: 'Ücretsiz', items: p.free },
-        { label: 'Kirala', items: p.rent },
-        { label: 'Satın al', items: p.buy },
-      ].filter((g) => g.items.length > 0)
-    : []
   const similar = data?.similar ?? []
 
   return (
@@ -72,29 +64,7 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
             </a>
           )}
         </div>
-        {loading ? (
-          <p className="text-sm text-neutral-500">Yükleniyor...</p>
-        ) : groups.length === 0 ? (
-          <p className="text-sm text-neutral-500">Şu an Türkiye'de hiçbir platformda görünmüyor.</p>
-        ) : (
-          <div className="space-y-3">
-            {groups.map((g) => (
-              <div key={g.label} className="flex items-center gap-3 flex-wrap">
-                <span className="text-xs text-neutral-500 w-20 shrink-0">{g.label}</span>
-                {g.items.map((it) => (
-                  <span
-                    key={it.name}
-                    className="inline-flex items-center gap-2 rounded-lg bg-neutral-800 border border-neutral-700 pl-1 pr-2.5 py-1"
-                  >
-                    {it.logo && <img src={it.logo} alt="" className="h-6 w-6 rounded" />}
-                    <span className="text-xs text-neutral-200">{it.name}</span>
-                  </span>
-                ))}
-              </div>
-            ))}
-            <p className="text-[11px] text-neutral-600">Bilgi TMDB/JustWatch'tan anlık alınıyor, platformlar zamanla değişebilir.</p>
-          </div>
-        )}
+        {loading ? <p className="text-sm text-neutral-500">Yükleniyor...</p> : <WatchProviderList providers={p ?? null} />}
       </div>
 
       {(loading || similar.length > 0) && (
@@ -109,7 +79,7 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
               {similar.map((c) => {
                 const inArchive = c.inArchive || added.has(c.tmdbId)
                 return (
-                  <div key={`${c.mediaType}-${c.tmdbId}`} className="w-28 sm:w-32 shrink-0" title={c.overview}>
+                  <div key={`${c.mediaType}-${c.tmdbId}`} className="w-28 sm:w-32 shrink-0 flex flex-col" title={c.overview}>
                     <div className="relative">
                       {c.poster ? (
                         <img src={c.poster} alt={c.title} loading="lazy" className="w-full aspect-[2/3] object-cover rounded-lg bg-neutral-800" />
@@ -124,19 +94,19 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-neutral-300 mt-1.5 leading-tight line-clamp-2">{c.title}</p>
-                    <p className="text-[11px] text-neutral-500">
+                    <p className="text-xs text-neutral-300 mt-1.5 leading-tight line-clamp-2 min-h-[2.5em]">{c.title}</p>
+                    <p className="text-[11px] text-neutral-500 mb-1.5">
                       {c.year}
                       {c.year && ' · '}
                       {c.mediaType === 'tv' ? 'Dizi' : 'Film'}
                     </p>
                     {inArchive ? (
-                      <p className="mt-1.5 text-[11px] text-emerald-500">✓ Arşivinde</p>
+                      <p className="mt-auto pt-1.5 text-[11px] text-emerald-500 leading-[22px]">✓ Arşivinde</p>
                     ) : (
                       <button
                         onClick={() => addToWatchlist(c)}
                         disabled={adding !== null}
-                        className="mt-1.5 w-full text-[11px] rounded-md border border-neutral-700 hover:border-[#00c0fa] text-neutral-300 hover:text-[#00c0fa] py-1 transition disabled:opacity-50"
+                        className="mt-auto w-full text-[11px] rounded-md border border-neutral-700 hover:border-[#00c0fa] text-neutral-300 hover:text-[#00c0fa] py-1 transition disabled:opacity-50"
                       >
                         {adding === c.tmdbId ? 'Ekleniyor...' : '+ İzlenecek'}
                       </button>
@@ -149,5 +119,34 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
         </div>
       )}
     </>
+  )
+}
+
+// Türkiye'de hangi platformda abonelik/ücretsiz/kiralık/satın alma ile izlenebildiği.
+export function WatchProviderList({ providers }: { providers: WatchProviders | null }) {
+  const groups: { label: string; items: WatchProvider[] }[] = providers
+    ? [
+        { label: 'Abonelikle', items: providers.flatrate },
+        { label: 'Ücretsiz', items: providers.free },
+        { label: 'Kirala', items: providers.rent },
+        { label: 'Satın al', items: providers.buy },
+      ].filter((g) => g.items.length > 0)
+    : []
+  if (groups.length === 0) return <p className="text-sm text-neutral-500">Şu an Türkiye'de hiçbir platformda görünmüyor.</p>
+  return (
+    <div className="space-y-3">
+      {groups.map((g) => (
+        <div key={g.label} className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-neutral-500 w-20 shrink-0">{g.label}</span>
+          {g.items.map((it) => (
+            <span key={it.name} className="inline-flex items-center gap-2 rounded-lg bg-neutral-800 border border-neutral-700 pl-1 pr-2.5 py-1">
+              {it.logo && <img src={it.logo} alt="" className="h-6 w-6 rounded" />}
+              <span className="text-xs text-neutral-200">{it.name}</span>
+            </span>
+          ))}
+        </div>
+      ))}
+      <p className="text-[11px] text-neutral-600">Bilgi TMDB/JustWatch'tan anlık alınıyor, platformlar zamanla değişebilir.</p>
+    </div>
   )
 }

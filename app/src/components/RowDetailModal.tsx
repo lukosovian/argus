@@ -326,7 +326,7 @@ export default function RowDetailModal({
               <img
                 src={poster}
                 alt={title}
-                className="w-28 sm:w-40 md:w-48 aspect-[2/3] object-cover rounded-lg shrink-0 bg-neutral-800"
+                className="w-28 sm:w-40 md:w-48 aspect-[2/3] object-cover rounded-lg shrink-0 self-start bg-neutral-800"
               />
             )}
             <div className="flex-1 min-w-0 space-y-4">

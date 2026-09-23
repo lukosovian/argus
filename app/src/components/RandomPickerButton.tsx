@@ -1,10 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import type { Board, Row } from '../types'
 import { rowsForFilter, shuffle } from '../lib/rowMeta'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useToast } from '../hooks/useToast'
-import { api } from '../lib/api'
+import { api, type TmdbCard } from '../lib/api'
 import RowDetailModal from './RowDetailModal'
+import TmdbPreviewModal from './TmdbPreviewModal'
 
 // İki üst üste binen "poster kartı" — biri düz, biri hafif çapraz (kullanıcı: "yan yana duran
 // iki kart gibi olsun biri düz biri çapraz olarak"). Soldaki (düz) dolu, sağdaki (çapraz) boş
@@ -99,8 +101,12 @@ function pickImage(row: Row, columns: ImageColumn[], pref: 'dikey' | 'yatay' | n
   return null
 }
 
+// Bir aday ya arşivdeki bir kayıt (row) ya da arşivde OLMAYAN bir TMDB içeriği (tmdb) —
+// "Nereden seçilsin" ayarına göre (bkz. HomeSettings.randomPickerSource).
 type Candidate = {
-  row: Row
+  key: string
+  row?: Row
+  tmdb?: TmdbCard
   cover: string
   landscape: boolean
   left: number
@@ -126,6 +132,7 @@ export default function RandomPickerButton() {
   const [winnerId, setWinnerId] = useState<string | null>(null)
   const [phase, setPhase] = useState<'idle' | 'entering' | 'eliminating' | 'growing' | 'fading'>('idle')
   const [openRow, setOpenRow] = useState<Row | null>(null)
+  const [openTmdb, setOpenTmdb] = useState<TmdbCard | null>(null)
   // Hangi posterlerin görseli GERÇEKTEN yüklenip çözüldü — her poster kendi görseli hazır
   // olduğu anda "dağılma" animasyonuna başlıyor (bkz. aşağıdaki iki effect), sabit bir
   // zamanlayıcıyla değil. Bu hem "kartlar boş gelmesin" isteğini karşılıyor hem de 60 görselin
@@ -155,37 +162,61 @@ export default function RandomPickerButton() {
         notify('Arşiv bulunamadı.', 'danger')
         return
       }
-      const filter = current.randomPickerFilter
-      // Hiç filtre ayarlanmadıysa (propertyId yok) arşivin TAMAMI havuz olur — kullanıcının
-      // "hiç bi ayar yapılmadıysa default olarak tüm içerikleri gösterebilsin" isteği.
-      const base = filter?.propertyId && filter.optionIds.length > 0 ? rowsForFilter(filter, allRows) : allRows
-      // Poster olmadan dağılma animasyonu boş kutulara döner — bu yüzden sadece herhangi bir
-      // görsel sütununda değeri olan kayıtlar havuza giriyor (sadece "kapak" olarak işaretli
-      // sütuna değil — arşivde kapak hiç seçilmemiş ama başka bir görsel sütunu (ör. Banner)
-      // dolu olabilir).
-      const columns = await classifyImageColumns(b, allRows)
       const pref = current.randomPickerImageShape === 'dikey' || current.randomPickerImageShape === 'yatay' ? current.randomPickerImageShape : null
-      const images = new Map<string, { url: string; landscape: boolean }>()
-      for (const r of base) {
-        const img = pickImage(r, columns, pref)
-        if (img) images.set(r.id, img)
-      }
-      const pool = base.filter((r) => images.has(r.id))
-      if (pool.length === 0) {
-        notify('Bu filtreye uyan, seçili görseli olan bir içerik bulunamadı.', 'danger')
-        return
-      }
-      const winner = pool[Math.floor(Math.random() * pool.length)]
       const count = current.randomPickerCount ?? DEFAULT_SCATTER_COUNT
-      const rest = shuffle(pool.filter((r) => r.id !== winner.id)).slice(0, count - 1)
+
+      type Entry = Omit<Candidate, 'left' | 'top' | 'rotate' | 'scale' | 'eliminateDelay'>
+      let pool: Entry[]
+      if (current.randomPickerSource === 'tmdb') {
+        // TMDB modu: arşivde OLMAYAN (ve daha önce "bir daha gösterme" denmemiş) içerikler.
+        // Her tıklamada farklı gelsin diye rastgele sayfalardan toplanıyor (random: true).
+        const t = current.randomPickerTmdb ?? { type: 'movie', genreIds: [], sort: 'popular' }
+        const ask = (type: 'movie' | 'tv', n: number, genreIds: number[]) =>
+          api.discoverTmdb(b.id, { type, genreIds, count: n, sort: t.sort, random: true }).then((r) => r.items)
+        const cards =
+          t.type === 'mixed'
+            ? shuffle((await Promise.all([ask('movie', Math.ceil(count / 2), []), ask('tv', Math.ceil(count / 2), [])])).flat())
+            : await ask(t.type, count, t.genreIds)
+        pool = cards
+          .map((c): Entry | null => {
+            // Yatay istenirse TMDB'nin yatay görseli (backdrop), yoksa poster.
+            const wantWide = pref === 'yatay'
+            const url = wantWide ? c.backdrop || c.poster : c.poster || c.backdrop
+            return url ? { key: `tmdb:${c.mediaType}:${c.tmdbId}`, tmdb: c, cover: url, landscape: url === c.backdrop } : null
+          })
+          .filter((e): e is Entry => e !== null)
+        if (pool.length === 0) {
+          notify('Bu ayarlara uyan, arşivinde olmayan bir içerik bulunamadı.', 'danger')
+          return
+        }
+      } else {
+        const filter = current.randomPickerFilter
+        // Hiç filtre ayarlanmadıysa (propertyId yok) arşivin TAMAMI havuz olur — kullanıcının
+        // "hiç bi ayar yapılmadıysa default olarak tüm içerikleri gösterebilsin" isteği.
+        const base = filter?.propertyId && filter.optionIds.length > 0 ? rowsForFilter(filter, allRows) : allRows
+        // Poster olmadan dağılma animasyonu boş kutulara döner — bu yüzden sadece seçili şekilde
+        // bir görseli olan kayıtlar havuza giriyor.
+        const columns = await classifyImageColumns(b, allRows)
+        pool = base
+          .map((r): Entry | null => {
+            const img = pickImage(r, columns, pref)
+            return img ? { key: r.id, row: r, cover: img.url, landscape: img.landscape } : null
+          })
+          .filter((e): e is Entry => e !== null)
+        if (pool.length === 0) {
+          notify('Bu filtreye uyan, seçili görseli olan bir içerik bulunamadı.', 'danger')
+          return
+        }
+      }
+
+      const winner = pool[Math.floor(Math.random() * pool.length)]
+      const rest = shuffle(pool.filter((e) => e.key !== winner.key)).slice(0, count - 1)
       // `rest`in sırası zaten karışık — bu sıra aynı zamanda "kimin ne zaman kaybolacağını" da
       // belirliyor, ayrıca bir eleme sırası üretmeye gerek yok.
       const nonWinnerCount = rest.length
       const eliminateWindow = eliminatePhaseMs(nonWinnerCount)
-      const laidOut: Candidate[] = [winner, ...rest].map((row, i) => ({
-        row,
-        cover: images.get(row.id)!.url,
-        landscape: images.get(row.id)!.landscape,
+      const laidOut: Candidate[] = [winner, ...rest].map((entry, i) => ({
+        ...entry,
         left: 12 + Math.random() * 76,
         top: 16 + Math.random() * 62,
         rotate: -22 + Math.random() * 44,
@@ -196,7 +227,7 @@ export default function RandomPickerButton() {
       }))
       setBoard(b)
       setCandidates(laidOut)
-      setWinnerId(winner.id)
+      setWinnerId(winner.key)
       setPhase('entering')
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Bir şeyler ters gitti.', 'danger')
@@ -221,20 +252,20 @@ export default function RandomPickerButton() {
     candidates.forEach((c) => {
       const url = c.cover
       if (!url) {
-        markReady(c.row.id)
+        markReady(c.key)
         return
       }
       const img = new Image()
       img.src = url
       if (typeof img.decode === 'function') {
-        img.decode().then(() => markReady(c.row.id)).catch(() => markReady(c.row.id))
+        img.decode().then(() => markReady(c.key)).catch(() => markReady(c.key))
       } else {
-        img.onload = () => markReady(c.row.id)
-        img.onerror = () => markReady(c.row.id)
+        img.onload = () => markReady(c.key)
+        img.onerror = () => markReady(c.key)
       }
     })
     const fallback = setTimeout(() => {
-      if (!cancelled) setRevealed(new Set(candidates.map((c) => c.row.id)))
+      if (!cancelled) setRevealed(new Set(candidates.map((c) => c.key)))
     }, ENTER_FALLBACK_MS)
     return () => {
       cancelled = true
@@ -268,10 +299,11 @@ export default function RandomPickerButton() {
   useEffect(() => {
     if (phase !== 'fading') return
     const t = setTimeout(() => {
-      const winner = candidates.find((c) => c.row.id === winnerId)
+      const winner = candidates.find((c) => c.key === winnerId)
       setPhase('idle')
       setCandidates([])
-      if (winner) setOpenRow(winner.row)
+      if (winner?.row) setOpenRow(winner.row)
+      else if (winner?.tmdb) setOpenTmdb(winner.tmdb)
     }, FADE_MS)
     return () => clearTimeout(t)
   }, [phase, candidates, winnerId])
@@ -306,7 +338,7 @@ export default function RandomPickerButton() {
     }
     // Kendi görseli henüz hazır değilse (bkz. `revealed`) ortada, görünmez ve hareketsiz
     // bekliyor — görsel hazır olduğu anda aşağıdaki dağılmış hedefe doğru animasyonla kayıyor.
-    if (phase === 'entering' && !revealed.has(c.row.id)) {
+    if (phase === 'entering' && !revealed.has(c.key)) {
       return {
         transform: 'translate(50vw, 50vh) translate(-50%, -50%) scale(0.15) rotate(0deg)',
         opacity: 0,
@@ -339,32 +371,54 @@ export default function RandomPickerButton() {
         <StackedCardsIcon />
       </button>
 
-      {phase !== 'idle' && (
-        <div className="fixed inset-0 z-[60] bg-neutral-950/95 overflow-hidden">
-          {captionText && (
-            <p className="absolute top-8 left-1/2 -translate-x-1/2 text-neutral-400 text-sm tracking-wide">{captionText}</p>
+      {/* Animasyon ve açılan pencereler document.body'ye çiziliyor: bu buton üst menünün
+          (<header>) içinde ve üst menü aşağı kaydırılınca bulanıklık efekti (backdrop-blur) alıyor
+          — bu efekt, içindeki "tam ekran" (position: fixed) öğeleri menünün kendi 64 piksellik
+          alanına hapsediyor. Kullanıcı "detay penceresi aşağı kaydırınca yok oluyo, üste gidince
+          geliyo" ve "animasyon tablonun arkasında kalıyo" dedi — ikisinin sebebi buydu (aynı
+          sorun GlobalSearch'te de bu yüzden portal ile çözülmüştü). */}
+      {createPortal(
+        <>
+          {phase !== 'idle' && (
+            <div className="fixed inset-0 z-[60] bg-neutral-950/95 overflow-hidden">
+              {captionText && (
+                <p className="absolute top-8 left-1/2 -translate-x-1/2 text-neutral-400 text-sm tracking-wide">{captionText}</p>
+              )}
+              {candidates.map((c) => {
+                const isWinner = c.key === winnerId
+                const cover = c.cover
+                // 'entering' fazında kendi sırası gelmeden (bkz. yukarıdaki `revealed` effect'i)
+                // görseli hiç mount etme — sonraki fazlarda (eliminating/growing/fading) zaten
+                // görülmüş olduğu için normal render ediliyor.
+                const showImage = phase !== 'entering' || revealed.has(c.key)
+                return (
+                  <div
+                    key={c.key}
+                    className={`absolute left-0 top-0 ${c.landscape ? 'aspect-video w-44 sm:w-52' : 'aspect-[2/3] w-28 sm:w-32'} rounded-lg overflow-hidden shadow-2xl shadow-black/50 transition-all ease-out bg-neutral-800`}
+                    style={styleFor(c, isWinner)}
+                  >
+                    {cover && showImage && <img src={cover} alt="" decoding="async" className="h-full w-full object-cover" />}
+                  </div>
+                )
+              })}
+            </div>
           )}
-          {candidates.map((c) => {
-            const isWinner = c.row.id === winnerId
-            const cover = c.cover
-            // 'entering' fazında kendi sırası gelmeden (bkz. yukarıdaki `revealed` effect'i)
-            // görseli hiç mount etme — sonraki fazlarda (eliminating/growing/fading) zaten
-            // görülmüş olduğu için normal render ediliyor.
-            const showImage = phase !== 'entering' || revealed.has(c.row.id)
-            return (
-              <div
-                key={c.row.id}
-                className={`absolute left-0 top-0 ${c.landscape ? 'aspect-video w-44 sm:w-52' : 'aspect-[2/3] w-28 sm:w-32'} rounded-lg overflow-hidden shadow-2xl shadow-black/50 transition-all ease-out bg-neutral-800`}
-                style={styleFor(c, isWinner)}
-              >
-                {cover && showImage && <img src={cover} alt="" decoding="async" className="h-full w-full object-cover" />}
-              </div>
-            )
-          })}
-        </div>
-      )}
 
-      {openRow && board && <RowDetailModal board={board} row={openRow} onClose={() => setOpenRow(null)} />}
+          {openRow && board && <RowDetailModal board={board} row={openRow} onClose={() => setOpenRow(null)} />}
+          {openTmdb && board && (
+            <TmdbPreviewModal
+              boardId={board.id}
+              card={openTmdb}
+              onClose={() => setOpenTmdb(null)}
+              onPickAgain={() => {
+                setOpenTmdb(null)
+                handleClick()
+              }}
+            />
+          )}
+        </>,
+        document.body,
+      )}
     </>
   )
 }
