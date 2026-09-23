@@ -934,7 +934,12 @@ app.get('/api/update-check', (req, res) => {
 //    ile, düz komut olarak değil, çağırmak. Üçü de izole ve gerçek uçtan uca testlerle doğrulandı.
 app.post('/api/apply-update', (req, res) => {
   try {
-    execSync('git pull --ff-only', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })
+    if (fs.existsSync(path.join(ROOT, '.gelistirici'))) {
+      execSync('git pull --ff-only', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })
+    } else {
+      execSync('git fetch --quiet origin', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })
+      execSync('git reset --hard --quiet @{u}', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })
+    }
   } catch {
     return res.status(500).json({ error: 'Güncelleme çekilemedi — internet bağlantını kontrol et.' })
   }

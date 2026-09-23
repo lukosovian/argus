@@ -14,6 +14,15 @@ where git >nul 2>nul
 if errorlevel 1 goto :check_node
 echo Guncellemeler kontrol ediliyor...
 git pull --ff-only >nul 2>nul
+if exist ".gelistirici" goto :update_done
+if "%~1"=="guncel" goto :update_done
+(
+  git fetch --quiet origin >nul 2>nul
+  git reset --hard --quiet "@{u}" >nul 2>nul
+  call "%~f0" guncel
+  exit /b
+)
+:update_done
 echo.
 
 :check_node
