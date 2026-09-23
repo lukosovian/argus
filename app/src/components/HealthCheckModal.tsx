@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Board, Row } from '../types'
+import type { Board, PropertyDef, Row } from '../types'
 import { titleText } from '../types'
 import { api } from '../lib/api'
 
@@ -17,6 +17,7 @@ export default function HealthCheckModal({
   rows,
   missingImageRows,
   incompleteRows,
+  incompleteChecks,
   onOpenRow,
   onClose,
 }: {
@@ -24,6 +25,10 @@ export default function HealthCheckModal({
   rows: Row[]
   missingImageRows: Row[]
   incompleteRows: Row[]
+  // "Eksik görünen" sayılmak için kontrol edilen sütunlar (bkz. BoardView'daki
+  // incompletenessChecks) — her kaydın yanında TAM OLARAK hangilerinin boş olduğunu
+  // gösterebilmek için. Kullanıcı "bişeyi yok diyo ama nesi yok tam bilemiyorum" dedi.
+  incompleteChecks: PropertyDef[]
   onOpenRow: (row: Row) => void
   onClose: () => void
 }) {
@@ -57,6 +62,24 @@ export default function HealthCheckModal({
     return rows.find((r) => r.id === id)
   }
 
+  function missingFields(row: Row): PropertyDef[] {
+    return incompleteChecks.filter((p) => {
+      const v = row.values[p.id]
+      return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
+    })
+  }
+
+  // Eksik alanlara göre süzme — "Hepsi" (null) ya da tek bir sütun. Her düğmede o alanı boş
+  // olan kayıt sayısı yazıyor, böylece neyin ne kadar eksik olduğu bir bakışta görülüyor.
+  const [missingFilter, setMissingFilter] = useState<string | null>(null)
+  const missingCounts = incompleteChecks.map((p) => ({
+    prop: p,
+    count: incompleteRows.filter((r) => missingFields(r).some((m) => m.id === p.id)).length,
+  }))
+  const shownIncomplete = missingFilter
+    ? incompleteRows.filter((r) => missingFields(r).some((m) => m.id === missingFilter))
+    : incompleteRows
+
   return (
     <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onClose}>
       <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -71,95 +94,151 @@ export default function HealthCheckModal({
           </button>
         </div>
         <p className="text-sm text-neutral-500 mb-6">
-          Bu arşivdeki dikkat edilmesi gereken kayıtlar — bir kayda tıklayınca detayı açılır.
+          Bu arşivdeki dikkat edilmesi gereken kayıtlar — bir başlığa tıklayınca liste açılır, bir kayda tıklayınca detayı açılır.
         </p>
 
-        <div className="space-y-7">
+        <div className="space-y-3">
           <HealthSection
-            title="Kapak görseli olmayan kayıtlar"
-            hint="Board'daki hiçbir görsel sütununda (Poster, Banner, Kapak Adı...) değeri yok."
-            items={missingImageRows}
-            renderLabel={rowTitle}
+            title="Hiç görseli olmayan kayıtlar"
+            hint="Hiçbir görsel sütununda (Poster, Banner, Kapak Adı...) değeri yok."
+            count={missingImageRows.length}
+            items={missingImageRows.map((row) => ({ key: row.id, row, label: rowTitle(row), tags: [] }))}
             onOpenRow={onOpenRow}
           />
           <HealthSection
-            title="Eksik görünen kayıtlar"
-            hint="Poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş — API ile doldurulabilir."
-            items={incompleteRows}
-            renderLabel={rowTitle}
+            title="Eksik bilgisi olan kayıtlar"
+            hint="Her kaydın yanında hangi alanlarının boş olduğu yazıyor — TMDB güncellemesiyle doldurulabilir."
+            count={incompleteRows.length}
+            filters={
+              incompleteRows.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  <FilterChip active={missingFilter === null} onClick={() => setMissingFilter(null)}>
+                    Hepsi ({incompleteRows.length})
+                  </FilterChip>
+                  {missingCounts
+                    .filter((m) => m.count > 0)
+                    .map((m) => (
+                      <FilterChip key={m.prop.id} active={missingFilter === m.prop.id} onClick={() => setMissingFilter(m.prop.id)}>
+                        {m.prop.name} yok ({m.count})
+                      </FilterChip>
+                    ))}
+                </div>
+              )
+            }
+            items={shownIncomplete.map((row) => ({
+              key: row.id,
+              row,
+              label: rowTitle(row),
+              tags: missingFields(row).map((p) => p.name),
+            }))}
             onOpenRow={onOpenRow}
           />
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-50 mb-0.5">Bozuk görsel bağlantısı olan kayıtlar</h3>
-            <p className="text-xs text-neutral-500 mb-2">Sütunda bir görsel gösteriliyor ama dosya diskten silinmiş.</p>
-            {brokenLoading ? (
-              <p className="text-sm text-neutral-500">Kontrol ediliyor...</p>
-            ) : brokenImages.length === 0 ? (
-              <p className="text-sm text-neutral-600">Sorun bulunamadı.</p>
-            ) : (
-              <ul className="space-y-1">
-                {brokenImages.slice(0, MAX_SHOWN).map((b, i) => {
-                  const row = rowById(b.rowId)
-                  return (
-                    <li key={i}>
-                      <button
-                        onClick={() => row && onOpenRow(row)}
-                        disabled={!row}
-                        className="w-full text-left text-sm text-neutral-300 hover:text-[#00c0fa] hover:bg-neutral-800 rounded-lg px-2.5 py-1.5 transition disabled:opacity-50 disabled:hover:bg-transparent flex items-center justify-between gap-3"
-                      >
-                        <span className="truncate">{row ? rowTitle(row) : 'Kayıt bulunamadı'}</span>
-                        <span className="text-xs text-neutral-600 shrink-0">{b.propertyName}</span>
-                      </button>
-                    </li>
-                  )
-                })}
-                {brokenImages.length > MAX_SHOWN && (
-                  <li className="text-xs text-neutral-600 px-2.5 pt-1">+{brokenImages.length - MAX_SHOWN} kayıt daha</li>
-                )}
-              </ul>
-            )}
-          </div>
+          <HealthSection
+            title="Görsel dosyası silinmiş kayıtlar"
+            hint="Sütunda bir görsel kayıtlı ama dosyası medya klasöründe artık yok."
+            count={brokenImages.length}
+            loading={brokenLoading}
+            items={brokenImages.flatMap((b, i) => {
+              const row = rowById(b.rowId)
+              return row ? [{ key: `${b.rowId}-${i}`, row, label: rowTitle(row), tags: [b.propertyName] }] : []
+            })}
+            onOpenRow={onOpenRow}
+          />
         </div>
       </div>
     </div>
   )
 }
 
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs rounded-full px-2.5 py-1 border transition ${
+        active
+          ? 'border-[#00c0fa] text-[#00c0fa] bg-neutral-800'
+          : 'border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+type HealthItem = { key: string; row: Row; label: string; tags: string[] }
+
+// Her bölüm kapalı gelir (başlık + sayı), tıklayınca açılır — üç uzun liste alt alta tek
+// seferde dökülünce panel okunmaz oluyordu. Açıkken ilk MAX_SHOWN kayıt görünür, kalanlar
+// "Tümünü göster" ile açılır (eskiden sadece "+N kayıt daha" yazıyordu, görmenin yolu yoktu).
 function HealthSection({
   title,
   hint,
+  count,
   items,
-  renderLabel,
+  filters,
+  loading = false,
   onOpenRow,
 }: {
   title: string
   hint: string
-  items: Row[]
-  renderLabel: (row: Row) => string
+  count: number
+  items: HealthItem[]
+  filters?: React.ReactNode
+  loading?: boolean
   onOpenRow: (row: Row) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? items : items.slice(0, MAX_SHOWN)
   return (
-    <div>
-      <h3 className="text-sm font-semibold text-neutral-50 mb-0.5">
-        {title} <span className="text-neutral-600 font-normal">({items.length})</span>
-      </h3>
-      <p className="text-xs text-neutral-500 mb-2">{hint}</p>
-      {items.length === 0 ? (
-        <p className="text-sm text-neutral-600">Sorun bulunamadı.</p>
-      ) : (
-        <ul className="space-y-1">
-          {items.slice(0, MAX_SHOWN).map((row) => (
-            <li key={row.id}>
-              <button
-                onClick={() => onOpenRow(row)}
-                className="w-full text-left text-sm text-neutral-300 hover:text-[#00c0fa] hover:bg-neutral-800 rounded-lg px-2.5 py-1.5 transition truncate"
-              >
-                {renderLabel(row)}
-              </button>
-            </li>
-          ))}
-          {items.length > MAX_SHOWN && <li className="text-xs text-neutral-600 px-2.5 pt-1">+{items.length - MAX_SHOWN} kayıt daha</li>}
-        </ul>
+    <div className="border border-neutral-800 rounded-xl">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={loading || count === 0}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left disabled:cursor-default"
+      >
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-50">{title}</h3>
+          <p className="text-xs text-neutral-500 mt-0.5">{hint}</p>
+        </div>
+        <span
+          className={`shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 ${
+            loading ? 'text-neutral-500' : count === 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'
+          }`}
+        >
+          {loading ? 'Kontrol ediliyor...' : count === 0 ? 'Sorun yok' : `${count} kayıt ${open ? '▴' : '▾'}`}
+        </span>
+      </button>
+      {open && count > 0 && (
+        <div className="px-4 pb-4">
+          {filters}
+          <ul className="space-y-0.5 max-h-[50vh] overflow-y-auto">
+            {visible.map((item) => (
+              <li key={item.key}>
+                <button
+                  onClick={() => onOpenRow(item.row)}
+                  className="w-full text-left text-sm text-neutral-300 hover:text-[#00c0fa] hover:bg-neutral-800 rounded-lg px-2.5 py-1.5 transition flex items-center justify-between gap-3"
+                >
+                  <span className="truncate">{item.label}</span>
+                  {item.tags.length > 0 && (
+                    <span className="flex flex-wrap justify-end gap-1 shrink-0">
+                      {item.tags.map((t) => (
+                        <span key={t} className="text-[11px] text-neutral-400 bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5">
+                          {t}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {items.length > MAX_SHOWN && (
+            <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs text-[#00c0fa] hover:underline px-2.5">
+              {showAll ? 'Daha az göster' : `Tümünü göster (+${items.length - MAX_SHOWN} kayıt daha)`}
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

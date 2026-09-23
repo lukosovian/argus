@@ -539,12 +539,12 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
     const vizyonProp = ensureProp('Vizyon Tarihi', 'date')
     const bannerProp = ensureProp('Banner', 'image')
     const posterProp = ensureProp('Poster', 'image')
-    const kapakAdiProp = ensureProp('KAPAK ADI', 'image')
+    const kapakAdiProp = ensureProp('Kapak Adı', 'image')
     const ulkeProp = ensureProp('Ülke', 'multiselect', { options: [] })
     const turProp = ensureProp('Tür', 'multiselect', { options: [] })
     const yonetmenProp = ensureProp('Yönetmen', 'text')
     const oyuncularProp = ensureProp('Oyuncular', 'multiselect', { options: [] })
-    const videoProp = ensureProp('video', 'url')
+    const videoProp = ensureProp('Video', 'url')
     const sureProp = ensureProp('Süre', 'number')
     const yasProp = ensureProp('Yaş Sınırı', 'text')
     let sinopsisProp = board.properties.find((p) => p.type === 'longtext')
@@ -749,7 +749,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
       const trailerUrl = await getTrailerUrl(mediaType, result.id, apiKey)
       if (trailerUrl) {
         row.values[videoProp.id] = trailerUrl
-        filled.push('video')
+        filled.push('Video')
       }
     }
 
