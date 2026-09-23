@@ -11,10 +11,27 @@ import { useToast } from './useToast'
 // bi şey eklenemez mi" dedi. Reddederse (ya da hiç cevap vermezse) bir sonraki ARGUS.bat
 // açılışında zaten kendiliğinden gelir, eski davranış hâlâ geçerli.
 const CHECK_INTERVAL_MS = 30 * 60 * 1000
-// Sunucu güncellemeyi çekip kendini kapatıp yerine yenisini başlatana kadar geçen süre — bu
-// kadar bekleyip sayfayı kendiliğinden yeniliyoruz. npm install gerekmiyorsa genelde çok daha
-// hızlı biter ama bağımlılık eklenmişse birkaç saniye daha sürebilir, o yüzden cömert tutuldu.
-const RELOAD_DELAY_MS = 7000
+// Güncellemeden sonra sayfayı ne zaman yenileyeceğimiz: eskiden sabit 7 saniye bekleniyordu —
+// yeni ARGUS o sürede ayağa kalkmadıysa (ör. yeni bir paket kurulması gerektiyse) sayfa
+// "bağlanılamıyor" hatasıyla açılıyordu. Artık eski sunucunun kapanması için kısa bir süre
+// bekleyip, sonra yenisi gerçekten cevap verene kadar sorup ancak o zaman yeniliyoruz.
+const OLD_SERVER_GRACE_MS = 3500
+const POLL_INTERVAL_MS = 1500
+const POLL_TIMEOUT_MS = 120_000
+
+async function waitForServer(): Promise<void> {
+  await new Promise((r) => setTimeout(r, OLD_SERVER_GRACE_MS))
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch('/api/profiles', { cache: 'no-store' })
+      if (res.ok) return
+    } catch {
+      // henüz ayakta değil
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
+  }
+}
 
 export function useUpdateCheck() {
   const { notify, confirm } = useToast()
@@ -42,9 +59,8 @@ export function useUpdateCheck() {
           // devam edip sayfayı yeniliyoruz (en kötü ihtimalle kullanıcı elle bir daha yeniler).
         }
         notify('Güncelleniyor, birazdan sayfa kendiliğinden yenilenecek...', 'info')
-        setTimeout(() => {
-          if (!cancelled) window.location.reload()
-        }, RELOAD_DELAY_MS)
+        await waitForServer()
+        window.location.reload()
       } catch {
         // Sessizce geç — internet yok, git kurulu değil ya da depo değil, hiçbiri kullanıcıya
         // gösterilecek bir hata değil.

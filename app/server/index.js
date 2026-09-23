@@ -4,8 +4,9 @@ import multer from 'multer'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync, spawn } from 'node:child_process'
+import { execSync } from 'node:child_process'
 import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
+import { buildRestartScript, launchDetachedRestart } from './restart.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -1353,28 +1354,9 @@ app.get('/api/update-check', (req, res) => {
 })
 
 // "Şimdi Güncelle" — kullanıcı bekleyip uygulamayı kendisi kapatıp açmak yerine tek tıkla
-// güncellensin istedi. Kodu hemen çeker, sonra kendi sunucu sürecini (ve ARGUS.bat'ın
-// başlattığı tüm ağacı — Vite dahil) kapatıp YERİNE yeni bir ARGUS.bat başlatır; o da zaten
-// git pull + node kontrolü + gizli sunucu başlatma işini kendisi yapar (bkz. ARGUS.bat).
-// Yanıtı (res.json) MUTLAKA süreç kapanmadan ÖNCE gönderiyoruz, yoksa tarayıcı hiç cevap
-// alamaz. `argus-pid.txt` "ARGUS Durdur.bat"ın kullandığı AYNI dosya — kök süreci bulup
-// tüm ağacı (/T) kapatmak için.
-//
-// Canlı testte ÜÇ gerçek hata bulundu, üçü de düzeltildi:
-// 1) Eski PID'yi yeni süreci başlattıktan SONRA (aynı dosyadan) tekrar okumak yarış durumu
-//    yaratıyordu — yeni ARGUS.bat kendi PID'sini dosyaya çok hızlı yazabiliyor, o zaman
-//    yanlışlıkla YENİ başlayan süreç kapatılmış oluyordu. Eski PID artık YENİ süreç
-//    başlamadan ÖNCE okunup değişkende saklanıyor.
-// 2) `taskkill`i bu sürecin (öldürülecek ağacın kendisinin) İÇİNDEN `execSync` ile senkron
-//    çağırmak güvenilir çalışmıyordu — kapatma/başlatma işini TAMAMEN AYRI, bağımsız bir
-//    PowerShell yardımcı sürecine devrediyoruz.
-// 3) O yardımcı sürecin İÇİNDE bile `taskkill ...`i düz bir komut olarak çağırmak (`Start-Process`
-//    olmadan) hâlâ güvenilir çalışmıyordu — muhtemelen bu düz komutun kendisi, onu başlatan
-//    Node sürecinin bağlı olduğu Windows "job object"inin bir parçası olarak kalıp, o iş nesnesi
-//    kapanınca (Claude Code'un her PowerShell çağrısı kendi kısa ömürlü sürecinde çalışıyor)
-//    O DA birlikte kapatılıyordu — `Start-Process` ise (ARGUS.bat'ı başlatan çağrı gibi) bunu
-//    atlatıyor. Çözüm: taskkill'i DE `Start-Process -FilePath 'taskkill.exe' -ArgumentList ...`
-//    ile, düz komut olarak değil, çağırmak. Üçü de izole ve gerçek uçtan uca testlerle doğrulandı.
+// güncellensin istedi. Kodu hemen çeker, yanıtı gönderir, sonra eski ARGUS'u kapatıp yerine
+// yenisini başlatır (ayrıntılar ve neden iki kademeli olduğu: bkz. restart.js). Yanıt MUTLAKA
+// süreç kapanmadan ÖNCE gönderiliyor, yoksa tarayıcı hiç cevap alamaz.
 app.post('/api/apply-update', (req, res) => {
   try {
     if (fs.existsSync(path.join(ROOT, '.gelistirici'))) {
@@ -1386,7 +1368,10 @@ app.post('/api/apply-update', (req, res) => {
   } catch {
     return res.status(500).json({ error: 'Güncelleme çekilemedi — internet bağlantını kontrol et.' })
   }
-  const pidFile = path.join(__dirname, 'argus-pid.txt')
+  // ARGUS.bat bu dosyayı app/ klasörüne yazıyor ("ARGUS Durdur.bat" da oradan okuyor). Eskiden
+  // burada app/server/ içinde aranıyordu — hiç bulunamadığı için eski ARGUS hiç kapatılmıyor,
+  // yeni sunucu port dolu olduğu için başlayamıyor ve eski sunucu kodu çalışmaya devam ediyordu.
+  const pidFile = path.join(__dirname, '..', 'argus-pid.txt')
   let oldPid = null
   try {
     if (fs.existsSync(pidFile)) oldPid = fs.readFileSync(pidFile, 'utf-8').trim()
@@ -1394,21 +1379,8 @@ app.post('/api/apply-update', (req, res) => {
 
   res.json({ ok: true })
 
-  const batPath = path.join(ROOT, 'ARGUS.bat')
-  const helper = [
-    'Start-Sleep -Milliseconds 300',
-    `try { Start-Process -FilePath '${batPath.replace(/'/g, "''")}' -WorkingDirectory '${ROOT.replace(/'/g, "''")}' } catch {}`,
-    oldPid ? `try { Start-Process -FilePath 'taskkill.exe' -ArgumentList '/PID','${oldPid}','/T','/F' -WindowStyle Hidden } catch {}` : '',
-  ]
-    .filter(Boolean)
-    .join('; ')
   try {
-    spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', helper], {
-      cwd: ROOT,
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-    }).unref()
+    launchDetachedRestart(buildRestartScript({ oldPid, batPath: path.join(ROOT, 'ARGUS.bat'), root: ROOT }), ROOT)
   } catch {}
 })
 

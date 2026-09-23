@@ -16,6 +16,15 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.6.3',
+    date: '23 Eylül 2026',
+    title: '"Şimdi Güncelle" düzeltmesi',
+    items: [
+      '"Şimdi Güncelle"ye basınca ARGUS artık gerçekten yeni sürümle yeniden başlıyor — önceden bazı yeni özellikler uygulamayı elle kapatıp açana kadar çalışmıyordu.',
+      'Güncellemeden sonra fazladan bir tarayıcı sekmesi açılmıyor; sayfa, yeni sürüm hazır olunca kendiliğinden yenileniyor.',
+    ],
+  },
+  {
     version: 'v1.6.2',
     date: '23 Eylül 2026',
     title: "Ne İzlesem TMDB'den de seçebiliyor",
