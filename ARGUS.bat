@@ -112,5 +112,9 @@ cd /d "%~dp0app"
 del /q argus-pid.txt >nul 2>nul
 REM Sunucu tamamen gizli calisir - ne ekranda ne gorev cubugunda bir pencere/simge kalir.
 REM PID bir dosyaya yaziliyor ki "ARGUS Durdur.bat" onu tam olarak bulup kapatabilsin.
-powershell -NoProfile -WindowStyle Hidden -Command "$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c npm run dev' -WorkingDirectory '%CD%' -WindowStyle Hidden -PassThru; Set-Content -Path 'argus-pid.txt' -Value $p.Id; Start-Sleep -Seconds 2; Start-Process 'http://localhost:5173/'"
+REM Uygulama icinden "Simdi Guncelle" ile yeniden baslatildiysa acik sekme zaten kendini
+REM yeniliyor - ikinci bir sekme acilmasin.
+set "ARGUS_OPEN=; Start-Sleep -Seconds 2; Start-Process 'http://localhost:5173/'"
+if defined ARGUS_NO_BROWSER set "ARGUS_OPEN="
+powershell -NoProfile -WindowStyle Hidden -Command "$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c npm run dev' -WorkingDirectory '%CD%' -WindowStyle Hidden -PassThru; Set-Content -Path 'argus-pid.txt' -Value $p.Id%ARGUS_OPEN%"
 exit /b 0
