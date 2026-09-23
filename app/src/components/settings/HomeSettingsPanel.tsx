@@ -1,13 +1,119 @@
 import { useEffect, useState } from 'react'
 import { useBoards } from '../../hooks/useBoards'
 import { useHomeSettings } from '../../hooks/useHomeSettings'
-import { HOME_LAYOUT_LABELS, type HomeLayout, type HomeSection, type MoodRowSettings } from '../../types'
+import { HOME_LAYOUT_LABELS, type HomeLayout, type HomeSection, type MoodRowSettings, type RandomPickerTmdbSettings } from '../../types'
+import { api } from '../../lib/api'
 import HomeSectionEditor from '../HomeSectionEditor'
 import MoodRowEditor from '../MoodRowEditor'
 import PropertyFilterPicker from '../PropertyFilterPicker'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
 import { BRAND_TEXT } from '../../lib/theme'
+
+function ChoiceButtons<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={`text-xs rounded-lg border px-3 py-1.5 transition ${
+            value === o.value
+              ? 'bg-neutral-700 border-neutral-500 text-neutral-50'
+              : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Ne İzlesem'in TMDB modu ayarları: film/dizi/karışık, tür, sıralama. Türler TMDB'den (Türkçe)
+// çekiliyor; "karışık"ta film ve dizi tür listeleri farklı olduğu için tür seçimi yok.
+function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettings; onChange: (v: RandomPickerTmdbSettings) => void }) {
+  const [genres, setGenres] = useState<{ id: number; name: string }[]>([])
+  const [needsApiKey, setNeedsApiKey] = useState(false)
+
+  useEffect(() => {
+    if (value.type === 'mixed') return
+    let cancelled = false
+    api
+      .getTmdbGenres(value.type)
+      .then((d) => {
+        if (cancelled) return
+        setGenres(d.genres)
+        setNeedsApiKey(Boolean(d.needsApiKey))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [value.type])
+
+  function toggleGenre(id: number) {
+    const has = value.genreIds.includes(id)
+    onChange({ ...value, genreIds: has ? value.genreIds.filter((g) => g !== id) : [...value.genreIds, id] })
+  }
+
+  if (needsApiKey) {
+    return <p className="text-sm text-amber-500">Bunun için önce Ayarlar → Veritabanı → API'den TMDB anahtarını girmelisin.</p>
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-neutral-800 p-3">
+      <div>
+        <label className="block text-xs text-neutral-400 mb-1.5">Ne</label>
+        <ChoiceButtons
+          value={value.type}
+          // Tür id'leri film ve dizi için farklı — tür değişince seçili türler sıfırlanıyor.
+          onChange={(type) => onChange({ ...value, type, genreIds: [] })}
+          options={[
+            { value: 'movie', label: 'Film' },
+            { value: 'tv', label: 'Dizi' },
+            { value: 'mixed', label: 'Karışık' },
+          ]}
+        />
+      </div>
+      {value.type !== 'mixed' && (
+        <div>
+          <label className="block text-xs text-neutral-400 mb-1.5">Tür (hiçbiri seçilmezse hepsi)</label>
+          <div className="flex flex-wrap gap-1.5">
+            {genres.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => toggleGenre(g.id)}
+                className={`text-xs rounded-full px-2.5 py-1 border transition ${
+                  value.genreIds.includes(g.id)
+                    ? 'border-[#00c0fa] text-[#00c0fa] bg-[#00c0fa]/10'
+                    : 'border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500'
+                }`}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div>
+        <label className="block text-xs text-neutral-400 mb-1.5">Hangileri</label>
+        <ChoiceButtons
+          value={value.sort}
+          onChange={(sort) => onChange({ ...value, sort })}
+          options={[
+            { value: 'popular', label: 'Popüler olanlar' },
+            { value: 'top', label: 'En yüksek puanlılar' },
+          ]}
+        />
+      </div>
+      <p className="text-[11px] text-neutral-600">
+        Kazanan çıkınca önizlemesi açılır: izlenecekler listene ekleyebilir, izlediysen tarih ve puanla kaydedebilir ya
+        da bir daha gösterilmemesini seçebilirsin.
+      </p>
+    </div>
+  )
+}
 
 const TABS = [
   { id: 'gorunum', label: 'Görünüm' },
@@ -486,22 +592,41 @@ export default function HomeSettingsPanel() {
       {tab === 'nizlesem' && (
         <div className="space-y-3 max-w-xl">
           <p className="text-sm text-neutral-300">
-            Üstteki arama kutusunun yanındaki kart butonu — tıklanınca aşağıdaki havuzdan rastgele bir kayıt seçip
+            Üstteki arama kutusunun yanındaki kart butonu — tıklanınca aşağıdaki havuzdan rastgele bir şey seçip
             detayını açar.
           </p>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1">
-              Hangi havuzdan seçilsin (hiçbir filtre seçilmezse arşivdeki her şeyden rastgele seçilir)
-            </label>
-            <PropertyFilterPicker
-              board={board}
-              propertyId={settings.randomPickerFilter?.propertyId ?? ''}
-              optionIds={settings.randomPickerFilter?.optionIds ?? []}
-              onChange={(propertyId, optionIds) =>
-                saveSettings({ ...settings, randomPickerFilter: { propertyId: propertyId || null, optionIds } })
-              }
+            <label className="block text-xs text-neutral-400 mb-1.5">Nereden seçilsin</label>
+            <ChoiceButtons
+              value={settings.randomPickerSource ?? 'arsiv'}
+              onChange={(v) => saveSettings({ ...settings, randomPickerSource: v })}
+              options={[
+                { value: 'arsiv', label: 'Arşivimden' },
+                { value: 'tmdb', label: "TMDB'den (arşivimde olmayanlar)" },
+              ]}
             />
           </div>
+
+          {(settings.randomPickerSource ?? 'arsiv') === 'arsiv' ? (
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">
+                Hangi havuzdan seçilsin (hiçbir filtre seçilmezse arşivdeki her şeyden rastgele seçilir)
+              </label>
+              <PropertyFilterPicker
+                board={board}
+                propertyId={settings.randomPickerFilter?.propertyId ?? ''}
+                optionIds={settings.randomPickerFilter?.optionIds ?? []}
+                onChange={(propertyId, optionIds) =>
+                  saveSettings({ ...settings, randomPickerFilter: { propertyId: propertyId || null, optionIds } })
+                }
+              />
+            </div>
+          ) : (
+            <TmdbPickerSettings
+              value={settings.randomPickerTmdb ?? { type: 'movie', genreIds: [], sort: 'popular' }}
+              onChange={(randomPickerTmdb) => saveSettings({ ...settings, randomPickerTmdb })}
+            />
+          )}
 
           <div>
             <label className="block text-xs text-neutral-400 mb-1">

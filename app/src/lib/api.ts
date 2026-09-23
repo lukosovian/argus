@@ -8,6 +8,7 @@ export interface TmdbCard {
   originalTitle: string
   year: string
   poster: string | null
+  backdrop?: string | null
   overview: string
   rating: number | null
   inArchive?: boolean
@@ -18,10 +19,28 @@ export interface WatchProvider {
   logo: string | null
 }
 
+export interface WatchProviders {
+  link: string | null
+  flatrate: WatchProvider[]
+  free: WatchProvider[]
+  rent: WatchProvider[]
+  buy: WatchProvider[]
+}
+
+// Arşivde olmayan tek bir TMDB içeriğinin önizlemesi (Ne İzlesem'in TMDB modu).
+export interface TmdbItem extends TmdbCard {
+  logo: string | null
+  trailer: string | null
+  genres: string[]
+  runtime: number | null
+  seasons: number | null
+  providers: WatchProviders | null
+}
+
 export interface TmdbExtras {
   needsApiKey?: boolean
   notFound?: boolean
-  providers?: { link: string | null; flatrate: WatchProvider[]; free: WatchProvider[]; rent: WatchProvider[]; buy: WatchProvider[] } | null
+  providers?: WatchProviders | null
   similar?: TmdbCard[]
 }
 
@@ -144,12 +163,17 @@ export const api = {
   ) => request<{ ok: true; rowId: string; title: string; filled: boolean }>(profilePath(`/tmdb-add/${boardId}`), { method: 'POST', ...json(item) }),
   getTmdbGenres: (type: 'movie' | 'tv') =>
     request<{ genres: { id: number; name: string }[]; needsApiKey?: boolean }>(profilePath(`/tmdb-genres?type=${type}`)),
-  discoverTmdb: (boardId: string, query: { type: 'movie' | 'tv'; genreIds: number[]; count: number; sort: 'popular' | 'top' | 'new' }) =>
+  discoverTmdb: (
+    boardId: string,
+    query: { type: 'movie' | 'tv'; genreIds: number[]; count: number; sort: 'popular' | 'top' | 'new'; random?: boolean },
+  ) =>
     request<{ items: TmdbCard[] }>(profilePath(`/tmdb-discover/${boardId}`), { method: 'POST', ...json(query) }),
   dismissTmdb: (item: { tmdbId: number; mediaType: 'movie' | 'tv' }) =>
     request<{ ok: true; count: number }>(profilePath('/tmdb-dismiss'), { method: 'POST', ...json(item) }),
   getDismissedCount: () => request<{ count: number }>(profilePath('/tmdb-dismiss')),
   resetDismissed: () => request<{ ok: true }>(profilePath('/tmdb-dismiss'), { method: 'DELETE' }),
+  getTmdbItem: (boardId: string, mediaType: 'movie' | 'tv', tmdbId: number) =>
+    request<TmdbItem>(profilePath(`/tmdb-item/${boardId}/${mediaType}/${tmdbId}`)),
   getNewEpisodes: (boardId: string) => request<{ items: NewEpisodeItem[] }>(profilePath(`/new-episodes/${boardId}`)),
 
   // Profile bağlı değil — ARGUS klasörünün git durumuna göre (bkz. server/index.js).

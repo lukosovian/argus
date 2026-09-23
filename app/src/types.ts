@@ -415,6 +415,18 @@ export interface HomeSettings {
   // Ana sayfanın en üstündeki "Yeni Bölümler" satırı (İzleniyor durumundaki dizilerin yeni
   // bölümleri). Eski kayıtlarda yok, yoksa açık kabul edilir.
   newEpisodesRow?: boolean
+  // "Ne İzlesem?" nereden seçsin: 'arsiv' (varsayılan, arşivdeki kayıtlardan) ya da 'tmdb'
+  // (TMDB'de olup arşivde OLMAYAN içeriklerden — randomPickerTmdb ayarlarıyla).
+  randomPickerSource?: 'arsiv' | 'tmdb'
+  randomPickerTmdb?: RandomPickerTmdbSettings
+}
+
+export interface RandomPickerTmdbSettings {
+  type: 'movie' | 'tv' | 'mixed'
+  // TMDB tür id'leri — sadece type 'movie' ya da 'tv' iken kullanılır (iki tarafın tür
+  // listeleri farklı olduğu için "karışık"ta tür seçimi yok).
+  genreIds: number[]
+  sort: 'popular' | 'top'
 }
 
 export const emptyHomeSettings: HomeSettings = {
