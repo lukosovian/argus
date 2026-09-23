@@ -7,14 +7,33 @@
 // APP_VERSION ile elle senkron tutulur (kullanıcı "versiyon numarası ekleyelim güncellendiği
 // anlaşılmıyo" dedi).
 import { APP_VERSION } from '../lib/version'
+import {
+  DetayEkleriVisual,
+  GorevVisual,
+  GorselSekliVisual,
+  KesfetVisual,
+  NeIzlesemTmdbVisual,
+  RehberVisual,
+  SaglikVisual,
+  YeniBolumlerVisual,
+} from '../components/PatchVisuals'
 interface PatchEntry {
   version: string
   date: string
   title: string
   items: string[]
+  // Neyin değiştiğini/eklendiğini gösteren çizimler (bkz. components/PatchVisuals.tsx) —
+  // kullanıcı "yama notları da wireframeler kullanabilir mi" dedi. İsteğe bağlı.
+  visuals?: { caption: string; Visual: () => React.ReactNode }[]
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.6.4',
+    date: '23 Eylül 2026',
+    title: 'Yama notlarında çizimler',
+    items: ['Yama notları artık neyin değiştiğini ya da eklendiğini küçük çizimlerle de gösteriyor.'],
+  },
   {
     version: 'v1.6.3',
     date: '23 Eylül 2026',
@@ -36,6 +55,9 @@ const ENTRIES: PatchEntry[] = [
       "Benzer İçerikler ve Keşfet kartlarındaki düğmeler artık hepsi aynı hizada — ad kısa ya da uzun olsun kaymıyor.",
       "Keşfet ve Ne İzlesem'de \"İzledim\" derken izleme tarihi artık zorunlu değil — hatırlamıyorsan \"Hatırlamıyorum\" deyip tarihsiz ekleyebilirsin.",
     ],
+    visuals: [
+      { caption: "Ne İzlesem: TMDB'den seçim ve önizleme", Visual: NeIzlesemTmdbVisual },
+    ],
   },
   {
     version: 'v1.6.1',
@@ -53,6 +75,12 @@ const ENTRIES: PatchEntry[] = [
       'Bir oyuncuya ya da etikete tıklayınca açılan listede bazen üstte vitrin de çıkması düzeltildi.',
       'Tablonun en altındaki satırlarda altı nokta menüsü artık ekrana sığmıyorsa yukarı doğru açılıyor, tüm seçenekler görünüyor.',
     ],
+    visuals: [
+      { caption: 'Keşfet: tablonun sağ üstündeki pusula', Visual: KesfetVisual },
+      { caption: 'Detay penceresi: Nerede İzlenir ve Benzer İçerikler', Visual: DetayEkleriVisual },
+      { caption: 'Ana sayfada Yeni Bölümler', Visual: YeniBolumlerVisual },
+      { caption: 'Sütunların "Görevi"', Visual: GorevVisual },
+    ],
   },
   {
     version: 'v1.6',
@@ -69,6 +97,11 @@ const ENTRIES: PatchEntry[] = [
       'TMDB güncellemesi, arşivde olmayan sütunları artık kendisi oluşturuyor.',
       'Arşiv tablosunun sağ üstüne "i" (rehber) butonu eklendi — tablonun nasıl kullanıldığını, hangi sütun tipinin ne için seçileceğini ve oyuncu eklemeyi çizimlerle anlatıyor.',
       'Sütun adları düzenlendi: "video", "sinopsis" ve "KAPAK ADI" artık "Video", "Sinopsis" ve "Kapak Adı" — hepsi aynı yazım düzeninde.',
+    ],
+    visuals: [
+      { caption: 'Ne İzlesem: dikey / yatay görsel', Visual: GorselSekliVisual },
+      { caption: 'Sağlık Kontrolü: neyin eksik olduğu', Visual: SaglikVisual },
+      { caption: 'Tablo rehberi (i butonu)', Visual: RehberVisual },
     ],
   },
   {
@@ -192,6 +225,16 @@ export default function YamaNotlari() {
                     </li>
                   ))}
                 </ul>
+                {entry.visuals && entry.visuals.length > 0 && (
+                  <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                    {entry.visuals.map(({ caption, Visual }) => (
+                      <figure key={caption} className="rounded-lg border border-neutral-800 bg-neutral-950 p-2.5">
+                        <Visual />
+                        <figcaption className="text-xs text-neutral-500 mt-1.5 px-0.5">{caption}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )
