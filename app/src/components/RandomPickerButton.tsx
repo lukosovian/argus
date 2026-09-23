@@ -46,26 +46,63 @@ function eliminatePhaseMs(nonWinnerCount: number) {
 const GROW_MS = 900
 const FADE_MS = 650
 
-// Bir satırın posteri olarak önce arşivin "kapak" diye işaretlediği sütuna bakılır, o boşsa
-// (ya da hiç kapak sütunu seçilmemişse) arşivdeki DİĞER tüm görsel sütunları sırayla denenir —
-// kullanıcının arkadaşının arşivinde kapak sütunu hiç seçilmemiş ama Banner sütunu doluydu,
-// eskiden bu durumda havuz tamamen boş sayılıyordu.
-function resolveCoverImage(board: Board, row: Row): string {
-  const imageProps = board.properties.filter((p) => p.type === 'image')
-  const coverProp = imageProps.find((p) => p.id === board.coverPropertyId)
-  if (coverProp) {
-    const v = row.values[coverProp.id]
-    if (v) return v as string
+// Görsel sütunlarının şekli (dikey/yatay) sütun adına bakılarak değil, o sütundaki gerçek bir
+// görselin en/boy oranına bakılarak anlaşılıyor — sütun adı ne olursa olsun çalışsın diye.
+// Başlık logosu sütunu (KAPAK ADI, bkz. board.titleImagePropertyId) hiç hesaba katılmıyor.
+// Sonuç görsel adresine göre önbellekleniyor, her tıklamada yeniden indirilmesin.
+const shapeCache = new Map<string, 'dikey' | 'yatay'>()
+function probeShape(url: string): Promise<'dikey' | 'yatay' | null> {
+  const cached = shapeCache.get(url)
+  if (cached) return Promise.resolve(cached)
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const shape = img.naturalWidth > img.naturalHeight ? 'yatay' : 'dikey'
+      shapeCache.set(url, shape)
+      resolve(shape)
+    }
+    img.onerror = () => resolve(null)
+    img.src = url
+  })
+}
+
+type ImageColumn = { id: string; shape: 'dikey' | 'yatay' }
+
+async function classifyImageColumns(board: Board, rows: Row[]): Promise<ImageColumn[]> {
+  const props = board.properties.filter((p) => p.type === 'image' && p.id !== board.titleImagePropertyId)
+  const result: ImageColumn[] = []
+  for (const p of props) {
+    // İlk birkaç dolu değeri dene — tek bir bozuk dosya yüzünden sütun tanınmaz kalmasın.
+    const samples = rows.map((r) => r.values[p.id] as string).filter(Boolean).slice(0, 3)
+    for (const url of samples) {
+      const shape = await probeShape(url)
+      if (shape) {
+        result.push({ id: p.id, shape })
+        break
+      }
+    }
   }
-  for (const p of imageProps) {
-    const v = row.values[p.id]
-    if (v) return v as string
+  return result
+}
+
+// Ayardaki tercihe göre bir satırın görselini seçer: 'dikey' sadece dikey sütunlardan, 'yatay'
+// sadece yatay sütunlardan; ayar yapılmadıysa önce dikey, o boşsa yatay görsel kullanılır.
+function pickImage(row: Row, columns: ImageColumn[], pref: 'dikey' | 'yatay' | null): { url: string; landscape: boolean } | null {
+  const order: ('dikey' | 'yatay')[] = pref ? [pref] : ['dikey', 'yatay']
+  for (const shape of order) {
+    for (const col of columns) {
+      if (col.shape !== shape) continue
+      const v = row.values[col.id] as string
+      if (v) return { url: v, landscape: shape === 'yatay' }
+    }
   }
-  return ''
+  return null
 }
 
 type Candidate = {
   row: Row
+  cover: string
+  landscape: boolean
   left: number
   top: number
   rotate: number
@@ -104,13 +141,21 @@ export default function RandomPickerButton() {
     }
     setLoading(true)
     try {
-      const [boards, allRows] = await Promise.all([api.getBoards(), api.getRows(settings.boardId)])
-      const b = boards.find((x) => x.id === settings.boardId)
+      // Ayarlar Navbar'daki bu butonun hook'u açıldığında bir kez yükleniyor — Ana Sayfa
+      // Ayarları'nda sonradan yapılan değişiklikler buraya yansımıyordu (seçilen görsel şekli
+      // hiç uygulanmıyordu). Bu yüzden her tıklamada en güncel ayarı sunucudan okuyoruz.
+      const [boards, allRows, fresh] = await Promise.all([
+        api.getBoards(),
+        api.getRows(settings.boardId),
+        api.getHomeSettings(),
+      ])
+      const current = { ...settings, ...(fresh ?? {}) }
+      const b = boards.find((x) => x.id === current.boardId)
       if (!b) {
         notify('Arşiv bulunamadı.', 'danger')
         return
       }
-      const filter = settings.randomPickerFilter
+      const filter = current.randomPickerFilter
       // Hiç filtre ayarlanmadıysa (propertyId yok) arşivin TAMAMI havuz olur — kullanıcının
       // "hiç bi ayar yapılmadıysa default olarak tüm içerikleri gösterebilsin" isteği.
       const base = filter?.propertyId && filter.optionIds.length > 0 ? rowsForFilter(filter, allRows) : allRows
@@ -118,13 +163,20 @@ export default function RandomPickerButton() {
       // görsel sütununda değeri olan kayıtlar havuza giriyor (sadece "kapak" olarak işaretli
       // sütuna değil — arşivde kapak hiç seçilmemiş ama başka bir görsel sütunu (ör. Banner)
       // dolu olabilir).
-      const pool = base.filter((r) => Boolean(resolveCoverImage(b, r)))
+      const columns = await classifyImageColumns(b, allRows)
+      const pref = current.randomPickerImageShape === 'dikey' || current.randomPickerImageShape === 'yatay' ? current.randomPickerImageShape : null
+      const images = new Map<string, { url: string; landscape: boolean }>()
+      for (const r of base) {
+        const img = pickImage(r, columns, pref)
+        if (img) images.set(r.id, img)
+      }
+      const pool = base.filter((r) => images.has(r.id))
       if (pool.length === 0) {
-        notify('Bu filtreye uyan, kapak görseli olan bir içerik bulunamadı.', 'danger')
+        notify('Bu filtreye uyan, seçili görseli olan bir içerik bulunamadı.', 'danger')
         return
       }
       const winner = pool[Math.floor(Math.random() * pool.length)]
-      const count = settings.randomPickerCount ?? DEFAULT_SCATTER_COUNT
+      const count = current.randomPickerCount ?? DEFAULT_SCATTER_COUNT
       const rest = shuffle(pool.filter((r) => r.id !== winner.id)).slice(0, count - 1)
       // `rest`in sırası zaten karışık — bu sıra aynı zamanda "kimin ne zaman kaybolacağını" da
       // belirliyor, ayrıca bir eleme sırası üretmeye gerek yok.
@@ -132,6 +184,8 @@ export default function RandomPickerButton() {
       const eliminateWindow = eliminatePhaseMs(nonWinnerCount)
       const laidOut: Candidate[] = [winner, ...rest].map((row, i) => ({
         row,
+        cover: images.get(row.id)!.url,
+        landscape: images.get(row.id)!.landscape,
         left: 12 + Math.random() * 76,
         top: 16 + Math.random() * 62,
         rotate: -22 + Math.random() * 44,
@@ -165,7 +219,7 @@ export default function RandomPickerButton() {
       setRevealed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
     }
     candidates.forEach((c) => {
-      const url = board ? resolveCoverImage(board, c.row) : ''
+      const url = c.cover
       if (!url) {
         markReady(c.row.id)
         return
@@ -186,7 +240,7 @@ export default function RandomPickerButton() {
       cancelled = true
       clearTimeout(fallback)
     }
-  }, [phase, candidates, board])
+  }, [phase, candidates])
 
   // Herkes (bkz. yukarıdaki effect) hazır olunca kısa bir bekleme payı ver, sonra sıradaki faza
   // geç — kazanandan başka aday yoksa eleme fazı tamamen atlanır.
@@ -292,7 +346,7 @@ export default function RandomPickerButton() {
           )}
           {candidates.map((c) => {
             const isWinner = c.row.id === winnerId
-            const cover = board ? resolveCoverImage(board, c.row) : ''
+            const cover = c.cover
             // 'entering' fazında kendi sırası gelmeden (bkz. yukarıdaki `revealed` effect'i)
             // görseli hiç mount etme — sonraki fazlarda (eliminating/growing/fading) zaten
             // görülmüş olduğu için normal render ediliyor.
@@ -300,7 +354,7 @@ export default function RandomPickerButton() {
             return (
               <div
                 key={c.row.id}
-                className="absolute left-0 top-0 aspect-[2/3] w-28 sm:w-32 rounded-lg overflow-hidden shadow-2xl shadow-black/50 transition-all ease-out bg-neutral-800"
+                className={`absolute left-0 top-0 ${c.landscape ? 'aspect-video w-44 sm:w-52' : 'aspect-[2/3] w-28 sm:w-32'} rounded-lg overflow-hidden shadow-2xl shadow-black/50 transition-all ease-out bg-neutral-800`}
                 style={styleFor(c, isWinner)}
               >
                 {cover && showImage && <img src={cover} alt="" decoding="async" className="h-full w-full object-cover" />}

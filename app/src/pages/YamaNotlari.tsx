@@ -14,6 +14,23 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.6',
+    date: '23 Eylül 2026',
+    title: 'Ne İzlesem görsel seçimi, Sağlık Kontrolü, arama iyileştirmeleri',
+    items: [
+      '"Ne İzlesem?" ayarlarına görsel seçimi eklendi: Dikey (poster), Yatay (banner) ya da Otomatik (önce dikey, yoksa yatay). Kartlar seçilen görselin şekline göre dağılıyor.',
+      '"Ne İzlesem?" artık ayarlarda yaptığın değişiklikleri sayfayı yenilemeden hemen kullanıyor.',
+      'Açık temada vitrindeki bilgi satırı ve özet yazısı artık okunaklı (siyaha dönmüyor).',
+      'Yeni Sağlık Kontrolü paneli: kapak görseli olmayan, eksik bilgili ya da görseli silinmiş kayıtları tek listede gösteriyor.',
+      'Sağlık Kontrolü artık her kaydın yanında tam olarak neyinin eksik olduğunu yazıyor, "Yönetmen yok" gibi düğmelerle süzülebiliyor ve "Tümünü göster" ile listenin tamamı açılabiliyor.',
+      'Aynı isimde bir kayıt zaten varsa başlığı yazarken uyarı çıkıyor.',
+      'Arşiv içindeki arama artık Tür, Ülke, Oyuncular gibi etiketlerde de arıyor.',
+      'TMDB güncellemesi, arşivde olmayan sütunları artık kendisi oluşturuyor.',
+      'Arşiv tablosunun sağ üstüne "i" (rehber) butonu eklendi — tablonun nasıl kullanıldığını, hangi sütun tipinin ne için seçileceğini ve oyuncu eklemeyi çizimlerle anlatıyor.',
+      'Sütun adları düzenlendi: "video", "sinopsis" ve "KAPAK ADI" artık "Video", "Sinopsis" ve "Kapak Adı" — hepsi aynı yazım düzeninde.',
+    ],
+  },
+  {
     version: 'v1.5',
     date: '22 Eylül 2026',
     title: 'Versiyon numarası, tek tıkla güncelleme',

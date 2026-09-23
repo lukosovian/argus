@@ -398,6 +398,10 @@ export interface HomeSettings {
   // "Ne İzlesem?" animasyonunda ekranda aynı anda dağılan poster sayısı. Eski kayıtlarda yok,
   // yoksa 30 kabul edilir.
   randomPickerCount?: number
+  // "Ne İzlesem?" animasyonunda hangi şekildeki görselin kullanılacağı — 'dikey' (poster gibi)
+  // ya da 'yatay' (banner gibi). Boşsa önce dikey görsel, o yoksa yatay olan kullanılır.
+  // Sütunların şekli görsellerin gerçek en/boy oranından anlaşılır (bkz. RandomPickerButton).
+  randomPickerImageShape?: 'dikey' | 'yatay' | null
 }
 
 export const emptyHomeSettings: HomeSettings = {
@@ -417,6 +421,7 @@ export const emptyHomeSettings: HomeSettings = {
   autoFill: { enabled: false, count: 4 },
   randomPickerFilter: { propertyId: null, optionIds: [] },
   randomPickerCount: 30,
+  randomPickerImageShape: null,
 }
 
 export function makeTitleProperty(name = 'Ad'): PropertyDef {
@@ -440,7 +445,7 @@ export function mediaTemplateProperties(): {
 } {
   const title = makeTitleProperty('Türkçe Adı')
   const banner: PropertyDef = { id: makeId(), name: 'Banner', type: 'image' }
-  const kapakAdi: PropertyDef = { id: makeId(), name: 'KAPAK ADI', type: 'image' }
+  const kapakAdi: PropertyDef = { id: makeId(), name: 'Kapak Adı', type: 'image' }
   const rest: PropertyDef[] = [
     { id: makeId(), name: 'Orjinal Adı', type: 'text' },
     banner,
@@ -487,8 +492,8 @@ export function mediaTemplateProperties(): {
     { id: makeId(), name: 'Yönetmen', type: 'text' },
     { id: makeId(), name: 'Ülke', type: 'multiselect', options: [] },
     { id: makeId(), name: 'İzleme Tarihi', type: 'text' },
-    { id: makeId(), name: 'video', type: 'url' },
-    { id: makeId(), name: 'sinopsis', type: 'longtext' },
+    { id: makeId(), name: 'Video', type: 'url' },
+    { id: makeId(), name: 'Sinopsis', type: 'longtext' },
     kapakAdi,
     { id: makeId(), name: 'Oyuncular', type: 'multiselect', options: [] },
     { id: makeId(), name: 'Poster', type: 'image' },

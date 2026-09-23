@@ -19,20 +19,22 @@ import { hasAnyImage } from '../lib/rowMeta'
 import BoardTable, { type BoardTableHandle } from '../components/BoardTable'
 import RowDetailModal from '../components/RowDetailModal'
 import HealthCheckModal from '../components/HealthCheckModal'
+import TableGuideModal from '../components/TableGuideModal'
 import OptionBadge from '../components/OptionBadge'
 import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" />
-    </svg>
-  )
-}
+import {
+  BulkRefreshIcon,
+  ColumnsIcon,
+  FilterIcon,
+  GearIcon,
+  HealthIcon,
+  InfoIcon,
+  SearchIcon,
+  SortIcon,
+} from '../components/toolbarIcons'
 
 function CloseIcon() {
   return (
@@ -46,23 +48,6 @@ function ArrowLeftIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
       <path d="M19 12H5M11 18l-6-6 6-6" />
-    </svg>
-  )
-}
-
-function FilterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <polygon points="4 4 20 4 14 12.5 14 20 10 20 10 12.5 4 4" />
-    </svg>
-  )
-}
-
-function GearIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
     </svg>
   )
 }
@@ -135,55 +120,6 @@ function TmdbFieldsPopover({
         </>
       )}
     </div>
-  )
-}
-
-function ColumnsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <line x1="9" y1="4" x2="9" y2="20" />
-      <line x1="15" y1="4" x2="15" y2="20" />
-    </svg>
-  )
-}
-
-function SortIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="m3 16 4 4 4-4" />
-      <path d="M7 20V4" />
-      <path d="m21 8-4-4-4 4" />
-      <path d="M17 4v16" />
-    </svg>
-  )
-}
-
-function HealthIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
-      <path d="M6 12h3l1.5-3L12 15l1.5-3H18" />
-    </svg>
-  )
-}
-
-function BulkRefreshIcon({ spinning }: { spinning?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`h-4 w-4 ${spinning ? 'animate-spin' : ''}`}
-    >
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-      <path d="M16 16h5v5" />
-    </svg>
   )
 }
 
@@ -764,7 +700,7 @@ export default function BoardView() {
   // yoksa (kullanıcı silmişse) o alan kontrolden muaf tutulur.
   const posterProp = board?.properties.find((p) => p.name === 'Poster' && p.type === 'image')
   const synopsisProp = board?.properties.find((p) => p.type === 'longtext')
-  const videoProp = board?.properties.find((p) => p.name === 'video' && p.type === 'url')
+  const videoProp = board?.properties.find((p) => p.name.toLocaleLowerCase('tr') === 'video' && p.type === 'url')
   const ulkeProp = board?.properties.find((p) => p.name === 'Ülke' && p.type === 'multiselect')
   const yonetmenProp = board?.properties.find((p) => p.name === 'Yönetmen' && p.type === 'text')
   const incompletenessChecks = [posterProp, synopsisProp, videoProp, ulkeProp, yonetmenProp].filter(
@@ -790,6 +726,7 @@ export default function BoardView() {
   // hesaplanabiliyor, üçüncü liste (bozuk dosya bağlantıları) modalın kendisi açılınca
   // ayrıca sunucudan çekiliyor (bkz. HealthCheckModal.tsx).
   const [healthOpen, setHealthOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const missingImageRows = useMemo(
     () => (board ? rows.filter((r) => hasTitleFilled(r) && !hasAnyImage(board, r)) : []),
     [board, rows, hasTitleFilled],
@@ -1172,6 +1109,10 @@ export default function BoardView() {
             </ToolbarIconButton>
           )}
 
+          <ToolbarIconButton onClick={() => setGuideOpen(true)} title="Bu tablo nasıl kullanılır?">
+            <InfoIcon />
+          </ToolbarIconButton>
+
           <button
             onClick={createRow}
             style={primaryButtonStyle}
@@ -1228,12 +1169,15 @@ export default function BoardView() {
         />
       )}
 
+      {guideOpen && <TableGuideModal onClose={() => setGuideOpen(false)} />}
+
       {healthOpen && (
         <HealthCheckModal
           board={board}
           rows={rows}
           missingImageRows={missingImageRows}
           incompleteRows={incompleteRowsForHealth}
+          incompleteChecks={incompletenessChecks}
           onOpenRow={(row) => {
             setHealthOpen(false)
             setDetailRow(row)

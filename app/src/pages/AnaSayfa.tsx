@@ -247,6 +247,11 @@ export function HomeCard({
   )
 }
 
+// Vitrin yazıları her zaman koyu görselin/videonun üstünde duruyor — açık temada ters çevrilen
+// neutral-* renkleri (bkz. index.css) burada siyaha dönüp okunmaz oluyordu, bu yüzden temadan
+// bağımsız sabit beyaz + hafif gölge kullanılıyor.
+const OVERLAY_TEXT_SHADOW = { textShadow: '0 1px 6px rgba(0,0,0,0.7)' }
+
 function FeaturedOverlay({
   title,
   titleImage,
@@ -282,7 +287,11 @@ function FeaturedOverlay({
         )}
         {(meta.length > 0 || ageRating) && (
           <div className="flex items-center gap-2.5 mt-3">
-            {meta.length > 0 && <p className="text-neutral-200 text-lg font-bold whitespace-nowrap">{meta.join('  •  ')}</p>}
+            {meta.length > 0 && (
+              <p className="text-white/90 text-lg font-bold whitespace-nowrap" style={OVERLAY_TEXT_SHADOW}>
+                {meta.join('  •  ')}
+              </p>
+            )}
             {ageRating && <AgeRatingChip raw={ageRating} className="h-6 min-w-6" />}
           </div>
         )}
@@ -292,7 +301,9 @@ function FeaturedOverlay({
               synopsisHidden ? 'max-h-0 opacity-0 -translate-y-4 mt-0 pointer-events-none' : 'max-h-64 opacity-100 translate-y-0 mt-2'
             }`}
           >
-            <p className="text-neutral-200 text-lg max-w-xl">{synopsis}</p>
+            <p className="text-white/90 text-lg max-w-xl" style={OVERLAY_TEXT_SHADOW}>
+              {synopsis}
+            </p>
           </div>
         )}
         <button

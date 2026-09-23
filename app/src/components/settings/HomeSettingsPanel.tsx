@@ -489,6 +489,23 @@ export default function HomeSettingsPanel() {
             />
           </div>
 
+          <div>
+            <label className="block text-xs text-neutral-400 mb-1">
+              Hangi görsel kullanılsın (seçilmezse önce dikey görsel, o yoksa yatay olan gelir)
+            </label>
+            <Select
+              value={settings.randomPickerImageShape ?? ''}
+              onChange={(v) =>
+                saveSettings({ ...settings, randomPickerImageShape: v === 'dikey' || v === 'yatay' ? v : null })
+              }
+              options={[
+                { value: '', label: 'Otomatik' },
+                { value: 'dikey', label: 'Dikey' },
+                { value: 'yatay', label: 'Yatay' },
+              ]}
+            />
+          </div>
+
           <div className="flex items-center gap-2 pt-2">
             <label className="text-xs text-neutral-400 shrink-0">Ekranda kaç poster dağılsın</label>
             <ClampedNumberInput
