@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
@@ -500,6 +499,15 @@ export default function AnaSayfa() {
   const [detailRow, setDetailRow] = useState<Row | null>(null)
   const [videoShowing, setVideoShowing] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  // Filtreye bir detay penceresinden gelindiyse (bkz. RowDetailModal.goToFilter) "Filtreyi Kaldır"
+  // oraya — o sayfaya ve o detay penceresine — geri döner; yoksa eskisi gibi ana sayfaya.
+  const filterReturn = location.state as { returnTo?: string; scrollY?: number } | null
+  function clearAdHocFilter() {
+    if (filterReturn?.returnTo) navigate(filterReturn.returnTo, { state: { scrollY: filterReturn.scrollY } })
+    else navigate('/')
+  }
 
   // Uygulamayla gelen 10 varsayılan mod (bkz. types.ts'teki BUILTIN_MOODS) — SADECE bu board
   // için daha önce hiç denenmediyse (moodSeedKey, StrictMode'un aynı effect'i iki kez art arda
@@ -895,13 +903,13 @@ export default function AnaSayfa() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-semibold text-neutral-50">{filterOption?.label}</h1>
-              <Link
-                to="/"
+              <button
+                onClick={clearAdHocFilter}
                 className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-lg px-3 py-1.5 transition"
               >
                 <CloseIcon />
-                Filtreyi Kaldır
-              </Link>
+                {filterReturn?.returnTo ? 'Filtreyi Kaldır ve Geri Dön' : 'Filtreyi Kaldır'}
+              </button>
             </div>
             {filterOption?.subtitle && <p className="text-sm text-neutral-400 mt-1">{filterOption.subtitle}</p>}
           </div>

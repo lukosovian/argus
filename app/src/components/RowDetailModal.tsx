@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../types'
 import { titleText, episodeKey, todayIso } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
@@ -126,6 +126,7 @@ export default function RowDetailModal({
   ) => Promise<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number } | undefined>
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const cast = useCast()
   const { episodes, reload: reloadEpisodes } = useEpisodes()
   const { watched, saveRowWatched } = useWatched()
@@ -169,9 +170,18 @@ export default function RowDetailModal({
   // Bir çoklu-seçim değerine (ör. bir oyuncu rozetine) tıklayınca, ana sayfada o değere göre
   // filtrelenmiş bir kart listesi açıyoruz — "bu oyuncu başka nerede oynamış" sorusuna genel
   // bir cevap, ham veritabanı tablosuna değil.
+  // Filtre sayfasındaki "Filtreyi Kaldır" kullanıcıyı eskiden hep ana sayfaya atıyordu —
+  // kullanıcı "kaldığım yere atsın beni" dedi. Bu yüzden şu anki sayfa (ör. veritabanı tablosu,
+  // kendi filtresiyle) + bu detay penceresi (?detay=) + kaydırma konumu yanımızda taşınıyor.
   function goToFilter(propertyId: string, optionId: string) {
+    const back = new URLSearchParams(location.search)
+    back.set('detay', row.id)
+    // Pencere açıkken sayfa kilitli (bkz. yukarıdaki scroll lock) — gerçek konum body'nin top'unda.
+    const scrollY = -parseInt(document.body.style.top || '0', 10) || 0
     onClose()
-    navigate(`/?filterProp=${propertyId}&filterOption=${optionId}`)
+    navigate(`/?filterProp=${propertyId}&filterOption=${optionId}`, {
+      state: { returnTo: `${location.pathname}?${back.toString()}`, scrollY },
+    })
   }
 
   // Görseli olan bir seçenek (ör. fotoğrafı çekilmiş bir oyuncu) tıklanınca önce onun

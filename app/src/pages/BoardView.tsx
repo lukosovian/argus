@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
@@ -464,6 +464,7 @@ function ColumnVisibilityPopover({
 export default function BoardView() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { board, loading: boardLoading, setProperties, saveBoard, reload: reloadBoard } = useBoard(id)
   const { rows, loading: rowsLoading, saveRow, removeRow, reload: reloadRows } = useRows(id)
   const { boards, loading: boardsLoading } = useBoards()
@@ -597,6 +598,30 @@ export default function BoardView() {
   const [searchParams, setSearchParams] = useSearchParams()
   const filterPropertyId = searchParams.get('filterProp')
   const filterOptionId = searchParams.get('filterOption')
+
+  // Bir detay penceresinden oyuncu/seçenek filtresine gidip "Filtreyi Kaldır"a basınca buraya
+  // ?detay=<satır> ile dönülüyor (bkz. RowDetailModal.goToFilter) — kullanıcı "kaldığım yere atsın
+  // beni" dedi. Tablo yüklenince önce eski kaydırma konumuna gidip sonra o detay penceresi açılıyor
+  // (pencere açılırken o anki konumu kilitleyip kapanınca oraya döndüğü için sıra önemli).
+  const detayParam = searchParams.get('detay')
+  useEffect(() => {
+    if (!detayParam || !board || rowsLoading) return
+    const row = rows.find((r) => r.id === detayParam)
+    const scrollY = (location.state as { scrollY?: number } | null)?.scrollY
+    if (row) {
+      if (typeof scrollY === 'number') window.scrollTo(0, scrollY)
+      setDetailRow(row)
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('detay')
+        return next
+      },
+      { replace: true },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detayParam, board, rowsLoading, rows])
 
   function setFilter(propertyId: string | null, optionId: string | null) {
     setSearchParams((prev) => {
@@ -932,10 +957,18 @@ export default function BoardView() {
     saveBoard({ titleImagePropertyId: propertyId })
   }
 
+  // `orderedIds` tabloda GÖRÜNEN sütunların yeni sırası — gizli sütunlar bu listede yok. Eskiden
+  // sadece bu liste kaydediliyordu ve gizli sütunlar şemadan siliniyordu (değerleri satırlarda
+  // kalsa da sütun kayboluyor, TMDB araması da yerine boş yenilerini açıyordu). Artık listede
+  // olmayan sütunlar kendi yerlerinde kalıyor; sadece listedekilerin yerleri kendi aralarında
+  // yeni sıraya göre dolduruluyor.
   function reorderProperties(orderedIds: string[]) {
     if (!board) return
     const byId = new Map(board.properties.map((p) => [p.id, p]))
-    const next = orderedIds.map((id) => byId.get(id)).filter((p): p is PropertyDef => Boolean(p))
+    const moved = orderedIds.map((id) => byId.get(id)).filter((p): p is PropertyDef => Boolean(p))
+    const movedIds = new Set(moved.map((p) => p.id))
+    let i = 0
+    const next = board.properties.map((p) => (movedIds.has(p.id) ? moved[i++] : p))
     setProperties(next)
   }
 

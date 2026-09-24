@@ -97,6 +97,14 @@ export default function PropertyValueInput({
       onChange({ ...scores, [criterionId]: score })
     }
 
+    // Kullanıcı "tabloda verilmiş puanı kaldırma yok" dedi — kaydırıcı en az 0'a iniyor, "hiç
+    // puan verilmemiş" haline dönmenin yolu yoktu. Tek kriteri ya da puanın tamamını silebiliyor.
+    function clearScore(criterionId: string) {
+      const next = { ...scores }
+      delete next[criterionId]
+      onChange(next)
+    }
+
     function addCriterion() {
       const name = newCriterion.trim()
       if (!name || !onAddCriterion) return
@@ -115,7 +123,19 @@ export default function PropertyValueInput({
               <span className="text-xs text-neutral-300 truncate" title={c.name}>
                 {c.name}
               </span>
-              <span className="text-xs font-semibold text-neutral-50 shrink-0">{scores[c.id] ?? '—'}</span>
+              <span className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-semibold text-neutral-50">{scores[c.id] ?? '—'}</span>
+                {scores[c.id] !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => clearScore(c.id)}
+                    title="Bu puanı kaldır"
+                    className="text-neutral-500 hover:text-rose-400 text-sm leading-none transition"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
             </div>
             <input
               type="range"
@@ -151,9 +171,18 @@ export default function PropertyValueInput({
           </div>
         )}
         {avg !== null && (
-          <p className="text-xs text-neutral-400 pt-2 border-t border-neutral-800">
-            Ortalama: <span className="font-semibold text-neutral-50">{avg.toFixed(1)}</span> / 10
-          </p>
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-neutral-800">
+            <p className="text-xs text-neutral-400">
+              Ortalama: <span className="font-semibold text-neutral-50">{avg.toFixed(1)}</span> / 10
+            </p>
+            <button
+              type="button"
+              onClick={() => onChange({})}
+              className="text-xs text-neutral-500 hover:text-rose-400 transition"
+            >
+              Puanı kaldır
+            </button>
+          </div>
         )}
       </div>
     )

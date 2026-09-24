@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Row } from '../types'
 import { api } from '../lib/api'
 import { useProfiles } from './useProfiles'
@@ -12,6 +12,7 @@ export function useRows(boardId: string | undefined) {
   const { activeProfileId } = useProfiles()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
+  const loadedKey = useRef<string | null>(null)
 
   const reload = useCallback(() => {
     // bkz. useBoard.ts'teki aynı düzeltme — boardId yokken loading sonsuza dek true kalmasın.
@@ -20,10 +21,17 @@ export function useRows(boardId: string | undefined) {
       setLoading(false)
       return Promise.resolve()
     }
-    setLoading(true)
+    // "Yükleniyor..." sadece bu arşiv (bu profilde) İLK kez yüklenirken gösteriliyor. Eskiden her
+    // yenilemede (ör. bir satırı TMDB'den doldurduktan sonra) tablo bir anlığına kayboluyor,
+    // sayfa kısalınca da en başa sıçrıyordu — kullanıcı "sayfa başa gidiyo, kaldığı yerde kalsın" dedi.
+    const key = `${activeProfileId}:${boardId}`
+    if (loadedKey.current !== key) setLoading(true)
     return api
       .getRows(boardId)
-      .then((data) => setRows(data.sort(byCreatedAtAsc)))
+      .then((data) => {
+        setRows(data.sort(byCreatedAtAsc))
+        loadedKey.current = key
+      })
       .finally(() => setLoading(false))
   }, [boardId, activeProfileId])
 
