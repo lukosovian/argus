@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Board, Row } from '../types'
 import { api, type TmdbCard, type TmdbExtras as Extras, type WatchProvider, type WatchProviders } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { BRAND_TEXT } from '../lib/theme'
 import { useToast } from '../hooks/useToast'
+import TmdbPreviewModal from './TmdbPreviewModal'
 
 // Detay penceresinin altındaki iki bölüm: "Nerede İzlenir" (Türkiye'de hangi platformda var)
 // ve "Benzer İçerikler" (TMDB önerileri, tek tıkla "İzlenecek" olarak arşive eklenebilir).
@@ -15,6 +17,8 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
   const [failed, setFailed] = useState(false)
   const [adding, setAdding] = useState<number | null>(null)
   const [added, setAdded] = useState<Set<number>>(new Set())
+  // Tıklanan benzer içeriğin önizleme penceresi (bkz. TmdbPreviewModal).
+  const [preview, setPreview] = useState<TmdbCard | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -80,7 +84,10 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
                 const inArchive = c.inArchive || added.has(c.tmdbId)
                 return (
                   <div key={`${c.mediaType}-${c.tmdbId}`} className="w-28 sm:w-32 shrink-0 flex flex-col" title={c.overview}>
-                    <div className="relative">
+                    <div
+                      className="relative cursor-pointer transition hover:opacity-80"
+                      onClick={() => setPreview({ ...c, inArchive })}
+                    >
                       {c.poster ? (
                         <img src={c.poster} alt={c.title} loading="lazy" className="w-full aspect-[2/3] object-cover rounded-lg bg-neutral-800" />
                       ) : (
@@ -94,7 +101,12 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-neutral-300 mt-1.5 leading-tight line-clamp-2 min-h-[2.5em]">{c.title}</p>
+                    <p
+                      className="text-xs text-neutral-300 hover:text-neutral-50 mt-1.5 leading-tight line-clamp-2 min-h-[2.5em] cursor-pointer"
+                      onClick={() => setPreview({ ...c, inArchive })}
+                    >
+                      {c.title}
+                    </p>
                     <p className="text-[11px] text-neutral-500 mb-1.5">
                       {c.year}
                       {c.year && ' · '}
@@ -118,6 +130,17 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
           )}
         </div>
       )}
+
+      {preview &&
+        createPortal(
+          <TmdbPreviewModal
+            boardId={board.id}
+            card={preview}
+            onClose={() => setPreview(null)}
+            onAdded={() => setAdded((prev) => new Set(prev).add(preview.tmdbId))}
+          />,
+          document.body,
+        )}
     </>
   )
 }

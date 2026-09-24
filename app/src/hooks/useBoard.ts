@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Board, PropertyDef } from '../types'
 import { api } from '../lib/api'
 import { useProfiles } from './useProfiles'
@@ -8,6 +8,7 @@ export function useBoard(boardId: string | undefined) {
   const { activeProfileId } = useProfiles()
   const [board, setBoard] = useState<Board | null>(null)
   const [loading, setLoading] = useState(true)
+  const loadedKey = useRef<string | null>(null)
 
   // `activeProfileId` de bağımlılıklarda — profil değişince (aynı board id başka bir
   // profilde muhtemelen yok olsa da) bu profilin verisiyle yeniden çekilsin.
@@ -21,10 +22,17 @@ export function useBoard(boardId: string | undefined) {
       setLoading(false)
       return Promise.resolve()
     }
-    setLoading(true)
+    // "Yükleniyor..." sadece bu arşiv (bu profilde) İLK kez yüklenirken gösteriliyor. Eskiden her
+    // yenilemede (ör. bir satırı TMDB'den doldurduktan sonra) tablo bir anlığına kayboluyor,
+    // sayfa kısalınca da en başa sıçrıyordu — kullanıcı "sayfa başa gidiyo, kaldığı yerde kalsın" dedi.
+    const key = `${activeProfileId}:${boardId}`
+    if (loadedKey.current !== key) setLoading(true)
     return api
       .getBoards()
-      .then((all) => setBoard(all.find((b) => b.id === boardId) ?? null))
+      .then((all) => {
+        setBoard(all.find((b) => b.id === boardId) ?? null)
+        loadedKey.current = key
+      })
       .finally(() => setLoading(false))
   }, [boardId, activeProfileId])
 

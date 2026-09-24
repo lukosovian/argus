@@ -12,16 +12,21 @@ import { parseYouTubeUrl } from '../lib/youtube'
 // Ne İzlesem'in TMDB modunda kazanan içerik arşivde olmadığı için normal detay penceresi
 // açılamıyor — bunun yerine bu önizleme: görsel, özet, türler, Türkiye'de nerede izlenir ve
 // "+ İzlenecek" / "İzledim" / "Bir daha gösterme" seçenekleri.
+// Detay penceresindeki "Benzer İçerikler" kartları da bunu açıyor (kullanıcı "benzer içerikler
+// kısmındakilere tıklayıp detay pencerelerini görebileyim" dedi) — orada "Başka bir şey seç"
+// anlamsız olduğu için onPickAgain verilmiyor.
 export default function TmdbPreviewModal({
   boardId,
   card,
   onClose,
   onPickAgain,
+  onAdded,
 }: {
   boardId: string
   card: TmdbCard
   onClose: () => void
-  onPickAgain: () => void
+  onPickAgain?: () => void
+  onAdded?: () => void
 }) {
   const { notify } = useToast()
   const [item, setItem] = useState<TmdbItem | null>(null)
@@ -49,6 +54,7 @@ export default function TmdbPreviewModal({
       const res = await api.addFromTmdb(boardId, { tmdbId: card.tmdbId, mediaType: card.mediaType, status, watchedDate: watchedDate ?? undefined, rating: rating ?? undefined })
       notifyDataChanged(boardId)
       setWatchedForm(false)
+      onAdded?.()
       setDone(status === 'izlendi' ? 'İzlediklerine eklendi' : 'İzlenecekler listene eklendi')
       notify(status === 'izlendi' ? `"${res.title}" izlediklerine eklendi.` : `"${res.title}" izlenecekler listene eklendi.`)
     } catch (e) {
@@ -94,9 +100,11 @@ export default function TmdbPreviewModal({
             titleAlwaysVisible
             bottomFadeColor="#171717"
           />
-          <span className="absolute top-3 right-14 z-10 text-[11px] font-semibold text-white bg-black/60 rounded px-2 py-1">
-            Arşivinde yok · TMDB'den öneri
-          </span>
+          {!card.inArchive && !item?.inArchive && (
+            <span className="absolute top-3 right-14 z-10 text-[11px] font-semibold text-white bg-black/60 rounded px-2 py-1">
+              Arşivinde yok · TMDB'den öneri
+            </span>
+          )}
           <button
             onClick={onClose}
             className="absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white text-lg transition"
@@ -118,7 +126,7 @@ export default function TmdbPreviewModal({
             </p>
             {shown.overview && <p className="text-neutral-300 text-base leading-relaxed">{shown.overview}</p>}
 
-            {item?.inArchive || done ? (
+            {card.inArchive || item?.inArchive || done ? (
               <p className="text-sm text-emerald-500 pt-1">✓ {done ?? 'Zaten arşivinde'}</p>
             ) : watchedForm ? (
               <div className="max-w-xs">
@@ -149,9 +157,11 @@ export default function TmdbPreviewModal({
                 </button>
               </div>
             )}
-            <button onClick={onPickAgain} className="text-xs text-neutral-500 hover:text-neutral-50 transition">
-              ↻ Başka bir şey seç
-            </button>
+            {onPickAgain && (
+              <button onClick={onPickAgain} className="text-xs text-neutral-500 hover:text-neutral-50 transition">
+                ↻ Başka bir şey seç
+              </button>
+            )}
           </div>
         </div>
 

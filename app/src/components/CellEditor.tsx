@@ -47,6 +47,17 @@ export default function CellEditor({
           onAddOption={onAddOption}
           onAddCriterion={onAddCriterion}
         />
+        {/* Kullanıcı "puan falan verdikten sonra orayı kapatmak için boş bi yere tıklamam
+            gerekiyor, bi kapatma butonu ekle" dedi — dışarı tıklamakla aynı: değişiklik kaydedilir. */}
+        <div className="flex justify-end mt-3">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="text-xs font-semibold rounded-md bg-[#00c0fa] hover:brightness-110 text-white px-3 py-1.5 transition"
+          >
+            Kapat
+          </button>
+        </div>
       </div>
     </AnchoredMenu>
   )
