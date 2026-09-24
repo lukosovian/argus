@@ -29,6 +29,14 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.7.1',
+    date: '24 Eylül 2026',
+    title: 'Onay soruları tıkladığın yerde',
+    items: [
+      '"Silmek istediğine emin misin?" gibi sorular artık ekranın sağ alt köşesinde değil, tıkladığın düğmenin hemen yanında çıkıyor.',
+    ],
+  },
+  {
     version: 'v1.7',
     date: '24 Eylül 2026',
     title: 'Gizli sütunlar, Kapat düğmesi, Benzer İçerikler, puan kaldırma',
