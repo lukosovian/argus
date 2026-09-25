@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom'
 import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../types'
 import type { PropertyType } from '../types'
 import { titleText, ratingAverage, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH } from '../types'
-import { useEpisodes } from '../hooks/useEpisodes'
 import { useToast } from '../hooks/useToast'
 import OptionBadge from './OptionBadge'
 import Checkbox from './Checkbox'
@@ -108,7 +107,6 @@ function EyeIcon() {
 // kaldırıyor, tablo kaç satır olursa olsun.
 function RowMenu({
   hasTitle,
-  hasEpisodes,
   refreshing,
   onFetchTmdb,
   onAddRow,
@@ -116,7 +114,6 @@ function RowMenu({
   onDelete,
 }: {
   hasTitle: boolean
-  hasEpisodes: boolean
   refreshing: boolean
   onFetchTmdb: () => void
   onAddRow: () => void
@@ -178,15 +175,11 @@ function RowMenu({
                     onFetchTmdb()
                   }}
                   disabled={refreshing}
-                  title={
-                    hasEpisodes
-                      ? "Yeni bölüm var mı kontrol et / eksik bilgiyi tamamla (TMDB'ye bağlanır)"
-                      : "TMDB'den doldur (poster, ülke, yönetmen, oyuncular vb.)"
-                  }
+                  title={"TMDB'den güncelle: boş bilgileri doldurur, dizilerde yeni bölümleri de getirir"}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition disabled:opacity-50"
                 >
                   <RefreshIcon spinning={refreshing} />
-                  {refreshing ? 'Çekiliyor...' : hasEpisodes ? 'Bölümleri Güncelle' : "TMDB'den Doldur"}
+                  {refreshing ? 'Çekiliyor...' : 'Güncelle'}
                 </button>
               )}
               <button
@@ -506,7 +499,6 @@ const BoardTable = forwardRef<
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [refreshingRowId, setRefreshingRowId] = useState<string | null>(null)
-  const { episodes } = useEpisodes()
 
   async function handleRefreshClick(rowId: string) {
     setRefreshingRowId(rowId)
@@ -851,7 +843,6 @@ const BoardTable = forwardRef<
                   />
                   <RowMenu
                     hasTitle={hasTitle(row)}
-                    hasEpisodes={Boolean(episodes[row.id])}
                     refreshing={refreshingRowId === row.id}
                     onFetchTmdb={() => handleRefreshClick(row.id)}
                     onAddRow={() => onAddRowAfter(row.id)}

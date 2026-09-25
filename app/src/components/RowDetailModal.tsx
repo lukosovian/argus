@@ -118,7 +118,7 @@ export default function RowDetailModal({
   // pencerede bilerek false: kullanıcı "izlendi ekleme kısmı sadece veritabanından detay gör
   // diyince gelsin, ana sayfadan normal görelim" dedi.
   editable?: boolean
-  // BoardTable.tsx'in satır menüsündeki "TMDB'den Doldur" ile birebir aynı işlev — sadece
+  // BoardTable.tsx'in satır menüsündeki "Güncelle" ile birebir aynı işlev — sadece
   // BoardView'dan (editable=true) geçiriliyor, kullanıcı bu pencereden de erişmek istedi
   // ("tmdb den doldur özelliğini veritabanından girdiğim detay penceresine de ekle").
   onFetchTmdb?: (
@@ -348,15 +348,11 @@ export default function RowDetailModal({
                 <button
                   onClick={handleFetchTmdb}
                   disabled={refreshing}
-                  title={
-                    seasons && seasons.length > 0
-                      ? "Yeni bölüm var mı kontrol et / eksik bilgiyi tamamla (TMDB'ye bağlanır)"
-                      : "TMDB'den doldur (poster, ülke, yönetmen, oyuncular vb.)"
-                  }
+                  title={"TMDB'den güncelle: boş bilgileri doldurur, dizilerde yeni bölümleri de getirir"}
                   className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-lg px-2.5 py-1.5 transition disabled:opacity-50"
                 >
                   <RefreshIcon spinning={refreshing} />
-                  {refreshing ? 'Çekiliyor...' : seasons && seasons.length > 0 ? 'Bölümleri Güncelle' : "TMDB'den Doldur"}
+                  {refreshing ? 'Çekiliyor...' : 'Güncelle'}
                 </button>
               )}
               {yasValue && <AgeRatingBadge raw={yasValue} />}
