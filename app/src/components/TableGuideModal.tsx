@@ -191,7 +191,7 @@ function ActorWire() {
       <Box x={280} y={14} w={230} h={138} r={8} />
       <Label x={292} y={32} size={9}>Otomatik yol</Label>
       <Box x={292} y={42} w={120} h={18} r={4} strong />
-      <Label x={352} y={54} size={8} anchor="middle">TMDB'den Doldur</Label>
+      <Label x={352} y={54} size={8} anchor="middle">Güncelle</Label>
       <Pin x={424} y={51} n={3} />
       {[0, 1, 2, 3].map((i) => (
         <g key={i}>

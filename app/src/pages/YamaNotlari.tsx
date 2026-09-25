@@ -29,6 +29,15 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.8',
+    date: '25 Eylül 2026',
+    title: 'Filtreden dönüş düzeltmesi, Güncelle',
+    items: [
+      'Tablodan bir içeriğin detayına girip oyuncu filtresine geçince, "Filtreyi Kaldır ve Geri Dön" artık tablonun başına değil, tam kaldığın yere dönüyor.',
+      'Altı nokta menüsündeki ve detay penceresindeki TMDB düğmesi artık her kayıtta "Güncelle" yazıyor — önceden kayda göre bazen "TMDB\'den Doldur" bazen "Bölümleri Güncelle" yazıyordu ama hepsi aynı işi yapıyordu.',
+    ],
+  },
+  {
     version: 'v1.7.1',
     date: '24 Eylül 2026',
     title: 'Onay soruları tıkladığın yerde',

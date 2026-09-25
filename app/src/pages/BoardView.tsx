@@ -605,12 +605,23 @@ export default function BoardView() {
   // (pencere açılırken o anki konumu kilitleyip kapanınca oraya döndüğü için sıra önemli).
   const detayParam = searchParams.get('detay')
   useEffect(() => {
-    if (!detayParam || !board || rowsLoading) return
+    // Tablo ancak arşiv listesi (boardsLoading) de yüklenince çiziliyor — onu beklemeden kaydırınca
+    // sayfa henüz kısa olduğu için kaydırma boşa gidiyordu.
+    if (!detayParam || !board || rowsLoading || boardsLoading) return
     const row = rows.find((r) => r.id === detayParam)
     const scrollY = (location.state as { scrollY?: number } | null)?.scrollY
     if (row) {
-      if (typeof scrollY === 'number') window.scrollTo(0, scrollY)
-      setDetailRow(row)
+      // Sayfa o konuma kaydırılabilecek kadar uzayana kadar birkaç kare dene, sonra pencereyi aç.
+      let tries = 0
+      const restore = () => {
+        if (typeof scrollY === 'number') window.scrollTo(0, scrollY)
+        if (typeof scrollY === 'number' && Math.abs(window.scrollY - scrollY) > 2 && ++tries < 30) {
+          requestAnimationFrame(restore)
+          return
+        }
+        setDetailRow(row)
+      }
+      restore()
     }
     setSearchParams(
       (prev) => {
@@ -621,7 +632,7 @@ export default function BoardView() {
       { replace: true },
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detayParam, board, rowsLoading, rows])
+  }, [detayParam, board, rowsLoading, boardsLoading, rows])
 
   function setFilter(propertyId: string | null, optionId: string | null) {
     setSearchParams((prev) => {

@@ -198,7 +198,7 @@ const SECTIONS: { title: string; wireframe: React.ReactNode; text: React.ReactNo
     text: (
       <>
         Bir arşivin içinde her satırın solundaki <strong className="text-neutral-200">⠿</strong> simgesine tıkla —
-        açılan menüden o kaydı <strong className="text-neutral-200">TMDB'den Doldur</strong>abilir (başlığa bakarak
+        açılan menüdeki <strong className="text-neutral-200">Güncelle</strong> ile o kaydı TMDB'den doldurabilir (başlığa bakarak
         poster, oyuncular, tür, sinopsis gibi boş alanları tek tek doldurur), altına yeni satır ekleyebilir ya da
         silebilirsin. Bunun için önce API sekmesinden bir anahtar girmiş olman gerekir.
       </>
