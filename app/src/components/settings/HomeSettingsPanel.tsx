@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useBoards } from '../../hooks/useBoards'
 import { useHomeSettings } from '../../hooks/useHomeSettings'
-import { HOME_LAYOUT_LABELS, type HomeLayout, type HomeSection, type MoodRowSettings, type RandomPickerTmdbSettings } from '../../types'
+import {
+  HOME_LAYOUT_LABELS,
+  SHOWCASE_STYLE_LABELS,
+  type HomeLayout,
+  type ShowcaseStyle,
+  type HomeSection,
+  type MoodRowSettings,
+  type RandomPickerTmdbSettings,
+} from '../../types'
 import { api } from '../../lib/api'
 import HomeSectionEditor from '../HomeSectionEditor'
 import MoodRowEditor from '../MoodRowEditor'
@@ -9,19 +17,24 @@ import PropertyFilterPicker from '../PropertyFilterPicker'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
 import { BRAND_TEXT } from '../../lib/theme'
+import { PanelHeader, SettingsSection, SettingsTabs, choiceClass } from './SettingsUi'
 
-function ChoiceButtons<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+function ChoiceButtons<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (v: T) => void
+}) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`text-xs rounded-lg border px-3 py-1.5 transition ${
-            value === o.value
-              ? 'bg-neutral-700 border-neutral-500 text-neutral-50'
-              : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200'
-          }`}
+          className={`text-xs rounded-lg border px-3 py-1.5 transition ${choiceClass(value === o.value)}`}
         >
           {o.label}
         </button>
@@ -108,8 +121,8 @@ function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettin
         />
       </div>
       <p className="text-[11px] text-neutral-600">
-        Kazanan çıkınca önizlemesi açılır: izlenecekler listene ekleyebilir, izlediysen tarih ve puanla kaydedebilir ya
-        da bir daha gösterilmemesini seçebilirsin.
+        Kazanan çıkınca önizlemesi açılır: izlenecekler listene ekleyebilir, izlediysen tarih ve puanla kaydedebilir ya da bir daha
+        gösterilmemesini seçebilirsin.
       </p>
     </div>
   )
@@ -149,7 +162,17 @@ function TwoRowsSvg({ wide }: { wide: boolean }) {
           {xs.slice(0, -1).map((x) => (
             <rect key={x} x={x} y={y} width={cardW} height={cardH} rx={4} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.2} />
           ))}
-          <rect x={xs[xs.length - 1]} y={y} width={lastW} height={cardH} rx={4} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.2} opacity={0.45} />
+          <rect
+            x={xs[xs.length - 1]}
+            y={y}
+            width={lastW}
+            height={cardH}
+            rx={4}
+            fill={WF_FILL}
+            stroke={WF_STROKE}
+            strokeWidth={1.2}
+            opacity={0.45}
+          />
           <path
             d={`M${arrowX} ${y + cardH / 2}h9M${arrowX + 5} ${y + cardH / 2 - 5}l5 5-5 5`}
             stroke={BRAND_TEXT}
@@ -175,6 +198,68 @@ function YataySvg() {
 // birebir aynı, sadece kart oranı farklı.
 function DikeySvg() {
   return <TwoRowsSvg wide={false} />
+}
+
+// Vitrin görünümü seçeneklerinin taslakları (bkz. types.ts ShowcaseStyle). Üçünde de üstte vitrin,
+// altında bir kart satırı var; fark vitrinin kendisinde.
+function VitrinStyleSvg({ style }: { style: ShowcaseStyle }) {
+  const full = style === 'sinema'
+  return (
+    <svg viewBox="0 0 180 100" className="w-full h-auto block">
+      {/* üst menü çizgisi */}
+      <rect x={full ? 8 : 12} y={4} width={22} height={4} rx={2} fill={WF_LINE} />
+      {full ? (
+        <>
+          <rect x={0} y={0} width={180} height={66} rx={4} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.2} />
+          <rect x={0} y={46} width={180} height={20} fill={WF_FILL} opacity={0.7} />
+          <rect x={10} y={4} width={22} height={4} rx={2} fill={WF_LINE} />
+        </>
+      ) : (
+        <rect x={10} y={12} width={160} height={52} rx={7} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.2} />
+      )}
+      <rect x={full ? 12 : 20} y={full ? 30 : 30} width={48} height={7} rx={3} fill={WF_EMPHASIS} />
+      <rect x={full ? 12 : 20} y={full ? 42 : 42} width={26} height={6} rx={3} fill={BRAND_TEXT} />
+      {style !== 'slayt' && (
+        <g>
+          <circle cx={full ? 150 : 148} cy={30} r={8} fill="none" stroke={BRAND_TEXT} strokeWidth={1.4} />
+          <path d={`M${full ? 147.5 : 145.5} 26v8l7-4-7-4Z`} fill={BRAND_TEXT} />
+        </g>
+      )}
+      {style === 'slayt' &&
+        [0, 1, 2, 3].map((i) => (
+          <rect
+            key={i}
+            x={134 + i * 8}
+            y={56}
+            width={i === 0 ? 10 : 4}
+            height={3}
+            rx={1.5}
+            fill={i === 0 ? BRAND_TEXT : WF_LINE}
+            transform={i > 0 ? 'translate(6 0)' : undefined}
+          />
+        ))}
+      {[10, 66, 122].map((x) => (
+        <rect
+          key={x}
+          x={x}
+          y={74}
+          width={50}
+          height={22}
+          rx={3}
+          fill={WF_FILL}
+          stroke={WF_STROKE}
+          strokeWidth={1}
+          opacity={x === 122 ? 0.5 : 1}
+        />
+      ))}
+    </svg>
+  )
+}
+
+const SHOWCASE_STYLE_HINTS: Record<ShowcaseStyle, string> = {
+  klasik: 'Kenarlardan içeride, köşeleri yuvarlak; fragmanı oynar.',
+  sinema: 'Ekranı kenardan kenara kaplar, menünün arkasına kadar uzanır.',
+  slayt: 'Fragman yok; birkaç içerik sırayla değişir, noktalardan seçilir.',
 }
 
 // Vitrin ayarının taslağı — geniş bir afiş (oynat üçgeni + iki metin çubuğu) üstte, altında
@@ -312,212 +397,286 @@ export default function HomeSettingsPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-neutral-50 mb-5">Ana Sayfa Ayarları</h2>
-
-      <div className="flex gap-2 mb-6 border-b border-neutral-800">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`text-sm font-semibold px-4 py-2.5 -mb-px border-b-2 transition ${
-              tab === t.id
-                ? 'text-neutral-50 border-[#00c0fa]'
-                : 'text-neutral-400 border-transparent hover:text-neutral-200'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <PanelHeader title="Ana Sayfa Ayarları" description="Ana sayfanın nasıl görüneceği, hangi satırların çıkacağı ve Ne İzlesem." />
+      <SettingsTabs value={tab} onChange={setTab} tabs={TABS.map((t) => [t.id, t.label] as const)} />
 
       {tab === 'gorunum' && (
-        <div className="space-y-5 max-w-xl">
-          <div>
-            <label className="block text-xs text-neutral-400 mb-1">Ana sayfada hangi arşiv gösterilsin</label>
-            <Select
-              value={settings.boardId ?? ''}
-              onChange={handleBoardIdChange}
-              options={[{ value: '', label: 'Seçilmedi' }, ...boards.map((b) => ({ value: b.id, label: b.name }))]}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-neutral-400 mb-2">Görünüm tarzı</label>
-            <div className="grid grid-cols-2 gap-3">
-              {(Object.keys(HOME_LAYOUT_LABELS) as HomeLayout[]).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => changeLayout(l)}
-                  className={`rounded-xl border-2 p-3 text-left transition ${
-                    settings.layout === l ? 'border-[#00c0fa] bg-neutral-800/50' : 'border-neutral-800 bg-neutral-900 hover:border-neutral-700'
-                  }`}
-                >
-                  {l === 'yatay' ? <YataySvg /> : <DikeySvg />}
-                  <p className={`text-xs font-medium mt-2 ${settings.layout === l ? 'text-neutral-50' : 'text-neutral-400'}`}>
-                    {HOME_LAYOUT_LABELS[l]}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs text-neutral-400 mb-2">Kart boyutu (Yatay ve Dikey ikisinde de geçerli)</label>
-            <div className="flex gap-2">
-              {(['kucuk', 'orta', 'buyuk'] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => changeCardSize(s)}
-                  className={`flex-1 text-xs rounded-lg border px-2 py-2 transition ${
-                    (settings.cardSize ?? 'orta') === s
-                      ? 'bg-neutral-700 border-neutral-500 text-neutral-50'
-                      : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200'
-                  }`}
-                >
-                  {s === 'kucuk' ? 'Küçük' : s === 'orta' ? 'Orta' : 'Büyük'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm text-neutral-300">
-              Kart bilgilerini her zaman göster
-              <span className="block text-xs text-neutral-600 mt-0.5">
-                {infoAlwaysUnavailable
-                  ? 'Dikey + Küçük kart boyutunda güzel durmadığı için bu kombinasyonda kullanılamıyor.'
-                  : 'Durum/kategori/yıl şeridi fareyle üzerine gelmeden de görünür kalır. Açıkken kartlar üzerine gelince artık büyümez.'}
-              </span>
-            </span>
-            <ToggleSwitch
-              checked={!infoAlwaysUnavailable && (settings.showInfoAlways ?? false)}
-              onChange={(v) => saveSettings({ ...settings, showInfoAlways: v })}
-              disabled={infoAlwaysUnavailable}
-              label="Bilgileri her zaman göster"
-            />
-          </div>
-
-          <div className="pt-3 border-t border-neutral-800 space-y-3">
-            <div className="max-w-[220px]">
-              <VitrinSvg />
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm text-neutral-300">Üstte öne çıkan bir vitrin göster</span>
-              <ToggleSwitch
-                checked={settings.showcase}
-                onChange={(v) => saveSettings({ ...settings, showcase: v })}
-                label="Vitrini göster"
+        <div className="space-y-5 max-w-2xl">
+          <SettingsSection title="Genel" description="Hangi arşiv, hangi düzende ve hangi boyutta.">
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">Ana sayfada hangi arşiv gösterilsin</label>
+              <Select
+                value={settings.boardId ?? ''}
+                onChange={handleBoardIdChange}
+                options={[{ value: '', label: 'Seçilmedi' }, ...boards.map((b) => ({ value: b.id, label: b.name }))]}
               />
             </div>
 
-            {settings.showcase && (
-              <div>
-                <label className="block text-xs text-neutral-400 mb-1">
-                  Vitrinde ne gösterilsin (her girişte bu havuzdan rastgele bir tanesi seçilir)
-                </label>
-                <PropertyFilterPicker
-                  board={board}
-                  propertyId={settings.showcaseFilter?.propertyId ?? ''}
-                  optionIds={settings.showcaseFilter?.optionIds ?? []}
-                  onChange={(propertyId, optionIds) =>
-                    saveSettings({ ...settings, showcaseFilter: { propertyId: propertyId || null, optionIds } })
-                  }
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-2 pt-3 border-t border-neutral-800">
-            <span className="text-sm text-neutral-300">
-              "Yeni Bölümler" satırını göster
-              <span className="block text-xs text-neutral-600 mt-0.5">
-                Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri, ana sayfanın en üstünde.
-              </span>
-            </span>
-            <ToggleSwitch
-              checked={settings.newEpisodesRow ?? true}
-              onChange={(v) => saveSettings({ ...settings, newEpisodesRow: v })}
-              label="Yeni Bölümler satırını göster"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-2 pt-3 border-t border-neutral-800">
-            <span className="text-sm text-neutral-300">
-              Ana sayfada "Tümü" satırını göster
-              <span className="block text-xs text-neutral-600 mt-0.5">
-                Vitrinin altındaki, arşivin tamamını listeleyen varsayılan satır — bölümlerin (alt sayfaların)
-                kendi satırlarını etkilemez.
-              </span>
-            </span>
-            <ToggleSwitch
-              checked={settings.showAllSection ?? true}
-              onChange={(v) => saveSettings({ ...settings, showAllSection: v })}
-              label="Tümü satırını göster"
-            />
-          </div>
-
-          {(settings.showAllSection ?? true) && (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-neutral-400">Tümü satırındaki kartların sırası</span>
-              <div className="flex gap-1.5">
-                {(['karisik', 'sirali'] as const).map((o) => (
+            <div>
+              <label className="block text-xs text-neutral-400 mb-2">Görünüm tarzı</label>
+              <div className="grid grid-cols-2 gap-3">
+                {(Object.keys(HOME_LAYOUT_LABELS) as HomeLayout[]).map((l) => (
                   <button
-                    key={o}
-                    onClick={() => saveSettings({ ...settings, allSectionOrder: o })}
-                    className={`text-xs rounded-lg border px-3 py-1.5 transition ${
-                      (settings.allSectionOrder ?? 'karisik') === o
-                        ? 'bg-neutral-700 border-neutral-500 text-neutral-50'
-                        : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200'
+                    key={l}
+                    onClick={() => changeLayout(l)}
+                    className={`rounded-xl border-2 p-3 text-left transition ${
+                      settings.layout === l
+                        ? 'border-[#00c0fa] bg-neutral-800/50'
+                        : 'border-neutral-800 bg-neutral-900 hover:border-neutral-700'
                     }`}
                   >
-                    {o === 'karisik' ? 'Karışık Getir' : 'Sıralı Getir'}
+                    {l === 'yatay' ? <YataySvg /> : <DikeySvg />}
+                    <p className={`text-xs font-medium mt-2 ${settings.layout === l ? 'text-neutral-50' : 'text-neutral-400'}`}>
+                      {HOME_LAYOUT_LABELS[l]}
+                    </p>
                   </button>
                 ))}
               </div>
             </div>
-          )}
 
-          <div className="flex items-center justify-between gap-2 pt-3 border-t border-neutral-800">
-            <span className="text-sm text-neutral-300">Kapak görseli olmayan kayıtları ana sayfada gösterme</span>
-            <ToggleSwitch
-              checked={settings.hideWithoutCover ?? false}
-              onChange={(v) => saveSettings({ ...settings, hideWithoutCover: v })}
-              label="Kapaksız kayıtları gizle"
-            />
-          </div>
+            <div>
+              <label className="block text-xs text-neutral-400 mb-2">Kart boyutu (Yatay ve Dikey ikisinde de geçerli)</label>
+              <div className="flex gap-2">
+                {(['kucuk', 'orta', 'buyuk'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => changeCardSize(s)}
+                    className={`flex-1 text-xs rounded-lg border px-2 py-2 transition ${choiceClass((settings.cardSize ?? 'orta') === s)}`}
+                  >
+                    {s === 'kucuk' ? 'Küçük' : s === 'orta' ? 'Orta' : 'Büyük'}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <div className="pt-3 border-t border-neutral-800 space-y-2">
+            <div>
+              <label className="block text-xs text-neutral-400 mb-2">Satır başlığı boyutu ("Tümü", bölümler, mod satırı…)</label>
+              <div className="flex gap-2">
+                {(['kucuk', 'orta', 'buyuk'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => saveSettings({ ...settings, rowTitleSize: s })}
+                    className={`flex-1 rounded-lg border px-2 py-2 transition ${choiceClass((settings.rowTitleSize ?? 'orta') === s)} ${
+                      s === 'kucuk' ? 'text-xs' : s === 'orta' ? 'text-sm font-semibold' : 'text-base font-bold'
+                    }`}
+                  >
+                    {s === 'kucuk' ? 'Küçük' : s === 'orta' ? 'Orta' : 'Büyük'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm text-neutral-300">En altta, her girişte rastgele satırlarla otomatik doldur</span>
+              <span className="text-sm text-neutral-300">
+                Kart bilgilerini her zaman göster
+                <span className="block text-xs text-neutral-600 mt-0.5">
+                  {infoAlwaysUnavailable
+                    ? 'Dikey + Küçük kart boyutunda güzel durmadığı için bu kombinasyonda kullanılamıyor.'
+                    : 'Durum/kategori/yıl şeridi fareyle üzerine gelmeden de görünür kalır. Açıkken kartlar üzerine gelince artık büyümez.'}
+                </span>
+              </span>
               <ToggleSwitch
-                checked={settings.autoFill?.enabled ?? false}
-                onChange={(v) =>
-                  saveSettings({
-                    ...settings,
-                    autoFill: { count: settings.autoFill?.count ?? 4, enabled: v },
-                  })
-                }
-                label="Otomatik doldur"
+                checked={!infoAlwaysUnavailable && (settings.showInfoAlways ?? false)}
+                onChange={(v) => saveSettings({ ...settings, showInfoAlways: v })}
+                disabled={infoAlwaysUnavailable}
+                label="Bilgileri her zaman göster"
               />
             </div>
-            <p className="text-xs text-neutral-600">
-              Arşivdeki seçim sütunlarından (Tür, Ülke, Kategori...) her seferinde rastgele seçilen bir değer, o
-              değeri taşıyan kayıtlarla birlikte kendi satırını oluşturur — başlık olarak o değerin adı kullanılır.
-            </p>
-            {settings.autoFill?.enabled && (
-              <div className="flex items-center gap-2 pt-1">
-                <label className="text-xs text-neutral-400 shrink-0">Kaç satır gelsin</label>
-                <ClampedNumberInput
-                  value={settings.autoFill?.count ?? 4}
-                  min={1}
-                  max={20}
-                  onCommit={(n) => saveSettings({ ...settings, autoFill: { enabled: true, count: n } })}
-                  className="w-20 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
-                />
-                <span className="text-xs text-neutral-600">(1-20 arası)</span>
+          </SettingsSection>
+
+          <SettingsSection title="Vitrin" description="Ana sayfanın en üstündeki büyük, öne çıkan içerik.">
+            <div className="space-y-3">
+              <div className="max-w-[220px]">
+                <VitrinSvg />
               </div>
-            )}
-          </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">Üstte öne çıkan bir vitrin göster</span>
+                <ToggleSwitch
+                  checked={settings.showcase}
+                  onChange={(v) => saveSettings({ ...settings, showcase: v })}
+                  label="Vitrini göster"
+                />
+              </div>
+
+              {settings.showcase && (
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-2">Vitrin görünümü</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(Object.keys(SHOWCASE_STYLE_LABELS) as ShowcaseStyle[]).map((st) => {
+                      const active = (settings.showcaseStyle ?? 'klasik') === st
+                      return (
+                        <button
+                          key={st}
+                          onClick={() => saveSettings({ ...settings, showcaseStyle: st })}
+                          className={`rounded-xl border-2 p-2 text-left transition ${
+                            active ? 'border-[#00c0fa] bg-neutral-800/50' : 'border-neutral-800 bg-neutral-900 hover:border-neutral-700'
+                          }`}
+                        >
+                          <VitrinStyleSvg style={st} />
+                          <p className={`text-xs font-medium mt-1.5 ${active ? 'text-neutral-50' : 'text-neutral-400'}`}>
+                            {SHOWCASE_STYLE_LABELS[st]}
+                          </p>
+                          <p className="text-[10px] text-neutral-500 leading-snug mt-0.5">{SHOWCASE_STYLE_HINTS[st]}</p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {settings.showcase && (
+                <div>
+                  <label className="block text-xs text-neutral-400 mb-1">
+                    Vitrinde ne gösterilsin (her girişte bu havuzdan rastgele bir tanesi seçilir)
+                  </label>
+                  <PropertyFilterPicker
+                    board={board}
+                    propertyId={settings.showcaseFilter?.propertyId ?? ''}
+                    optionIds={settings.showcaseFilter?.optionIds ?? []}
+                    onChange={(propertyId, optionIds) =>
+                      saveSettings({ ...settings, showcaseFilter: { propertyId: propertyId || null, optionIds } })
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          </SettingsSection>
+
+          <SettingsSection title="Satırlar" description="Vitrinin altında hangi satırların çıkacağı.">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">
+                  "Yeni Bölümler" satırını göster
+                  <span className="block text-xs text-neutral-600 mt-0.5">
+                    Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri.
+                  </span>
+                </span>
+                <ToggleSwitch
+                  checked={settings.newEpisodesRow ?? true}
+                  onChange={(v) => saveSettings({ ...settings, newEpisodesRow: v })}
+                  label="Yeni Bölümler satırını göster"
+                />
+              </div>
+              {(settings.newEpisodesRow ?? true) && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-neutral-400 shrink-0">Kaçıncı satırda görünsün</label>
+                  <ClampedNumberInput
+                    value={settings.newEpisodesPosition ?? 1}
+                    min={1}
+                    max={30}
+                    onCommit={(n) => saveSettings({ ...settings, newEpisodesPosition: n })}
+                    className="w-16 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
+                  />
+                  <span className="text-xs text-neutral-600">(1 = en üstte)</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">
+                  Ana sayfada "Tümü" satırını göster
+                  <span className="block text-xs text-neutral-600 mt-0.5">
+                    Vitrinin altındaki, arşivin tamamını listeleyen varsayılan satır — bölümlerin (alt sayfaların) kendi satırlarını
+                    etkilemez.
+                  </span>
+                </span>
+                <ToggleSwitch
+                  checked={settings.showAllSection ?? true}
+                  onChange={(v) => saveSettings({ ...settings, showAllSection: v })}
+                  label="Tümü satırını göster"
+                />
+              </div>
+
+              {(settings.showAllSection ?? true) && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-neutral-400">Tümü satırındaki kartların sırası</span>
+                  <div className="flex gap-1.5">
+                    {(['karisik', 'sirali'] as const).map((o) => (
+                      <button
+                        key={o}
+                        onClick={() => saveSettings({ ...settings, allSectionOrder: o })}
+                        className={`text-xs rounded-lg border px-3 py-1.5 transition ${choiceClass((settings.allSectionOrder ?? 'karisik') === o)}`}
+                      >
+                        {o === 'karisik' ? 'Karışık Getir' : 'Sıralı Getir'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-neutral-300">Kapak görseli olmayan kayıtları ana sayfada gösterme</span>
+              <ToggleSwitch
+                checked={settings.hideWithoutCover ?? false}
+                onChange={(v) => saveSettings({ ...settings, hideWithoutCover: v })}
+                label="Kapaksız kayıtları gizle"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">En altta, her girişte rastgele satırlarla otomatik doldur</span>
+                <ToggleSwitch
+                  checked={settings.autoFill?.enabled ?? false}
+                  onChange={(v) =>
+                    saveSettings({
+                      ...settings,
+                      autoFill: { count: settings.autoFill?.count ?? 4, enabled: v },
+                    })
+                  }
+                  label="Otomatik doldur"
+                />
+              </div>
+              <p className="text-xs text-neutral-600">
+                Arşivdeki seçim sütunlarından (Tür, Ülke, Kategori...) her seferinde rastgele seçilen bir değer, o değeri taşıyan kayıtlarla
+                birlikte kendi satırını oluşturur — başlık olarak o değerin adı kullanılır.
+              </p>
+              {settings.autoFill?.enabled && (
+                <div className="flex items-center gap-2 pt-1">
+                  <label className="text-xs text-neutral-400 shrink-0">Kaç satır gelsin</label>
+                  <ClampedNumberInput
+                    value={settings.autoFill?.count ?? 4}
+                    min={1}
+                    max={20}
+                    onCommit={(n) => saveSettings({ ...settings, autoFill: { enabled: true, count: n } })}
+                    className="w-20 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
+                  />
+                  <span className="text-xs text-neutral-600">(1-20 arası)</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">
+                  "Arşivindeki En İyi 10" satırını göster
+                  <span className="block text-xs text-neutral-600 mt-0.5">
+                    En yüksek puan verdiğin 10 içerik, yanlarında büyük sıra numaralarıyla. Puanlı içerik 3'ten azsa görünmez.
+                  </span>
+                </span>
+                <ToggleSwitch
+                  checked={settings.topRated?.enabled ?? false}
+                  onChange={(v) => saveSettings({ ...settings, topRated: { position: settings.topRated?.position ?? 2, enabled: v } })}
+                  label="En İyi 10 satırını göster"
+                />
+              </div>
+              {settings.topRated?.enabled && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-neutral-400 shrink-0">Kaçıncı satırda görünsün</label>
+                  <ClampedNumberInput
+                    value={settings.topRated?.position ?? 2}
+                    min={1}
+                    max={30}
+                    onCommit={(n) => saveSettings({ ...settings, topRated: { enabled: true, position: n } })}
+                    className="w-16 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
+                  />
+                  <span className="text-xs text-neutral-600">(1 = en üstte)</span>
+                </div>
+              )}
+            </div>
+          </SettingsSection>
         </div>
       )}
 
@@ -590,13 +749,13 @@ export default function HomeSettingsPanel() {
       )}
 
       {tab === 'nizlesem' && (
-        <div className="space-y-3 max-w-xl">
-          <p className="text-sm text-neutral-300">
-            Üstteki arama kutusunun yanındaki kart butonu — tıklanınca aşağıdaki havuzdan rastgele bir şey seçip
-            detayını açar.
+        <div className="space-y-5 max-w-2xl">
+          <p className="text-sm text-neutral-400">
+            Üstteki arama kutusunun yanındaki kart düğmesi — kararsız kaldığında tıklarsın, aşağıdaki havuzdan rastgele bir şey
+            seçip detayını açar.
           </p>
+          <SettingsSection title="Nereden seçilsin" description="Kendi arşivinden mi, yoksa TMDB'de olup arşivinde olmayanlardan mı.">
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5">Nereden seçilsin</label>
             <ChoiceButtons
               value={settings.randomPickerSource ?? 'arsiv'}
               onChange={(v) => saveSettings({ ...settings, randomPickerSource: v })}
@@ -627,16 +786,16 @@ export default function HomeSettingsPanel() {
               onChange={(randomPickerTmdb) => saveSettings({ ...settings, randomPickerTmdb })}
             />
           )}
+          </SettingsSection>
 
+          <SettingsSection title="Animasyon" description="Seçim yapılırken ekranda dağılan posterler.">
           <div>
             <label className="block text-xs text-neutral-400 mb-1">
               Hangi görsel kullanılsın (seçilmezse önce dikey görsel, o yoksa yatay olan gelir)
             </label>
             <Select
               value={settings.randomPickerImageShape ?? ''}
-              onChange={(v) =>
-                saveSettings({ ...settings, randomPickerImageShape: v === 'dikey' || v === 'yatay' ? v : null })
-              }
+              onChange={(v) => saveSettings({ ...settings, randomPickerImageShape: v === 'dikey' || v === 'yatay' ? v : null })}
               options={[
                 { value: '', label: 'Otomatik' },
                 { value: 'dikey', label: 'Dikey' },
@@ -645,7 +804,7 @@ export default function HomeSettingsPanel() {
             />
           </div>
 
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-2">
             <label className="text-xs text-neutral-400 shrink-0">Ekranda kaç poster dağılsın</label>
             <ClampedNumberInput
               value={settings.randomPickerCount ?? 30}
@@ -656,6 +815,7 @@ export default function HomeSettingsPanel() {
             />
             <span className="text-xs text-neutral-600">(6-60 arası)</span>
           </div>
+          </SettingsSection>
         </div>
       )}
     </div>

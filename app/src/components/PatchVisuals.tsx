@@ -350,3 +350,348 @@ export function RehberVisual() {
     </Frame>
   )
 }
+
+// Mavi ok ucu — her çizim kendi id'siyle tanımlıyor (aynı sayfada birden fazla SVG var).
+function ArrowDef({ id }: { id: string }) {
+  return (
+    <defs>
+      <marker id={id} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0 0 L10 5 L0 10 z" fill={ACCENT} />
+      </marker>
+    </defs>
+  )
+}
+
+// ---- v1.7 ----------------------------------------------------------------------------------
+
+export function GizliSutunVisual() {
+  const cols = [
+    { x: 16, w: 62, t: 'Türkçe Adı', hidden: false },
+    { x: 82, w: 48, t: 'Durum', hidden: false },
+    { x: 134, w: 48, t: 'Poster', hidden: true },
+    { x: 186, w: 44, t: 'Tür', hidden: false },
+    { x: 234, w: 70, t: 'Oyuncular', hidden: true },
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <ArrowDef id="pv-arrow-g" />
+      <Box x={8} y={8} w={304} h={74} r={7} />
+      {cols.map((c) => (
+        <g key={c.t}>
+          <rect
+            x={c.x}
+            y={18}
+            width={c.w}
+            height={18}
+            rx={3}
+            className={c.hidden ? 'fill-none stroke-neutral-600' : 'fill-neutral-800'}
+            strokeDasharray={c.hidden ? '3 2' : undefined}
+          />
+          <Label x={c.x + 5} y={30} size={7} muted={c.hidden}>
+            {c.t}
+          </Label>
+          {c.hidden && (
+            <Label x={c.x + c.w - 11} y={30} size={7} muted>
+              ⊘
+            </Label>
+          )}
+          <Line x={c.x + 4} y={46} w={c.w - 16} light />
+          <Line x={c.x + 4} y={58} w={c.w - 22} light />
+        </g>
+      ))}
+      {/* Tür sütunu sürükleniyor */}
+      <rect x={182} y={14} width={52} height={26} rx={4} fill="none" stroke={ACCENT} strokeWidth={1.3} />
+      <path d="M190 70 C 170 90, 120 90, 104 44" fill="none" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-g)" />
+      <Pin x={24} y={104} n={1} />
+      <Label x={38} y={107} size={8}>Bir sütunu sürükleyip yerini değiştir</Label>
+      <Pin x={24} y={128} n={2} />
+      <Label x={38} y={131} size={8}>Gizli sütunlar (⊘) yerinde kalıyor,</Label>
+      <Label x={38} y={143} size={8}>içlerindeki bilgiler kaybolmuyor</Label>
+      <NewTag x={38} y={152} text="DÜZELTİLDİ" />
+    </Frame>
+  )
+}
+
+export function KapatPuanVisual() {
+  const crit: [string, number][] = [
+    ['Senaryo', 0.8],
+    ['Oyunculuk', 0.65],
+    ['Görsellik', 0.7],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      {/* tablodaki puan hücresi */}
+      <Box x={8} y={10} w={90} h={18} r={3} strong />
+      <Label x={14} y={22} size={7.5}>
+        ★ 7.2
+      </Label>
+      <NewTag x={104} y={13} />
+      {/* açılan puan kutusu */}
+      <Box x={40} y={34} w={200} h={138} r={8} strong />
+      {crit.map(([name, v], i) => {
+        const y = 46 + i * 24
+        return (
+          <g key={name}>
+            <Label x={50} y={y + 4} size={7}>
+              {name}
+            </Label>
+            <text x={214} y={y + 4} fontSize={7} textAnchor="end" className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
+              {Math.round(v * 20) / 2}
+            </text>
+            <text
+              x={224}
+              y={y + 4.5}
+              fontSize={9}
+              fontWeight={700}
+              textAnchor="middle"
+              fill={i === 1 ? ACCENT : undefined}
+              className={i === 1 ? undefined : 'fill-neutral-500'}
+              style={{ fontFamily: 'inherit' }}
+            >
+              ×
+            </text>
+            <rect x={50} y={y + 9} width={170} height={3} rx={1.5} className="fill-neutral-700" />
+            <rect x={50} y={y + 9} width={170 * v} height={3} rx={1.5} className="fill-neutral-300" />
+          </g>
+        )
+      })}
+      <Highlight x={217} y={63} w={14} h={14} r={4} />
+      <line x1={50} x2={230} y1={120} y2={120} className="stroke-neutral-700" />
+      <Label x={50} y={133} size={7} muted>
+        Ortalama: 7.2 / 10
+      </Label>
+      <text x={230} y={133} fontSize={7} textAnchor="end" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        Puanı kaldır
+      </text>
+      <MiniButton x={196} y={148} w={34} text="Kapat" accent />
+      <Pin x={256} y={70} n={1} />
+      <Label x={268} y={73} size={6.5} muted>
+        tek kriteri sil
+      </Label>
+      <Pin x={256} y={130} n={2} />
+      <Label x={268} y={133} size={6.5} muted>
+        hepsini sil
+      </Label>
+      <Pin x={256} y={154} n={3} />
+      <Label x={268} y={157} size={6.5} muted>
+        kaydet, kapat
+      </Label>
+    </Frame>
+  )
+}
+
+export function BenzerDetayVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <ArrowDef id="pv-arrow-b" />
+      {/* detay penceresinin altındaki Benzer İçerikler */}
+      <Box x={8} y={8} w={140} h={164} r={8} />
+      <Label x={16} y={24} size={8}>
+        Benzer İçerikler
+      </Label>
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <Poster x={16 + i * 42} y={32} w={36} />
+          <Line x={16 + i * 42} y={90} w={30} light />
+        </g>
+      ))}
+      <Highlight x={55} y={29} w={42} h={70} />
+      <Pin x={76} y={116} n={1} />
+      <Label x={16} y={140} size={7} muted>
+        Afişe ya da ada tıkla
+      </Label>
+      <NewTag x={16} y={150} />
+      <path d="M150 60 h18" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-b)" />
+      {/* açılan önizleme */}
+      <Box x={172} y={8} w={140} h={164} r={7} strong />
+      <rect x={172} y={8} width={140} height={48} rx={7} className="fill-neutral-700" />
+      <Poster x={180} y={62} w={26} />
+      <Line x={212} y={66} w={80} />
+      <Line x={212} y={76} w={60} light />
+      <Line x={212} y={84} w={70} light />
+      <MiniButton x={180} y={110} w={50} text="+ İzlenecek" accent />
+      <MiniButton x={234} y={110} w={40} text="✓ İzledim" />
+      <Label x={180} y={138} size={7}>
+        Nerede İzlenir
+      </Label>
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={180 + i * 20} y={144} width={14} height={14} rx={3} fill={['#e50914', '#113ccf', '#7b2cbf'][i]} />
+      ))}
+      <Pin x={296} y={40} n={2} />
+    </Frame>
+  )
+}
+
+export function FiltreDonusVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <ArrowDef id="pv-arrow-f" />
+      {/* oyuncu filtresi sayfası */}
+      <Box x={8} y={8} w={140} h={164} r={8} />
+      <Poster x={16} y={16} w={22} />
+      <Line x={44} y={20} w={60} />
+      <rect x={44} y={30} width={98} height={13} rx={3} fill={ACCENT} fillOpacity={0.15} stroke={ACCENT} strokeWidth={1} />
+      <Label x={48} y={39} size={6}>
+        × Filtreyi Kaldır ve Geri Dön
+      </Label>
+      {[0, 1, 2].map((i) => (
+        <Poster key={i} x={16 + i * 42} y={62} w={36} dim />
+      ))}
+      <Pin x={128} y={52} n={1} />
+      <Label x={16} y={148} size={6.5} muted>
+        Tabloya, kaldığın satıra ve
+      </Label>
+      <Label x={16} y={158} size={6.5} muted>
+        açık olan detaya geri döner
+      </Label>
+      <path d="M150 36 C 162 36, 158 60, 170 60" fill="none" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-f)" />
+      {/* kaldığın yerdeki tablo + açık detay penceresi */}
+      <Box x={172} y={8} w={140} h={164} r={7} />
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <g key={i}>
+          <Line x={180} y={20 + i * 18} w={40} light />
+          <Line x={226} y={20 + i * 18} w={70} light />
+        </g>
+      ))}
+      <Box x={196} y={46} w={100} h={80} r={6} strong />
+      <rect x={196} y={46} width={100} height={26} rx={6} className="fill-neutral-700" />
+      <Line x={204} y={80} w={60} />
+      <Line x={204} y={90} w={76} light />
+      <Line x={204} y={98} w={50} light />
+      <Pin x={246} y={146} n={2} />
+    </Frame>
+  )
+}
+
+// ---- v1.7.1 --------------------------------------------------------------------------------
+
+export function OnayYeriVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={16} y={18 + i * 20} width={10} height={10} rx={2} className="fill-neutral-800" />
+          <Line x={34} y={21 + i * 20} w={90} light />
+          <Line x={136} y={21 + i * 20} w={60} light />
+        </g>
+      ))}
+      {/* 6 nokta menüsü */}
+      <Box x={16} y={62} w={70} h={34} r={5} strong />
+      <Label x={24} y={75} size={6.5} muted>
+        Çoğalt
+      </Label>
+      <Label x={24} y={89} size={6.5}>
+        Sil
+      </Label>
+      <Highlight x={18} y={80} w={66} h={13} r={3} />
+      <Pin x={98} y={86} n={1} />
+      {/* onay kartı hemen yanında */}
+      <rect x={30} y={104} width={150} height={50} rx={6} className="fill-neutral-900" stroke="#f43f5e" strokeOpacity={0.5} />
+      <Label x={38} y={118} size={7}>
+        Bu kaydı silmek istediğine
+      </Label>
+      <Label x={38} y={128} size={7}>
+        emin misin?
+      </Label>
+      <rect x={38} y={135} width={24} height={12} rx={3} fill="#e11d48" />
+      <text x={50} y={143.5} fontSize={6.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
+        Sil
+      </text>
+      <Label x={70} y={144} size={6.5} muted>
+        Vazgeç
+      </Label>
+      <Pin x={192} y={128} n={2} />
+      <NewTag x={204} y={122} text="TIKLADIĞIN YERDE" />
+      {/* eski yer: sağ alt köşe, soluk */}
+      <rect x={236} y={146} width={70} height={20} rx={4} fill="none" className="stroke-neutral-700" strokeDasharray="3 2" />
+      <Label x={271} y={159} size={6} anchor="middle" muted>
+        eskiden burada
+      </Label>
+    </Frame>
+  )
+}
+
+// ---- v1.8 ----------------------------------------------------------------------------------
+
+export function GuncelleVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <text x={18} y={30 + i * 22} fontSize={9} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+            ⠿
+          </text>
+          <Line x={32} y={25 + i * 22} w={100} light />
+          <Line x={144} y={25 + i * 22} w={60} light />
+        </g>
+      ))}
+      <Highlight x={14} y={20} w={14} h={14} r={3} />
+      {/* menü */}
+      <Box x={40} y={50} w={110} h={70} r={6} strong />
+      <rect x={44} y={54} width={102} height={16} rx={3} fill={ACCENT} fillOpacity={0.15} />
+      <text x={52} y={65} fontSize={8} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        ↻ Güncelle
+      </text>
+      <Label x={52} y={84} size={7} muted>
+        Altına Satır Ekle
+      </Label>
+      <Label x={52} y={98} size={7} muted>
+        Çoğalt
+      </Label>
+      <Label x={52} y={112} size={7} muted>
+        Sil
+      </Label>
+      <Pin x={162} y={62} n={1} />
+      <Label x={180} y={100} size={7} muted>
+        Eskiden kayda göre değişiyordu:
+      </Label>
+      <Label x={180} y={114} size={7} muted>
+        {"\"TMDB'den Doldur\" /"}
+      </Label>
+      <Label x={180} y={126} size={7} muted>
+        "Bölümleri Güncelle"
+      </Label>
+      <NewTag x={180} y={138} text="ARTIK HEP AYNI" />
+    </Frame>
+  )
+}
+
+// ---- v1.8.1 --------------------------------------------------------------------------------
+
+export function SinemaVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* kenardan kenara vitrin, menü üstünde */}
+      <rect x={0} y={0} width={320} height={78} className="fill-neutral-700" />
+      <rect x={0} y={50} width={320} height={28} className="fill-neutral-900" opacity={0.6} />
+      <Line x={12} y={6} w={30} />
+      <Line x={250} y={6} w={58} light />
+      <rect x={14} y={30} width={70} height={10} rx={2} className="fill-neutral-400" />
+      <MiniButton x={14} y={46} w={40} text="Daha Fazla" accent />
+      <Pin x={300} y={40} n={1} />
+      {/* En İyi 10 */}
+      <Label x={12} y={96} size={8}>
+        Arşivindeki En İyi 10
+      </Label>
+      <NewTag x={98} y={87} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <text x={12 + i * 62} y={148} fontSize={42} fontWeight={900} fill="none" className="stroke-neutral-500" strokeWidth={1.2} style={{ fontFamily: 'inherit' }}>
+            {i + 1}
+          </text>
+          <Poster x={34 + i * 62} y={104} w={26} />
+        </g>
+      ))}
+      <Pin x={300} y={126} n={2} />
+      {/* slayt noktaları */}
+      <Label x={12} y={168} size={7} muted>
+        Vitrin: Klasik · Sinema · Slayt
+      </Label>
+      {[0, 1, 2, 3].map((i) => (
+        <rect key={i} x={230 + i * 9} y={163} width={i === 0 ? 14 : 5} height={4} rx={2} fill={i === 0 ? ACCENT : undefined} className={i === 0 ? undefined : 'fill-neutral-600'} transform={i > 0 ? 'translate(9 0)' : undefined} />
+      ))}
+    </Frame>
+  )
+}

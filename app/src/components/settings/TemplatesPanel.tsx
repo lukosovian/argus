@@ -80,8 +80,11 @@ export default function TemplatesPanel() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-semibold text-neutral-50">Şablonlar</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <p className="text-sm text-neutral-400 max-w-lg">
+          Hazır bir sütun seti: bir şablonla yeni arşiv açınca bütün sütunlar tek seferde gelir. Var olan bir arşivin yapısını da
+          şablon olarak kaydedebilirsin.
+        </p>
         <button
           onClick={() => setCreatingTemplate((v) => !v)}
           style={primaryButtonStyle}
@@ -389,9 +392,17 @@ function TemplateCard({
   const busy = phase !== 'idle'
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+    <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-base font-medium text-neutral-100">{template.name}</h3>
+        <h3 className="flex items-center gap-2.5 text-base font-semibold text-neutral-100">
+          <span className="h-8 w-8 shrink-0 rounded-lg bg-[#00c0fa]/15 text-[#00c0fa] flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18M9 21V9" />
+            </svg>
+          </span>
+          {template.name}
+        </h3>
         {deletable && onDelete && (
           <button onClick={onDelete} className="text-neutral-600 hover:text-rose-400 text-xs shrink-0">
             Sil
@@ -701,7 +712,7 @@ function NewTemplateForm({
   }
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6">
+    <div className="rounded-2xl border border-[#00c0fa]/30 bg-neutral-900/70 p-5 mb-6">
       <div className="flex items-center gap-2 mb-4">
         {(
           [

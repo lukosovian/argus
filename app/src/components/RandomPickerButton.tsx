@@ -357,6 +357,21 @@ export default function RandomPickerButton() {
     }
   }
 
+  // Animasyonu yarıda kesmek için "Vazgeç" düğmesi ve Esc tuşu (hiçbir şey açılmadan kapanır).
+  function cancelPick() {
+    setPhase('idle')
+    setCandidates([])
+  }
+  useEffect(() => {
+    if (phase === 'idle') return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') cancelPick()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
   const captionText =
     phase === 'entering' ? 'Karıştırılıyor...' : phase === 'eliminating' ? 'Eleniyor...' : phase === 'growing' ? 'Bu nasıl?' : ''
 
@@ -365,8 +380,8 @@ export default function RandomPickerButton() {
       <button
         onClick={handleClick}
         disabled={loading || phase !== 'idle'}
-        title="Ne İzlesem?"
-        className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition disabled:opacity-50 shrink-0"
+        title="Ne İzlesem? — kararsızsan rastgele bir şey seçer"
+        className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition disabled:opacity-50 shrink-0"
       >
         <StackedCardsIcon />
       </button>
@@ -381,9 +396,25 @@ export default function RandomPickerButton() {
         <>
           {phase !== 'idle' && (
             <div className="fixed inset-0 z-[60] bg-neutral-950/95 overflow-hidden">
-              {captionText && (
-                <p className="absolute top-8 left-1/2 -translate-x-1/2 text-neutral-400 text-sm tracking-wide">{captionText}</p>
-              )}
+              {/* Ortada marka renginde hafif bir parıltı — posterler onun üstünde dağılıyor. */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[70vmin] w-[70vmin] rounded-full blur-3xl opacity-20"
+                style={{ background: 'radial-gradient(circle, #00c0fa 0%, #015eea 45%, transparent 70%)' }}
+              />
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 backdrop-blur-sm px-4 py-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-[#00c0fa] opacity-60 animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00c0fa]" />
+                </span>
+                <span className="text-sm font-medium text-neutral-100">{captionText || 'Ne İzlesem?'}</span>
+              </div>
+              <button
+                onClick={cancelPick}
+                className="absolute top-6 right-6 z-20 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 bg-neutral-900/80 rounded-full px-4 py-2 transition"
+              >
+                Vazgeç <span className="text-neutral-600 text-xs ml-1">Esc</span>
+              </button>
               {candidates.map((c) => {
                 const isWinner = c.key === winnerId
                 const cover = c.cover

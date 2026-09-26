@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../types'
-import { titleText, episodeKey, todayIso } from '../types'
+import { titleText, episodeKey, todayIso, ratingAverage } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
-import { metaSummary, formatRuntime } from '../lib/rowMeta'
+import { formatRuntime } from '../lib/rowMeta'
 import { resolveRole } from '../lib/roles'
 import { normalizeAgeRating } from '../lib/ageRating'
 import { BRAND_TEXT } from '../lib/theme'
@@ -16,7 +16,10 @@ import OptionBadge from './OptionBadge'
 import OptionDetailModal from './OptionDetailModal'
 import SeasonsBrowser from './SeasonsBrowser'
 import TmdbExtras from './TmdbExtras'
+import SectionTitle from './SectionTitle'
 import AgeRatingChip from './AgeRatingChip'
+
+const CAST_PREVIEW = 12
 
 function formatDate(v: string) {
   const [y, m, d] = v.split('-')
@@ -132,6 +135,9 @@ export default function RowDetailModal({
   const { watched, saveRowWatched } = useWatched()
   const { notify } = useToast()
   const [refreshing, setRefreshing] = useState(false)
+  // Oyuncular ızgarası: ilk iki sıra görünür, "Tümünü göster" ile hepsi açılır (kullanıcı yatay
+  // kaydırmalı şeritte oyuncuların hepsini göremiyordu).
+  const [showAllCast, setShowAllCast] = useState(false)
   const [detailOption, setDetailOption] = useState<{ propertyId: string; option: SelectOption; role?: string } | null>(
     null,
   )
@@ -230,10 +236,6 @@ export default function RowDetailModal({
   const gridProps = board.properties.filter(
     (p) => !usedIds.has(p.id) && p.type !== 'select' && p.type !== 'date' && p.type !== 'rating',
   )
-  // Çoklu seçim alanları (Tür, Ülke gibi) zaten aşağıdaki ızgarada kendi rozetleriyle tam
-  // olarak gösteriliyor — üstteki özet satırında bir de virgüllü metin olarak tekrar
-  // etmesinler diye üst özete dahil edilmiyor (types listesinden 'multiselect' çıkarıldı).
-  const metaBits = metaSummary(board, row, usedIds, ['select', 'date', 'rating'])
 
   const actorIds = oyuncularProp && Array.isArray(row.values[oyuncularProp.id]) ? (row.values[oyuncularProp.id] as string[]) : []
   const castByOptionId = new Map((cast[row.id] ?? []).map((c) => [c.optionId, c]))
@@ -303,133 +305,290 @@ export default function RowDetailModal({
     saveRowWatched(row.id, next)
   }
 
+  // ---- 26 Eylül 2026 yenilemesi: üstte etiketler, puan ve izleme kartları, bölüm başlıkları, hızlı geçiş ----
+  const puanProp = resolveRole(board, 'puan')
+  const tarihProp = resolveRole(board, 'izlemeTarihi')
+  const scores =
+    puanProp && row.values[puanProp.id] && typeof row.values[puanProp.id] === 'object' && !Array.isArray(row.values[puanProp.id])
+      ? (row.values[puanProp.id] as Record<string, number>)
+      : {}
+  const scoredCriteria = (puanProp?.criteria ?? []).filter((c) => typeof scores[c.id] === 'number')
+  const avgScore = puanProp ? ratingAverage(row.values[puanProp.id], puanProp) : null
+  const watchDates = (() => {
+    if (!tarihProp) return [] as string[]
+    const v = row.values[tarihProp.id]
+    return (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).slice().sort().reverse()
+  })()
+  // Dizilerde bölüm ilerlemesi: yayınlanmış bölümlerden kaçının işaretli olduğu.
+  const episodeProgress = (() => {
+    if (!seasons || seasons.length === 0) return null
+    const today = todayIso()
+    let aired = 0
+    let seen = 0
+    for (const s of seasons) {
+      for (const ep of s.episodes) {
+        if (ep.airDate && ep.airDate > today) continue
+        aired++
+        if ((rowWatched[episodeKey(s.seasonNumber, ep.episodeNumber)] ?? []).length > 0) seen++
+      }
+    }
+    // Hiç bölüm işaretlenmemişse (bölüm bölüm takip etmiyorsan) "0 / 73" gibi yanıltıcı bir çubuk gösterme.
+    return aired > 0 && seen > 0 ? { aired, seen } : null
+  })()
+
+  // Üstteki etiketler: seçim sütunları (Durum, Kategori…) kendi renkleriyle, yıl, süre ve puan.
+  const pillSelects = board.properties.filter((p) => !usedIds.has(p.id) && p.type === 'select')
+  const vizyonProp = resolveRole(board, 'vizyon')
+  const vizyonYear = vizyonProp && typeof row.values[vizyonProp.id] === 'string' ? (row.values[vizyonProp.id] as string).slice(0, 4) : ''
+  const runtime = sureProp && typeof row.values[sureProp.id] === 'number' ? formatRuntime(row.values[sureProp.id] as number) : ''
+  // Kendi kartlarında gösterilenler bilgi kartına tekrar düşmesin.
+  const infoProps = gridProps.filter((p) => p.id !== tarihProp?.id && p.id !== sureProp?.id)
+
+  // Kullanıcı ikinci hali de sevmedi ("detay penceresini sevemedim, daha güzel yap", 26 Eylül 2026):
+  // artık afiş gibi — poster, logo/ad, etiketler ve düğmeler büyük görselin alt kısmına biniyor;
+  // altında iki sütun: solda özet, bölümler, oyuncular ve benzerler; sağda dar bir bilgi sütunu
+  // (puanın, izleme, bilgiler, nerede izlenir).
+  const hasInfo = infoProps.some((p) => {
+    const v = row.values[p.id]
+    return !(v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0))
+  })
+  const origProp = resolveRole(board, 'orjinalAdi')
+  const origTitle = origProp && typeof row.values[origProp.id] === 'string' ? (row.values[origProp.id] as string).trim() : ''
+  const sideCard = 'rounded-2xl border border-neutral-800 bg-neutral-950/40 p-4'
+
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/80 overflow-y-auto py-6 px-4 sm:px-10 md:px-16"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm overflow-y-auto py-6 px-3 sm:px-8 md:px-14" onClick={onClose}>
       <div
-        className="bg-neutral-900 rounded-xl w-full max-w-6xl mx-auto overflow-hidden"
+        className="relative bg-neutral-900 rounded-3xl w-full max-w-6xl mx-auto shadow-2xl shadow-black/60 ring-1 ring-white/5"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative">
+        {/* Üst: büyük görsel (fragman varsa oynar). Başlık kendi bölümümüzde gösterildiği için görselin
+            kendi logo şeridi kapalı. */}
+        <div className="relative rounded-t-3xl overflow-hidden">
           <ShowcaseBanner
             imageUrl={cover}
             videoId={yt?.id ?? null}
             startSeconds={yt?.start ?? 0}
-            title={title || 'İsimsiz'}
-            titleImageUrl={titleImage}
+            title=""
             aspect="21/9"
-            titleAlwaysVisible
             bottomFadeColor="#171717"
+            controlsTop
           />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 h-8 w-8 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white text-lg z-10 transition"
+            aria-label="Kapat"
+            className="absolute top-4 right-4 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-sm text-white text-xl z-10 transition"
           >
             ×
           </button>
         </div>
-        <div className="p-6 space-y-8">
-          <div className="flex gap-5">
+
+        {/* Afiş bölümü: görselin altına biniyor */}
+        <div className="relative z-10 px-4 sm:px-8 md:px-10 -mt-14 sm:-mt-28 md:-mt-40">
+          <div className="flex items-end gap-4 sm:gap-7">
             {poster && (
               <img
                 src={poster}
                 alt={title}
-                className="w-28 sm:w-40 md:w-48 aspect-[2/3] object-cover rounded-lg shrink-0 self-start bg-neutral-800"
+                className="w-24 sm:w-40 md:w-52 aspect-[2/3] object-cover rounded-2xl shrink-0 bg-neutral-800 shadow-2xl shadow-black/60 ring-1 ring-white/15"
               />
             )}
-            <div className="flex-1 min-w-0 space-y-4">
-              {/* Banner'daki logo (KAPAK ADI) varsa yazılı başlığın yerini alıyor — Türkçe Adı
-                  o zaman hiçbir yerde görünmüyordu, kullanıcı isteğiyle burada ayrıca ekleniyor. */}
-              {title && <h2 className="text-2xl font-semibold text-neutral-50">{title}</h2>}
-              {metaBits.length > 0 && <p className="text-neutral-300 text-base font-medium">{metaBits.join('  •  ')}</p>}
+            <div className="flex-1 min-w-0 pb-1 space-y-3">
+              {titleImage ? (
+                <img
+                  src={titleImage}
+                  alt={title}
+                  className="max-h-14 sm:max-h-24 md:max-h-28 max-w-full w-auto object-contain object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.7)]"
+                />
+              ) : null}
+              <div>
+                <h2 className={`${titleImage ? 'text-base sm:text-lg text-neutral-200' : 'text-2xl sm:text-4xl text-neutral-50'} font-bold tracking-tight leading-tight`}>
+                  {title}
+                </h2>
+                {origTitle && origTitle !== title && <p className="text-xs sm:text-sm text-neutral-500 mt-0.5 truncate">{origTitle}</p>}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {avgScore !== null && (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-neutral-950">
+                    ★ {avgScore.toFixed(1)}
+                  </span>
+                )}
+                {pillSelects.map((p) => {
+                  const opt = p.options?.find((o) => o.id === row.values[p.id])
+                  return opt ? <OptionBadge key={p.id} label={opt.label} colorIndex={opt.colorIndex} image={opt.image} dim={false} /> : null
+                })}
+                {[vizyonYear, runtime].filter(Boolean).map((t) => (
+                  <span key={t} className="text-[11px] leading-none px-2 py-1 rounded-full border border-neutral-600 text-neutral-200 bg-black/20">
+                    {t}
+                  </span>
+                ))}
+                {yasValue && <AgeRatingChip raw={yasValue} className="h-6 min-w-6" />}
+              </div>
               {editable && onFetchTmdb && hasTitle && (
                 <button
                   onClick={handleFetchTmdb}
                   disabled={refreshing}
                   title={"TMDB'den güncelle: boş bilgileri doldurur, dizilerde yeni bölümleri de getirir"}
-                  className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-lg px-2.5 py-1.5 transition disabled:opacity-50"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-xs text-neutral-300 hover:text-neutral-50 border border-neutral-600 hover:border-neutral-400 bg-black/20 rounded-full px-3 py-1.5 transition disabled:opacity-50"
                 >
                   <RefreshIcon spinning={refreshing} />
                   {refreshing ? 'Çekiliyor...' : 'Güncelle'}
                 </button>
               )}
-              {yasValue && <AgeRatingBadge raw={yasValue} />}
-              {synopsis && <p className="text-neutral-300 text-base leading-relaxed">{synopsis}</p>}
-              {gridProps.length > 0 && (
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-neutral-800">
-                  {gridProps.map((p) => {
-                    const v = row.values[p.id]
-                    if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) return null
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 sm:px-8 md:px-10 pt-6 pb-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-8 lg:gap-10">
+          {/* Sol: ana içerik */}
+          <div className="min-w-0 space-y-10">
+            {(synopsis || yasValue) && (
+              <section className="space-y-3">
+                {synopsis && <p className="text-neutral-200 text-base sm:text-[17px] leading-relaxed">{synopsis}</p>}
+                {yasValue && <AgeRatingBadge raw={yasValue} />}
+                {editable && onFetchTmdb && hasTitle && (
+                  <button
+                    onClick={handleFetchTmdb}
+                    disabled={refreshing}
+                    className="sm:hidden inline-flex items-center gap-1.5 text-xs text-neutral-300 border border-neutral-700 rounded-full px-3 py-1.5 disabled:opacity-50"
+                  >
+                    <RefreshIcon spinning={refreshing} />
+                    {refreshing ? 'Çekiliyor...' : 'Güncelle'}
+                  </button>
+                )}
+              </section>
+            )}
+
+            {seasons && seasons.length > 0 && (
+              <section id="rd-bolumler">
+                <SectionTitle title="Bölümler" count={`${seasons.length} sezon`} />
+                <SeasonsBrowser
+                  seasons={seasons}
+                  watched={rowWatched}
+                  onSetEpisodeDates={setEpisodeDates}
+                  onMarkSeasonWatched={markSeasonWatched}
+                  onUnmarkSeasonWatched={unmarkSeasonWatched}
+                  editable={editable}
+                />
+              </section>
+            )}
+
+            {oyuncularProp && actorIds.length > 0 && (
+              <section id="rd-oyuncular">
+                <SectionTitle title={oyuncularProp.name} count={String(actorIds.length)} />
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5">
+                  {(showAllCast ? actorIds : actorIds.slice(0, CAST_PREVIEW)).map((id) => {
+                    const opt = oyuncularProp.options?.find((o) => o.id === id)
+                    if (!opt) return null
+                    const entry = castByOptionId.get(id)
+                    const roleLine = entry?.episodeCount ? `${entry.character} · ${entry.episodeCount} bölüm` : entry?.character
                     return (
-                      <div key={p.id}>
-                        <p className="text-xs font-bold mb-1" style={{ color: BRAND_TEXT }}>
-                          {p.name}
-                        </p>
-                        <DetailValue property={p} value={v} isRuntime={p.id === sureProp?.id} onOptionClick={(propId, opt) => handleOptionClick(propId, opt)} />
-                      </div>
+                      <button key={id} onClick={() => handleOptionClick(oyuncularProp.id, opt, roleLine)} className="min-w-0 text-center group">
+                        <span className="block mx-auto h-24 w-24 sm:h-[104px] sm:w-[104px] rounded-full overflow-hidden bg-neutral-800 ring-2 ring-neutral-800 group-hover:ring-[#3fa9ff] transition">
+                          {opt.image ? (
+                            <img src={opt.image} alt={opt.label} loading="lazy" className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="h-full w-full flex items-center justify-center text-2xl text-neutral-600">🎭</span>
+                          )}
+                        </span>
+                        <p className="text-xs text-neutral-100 font-medium mt-2 leading-tight line-clamp-2">{opt.label}</p>
+                        {roleLine && <p className="text-[11px] text-neutral-500 leading-tight line-clamp-2 mt-0.5">{roleLine}</p>}
+                      </button>
                     )
                   })}
                 </div>
-              )}
-            </div>
+                {actorIds.length > CAST_PREVIEW && (
+                  <button
+                    onClick={() => setShowAllCast((v) => !v)}
+                    className="mt-5 w-full text-sm text-neutral-300 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-xl py-2 transition"
+                  >
+                    {showAllCast ? 'Daha az göster' : `Tümünü göster (${actorIds.length})`}
+                  </button>
+                )}
+              </section>
+            )}
+
+            <TmdbExtras board={board} row={row} part="similar" />
           </div>
 
-          {seasons && seasons.length > 0 && (
-            <div className="pt-6 border-t border-neutral-800">
-              <p className="text-sm font-bold mb-3" style={{ color: BRAND_TEXT }}>
-                Sezonlar
-              </p>
-              <SeasonsBrowser
-                seasons={seasons}
-                watched={rowWatched}
-                onSetEpisodeDates={setEpisodeDates}
-                onMarkSeasonWatched={markSeasonWatched}
-                onUnmarkSeasonWatched={unmarkSeasonWatched}
-                editable={editable}
-              />
-            </div>
-          )}
+          {/* Sağ: bilgi sütunu */}
+          <aside className="space-y-4 lg:sticky lg:top-6 self-start">
+            {scoredCriteria.length > 0 && avgScore !== null && (
+              <div className={sideCard}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="h-12 w-12 shrink-0 rounded-xl bg-amber-400/15 text-amber-300 flex items-center justify-center text-lg font-bold tabular-nums">
+                    {avgScore.toFixed(1)}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-100">Puanın</p>
+                    <p className="text-xs text-neutral-500">{scoredCriteria.length} kritere göre, 10 üzerinden</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {scoredCriteria.map((c) => (
+                    <div key={c.id}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-neutral-400 truncate">{c.name}</span>
+                        <span className="text-neutral-200 tabular-nums">{scores[c.id]}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${(scores[c.id] / 10) * 100}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {oyuncularProp && actorIds.length > 0 && (
-            <div className="pt-6 border-t border-neutral-800">
-              <p className="text-sm font-bold mb-3" style={{ color: BRAND_TEXT }}>
-                {oyuncularProp.name}
-              </p>
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-                {actorIds.map((id) => {
-                  const opt = oyuncularProp.options?.find((o) => o.id === id)
-                  if (!opt) return null
-                  const entry = castByOptionId.get(id)
-                  const roleLine = entry?.episodeCount ? `${entry.character} · ${entry.episodeCount} bölüm` : entry?.character
+            {(watchDates.length > 0 || episodeProgress) && (
+              <div className={`${sideCard} space-y-3`}>
+                <p className="text-sm font-semibold text-neutral-100">İzleme</p>
+                {episodeProgress && (
+                  <div>
+                    <div className="flex items-baseline justify-between text-xs mb-1.5">
+                      <span className="text-neutral-400">
+                        <span className="text-neutral-50 font-semibold">{episodeProgress.seen}</span> / {episodeProgress.aired} bölüm
+                      </span>
+                      <span className="text-neutral-500 tabular-nums">%{Math.round((episodeProgress.seen / episodeProgress.aired) * 100)}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${(episodeProgress.seen / episodeProgress.aired) * 100}%`, background: BRAND_TEXT }} />
+                    </div>
+                  </div>
+                )}
+                {watchDates.length > 0 && (
+                  <div>
+                    <p className="text-xs text-neutral-500 mb-1.5">{watchDates.length === 1 ? 'İzlediğin tarih' : `${watchDates.length} kez izledin`}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {watchDates.map((d, i) => (
+                        <span key={`${d}-${i}`} className="text-xs px-2 py-1 rounded-md bg-neutral-800 text-neutral-200 tabular-nums">
+                          {formatDate(d)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {hasInfo && (
+              <div className={`${sideCard} space-y-3.5`}>
+                {infoProps.map((p) => {
+                  const v = row.values[p.id]
+                  if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) return null
                   return (
-                    <button
-                      key={id}
-                      onClick={() => handleOptionClick(oyuncularProp.id, opt, roleLine)}
-                      className="w-20 sm:w-24 shrink-0 text-left group"
-                    >
-                      {opt.image ? (
-                        <img
-                          src={opt.image}
-                          alt={opt.label}
-                          className="w-full aspect-[2/3] object-cover rounded-lg bg-neutral-800 border-2 border-transparent group-hover:border-[#3fa9ff] transition"
-                        />
-                      ) : (
-                        <div className="w-full aspect-[2/3] rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-600 text-2xl border-2 border-transparent group-hover:border-[#3fa9ff] transition">
-                          🎭
-                        </div>
-                      )}
-                      <p className="text-xs text-neutral-300 mt-1.5 leading-tight line-clamp-2">{opt.label}</p>
-                      {roleLine && <p className="text-[11px] text-neutral-500 leading-tight line-clamp-1">{roleLine}</p>}
-                    </button>
+                    <div key={p.id} className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-wide text-neutral-500 mb-1">{p.name}</p>
+                      <DetailValue property={p} value={v} isRuntime={p.id === sureProp?.id} onOptionClick={(propId, opt) => handleOptionClick(propId, opt)} />
+                    </div>
                   )
                 })}
               </div>
-            </div>
-          )}
+            )}
 
-          <TmdbExtras board={board} row={row} />
+            <TmdbExtras board={board} row={row} part="providers" providersClassName={sideCard} />
+          </aside>
         </div>
       </div>
       {detailOption && (

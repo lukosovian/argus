@@ -30,16 +30,17 @@ function SectionList({
   onDelete: (id: string) => void
   onEdit: (section: HomeSection) => void
 }) {
-  if (items.length === 0) return null
   return (
-    <div>
-      <p className="text-[11px] text-neutral-500 mb-1">{title}</p>
-      <div className="space-y-1">
+    <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4">
+      <p className="text-sm font-semibold text-neutral-100">{title}</p>
+      <p className="text-xs text-neutral-500 mb-3">{items.length ? `${items.length} sayfa · okla sırasını değiştir` : 'Henüz yok'}</p>
+      <div className="space-y-1.5">
         {items.map((s, i) => (
           <div
             key={s.id}
-            className="flex items-center gap-1.5 text-xs bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-neutral-300"
+            className="flex items-center gap-1.5 text-sm bg-neutral-800/70 border border-neutral-700/70 rounded-xl pl-3 pr-1.5 py-1.5 text-neutral-200 hover:border-neutral-600 transition"
           >
+            <span className="h-5 w-5 shrink-0 rounded-md bg-[#00c0fa]/15 text-[#00c0fa] text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
             <button onClick={() => onEdit(s)} className="flex-1 truncate text-left hover:text-neutral-50 transition" title="Düzenle">
               {s.name}
             </button>
@@ -152,24 +153,21 @@ export default function HomeSectionEditor({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <label className="block text-xs text-neutral-400">Ana sayfaya ek sayfalar (ör. bir türe göre liste)</label>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-neutral-400 max-w-lg">
+          Bir türe, duruma ya da kategoriye göre kendi listelerini oluştur: üst menüye ayrı bir sekme olarak ya da ana sayfanın
+          gövdesine bir satır olarak eklenir.
+        </p>
         {!formOpen && (
-          <button onClick={startAdd} className="text-xs text-sky-400 hover:underline">
+          <button onClick={startAdd} style={primaryButtonStyle} className={`shrink-0 text-sm px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}>
             + Sayfa Ekle
           </button>
         )}
       </div>
 
-      {(navSections.length > 0 || bodySections.length > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <SectionList title="Üstte, menüde" items={navSections} onMove={onMoveNav} onDelete={onDelete} onEdit={startEdit} />
-          <SectionList title="Altta, ana sayfa gövdesinde" items={bodySections} onMove={onMoveBody} onDelete={onDelete} onEdit={startEdit} />
-        </div>
-      )}
-
       {formOpen && (
-        <div className="bg-neutral-800/60 border border-neutral-700 rounded-lg p-3 space-y-3">
+        <div className="rounded-2xl border border-[#00c0fa]/30 bg-neutral-900/70 p-4 space-y-3 mb-4">
+          <p className="text-sm font-semibold text-neutral-100">{editingId ? 'Sayfayı düzenle' : 'Yeni sayfa'}</p>
           <div>
             <label className="block text-[11px] text-neutral-400 mb-1">Sayfanın adı</label>
             <input
@@ -223,6 +221,11 @@ export default function HomeSectionEditor({
           </div>
         </div>
       )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <SectionList title="Üstte, menüde" items={navSections} onMove={onMoveNav} onDelete={onDelete} onEdit={startEdit} />
+        <SectionList title="Altta, ana sayfa gövdesinde" items={bodySections} onMove={onMoveBody} onDelete={onDelete} onEdit={startEdit} />
+      </div>
     </div>
   )
 }

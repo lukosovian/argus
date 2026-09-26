@@ -6,15 +6,24 @@
 // (v1.6 → v1.6.1 → v1.6.2). `version` alanı lib/version.ts'teki
 // APP_VERSION ile elle senkron tutulur (kullanıcı "versiyon numarası ekleyelim güncellendiği
 // anlaşılmıyo" dedi).
+import { useEffect, useMemo, useState } from 'react'
 import { APP_VERSION } from '../lib/version'
+import { BRAND_GRADIENT, BRAND_TEXT } from '../lib/theme'
 import {
+  BenzerDetayVisual,
   DetayEkleriVisual,
+  FiltreDonusVisual,
+  GizliSutunVisual,
   GorevVisual,
   GorselSekliVisual,
+  GuncelleVisual,
+  KapatPuanVisual,
   KesfetVisual,
   NeIzlesemTmdbVisual,
+  OnayYeriVisual,
   RehberVisual,
   SaglikVisual,
+  SinemaVisual,
   YeniBolumlerVisual,
 } from '../components/PatchVisuals'
 interface PatchEntry {
@@ -29,12 +38,46 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.8.1',
+    date: '26 Eylül 2026',
+    title: 'Yenilenen arşiv tablosu, detay penceresi, menü ve arama; vitrin görünümleri, En İyi 10, İstatistikler, Ayarlar ve Yardım Merkezi',
+    items: [
+      'Ayarlar\x27ın iç sekmeleri yenileniyor: API anahtarı artık gizli görünüyor (göster düğmesiyle) ve bağlantı durumu yazıyor; İçe Aktar\x27da dosyayı sürükleyip bırakabiliyorsun; Şablonlar, Sayfalar, Modlar ve Ne İzlesem düzenlendi. Keşfet ve Sağlık Kontrolü pencereleri yenilendi; Sağlık Kontrolü\x27nde arşivin yüzde kaçının sağlıklı olduğu yazıyor. Tablo rehberi yeni araç çubuğuna göre güncellendi. Arama açıkken sağda çıkan ikinci kaydırma çubuğu kaldırıldı.',
+
+      'Üst menü ve profil menüsü yenilendi: profil resmin yuvarlak, menüde profilin en üstte, diğer profillere tek tıkla geçiş, ikonlu satırlar ve Koyu/Açık tema düğmesi. Telefonda sayfa bağlantıları artık iki satıra kaymıyor.',
+      'Arama yenilendi: klavyeden "/" ile açılıyor; aradığın isim bir oyuncuya, türe ya da ülkeye uyuyorsa onlar fotoğraflı olarak en üstte çıkıyor; sonuçlar "Adında geçenler" ve "Diğer eşleşmeler" diye ayrılıyor.',
+      'Ne İzlesem animasyonunda hangi aşamada olduğu daha belirgin yazıyor; yarıda kesmek için "Vazgeç" düğmesi ve Esc tuşu var.',
+      'Kayıt detayı penceresi baştan yenilendi: poster, Kapak Adı logosu ve renkli etiketler (puan, durum, kategori, yıl, süre) büyük görselin üzerine biniyor; altında solda özet, bölümler, yuvarlak fotoğraflı oyuncular (ızgara halinde, "Tümünü göster" ile hepsi) ve benzer içerikler, sağda kaydırırken yanında kalan bir bilgi sütunu: kriter kriter "Puanın", izleme tarihlerin ve kaç bölüm izlediğin, bilgiler ve Nerede İzlenir. Fragman düğmeleri artık üstte, Kapat\x27ın yanında.',
+      'Sezon düğmelerinde o sezondan kaç bölüm izlediğin yazıyor (7/10), sezonun hepsi izlendiyse ✓.',
+      'Arşiv tablosu yenilendi: üstte tek tıkla durum filtresi (Hepsi · İzlendi · İzlenecek · Yarım · İzleniyor, sayılarıyla), kaydın adının yanında küçük afiş, sağa kaydırınca solda sabit kalan ad sütunu, hücreye sığmayan etiket ve tarihler için "+2" gibi sayılar.',
+      'Tabloda yeni "Rahat" görünüm (daha büyük satır ve afiş) — üç çizgili simgeyle Sıkı/Rahat arasında geçiliyor. Araç çubuğu gruplara ayrıldı, simgelerin üzerine gelince ne işe yaradıkları yazıyor; başlıkta kaç kayıt olduğu, filtre açıkken altta kaç tanesinin gösterildiği görünüyor.',
+      'İstatistikler yenilendi: yeni özet kutucukları (izlenecek sayısı, bu yıl izlediklerin, izlenen oranı), yeni grafikler (son 12 ayda aylara göre izlediklerin, puan dağılımı), oyuncular fotoğraflı kartlarla; grafiklerin üzerine gelince tam sayılar çıkıyor ve açık temada da renkler düzgün.',
+      'Vitrin için üç görünüm (Ana Sayfa Ayarları › Görünüm › Vitrin): Klasik (eskisi gibi), Sinema (ekranı kenardan kenara kaplar, menünün arkasına kadar uzanır) ve Slayt (fragman yok; birkaç içerik 8 saniyede bir sırayla değişir, alttaki noktalardan seçilir, fareyle üstüne gelince durur).',
+      'Yeni satır: "Arşivindeki En İyi 10" — en yüksek puan verdiğin 10 içerik, yanlarında büyük sıra numaralarıyla. Ayarlar\'dan açılıp kapanıyor.',
+      '"Yeni Bölümler" ve "En İyi 10" satırlarının ana sayfada kaçıncı sırada görüneceğini seçebiliyorsun.',
+      'Satır başlıklarının büyüklüğü artık ayarlanabiliyor: Küçük, Orta, Büyük.',
+      'Ana sayfa ayarlarının bazı durumlarda (sayfa yenilenirken ya da profil değiştirirken) boş ayarlarla üzerine yazılıp menü sayfalarının ve bölümlerin kaybolması düzeltildi.',
+      'Yardım Merkezi yenilendi ve güncellendi: konular gruplara ayrıldı (Başlarken, Ana Sayfa, Arşiv, Keşfet ve İzle, Diğer), her konuda nereden ulaşılacağı ve kısa ipuçları var, üstte konu arama kutusu, en altta sık sorulan sorular. Keşfet, Sağlık Kontrolü, TMDB ile doldurma, Yeni Bölümler, En İyi 10, Nerede İzlenir, İstatistikler ve tema gibi eksik anlatılan her şey eklendi.',
+      'Ayarlar ekranı yenilendi: soldaki menüde her bölümün ikonu ve kısa açıklaması var, içerik düzenli bir kartın içinde; telefonda menü üstte yatay duruyor. Hangi sekmede kaldığını da hatırlıyor.',
+      'Ana Sayfa Ayarları › Görünüm artık Genel, Vitrin ve Satırlar diye başlıklı kartlara ayrılmış; alt sekmeler de daha kolay seçilen düğmeler oldu.',
+      'Veritabanı\'ndaki arşiv kartları yenilendi; ana sayfada gösterilen arşivin yanında "Ana sayfada" yazıyor.',
+      'Yama Notları ekranı yenilendi: üstte kurulu sürüm ve son güncelleme, altında tek tıkla istediğin sürüme atlayabildiğin bir şerit, güncellemeler de güne göre gruplu.',
+      'En yeni sürümler açık, eskiler katlı geliyor — başlığa tıklayınca açılıyor, istersen "Hepsini aç".',
+      'Çizimlere tıklayınca büyük hali açılıyor.',
+      'v1.7, v1.7.1 ve v1.8 notlarına da neyin değiştiğini gösteren çizimler eklendi.',
+    ],
+    visuals: [{ caption: 'Sinema vitrini ve Arşivindeki En İyi 10', Visual: SinemaVisual }],
+  },
+  {
     version: 'v1.8',
     date: '25 Eylül 2026',
     title: 'Filtreden dönüş düzeltmesi, Güncelle',
     items: [
       'Tablodan bir içeriğin detayına girip oyuncu filtresine geçince, "Filtreyi Kaldır ve Geri Dön" artık tablonun başına değil, tam kaldığın yere dönüyor.',
       'Altı nokta menüsündeki ve detay penceresindeki TMDB düğmesi artık her kayıtta "Güncelle" yazıyor — önceden kayda göre bazen "TMDB\'den Doldur" bazen "Bölümleri Güncelle" yazıyordu ama hepsi aynı işi yapıyordu.',
+    ],
+    visuals: [
+      { caption: "Altı nokta menüsünde her kayıtta \"Güncelle\"", Visual: GuncelleVisual },
     ],
   },
   {
@@ -43,6 +86,9 @@ const ENTRIES: PatchEntry[] = [
     title: 'Onay soruları tıkladığın yerde',
     items: [
       '"Silmek istediğine emin misin?" gibi sorular artık ekranın sağ alt köşesinde değil, tıkladığın düğmenin hemen yanında çıkıyor.',
+    ],
+    visuals: [
+      { caption: "Onay sorusu tıkladığın düğmenin yanında", Visual: OnayYeriVisual },
     ],
   },
   {
@@ -56,6 +102,12 @@ const ENTRIES: PatchEntry[] = [
       'Veritabanındaki detay penceresinden bir oyuncuya (ya da türe, ülkeye) tıklayıp filtreye geçtiysen, "Filtreyi Kaldır ve Geri Dön" seni artık ana sayfaya değil, kaldığın yere — tabloya ve açık olan detay penceresine — geri götürüyor.',
       'Tablodaki puanı artık kaldırabiliyorsun: her kriterin yanındaki × ile tek tek, altta "Puanı kaldır" ile tamamen.',
       'Tabloda bir kaydı TMDB\'den doldurunca (ya da Genel Güncelleme sırasında) sayfa artık en başa sıçramıyor, kaldığın yerde kalıyor.',
+    ],
+    visuals: [
+      { caption: "Gizli sütunlar sürüklemede kaybolmuyor", Visual: GizliSutunVisual },
+      { caption: "Puan kutusu: × ile kaldır, Kapat düğmesi", Visual: KapatPuanVisual },
+      { caption: "Benzer İçerikler'den detay penceresi", Visual: BenzerDetayVisual },
+      { caption: "Filtreden kaldığın yere dönüş", Visual: FiltreDonusVisual },
     ],
   },
   {
@@ -196,86 +248,287 @@ const ENTRIES: PatchEntry[] = [
   },
 ]
 
-export default function YamaNotlari() {
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      <div className="flex flex-col items-center text-center mb-14">
-        <div className="relative mb-5">
-          <div className="absolute inset-0 rounded-full bg-[#00c0fa]/20 blur-2xl" />
-          <img src="/logoblue.png" alt="ARGUS" className="relative h-16 w-16" />
-        </div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-neutral-50 mb-2">Yama Notları</h1>
-        <p className="text-neutral-500 text-sm max-w-md mb-3">ARGUS'ta zaman içinde neler değişti, kısaca burada.</p>
-        <span className="text-xs text-[#00c0fa] bg-[#00c0fa]/10 border border-[#00c0fa]/25 rounded-full px-3 py-1 font-medium">
-          Şu an kurulu sürüm: {APP_VERSION}
-        </span>
-      </div>
+// Kullanıcı "yama notları ekranı daha güzel olabilir" dedi. Düzen: üstte kurulu sürüm + kısa
+// istatistikler, altında tek tıkla bir sürüme atlanan şerit, sonra GÜNE göre gruplanmış bir zaman
+// çizelgesi (aynı güne birden çok sürüm düşebiliyor — bkz. numara kuralı). En yeni sürüm öne
+// çıkarılıyor; liste uzadığı için sadece ilk birkaç sürüm açık başlıyor, gerisi başlığa tıklayınca
+// açılıyor. Çizimlere tıklayınca büyük hali açılıyor.
+const OPEN_BY_DEFAULT = 3
 
-      <div className="space-y-0">
-        {ENTRIES.map((entry, i) => {
-          const isLatest = i === 0
-          const isLast = i === ENTRIES.length - 1
-          return (
-            <div key={entry.version} className="flex gap-4">
-              <div className="flex flex-col items-center">
+type Visual = NonNullable<PatchEntry['visuals']>[number]
+
+function groupByDate(entries: PatchEntry[]) {
+  const groups: { date: string; entries: PatchEntry[] }[] = []
+  for (const e of entries) {
+    const last = groups[groups.length - 1]
+    if (last && last.date === e.date) last.entries.push(e)
+    else groups.push({ date: e.date, entries: [e] })
+  }
+  return groups
+}
+
+// "24 Eylül 2026" → gün "24", geri kalanı "Eylül 2026"; "Başlangıç" gibi tarih olmayanlar olduğu gibi.
+function splitDate(date: string) {
+  const m = date.match(/^([\d–-]+)\s+(.+)$/)
+  return m ? { day: m[1], rest: m[2] } : { day: '', rest: date }
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  )
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
+function ZoomIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </svg>
+  )
+}
+
+function StatTile({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 sm:px-4 py-2.5 sm:py-3 text-left min-w-0">
+      <p className="text-[10px] sm:text-[11px] uppercase tracking-wide text-neutral-500 truncate">{label}</p>
+      <p className="text-base sm:text-lg font-semibold mt-0.5 truncate" style={accent ? { color: BRAND_TEXT } : undefined}>
+        <span className={accent ? undefined : 'text-neutral-100'}>{value}</span>
+      </p>
+    </div>
+  )
+}
+
+function VisualZoom({ visual, onClose }: { visual: Visual; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const { Visual: V, caption } = visual
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <figure className="w-full max-w-3xl rounded-2xl border border-neutral-800 bg-neutral-950 p-4" onClick={(e) => e.stopPropagation()}>
+        <V />
+        <figcaption className="flex items-center justify-between gap-3 mt-3">
+          <span className="text-sm text-neutral-300">{caption}</span>
+          <button onClick={onClose} className="text-sm text-neutral-500 hover:text-neutral-50 transition">
+            Kapat
+          </button>
+        </figcaption>
+      </figure>
+    </div>
+  )
+}
+
+function EntryCard({
+  entry,
+  latest,
+  open,
+  onToggle,
+  onZoom,
+}: {
+  entry: PatchEntry
+  latest: boolean
+  open: boolean
+  onToggle: () => void
+  onZoom: (v: Visual) => void
+}) {
+  const visuals = entry.visuals ?? []
+  const summary = [`${entry.items.length} değişiklik`, visuals.length ? `${visuals.length} çizim` : ''].filter(Boolean).join(' · ')
+  return (
+    <article
+      id={`surum-${entry.version}`}
+      className={`scroll-mt-24 relative overflow-hidden rounded-2xl border transition ${
+        latest ? 'border-[#00c0fa]/40 bg-[#00c0fa]/[0.05]' : 'border-neutral-800 bg-neutral-900/50 hover:border-neutral-700'
+      }`}
+    >
+      {latest && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: BRAND_GRADIENT }} />}
+      <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-start gap-3">
+        <span
+          className={`text-xs font-semibold px-2.5 py-1 rounded-lg shrink-0 ${latest ? 'text-white' : 'bg-neutral-800 text-neutral-300'}`}
+          style={latest ? { background: BRAND_GRADIENT } : undefined}
+        >
+          {entry.version}
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="flex items-center gap-2 flex-wrap">
+            <span className="text-[15px] font-semibold text-neutral-50">{entry.title}</span>
+            {latest && (
+              <span className="text-[10px] font-bold tracking-wide text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5">
+                YENİ
+              </span>
+            )}
+          </span>
+          {!open && <span className="block text-xs text-neutral-500 mt-1">{summary}</span>}
+        </span>
+        <span className="text-neutral-500 mt-1 shrink-0">
+          <ChevronIcon open={open} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 -mt-1">
+          <ul className="space-y-2">
+            {entry.items.map((item, j) => (
+              <li key={j} className="flex gap-3 text-sm text-neutral-300 leading-relaxed">
                 <span
-                  className={`h-2.5 w-2.5 rounded-full shrink-0 mt-2 ${
-                    isLatest ? 'bg-[#00c0fa] shadow-[0_0_0_4px_rgba(0,192,250,0.18)]' : 'bg-neutral-700'
-                  }`}
-                />
-                {!isLast && <span className="w-px flex-1 bg-neutral-800 my-1" />}
-              </div>
-              <div
-                className={`flex-1 min-w-0 rounded-xl border p-4 mb-5 ${
-                  isLatest ? 'border-[#00c0fa]/25 bg-[#00c0fa]/[0.04]' : 'border-neutral-800 bg-neutral-900/40'
+                  className="h-5 w-5 shrink-0 mt-px rounded-full flex items-center justify-center bg-[#00c0fa]/10"
+                  style={{ color: BRAND_TEXT }}
+                >
+                  <CheckIcon />
+                </span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          {visuals.length > 0 && (
+            <div className="grid gap-3 mt-5 sm:grid-cols-2">
+              {visuals.map((v) => (
+                <button
+                  key={v.caption}
+                  onClick={() => onZoom(v)}
+                  className="group text-left rounded-xl border border-neutral-800 bg-neutral-950 p-2.5 hover:border-[#00c0fa]/40 transition"
+                >
+                  <v.Visual />
+                  <span className="flex items-center justify-between gap-2 mt-2 px-0.5">
+                    <span className="text-xs text-neutral-400">{v.caption}</span>
+                    <span className="text-neutral-600 group-hover:text-[#00c0fa] transition shrink-0">
+                      <ZoomIcon />
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  )
+}
+
+export default function YamaNotlari() {
+  const [openSet, setOpenSet] = useState<Set<string>>(() => new Set(ENTRIES.slice(0, OPEN_BY_DEFAULT).map((e) => e.version)))
+  const [zoom, setZoom] = useState<Visual | null>(null)
+  const groups = useMemo(() => groupByDate(ENTRIES), [])
+  const allOpen = openSet.size === ENTRIES.length
+  const latest = ENTRIES[0]
+
+  function toggle(version: string) {
+    setOpenSet((prev) => {
+      const next = new Set(prev)
+      if (next.has(version)) next.delete(version)
+      else next.add(version)
+      return next
+    })
+  }
+
+  function jumpTo(version: string) {
+    setOpenSet((prev) => new Set(prev).add(version))
+    requestAnimationFrame(() => document.getElementById(`surum-${version}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-10">
+      {/* Üst kısım */}
+      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/60 px-6 pt-10 pb-6 mb-6">
+        <div
+          className="pointer-events-none absolute -top-28 left-1/2 -translate-x-1/2 h-64 w-[40rem] max-w-[140%] rounded-full blur-3xl opacity-20"
+          style={{ background: BRAND_GRADIENT }}
+        />
+        <div className="relative flex flex-col items-center text-center">
+          <img src="/logoblue.png" alt="ARGUS" className="h-14 w-14 mb-4 drop-shadow-[0_0_24px_rgba(0,192,250,0.35)]" />
+          <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">Yama Notları</h1>
+          <p className="text-neutral-400 text-sm mt-2 max-w-md">ARGUS'ta zaman içinde neler değişti, neler eklendi — hepsi burada.</p>
+        </div>
+        <div className="relative grid grid-cols-3 gap-2 sm:gap-3 mt-8">
+          <StatTile label="Sürüm" value={APP_VERSION} accent />
+          <StatTile label="Güncelleme" value={String(ENTRIES.length)} />
+          <StatTile label="En son" value={splitDate(latest.date).day ? `${splitDate(latest.date).day} ${splitDate(latest.date).rest.split(' ')[0]}` : latest.date} />
+        </div>
+      </section>
+
+      {/* Sürüme atla */}
+      <div className="sticky top-16 z-10 -mx-4 px-4 py-2 mb-6 bg-neutral-950/85 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 flex gap-1.5 overflow-x-auto no-scrollbar">
+            {ENTRIES.map((e, i) => (
+              <button
+                key={e.version}
+                onClick={() => jumpTo(e.version)}
+                className={`shrink-0 text-xs font-medium rounded-full px-3 py-1.5 border transition ${
+                  i === 0
+                    ? 'border-[#00c0fa]/40 text-[#00c0fa] bg-[#00c0fa]/10'
+                    : 'border-neutral-800 text-neutral-400 hover:text-neutral-50 hover:border-neutral-600'
                 }`}
               >
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                  <span
-                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                      isLatest ? 'bg-[#00c0fa]/15 text-[#00c0fa]' : 'bg-neutral-800 text-neutral-400'
-                    }`}
-                  >
-                    {entry.version}
-                  </span>
-                  <span className="text-xs text-neutral-600">{entry.date}</span>
-                  {isLatest && (
-                    <span className="text-[10px] text-emerald-400 font-medium ml-auto flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      Güncel
-                    </span>
-                  )}
-                </div>
-                <h2 className="text-[15px] font-semibold text-neutral-100 mb-2.5">{entry.title}</h2>
-                <ul className="space-y-1.5">
-                  {entry.items.map((item, j) => (
-                    <li key={j} className="text-sm text-neutral-400 leading-relaxed flex gap-2.5">
-                      <span className="h-1 w-1 rounded-full bg-neutral-600 shrink-0 mt-2" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                {entry.visuals && entry.visuals.length > 0 && (
-                  <div className="grid sm:grid-cols-2 gap-3 mt-4">
-                    {entry.visuals.map(({ caption, Visual }) => (
-                      <figure key={caption} className="rounded-lg border border-neutral-800 bg-neutral-950 p-2.5">
-                        <Visual />
-                        <figcaption className="text-xs text-neutral-500 mt-1.5 px-0.5">{caption}</figcaption>
-                      </figure>
-                    ))}
-                  </div>
-                )}
+                {e.version}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setOpenSet(allOpen ? new Set([latest.version]) : new Set(ENTRIES.map((e) => e.version)))}
+            className="shrink-0 text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-full px-3 py-1.5 transition"
+          >
+            {allOpen ? 'Hepsini kapat' : 'Hepsini aç'}
+          </button>
+        </div>
+      </div>
+
+      {/* Güne göre zaman çizelgesi */}
+      <div className="space-y-10">
+        {groups.map((g) => {
+          const { day, rest } = splitDate(g.date)
+          return (
+            <section key={g.date} className="md:grid md:grid-cols-[112px_1fr] md:gap-6">
+              <div className="md:sticky md:top-32 self-start mb-3 md:mb-0 flex md:block items-baseline gap-2">
+                {day && <p className="text-2xl md:text-3xl font-bold text-neutral-100 leading-none">{day}</p>}
+                <p className="text-xs text-neutral-500 md:mt-1">{rest}</p>
+                <p className="text-[11px] text-neutral-600 md:mt-2">{g.entries.length > 1 ? `${g.entries.length} güncelleme` : ''}</p>
               </div>
-            </div>
+              <div className="space-y-3">
+                {g.entries.map((entry) => (
+                  <EntryCard
+                    key={entry.version}
+                    entry={entry}
+                    latest={entry === latest}
+                    open={openSet.has(entry.version)}
+                    onToggle={() => toggle(entry.version)}
+                    onZoom={setZoom}
+                  />
+                ))}
+              </div>
+            </section>
           )
         })}
       </div>
 
-      <div className="mt-6 text-center rounded-xl border border-neutral-800 bg-neutral-900/40 px-6 py-8">
-        <p className="text-sm text-neutral-500 max-w-md mx-auto">
+      <div className="mt-12 text-center rounded-2xl border border-neutral-800 bg-neutral-900/40 px-6 py-8">
+        <p className="text-sm text-neutral-400 max-w-md mx-auto">
           ARGUS şu an geliştirme aşamasında — değişiklikleri test edip bize geri bildirim verirseniz mutlu oluruz :)
         </p>
       </div>
+
+      {zoom && <VisualZoom visual={zoom} onClose={() => setZoom(null)} />}
     </div>
   )
 }

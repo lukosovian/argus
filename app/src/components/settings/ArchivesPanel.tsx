@@ -11,6 +11,24 @@ import ApiPanel from './ApiPanel'
 import DatabaseHelpModal from './DatabaseHelpModal'
 import Select from '../Select'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
+import { PanelHeader, SettingsTabs } from './SettingsUi'
+
+function ArchiveIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18M9 21V9" />
+    </svg>
+  )
+}
 
 const BLANK = '__blank__'
 const BUILTIN = '__builtin__'
@@ -80,38 +98,33 @@ export default function ArchivesPanel() {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-lg font-semibold text-neutral-50">Veritabanı</h2>
-        <button
-          onClick={() => setHelpOpen(true)}
-          aria-label="Veritabanı nasıl çalışır"
-          className="h-6 w-6 shrink-0 rounded-full border border-neutral-700 text-neutral-500 hover:border-neutral-400 hover:text-neutral-300 text-sm leading-none flex items-center justify-center transition"
-        >
-          ?
-        </button>
-      </div>
+      <PanelHeader
+        title="Veritabanı"
+        description="Arşivlerin, hazır sütun şablonların, içe aktarma ve TMDB bağlantısı."
+        extra={
+          <button
+            onClick={() => setHelpOpen(true)}
+            aria-label="Veritabanı nasıl çalışır"
+            className="h-6 w-6 shrink-0 rounded-full border border-neutral-700 text-neutral-500 hover:border-neutral-400 hover:text-neutral-300 text-sm leading-none flex items-center justify-center transition"
+          >
+            ?
+          </button>
+        }
+      />
       {helpOpen && <DatabaseHelpModal onClose={() => setHelpOpen(false)} />}
 
-      <div className="flex items-center gap-2 mb-5 border-b border-neutral-800">
-        {(
+      <SettingsTabs
+        value={tab}
+        onChange={setTab}
+        tabs={
           [
             ['arsivler', 'Arşivler'],
             ['sablonlar', 'Şablonlar'],
             ['ice-aktar', 'İçe Aktar'],
             ['api', 'API'],
           ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`text-sm px-3 py-2 border-b-2 -mb-px transition ${
-              tab === key ? 'border-sky-500 text-neutral-50' : 'border-transparent text-neutral-400 hover:text-neutral-200'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        }
+      />
 
       {tab === 'sablonlar' ? (
         <TemplatesPanel />
@@ -121,8 +134,8 @@ export default function ArchivesPanel() {
         <ApiPanel />
       ) : (
         <div>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-neutral-50">Arşivler</h2>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-neutral-400">Bir arşive tıklayınca tablosu açılır.</p>
             <button
               onClick={() => setCreating((v) => !v)}
               style={primaryButtonStyle}
@@ -133,7 +146,7 @@ export default function ArchivesPanel() {
           </div>
 
           {creating && (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6">
+            <div className="bg-neutral-900/70 border border-[#00c0fa]/30 rounded-2xl p-5 mb-6">
               <label className="block text-xs text-neutral-400 mb-1">Arşivin adı</label>
               <input
                 autoFocus
@@ -156,8 +169,8 @@ export default function ArchivesPanel() {
                 />
               </div>
               <p className="text-xs text-neutral-600 -mt-2 mb-4">
-                Ne seçersen seç, sütunları sonra istediğin gibi ekleyip/kaldırabilir/yeniden adlandırabilirsin. Daha
-                fazla şablon (hazır sütun setiyle) için Şablonlar sekmesine bak.
+                Ne seçersen seç, sütunları sonra istediğin gibi ekleyip/kaldırabilir/yeniden adlandırabilirsin. Daha fazla şablon (hazır
+                sütun setiyle) için Şablonlar sekmesine bak.
               </p>
               <div className="flex gap-2">
                 <button
@@ -181,24 +194,38 @@ export default function ArchivesPanel() {
             <p className="text-neutral-500 text-sm">Henüz bir arşivin yok. Yukarıdan yeni bir tane oluştur.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {boards.map((b) => (
-                <Link
-                  key={b.id}
-                  to={`/board/${b.id}`}
-                  className="group bg-neutral-900 border border-neutral-800 hover:border-neutral-600 rounded-xl p-5 transition"
-                >
-                  <div className="flex items-start justify-between">
-                    <p className="text-base font-medium text-neutral-100">{b.name}</p>
+              {boards.map((b) => {
+                const onHome = settings.boardId === b.id
+                return (
+                  <Link
+                    key={b.id}
+                    to={`/board/${b.id}`}
+                    className="group flex items-center gap-4 bg-neutral-900/70 border border-neutral-800 hover:border-[#00c0fa]/40 rounded-2xl p-4 transition"
+                  >
+                    <span className="h-11 w-11 shrink-0 rounded-xl bg-[#00c0fa]/10 text-[#00c0fa] flex items-center justify-center">
+                      <ArchiveIcon />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-2">
+                        <span className="text-base font-medium text-neutral-100 truncate">{b.name}</span>
+                        {onHome && (
+                          <span className="shrink-0 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5">
+                            Ana sayfada
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-xs text-neutral-500 mt-0.5">{b.properties.length} sütun</span>
+                    </span>
                     <button
                       onClick={(e) => handleDelete(e, b.id)}
-                      className="text-neutral-600 hover:text-rose-400 text-xs opacity-0 group-hover:opacity-100 transition"
+                      className="text-neutral-600 hover:text-rose-400 text-xs opacity-0 group-hover:opacity-100 transition shrink-0"
                     >
                       Sil
                     </button>
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-1">{b.properties.length} sütun</p>
-                </Link>
-              ))}
+                    <span className="text-neutral-600 group-hover:text-[#00c0fa] transition shrink-0">→</span>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>

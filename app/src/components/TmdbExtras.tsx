@@ -3,15 +3,39 @@ import { createPortal } from 'react-dom'
 import type { Board, Row } from '../types'
 import { api, type TmdbCard, type TmdbExtras as Extras, type WatchProvider, type WatchProviders } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
-import { BRAND_TEXT } from '../lib/theme'
 import { useToast } from '../hooks/useToast'
 import TmdbPreviewModal from './TmdbPreviewModal'
+import SectionTitle from './SectionTitle'
 
 // Detay penceresinin altındaki iki bölüm: "Nerede İzlenir" (Türkiye'de hangi platformda var)
 // ve "Benzer İçerikler" (TMDB önerileri, tek tıkla "İzlenecek" olarak arşive eklenebilir).
 // Platform bilgisi hiç kaydedilmiyor, her açılışta TMDB'den (JustWatch verisi) canlı çekiliyor —
 // kullanıcı "platformlar sürekli değişiyo" dedi, saklanan bilgi hızla eskirdi.
-export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
+// Detay penceresi "Nerede İzlenir"i sağ sütunda, "Benzer İçerikler"i sol sütunda ayrı ayrı çiziyor —
+// iki parça aynı TMDB cevabını kullansın, iki kez sorulmasın diye cevap bir dakika hatırlanıyor.
+const extrasCache = new Map<string, { at: number; promise: Promise<Extras> }>()
+function loadExtras(boardId: string, rowId: string) {
+  const key = boardId + ':' + rowId
+  const hit = extrasCache.get(key)
+  if (hit && Date.now() - hit.at < 60_000) return hit.promise
+  const promise = api.getTmdbExtras(boardId, rowId)
+  extrasCache.set(key, { at: Date.now(), promise })
+  promise.catch(() => extrasCache.delete(key))
+  return promise
+}
+
+export default function TmdbExtras({
+  board,
+  row,
+  part = 'all',
+  providersClassName = '',
+}: {
+  board: Board
+  row: Row
+  part?: 'all' | 'providers' | 'similar'
+  // "Nerede İzlenir"in kendi kutusu — içerik yoksa (API anahtarı yok vb.) kutu da hiç çizilmesin diye burada.
+  providersClassName?: string
+}) {
   const { notify } = useToast()
   const [data, setData] = useState<Extras | null>(null)
   const [failed, setFailed] = useState(false)
@@ -24,8 +48,7 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
     let cancelled = false
     setData(null)
     setFailed(false)
-    api
-      .getTmdbExtras(board.id, row.id)
+    loadExtras(board.id, row.id)
       .then((d) => !cancelled && setData(d))
       .catch(() => !cancelled && setFailed(true))
     return () => {
@@ -57,25 +80,27 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
 
   return (
     <>
-      <div className="pt-6 border-t border-neutral-800">
-        <div className="flex items-baseline justify-between gap-3 mb-3">
-          <p className="text-sm font-bold" style={{ color: BRAND_TEXT }}>
-            Nerede İzlenir
-          </p>
-          {p?.link && (
-            <a href={p.link} target="_blank" rel="noreferrer" className="text-xs text-neutral-500 hover:text-neutral-50 transition">
-              Tüm seçenekler ↗
-            </a>
-          )}
-        </div>
+      {part !== 'similar' && (
+      <section id="rd-nerede" className={`scroll-mt-16 ${providersClassName}`}>
+        <SectionTitle
+          title="Nerede İzlenir"
+          small={part === 'providers'}
+          count="Türkiye"
+          right={
+            p?.link ? (
+              <a href={p.link} target="_blank" rel="noreferrer" className="text-xs text-neutral-500 hover:text-neutral-50 transition">
+                Tüm seçenekler ↗
+              </a>
+            ) : undefined
+          }
+        />
         {loading ? <p className="text-sm text-neutral-500">Yükleniyor...</p> : <WatchProviderList providers={p ?? null} />}
-      </div>
+      </section>
+      )}
 
-      {(loading || similar.length > 0) && (
-        <div className="pt-6 border-t border-neutral-800">
-          <p className="text-sm font-bold mb-3" style={{ color: BRAND_TEXT }}>
-            Benzer İçerikler
-          </p>
+      {part !== 'providers' && (loading || similar.length > 0) && (
+        <section id="rd-benzer" className="scroll-mt-16">
+          <SectionTitle title="Benzer İçerikler" count={loading ? undefined : String(similar.length)} />
           {loading ? (
             <p className="text-sm text-neutral-500">Yükleniyor...</p>
           ) : (
@@ -128,7 +153,7 @@ export default function TmdbExtras({ board, row }: { board: Board; row: Row }) {
               })}
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {preview &&

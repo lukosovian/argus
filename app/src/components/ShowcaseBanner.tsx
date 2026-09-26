@@ -32,6 +32,8 @@ export default function ShowcaseBanner({
   titleAlwaysVisible = false,
   onShowingVideoChange,
   bottomFadeColor,
+  cinematic = false,
+  controlsTop = false,
 }: {
   imageUrl: string
   videoId: string | null
@@ -48,6 +50,12 @@ export default function ShowcaseBanner({
   // oynarken YouTube'un kırpmaya rağmen sızan alt kontrol şeridini görsel olarak örter.
   // Sadece detay penceresi geçiyor (kendi panel rengiyle); vitrinde uygulanmaz.
   bottomFadeColor?: string
+  // Ana sayfanın "Sinema" görünümü: köşesiz, ekranı boydan boya kaplayan, daha yüksek vitrin.
+  // Yükseklik ekran genişliğinin 16:9'u (en fazla ekranın %88'i, telefonda en az 440px); video
+  // kutuyu her durumda tam kaplayacak boyutta kuruluyor (bkz. aşağıdaki width hesabı).
+  cinematic?: boolean
+  // Detay penceresi: video düğmeleri alttaki afiş/başlıkla çakışmasın diye üstte, Kapat'ın yanında.
+  controlsTop?: boolean
 }) {
   const [ended, setEnded] = useState(false)
   const [stopped, setStopped] = useState(false)
@@ -84,7 +92,9 @@ export default function ShowcaseBanner({
     // bir 16:9 video kutusu vermiş oluyoruz, sadece görünenden büyük; taşan kısım kırpılıyor.
     const ZOOM = 1.12
     const rect = containerRef.current.getBoundingClientRect()
-    const width = Math.max(1, Math.round(rect.width * ZOOM))
+    // Kutu 16:9dan daha uzunsa (Sinema görünümü, dar ekran) video genişliğe göre kurulunca alt/üstte
+    // boşluk kalırdı — bu durumda yüksekliği kaplayacak kadar geniş kuruluyor, yanlardan kırpılıyor.
+    const width = Math.max(1, Math.round(Math.max(rect.width, (rect.height * 16) / 9) * ZOOM))
     const height = Math.round((width * 9) / 16)
     let cancelled = false
     loadYouTubeApi().then(() => {
@@ -193,13 +203,14 @@ export default function ShowcaseBanner({
   return (
     <div
       ref={wrapperRef}
-      className={`relative w-full ${aspect === '16/9' ? 'aspect-video' : 'aspect-[21/9]'} rounded-xl overflow-hidden bg-neutral-900`}
+      className={`relative w-full overflow-hidden bg-neutral-900 ${
+        cinematic ? '' : `${aspect === '16/9' ? 'aspect-video' : 'aspect-[21/9]'} rounded-xl`
+      }`}
+      style={cinematic ? { height: 'max(min(56.25vw, 88vh), 440px)' } : undefined}
     >
-      <img
-        src="/logoblue.png"
-        alt=""
-        className="absolute top-7 left-7 z-10 h-6 w-6 object-contain opacity-95 pointer-events-none"
-      />
+      {!cinematic && (
+        <img src="/logoblue.png" alt="" className="absolute top-7 left-7 z-10 h-6 w-6 object-contain opacity-95 pointer-events-none" />
+      )}
       {imageUrl ? (
         <img src={imageUrl} alt={title} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
@@ -240,7 +251,7 @@ export default function ShowcaseBanner({
         </div>
       )}
       {!showImage && ready && (
-        <div className="absolute bottom-4 right-4 flex gap-2 z-10">
+        <div className={`absolute ${controlsTop ? 'top-4 right-16' : cinematic ? 'bottom-28 right-8' : 'bottom-4 right-4'} flex gap-2 z-10`}>
           <button
             onClick={() => setStopped(true)}
             className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition"
@@ -258,7 +269,7 @@ export default function ShowcaseBanner({
         </div>
       )}
       {showImage && videoId && ready && (
-        <div className="absolute bottom-4 right-4 z-10">
+        <div className={`absolute ${controlsTop ? 'top-4 right-16' : cinematic ? 'bottom-28 right-8' : 'bottom-4 right-4'} z-10`}>
           <button
             onClick={replay}
             className="h-9 flex items-center gap-1.5 px-3 rounded-full bg-black/60 hover:bg-black/80 text-white text-sm font-medium transition"

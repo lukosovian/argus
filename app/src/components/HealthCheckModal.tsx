@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { Board, PropertyDef, Row } from '../types'
 import { titleText } from '../types'
 import { api } from '../lib/api'
+import { BRAND_GRADIENT } from '../lib/theme'
+import { HealthIcon } from './toolbarIcons'
 
 const MAX_SHOWN = 40
 
@@ -94,7 +96,12 @@ export default function HealthCheckModal({
     <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onClose}>
       <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-lg font-semibold text-neutral-50">Sağlık Kontrolü</h2>
+          <div className="flex items-center gap-3">
+            <span className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-white" style={{ background: BRAND_GRADIENT }}>
+              <HealthIcon className="h-5 w-5" />
+            </span>
+            <h2 className="text-xl font-semibold text-neutral-50">Sağlık Kontrolü</h2>
+          </div>
           <button
             onClick={onClose}
             aria-label="Kapat"
@@ -103,9 +110,27 @@ export default function HealthCheckModal({
             ×
           </button>
         </div>
-        <p className="text-sm text-neutral-500 mb-6">
+        <p className="text-sm text-neutral-500 mt-2 mb-4">
           Bu arşivdeki dikkat edilmesi gereken kayıtlar — bir başlığa tıklayınca liste açılır, bir kayda tıklayınca detayı açılır.
         </p>
+        {(() => {
+          // Özet: en az bir sorunu olan kayıt sayısı (aynı kayıt iki listede olsa da bir kez sayılır).
+          const problem = new Set([...missingImageRows, ...incompleteRows].map((r) => r.id)).size
+          const healthy = rows.length ? Math.round(((rows.length - problem) / rows.length) * 100) : 100
+          return (
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 mb-5">
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="text-neutral-400">
+                  {rows.length} kayıt · {problem > 0 ? <span className="text-amber-400">{problem} tanesinde sorun var</span> : <span className="text-emerald-400">sorun yok</span>}
+                </span>
+                <span className="text-neutral-100 font-semibold tabular-nums">%{healthy} sağlıklı</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-neutral-800 mt-2.5 overflow-hidden">
+                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${healthy}%` }} />
+              </div>
+            </div>
+          )
+        })()}
 
         <div className="space-y-3">
           <HealthSection

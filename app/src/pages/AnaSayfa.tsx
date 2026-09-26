@@ -4,9 +4,9 @@ import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
-import { titleText, resolveBuiltinMoods, type Board, type Row } from '../types'
+import { titleText, ratingAverage, resolveBuiltinMoods, type Board, type Row } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
-import { showcaseMeta, hoverCardMeta, rowsForFilter, shuffle } from '../lib/rowMeta'
+import { showcaseMeta, hoverCardMeta, rowsForFilter, rowTitleClass, shuffle } from '../lib/rowMeta'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { useEpisodes } from '../hooks/useEpisodes'
 import { isScrolling } from '../lib/scrollGuard'
@@ -21,7 +21,15 @@ import { PRIMARY_BUTTON, primaryButtonStyle, gradientBorderStyle, BRAND_GRADIENT
 
 function ChevronDownIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+    >
       <path d="m6 9 6 6 6-6" />
     </svg>
   )
@@ -260,6 +268,7 @@ function FeaturedOverlay({
   ageRating,
   synopsis,
   onMoreInfo,
+  cinematic = false,
 }: {
   title: string
   titleImage: string
@@ -267,6 +276,7 @@ function FeaturedOverlay({
   ageRating: string
   synopsis: string
   onMoreInfo: () => void
+  cinematic?: boolean
 }) {
   // Sinopsis 10 saniye ekranda kaldıktan sonra aşağı kayarak kayboluyor — vitrin uzun
   // süre açık kalırsa afiş sadeleşsin diye. Öne çıkan kayıt değiştiğinde (yeni sinopsis
@@ -279,17 +289,34 @@ function FeaturedOverlay({
   }, [synopsis])
 
   return (
-    <div className="absolute inset-0 flex items-end bg-gradient-to-r from-black/60 via-black/5 to-transparent rounded-xl pointer-events-none">
-      <div className="pl-6 md:pl-10 pb-10 md:pb-12 max-w-2xl pointer-events-auto">
+    <div
+      className={`absolute inset-0 flex items-end bg-gradient-to-r pointer-events-none ${
+        cinematic ? 'z-[5]' : 'from-black/60 via-black/5 to-transparent rounded-xl'
+      }`}
+    >
+      <div
+        className={`${cinematic ? 'pl-6 sm:pl-10 md:pl-16 pb-24 md:pb-32' : 'pl-6 md:pl-10 pb-10 md:pb-12'} max-w-2xl pointer-events-auto`}
+      >
         {titleImage ? (
-          <img src={titleImage} alt={title} className="h-36 md:h-44 w-auto max-w-full object-contain" />
+          <img
+            src={titleImage}
+            alt={title}
+            className={`${cinematic ? 'h-20 sm:h-32 md:h-44' : 'h-36 md:h-44'} w-auto max-w-full object-contain`}
+          />
         ) : (
-          <p className="text-white text-6xl md:text-7xl font-bold uppercase tracking-wide">{title}</p>
+          <p
+            className={`text-white ${cinematic ? 'text-4xl sm:text-6xl md:text-7xl' : 'text-6xl md:text-7xl'} font-bold uppercase tracking-wide`}
+          >
+            {title}
+          </p>
         )}
         {(meta.length > 0 || ageRating) && (
           <div className="flex items-center gap-2.5 mt-3">
             {meta.length > 0 && (
-              <p className="text-white/90 text-lg font-bold whitespace-nowrap" style={OVERLAY_TEXT_SHADOW}>
+              <p
+                className={`text-white/90 ${cinematic ? 'text-sm sm:text-lg' : 'text-lg'} font-bold whitespace-nowrap`}
+                style={OVERLAY_TEXT_SHADOW}
+              >
                 {meta.join('  •  ')}
               </p>
             )}
@@ -298,7 +325,7 @@ function FeaturedOverlay({
         )}
         {synopsis && (
           <div
-            className={`overflow-hidden transition-all duration-700 ease-in ${
+            className={`${cinematic ? 'hidden sm:block ' : ''}overflow-hidden transition-all duration-700 ease-in ${
               synopsisHidden ? 'max-h-0 opacity-0 -translate-y-4 mt-0 pointer-events-none' : 'max-h-64 opacity-100 translate-y-0 mt-2'
             }`}
           >
@@ -307,11 +334,7 @@ function FeaturedOverlay({
             </p>
           </div>
         )}
-        <button
-          onClick={onMoreInfo}
-          style={primaryButtonStyle}
-          className={`mt-5 text-base px-5 py-2.5 rounded-lg ${PRIMARY_BUTTON}`}
-        >
+        <button onClick={onMoreInfo} style={primaryButtonStyle} className={`mt-5 text-base px-5 py-2.5 rounded-lg ${PRIMARY_BUTTON}`}>
           Daha Fazla Bilgi
         </button>
       </div>
@@ -370,7 +393,15 @@ function buildAutoFillPool(board: Board, rows: Row[]): AutoFillCandidate[] {
 
 function ChevronLeftIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-8 w-8"
+    >
       <path d="m15 6-6 6 6 6" />
     </svg>
   )
@@ -378,7 +409,15 @@ function ChevronLeftIcon() {
 
 function ChevronRightIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-8 w-8"
+    >
       <path d="m9 6 6 6-6 6" />
     </svg>
   )
@@ -392,12 +431,15 @@ function HomeRow({
   onOpenDetail,
   cardWidth,
   showInfoAlways,
+  titleClass = rowTitleClass(),
 }: {
   title: string
   board: Board
   rows: Row[]
   landscape: boolean
   onOpenDetail: (row: Row) => void
+  // Satır başlığı boyutu (Ana Sayfa Ayarları › Görünüm › "Satır başlığı boyutu", bkz. rowTitleClass).
+  titleClass?: string
   // Ayarlar'daki "Kart boyutu" seçiminin bu yön (yatay/dikey) için piksel karşılığı — bkz.
   // CARD_WIDTHS. Verilmezse HomeCard kendi eski sabit değerlerine (144/256) düşer.
   cardWidth?: number
@@ -435,7 +477,7 @@ function HomeRow({
 
   return (
     <div className="group/row">
-      <h2 className="text-xl font-semibold text-neutral-200 mb-2">{title}</h2>
+      <h2 className={`${titleClass} mb-2`}>{title}</h2>
       {/* `flow-root`: bu sarmalayıcının hiç kendi padding/border'ı yoksa, içindeki satırın
           -mt/-mb (taşma payı telafisi) marjları düz bir `relative` div'in içinden dışarı
           "sızıp" bu kutunun kendi yüksekliğini kart yerine dolgulu (pt+pb dahil) kutunun
@@ -490,6 +532,79 @@ function HomeRow({
   )
 }
 
+// "Arşivindeki En İyi 10" satırı (Ana Sayfa Ayarları › Görünüm › Satırlar'dan açılıp kapanıyor, kaçıncı
+// satırda olacağı seçilebiliyor): arşivde en yüksek puanı verdiğin 10 içerik, yanlarında büyük sıra
+// numaralarıyla. Puan sütunu "Puan" görevindeki sütun (bkz. lib/roles.ts), posteri "Poster" görevi;
+// posteri olmayan kayıtta kapak görseline düşülür.
+function TopRatedRow({
+  board,
+  rows,
+  onOpenDetail,
+  titleClass,
+}: {
+  board: Board
+  rows: Row[]
+  onOpenDetail: (row: Row) => void
+  titleClass: string
+}) {
+  const puanProp = resolveRole(board, 'puan')
+  const posterProp = resolveRole(board, 'poster')
+  const coverProp = board.properties.find((p) => p.id === board.coverPropertyId)
+  const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const top = useMemo(() => {
+    if (!puanProp) return []
+    return rows
+      .map((r) => ({ r, avg: ratingAverage(r.values[puanProp.id], puanProp) }))
+      .filter((x): x is { r: Row; avg: number } => x.avg !== null && x.avg > 0)
+      .sort((a, b) => b.avg - a.avg || b.r.createdAt - a.r.createdAt)
+      .slice(0, 10)
+  }, [rows, puanProp])
+  if (top.length < 3) return null
+  return (
+    <div>
+      <div className="flex items-baseline gap-3 mb-2">
+        <h2 className={titleClass}>Arşivindeki En İyi {top.length}</h2>
+        <span className="text-xs text-neutral-500">verdiğin puana göre</span>
+      </div>
+      <div className="no-scrollbar flex gap-2 overflow-x-auto -mx-4 px-4 pt-2 pb-3">
+        {top.map(({ r, avg }, i) => {
+          const img = (posterProp && (r.values[posterProp.id] as string)) || (coverProp && (r.values[coverProp.id] as string)) || ''
+          const name = titleProp ? titleText(titleProp, r.values[titleProp.id]) : ''
+          return (
+            <button key={r.id} onClick={() => onOpenDetail(r)} className="group shrink-0 flex items-end text-left" title={name}>
+              <svg viewBox="0 0 90 150" className="h-[150px] w-[90px] -mr-5 shrink-0" aria-hidden>
+                <text
+                  x="88"
+                  y="138"
+                  textAnchor="end"
+                  fontSize={i === 9 ? 118 : 150}
+                  fontWeight={900}
+                  letterSpacing={i === 9 ? -10 : 0}
+                  className="fill-neutral-950 stroke-neutral-500 group-hover:stroke-[#00c0fa] transition-colors"
+                  strokeWidth={3}
+                  style={{ fontFamily: 'inherit' }}
+                >
+                  {i + 1}
+                </text>
+              </svg>
+              <span className="relative block w-[112px] aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-lg shadow-black/40 transition-transform duration-300 group-hover:scale-105">
+                {img ? (
+                  <img src={img} alt={name} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{name}</span>
+                )}
+                <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold text-white bg-black/70 rounded px-1.5 py-0.5">
+                  ★ {avg.toFixed(1)}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function AnaSayfa() {
   const { settings, loading: settingsLoading, saveSettings } = useHomeSettings()
   const { boards, loading: boardsLoading } = useBoards()
@@ -517,7 +632,10 @@ export default function AnaSayfa() {
   // "benim eklediğim 10 tane modu ve görsellerini default olarak" dedi.
   const moodSeedKey = useRef<string | null>(null)
   useEffect(() => {
-    if (!board || settings.moodRow?.seeded) return
+    // Ayarlar yüklenmeden (settingsLoading) ya da ekrandaki arşiv henüz ayarlardaki arşiv değilken
+    // (profil değişirken önceki profilin arşivi bir an ekranda kalabiliyor) ASLA çalışmaz — yoksa boş
+    // varsayılan ayarlar dosyanın üzerine yazılıyordu (bkz. useHomeSettings.ts saveSettings notu).
+    if (settingsLoading || !board || board.id !== settings.boardId || settings.moodRow?.seeded) return
     if (moodSeedKey.current === board.id) return
     moodSeedKey.current = board.id
     if ((settings.moodRow?.moods?.length ?? 0) > 0) return
@@ -536,13 +654,11 @@ export default function AnaSayfa() {
       },
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board, settings.moodRow?.seeded])
+  }, [board, settings.moodRow?.seeded, settingsLoading])
 
   const coverProp = board ? board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image') : undefined
   const titleProp = board ? board.properties.find((p) => p.id === board.titlePropertyId) : undefined
-  const titleImageProp = board
-    ? board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image')
-    : undefined
+  const titleImageProp = board ? board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image') : undefined
   const synopsisProp = resolveRole(board, 'sinopsis')
   const urlProp = resolveRole(board, 'video')
   const yasProp = resolveRole(board, 'yas')
@@ -557,8 +673,7 @@ export default function AnaSayfa() {
   // "izlenecekler listemden ... çekecek").
   const durumProp = resolveRole(board, 'durum')
   const izlenecekOptionId = board ? resolveStatusOption(board, 'izlenecek') : undefined
-  const izlenecekPool =
-    durumProp && izlenecekOptionId ? visibleRows.filter((r) => r.values[durumProp.id] === izlenecekOptionId) : []
+  const izlenecekPool = durumProp && izlenecekOptionId ? visibleRows.filter((r) => r.values[durumProp.id] === izlenecekOptionId) : []
 
   const bolumId = searchParams.get('bolum')
   const activeSection = bolumId ? (settings.sections ?? []).find((s) => s.id === bolumId) : undefined
@@ -612,13 +727,14 @@ export default function AnaSayfa() {
   // anlaşılınca da o seçim temizlenmediği için oyuncu sayfasının üstünde vitrin kalıyordu.
   const adHocRequested = Boolean(filterPropId)
   const sectionPending = Boolean(bolumId) && !activeSection
-  const showcasePool = adHocRequested || sectionPending
-    ? []
-    : activeSection
-      ? scopedRows
-      : settings.showcaseFilter?.propertyId && settings.showcaseFilter.optionIds.length > 0
-        ? rowsForFilter(settings.showcaseFilter, visibleRows)
-        : visibleRows
+  const showcasePool =
+    adHocRequested || sectionPending
+      ? []
+      : activeSection
+        ? scopedRows
+        : settings.showcaseFilter?.propertyId && settings.showcaseFilter.optionIds.length > 0
+          ? rowsForFilter(settings.showcaseFilter, visibleRows)
+          : visibleRows
 
   const showcaseFilterKey = `${settings.showcaseFilter?.propertyId ?? ''}:${(settings.showcaseFilter?.optionIds ?? []).join(',')}`
   // Anlık oyuncu/seçenek filtresi de havuz anahtarına dahil — yoksa uygulama içinden (sayfa
@@ -644,6 +760,31 @@ export default function AnaSayfa() {
     setFeatured(showcasePool[Math.floor(Math.random() * showcasePool.length)])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.showcase, showcasePool, featured])
+
+  // "Slayt" vitrini (Ana Sayfa Ayarları › Vitrin görünümü): fragman yok; havuzdan rastgele seçilen
+  // birkaç kayıt 8 saniyede bir sırayla değişiyor, noktalardan istenen seçilebiliyor, fare üzerindeyken
+  // (ya da detay penceresi açıkken) duruyor. İlk slayt yukarıdaki normal seçim; diğerleri ona eklenir.
+  const slideshow = (settings.showcaseStyle ?? 'klasik') === 'slayt'
+  const [slides, setSlides] = useState<Row[]>([])
+  const [slidePaused, setSlidePaused] = useState(false)
+  useEffect(() => {
+    if (!slideshow || !featured) {
+      setSlides([])
+      return
+    }
+    setSlides((prev) => {
+      if (prev.some((r) => r.id === featured.id)) return prev
+      const others = shuffle(showcasePool.filter((r) => r.id !== featured.id)).slice(0, 5)
+      return [featured, ...others]
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slideshow, featured, poolKey])
+  const slideIndex = featured ? slides.findIndex((r) => r.id === featured.id) : -1
+  useEffect(() => {
+    if (!slideshow || slides.length < 2 || slidePaused || detailRow) return
+    const t = setTimeout(() => setFeatured(slides[(slideIndex + 1) % slides.length]), 8000)
+    return () => clearTimeout(t)
+  }, [slideshow, slides, slideIndex, slidePaused, detailRow])
 
   const featuredTitle = featured && titleProp ? titleText(titleProp, featured.values[titleProp.id]) : ''
   const featuredTitleImage = featured && titleImageProp ? ((featured.values[titleImageProp.id] as string) ?? '') : ''
@@ -689,7 +830,7 @@ export default function AnaSayfa() {
         <h1 className="text-2xl font-semibold text-neutral-50 mb-2">Ana Sayfa</h1>
         <p className="text-neutral-500 text-sm max-w-md">
           {hasAnyBoard
-            ? 'Ana sayfada hangi arşivin gösterileceğini henüz seçmedin. Ayarlar → Ana Sayfa Ayarları → Görünüm\'den seçebilirsin.'
+            ? "Ana sayfada hangi arşivin gösterileceğini henüz seçmedin. Ayarlar → Ana Sayfa Ayarları → Görünüm'den seçebilirsin."
             : 'Henüz bir arşivin yok — burada bir şey göstermeden önce en az bir arşiv oluşturman lazım.'}
         </p>
         <Link to="/arsivlerim" style={primaryButtonStyle} className={`mt-6 text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
@@ -708,8 +849,14 @@ export default function AnaSayfa() {
     )
   }
 
-  const landscape = settings.layout === 'yatay'
-  const bodySections = sortByOrder((settings.sections ?? []).filter((s) => s.showInBody !== false), settings.bodyOrder ?? [])
+  // Vitrin görünümü "Sinema": kenardan kenara, menünün arkasına kadar uzanan büyük vitrin.
+  const cinematic = (settings.showcaseStyle ?? 'klasik') === 'sinema'
+  const landscape = settings.layout !== 'izgara'
+  const titleClass = rowTitleClass(settings.rowTitleSize)
+  const bodySections = sortByOrder(
+    (settings.sections ?? []).filter((s) => s.showInBody !== false),
+    settings.bodyOrder ?? [],
+  )
   const cardSize = settings.cardSize ?? 'orta'
   const cardWidth = landscape ? CARD_WIDTHS[cardSize].yatay : CARD_WIDTHS[cardSize].dikey
   // Dikey + Küçük'te "her zaman göster" güzel durmuyor (bkz. HomeSettingsPanel.tsx'teki
@@ -739,10 +886,7 @@ export default function AnaSayfa() {
             burada sadece isimli bir "bölüm" sayfasındaysak (activeSection) HomeRow'un eskiden
             gösterdiği başlığı kaybetmeyelim diye tekrar ediyoruz. */}
         {activeSection && <h2 className="text-xl font-semibold text-neutral-200 mb-2">{sectionTitle}</h2>}
-        <div
-          className="grid gap-3"
-          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${landscape ? '15rem' : '8.5rem'}, 1fr))` }}
-        >
+        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${landscape ? '15rem' : '8.5rem'}, 1fr))` }}>
           {displayRows.map((row) => (
             <HomeCard key={row.id} board={board} row={row} landscape={landscape} fill onOpenDetail={setDetailRow} />
           ))}
@@ -765,6 +909,7 @@ export default function AnaSayfa() {
         onOpenDetail={setDetailRow}
         cardWidth={cardWidth}
         showInfoAlways={showInfoAlways}
+        titleClass={titleClass}
       />
     )
 
@@ -780,6 +925,7 @@ export default function AnaSayfa() {
       onOpenDetail={setDetailRow}
       cardWidth={cardWidth}
       showInfoAlways={showInfoAlways}
+      titleClass={titleClass}
     />
   ))
 
@@ -791,23 +937,45 @@ export default function AnaSayfa() {
   const showAllSection = settings.showAllSection ?? true
   const moodEnabled = Boolean(settings.moodRow?.enabled) && izlenecekPool.length > 0
   let defaultViewRows: React.ReactNode[] = [...(showAllSection ? [mainContentNode] : []), ...bodyRowNodes]
-  // "Yeni Bölümler" her zaman en üstte — izlemeye devam edilen dizilerin haberi en önemli bilgi.
-  if (board && (settings.newEpisodesRow ?? true)) {
-    defaultViewRows = [<NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} />, ...defaultViewRows]
+  // "Yeni Bölümler", "En İyi 10" ve mod satırı Ayarlar'da seçilen sıraya (1 = en üstte) yerleşiyor —
+  // küçük sıra numarası önce yerleşir, aynı numarada Yeni Bölümler > En İyi 10 > mod satırı.
+  const placed: { position: number; node: React.ReactNode }[] = []
+  if (settings.newEpisodesRow ?? true) {
+    placed.push({
+      position: settings.newEpisodesPosition ?? 1,
+      node: <NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />,
+    })
+  }
+  if (settings.topRated?.enabled) {
+    placed.push({
+      position: settings.topRated.position ?? 2,
+      node: <TopRatedRow key="top-rated" board={board} rows={visibleRows} onOpenDetail={setDetailRow} titleClass={titleClass} />,
+    })
   }
   if (moodEnabled && settings.moodRow) {
-    const insertAt = Math.min(Math.max(Math.round(settings.moodRow.position ?? 1) - 1, 0), defaultViewRows.length)
-    const moodNode = (
-      <MoodRow
-        key="mood-row"
-        title={settings.moodRow.title ?? ''}
-        moods={settings.moodRow.moods}
-        board={board}
-        rows={izlenecekPool}
-        onOpenDetail={setDetailRow}
-      />
-    )
-    defaultViewRows = [...defaultViewRows.slice(0, insertAt), moodNode, ...defaultViewRows.slice(insertAt)]
+    placed.push({
+      position: settings.moodRow.position ?? 1,
+      node: (
+        <MoodRow
+          key="mood-row"
+          title={settings.moodRow.title ?? ''}
+          moods={settings.moodRow.moods}
+          board={board}
+          rows={izlenecekPool}
+          onOpenDetail={setDetailRow}
+          titleClass={titleClass}
+        />
+      ),
+    })
+  }
+  // Aynı sıra numarasını alanlar arka arkaya dizilir (sonraki öncekini aşağı itmesin diye kaydırılır).
+  const tieCount = new Map<number, number>()
+  for (const p of [...placed].sort((a, b) => a.position - b.position)) {
+    const pos = Math.max(Math.round(p.position), 1)
+    const ties = tieCount.get(pos) ?? 0
+    tieCount.set(pos, ties + 1)
+    const at = Math.min(pos - 1 + ties, defaultViewRows.length)
+    defaultViewRows = [...defaultViewRows.slice(0, at), p.node, ...defaultViewRows.slice(at)]
   }
 
   // "En altta rastgele satırlarla doldur" — her zaman en sonda, mod satırından da sonra, ve
@@ -825,16 +993,25 @@ export default function AnaSayfa() {
           onOpenDetail={setDetailRow}
           cardWidth={cardWidth}
           showInfoAlways={showInfoAlways}
+          titleClass={titleClass}
         />
       )),
     ]
   }
 
   return (
-    <div className="px-4 py-6 space-y-8">
+    <div className={`px-4 py-6 ${cinematic ? 'space-y-10' : 'space-y-8'}`}>
       {featured && !adHocRequested && (
-        <div className="relative mx-3 sm:mx-6">
-          {ambientSource && (
+        // Sinema: kenar boşluğu yok, menünün arkasına kadar uzanıyor (sayfanın px-4 / py-6 payı +
+        // 64px'lik menü yüksekliği kadar yukarı ve yanlara taşıyor).
+        <div
+          className={cinematic ? 'relative -mx-4 -mt-[88px]' : 'relative mx-3 sm:mx-6'}
+          onMouseEnter={slideshow ? () => setSlidePaused(true) : undefined}
+          onMouseLeave={slideshow ? () => setSlidePaused(false) : undefined}
+          style={slideshow ? { animation: 'argus-fade-in .6s ease-out' } : undefined}
+          key={slideshow ? `slayt-${featured.id}` : 'vitrin'}
+        >
+          {ambientSource && !cinematic && (
             // 70px'lik tam boyutlu bir blur, kaydırma sırasında her karede yeniden boyanıp
             // ciddi bir takılmaya sebep oluyordu. Aynı görünümü, görseli 1/4 boyutunda (1/16
             // piksel alanında) blurlayıp CSS transform'la 4 kat büyüterek çok daha ucuza elde
@@ -870,17 +1047,27 @@ export default function AnaSayfa() {
             </div>
           )}
           <ShowcaseBanner
+            key={slideshow ? featured.id : 'vitrin'}
             imageUrl={featuredImage}
             // Detay penceresi açıkken (openRow) bu vitrin videosu arkada, görünmez halde
             // oynamaya devam ediyordu — detay penceresinin kendi videosuyla aynı anda iki
             // oynatıcı çalışmış oluyordu. Pencere açıkken null vererek durduruyoruz, pencere
             // kapanınca (openRow tekrar boşalınca) vitrin videosu normal şekilde geri gelir.
-            videoId={openRow ? null : (featuredYt?.id ?? null)}
+            videoId={openRow || slideshow ? null : (featuredYt?.id ?? null)}
             startSeconds={featuredYt?.start ?? 0}
             title=""
             onShowingVideoChange={setVideoShowing}
+            cinematic={cinematic}
           />
+          {cinematic && (
+            <>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/75 via-black/20 to-transparent z-[3]" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-neutral-950/70 to-transparent z-[4]" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent z-[4]" />
+            </>
+          )}
           <FeaturedOverlay
+            cinematic={cinematic}
             title={featuredTitle}
             titleImage={featuredTitleImage}
             meta={featuredMeta}
@@ -888,6 +1075,18 @@ export default function AnaSayfa() {
             synopsis={featuredSynopsis}
             onMoreInfo={() => setDetailRow(featured)}
           />
+          {slideshow && slides.length > 1 && (
+            <div className={`absolute z-10 flex gap-1.5 ${cinematic ? 'bottom-24 right-8' : 'bottom-4 right-5'}`}>
+              {slides.map((r, i) => (
+                <button
+                  key={r.id}
+                  onClick={() => setFeatured(r)}
+                  title={titleProp ? titleText(titleProp, r.values[titleProp.id]) : ''}
+                  className={`h-1.5 rounded-full transition-all ${i === slideIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -46,6 +46,16 @@ body {
   color-scheme: light;
 }
 
+/* Ana sayfadaki "Slayt" vitrininde bir sonraki içeriğe geçerken yumuşak belirme. */
+@keyframes argus-fade-in {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Uygulama içi bildirim kartlarının (bkz. hooks/useToast.tsx) giriş animasyonu. */
 @keyframes argus-toast-in {
   from {

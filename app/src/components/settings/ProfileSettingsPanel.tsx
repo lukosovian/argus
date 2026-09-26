@@ -1,4 +1,5 @@
 import ProfilePicker from '../ProfilePicker'
+import { PanelHeader } from './SettingsUi'
 
 // "Profil Ayarları" sekmesi — eskiden pp menüsündeki "Profili Düzenle"/"Profil Değiştir"
 // butonlarının açtığı ayrı modallar buradaydı, artık ProfilePicker'ın `embedded` haliyle
@@ -7,7 +8,7 @@ import ProfilePicker from '../ProfilePicker'
 export default function ProfileSettingsPanel() {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-neutral-50 mb-5">Profil Ayarları</h2>
+      <PanelHeader title="Profil Ayarları" description="Profil ekle, adını ya da resmini değiştir, profiller arasında geçiş yap." />
       <ProfilePicker embedded />
     </div>
   )
