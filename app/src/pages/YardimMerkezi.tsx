@@ -458,7 +458,7 @@ const TOPICS: Topic[] = [
     tips: [
       'Yeni Bölümler: durumu "İzleniyor" olan dizilerin yeni çıkan ve bu hafta çıkacak bölümleri.',
       'Arşivindeki En İyi 10: en yüksek puan verdiğin 10 içerik, yanlarında büyük sıra numaralarıyla.',
-      'Otomatik doldur: en altta her girişte rastgele satırlar (bir tür, bir ülke…) çıkar; kaç tane geleceğini seçebilirsin.',
+      'Otomatik doldur: en altta her girişte rastgele satırlar (bir tür, bir ülke…) çıkar; kaç tane geleceğini ve hangilerinin gelip hangilerinin gelmeyeceğini (✓ gelsin / ✕ gelmesin) seçebilirsin.',
       '"Tümü" satırını kapatabilir, kartlarını karışık ya da sıralı getirebilirsin; kapak görseli olmayan kayıtları gizleyebilirsin.',
       'Kendi listelerin için: Ayarlar › Ana Sayfa Ayarları › Sayfalar — bir türe ya da duruma göre liste oluşturup üst menüye ya da ana sayfanın gövdesine eklersin.',
     ],

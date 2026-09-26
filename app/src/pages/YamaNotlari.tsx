@@ -38,6 +38,15 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.8.2',
+    date: '26 Eylül 2026',
+    title: 'Otomatik satırlara gelsin / gelmesin filtresi, ülke etiketleri düzeldi',
+    items: [
+      'Ana Sayfa Ayarları → "En altta otomatik doldur" açıkken artık hangi satırların gelip hangilerinin gelmeyeceğini seçebiliyorsun: bir sütunu (Tür, Ülke...) açıp değerlere tıkla — bir kez tıklayınca ✓ gelsin, bir daha tıklayınca ✕ gelmesin. İkisinden de istediğin kadar seçebilirsin; bir sütunun tamamını da "Hiç gelmesin" ile kapatabilirsin.',
+      'TMDB\x27den doldururken yeni eklenen ülke etiketlerinin başında bayrak işareti (bazı yerlerde "HR", "CH" gibi harf olarak görünüyordu) ve İngilizce ad ("Croatia") çıkıyordu. Artık diğer ülkeler gibi sade Türkçe ad yazılıyor; arşivindeki bu şekilde eklenmiş 6 ülke de düzeltildi (Hırvatistan, Porto Riko, İsviçre, Kenya, Yunanistan, Romanya).',
+    ],
+  },
+  {
     version: 'v1.8.1',
     date: '26 Eylül 2026',
     title: 'Yenilenen arşiv tablosu, detay penceresi, menü ve arama; vitrin görünümleri, En İyi 10, İstatistikler, Ayarlar ve Yardım Merkezi',

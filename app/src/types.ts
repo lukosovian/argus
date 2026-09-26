@@ -381,7 +381,17 @@ export function resolveBuiltinMoods(board: Board): Mood[] {
 export interface AutoFillSettings {
   enabled: boolean
   count: number
+  // Gelsin / gelmesin filtresi (seçenek id'leri — her sütunda id'ler zaten benzersiz). include
+  // doluysa satırlar yalnızca onlardan seçilir; exclude'dakiler ve excludeProps'taki sütunların
+  // hiçbir değeri gelmez. Eski kayıtlarda yok, yoksa filtresiz.
+  include?: string[]
+  exclude?: string[]
+  excludeProps?: string[]
 }
+
+// Otomatik satırlarda kullanılabilecek sütunlar için en fazla seçenek sayısı (Oyuncular gibi
+// binlerce değerli sütunlar dışarıda kalsın diye).
+export const AUTO_FILL_MAX_OPTIONS = 300
 
 export interface HomeSettings {
   boardId: string | null

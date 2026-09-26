@@ -4,7 +4,8 @@ import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
-import { titleText, ratingAverage, resolveBuiltinMoods, type Board, type Row } from '../types'
+import { titleText, ratingAverage, resolveBuiltinMoods, AUTO_FILL_MAX_OPTIONS, type AutoFillSettings, type Board, type Row } from '../types'
+import { splitFlagEmoji } from '../lib/flagEmoji'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { showcaseMeta, hoverCardMeta, rowsForFilter, rowTitleClass, shuffle } from '../lib/rowMeta'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
@@ -348,7 +349,6 @@ function FeaturedOverlay({
 // seçenekli bir sütun taramaya girip yavaşlatmasın diye (bkz. performans notları) makul sayıda
 // seçeneği olan sütunlarla sınırlı — Map ile tek geçişte kayıt-seçenek eşleşmesi çıkarılıyor,
 // her seçenek için ayrı ayrı .filter() TARANMIYOR (aynı O(n) yerine O(n²) tuzağından kaçınma).
-const AUTO_FILL_MAX_OPTIONS = 300
 
 interface AutoFillCandidate {
   propertyId: string
@@ -357,10 +357,14 @@ interface AutoFillCandidate {
   rows: Row[]
 }
 
-function buildAutoFillPool(board: Board, rows: Row[]): AutoFillCandidate[] {
+function buildAutoFillPool(board: Board, rows: Row[], filter?: AutoFillSettings): AutoFillCandidate[] {
+  const excludeProps = new Set(filter?.excludeProps ?? [])
+  const include = new Set(filter?.include ?? [])
+  const exclude = new Set(filter?.exclude ?? [])
   const eligibleProps = board.properties.filter(
     (p) =>
       (p.type === 'select' || p.type === 'multiselect') &&
+      !excludeProps.has(p.id) &&
       (p.options?.length ?? 0) > 0 &&
       (p.options?.length ?? 0) <= AUTO_FILL_MAX_OPTIONS,
   )
@@ -382,9 +386,11 @@ function buildAutoFillPool(board: Board, rows: Row[]): AutoFillCandidate[] {
   const candidates: AutoFillCandidate[] = []
   for (const prop of eligibleProps) {
     for (const opt of prop.options ?? []) {
+      if (exclude.has(opt.id) || (include.size > 0 && !include.has(opt.id))) continue
       const matched = rowsByOption.get(opt.id)
       if (matched && matched.length > 0) {
-        candidates.push({ propertyId: prop.id, optionId: opt.id, label: opt.label, rows: matched })
+        // Başlıkta bayrak emojisi kalmasın (Windows'ta "HR" gibi harf olarak görünüyordu).
+        candidates.push({ propertyId: prop.id, optionId: opt.id, label: splitFlagEmoji(opt.label).rest, rows: matched })
       }
     }
   }
@@ -711,11 +717,14 @@ export default function AnaSayfa() {
   const autoFillEnabled = Boolean(settings.autoFill?.enabled) && Boolean(board)
   const autoFillCount = Math.max(0, settings.autoFill?.count ?? 0)
   const visibleRowsKey = visibleRows.map((r) => r.id).join(',')
+  const autoFillFilterKey = [settings.autoFill?.include, settings.autoFill?.exclude, settings.autoFill?.excludeProps]
+    .map((a) => (a ?? []).join(','))
+    .join('|')
   const autoFillPicks = useMemo(() => {
     if (!autoFillEnabled || !board || autoFillCount === 0) return []
-    return shuffle(buildAutoFillPool(board, visibleRows)).slice(0, autoFillCount)
+    return shuffle(buildAutoFillPool(board, visibleRows, settings.autoFill)).slice(0, autoFillCount)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFillEnabled, autoFillCount, board?.id, visibleRowsKey])
+  }, [autoFillEnabled, autoFillCount, board?.id, visibleRowsKey, autoFillFilterKey])
 
   // Vitrinin rastgele seçileceği havuz: bir bölüm sayfasındaysak o bölümün kayıtları,
   // değilsek Ana Sayfa Ayarları'ndaki vitrin filtresi (yoksa arşivin tamamı). Anlık oyuncu/seçenek
