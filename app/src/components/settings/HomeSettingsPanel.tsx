@@ -14,6 +14,7 @@ import { api } from '../../lib/api'
 import HomeSectionEditor from '../HomeSectionEditor'
 import MoodRowEditor from '../MoodRowEditor'
 import PropertyFilterPicker from '../PropertyFilterPicker'
+import AutoFillFilterEditor from './AutoFillFilterEditor'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
 import { BRAND_TEXT } from '../../lib/theme'
@@ -623,7 +624,7 @@ export default function HomeSettingsPanel() {
                   onChange={(v) =>
                     saveSettings({
                       ...settings,
-                      autoFill: { count: settings.autoFill?.count ?? 4, enabled: v },
+                      autoFill: { ...settings.autoFill, count: settings.autoFill?.count ?? 4, enabled: v },
                     })
                   }
                   label="Otomatik doldur"
@@ -640,11 +641,18 @@ export default function HomeSettingsPanel() {
                     value={settings.autoFill?.count ?? 4}
                     min={1}
                     max={20}
-                    onCommit={(n) => saveSettings({ ...settings, autoFill: { enabled: true, count: n } })}
+                    onCommit={(n) => saveSettings({ ...settings, autoFill: { ...settings.autoFill, enabled: true, count: n } })}
                     className="w-20 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
                   />
                   <span className="text-xs text-neutral-600">(1-20 arası)</span>
                 </div>
+              )}
+              {settings.autoFill?.enabled && (
+                <AutoFillFilterEditor
+                  board={board}
+                  value={settings.autoFill}
+                  onChange={(v) => saveSettings({ ...settings, autoFill: v })}
+                />
               )}
             </div>
 

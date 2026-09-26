@@ -376,9 +376,18 @@ function stripFlagEmoji(label) {
   return label.replace(/^[\u{1F1E6}-\u{1F1FF}]{2}/u, '').trim()
 }
 
-function isoToFlag(iso2) {
-  if (!iso2 || iso2.length !== 2) return ''
-  return [...iso2.toUpperCase()].map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('')
+// Listede olmayan ülkelerin Türkçe adı (ör. HR → Hırvatistan). Kullanıcı yeni eklenen ülke
+// etiketlerinin başında bayrak emojisi (Windows'ta "HR" gibi harf olarak görünüyordu) ve İngilizce
+// ad ("Croatia") çıktığını söyledi — artık diğer ülkeler gibi sade Türkçe ad yazılıyor.
+const regionNamesTr = new Intl.DisplayNames(['tr'], { type: 'region' })
+function isoToTrName(iso2) {
+  if (!iso2 || iso2.length !== 2) return null
+  try {
+    const name = regionNamesTr.of(iso2.toUpperCase())
+    return name && name !== iso2.toUpperCase() ? name : null
+  } catch {
+    return null
+  }
 }
 
 async function fetchWithRetry(url, options, retries = 3) {
@@ -738,12 +747,12 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
         const ulkeByName = new Map(ulkeProp.options.map((o) => [normalizeText(stripFlagEmoji(o.label)), o.id]))
         const ids = []
         for (const c of countries) {
-          const trName = ISO_TO_TR[c.iso_3166_1] ?? c.name ?? c.iso_3166_1
+          const trName = ISO_TO_TR[c.iso_3166_1] ?? isoToTrName(c.iso_3166_1) ?? c.name ?? c.iso_3166_1
           const norm = normalizeText(trName)
           let optId = ulkeByName.get(norm)
           if (!optId) {
             optId = makeId()
-            ulkeProp.options.push({ id: optId, label: `${isoToFlag(c.iso_3166_1)}${trName}`, colorIndex: ulkeProp.options.length % 9 })
+            ulkeProp.options.push({ id: optId, label: trName, colorIndex: ulkeProp.options.length % 9 })
             ulkeByName.set(norm, optId)
           }
           ids.push(optId)
