@@ -23,15 +23,30 @@ import {
 
 // ---- Wireframeler ------------------------------------------------------------------------
 
+// Satır sıklığı (Rahat/Sıkı) düğmesinin ikonu — BoardView'daki DensityIcon'un aynısı.
+function DensityGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className={className}>
+      <path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16" />
+    </svg>
+  )
+}
+
 function ToolbarWire() {
-  // Gerçek araç çubuğundaki ikonların aynısı (bkz. toolbarIcons.tsx), aynı sırayla.
-  const icons = [SearchIcon, FilterIcon, SortIcon, ColumnsIcon, GearIcon, HealthIcon, BulkRefreshIcon, CompassIcon, InfoIcon]
+  // Gerçek araç çubuğundaki ikonların aynısı (bkz. toolbarIcons.tsx), aynı sırayla ve aynı üç grupta
+  // (26 Eylül 2026'da araç çubuğu gruplara ayrılıp Rahat/Sıkı düğmesi eklendi).
+  const icons = [SearchIcon, FilterIcon, SortIcon, ColumnsIcon, DensityGlyph, GearIcon, BulkRefreshIcon, HealthIcon, CompassIcon, InfoIcon]
+  // Grup aralarındaki boşluk: 5. ve 7. düğmeden sonra.
+  const xs = icons.map((_, i) => 122 + i * 30 + (i >= 5 ? 10 : 0) + (i >= 7 ? 10 : 0))
   return (
     <Frame viewBox="0 0 520 150">
       <Box x={4} y={4} w={512} h={142} r={10} />
-      <Line x={20} y={30} w={100} />
+      <Line x={20} y={30} w={90} />
+      {[270, 340].map((x) => (
+        <line key={x} x1={x} x2={x} y1={20} y2={40} className="stroke-neutral-700" strokeWidth={1} />
+      ))}
       {icons.map((Icon, i) => {
-        const x = 138 + i * 30
+        const x = xs[i]
         return (
           <g key={i}>
             <Box x={x} y={18} w={24} h={24} r={6} strong />
@@ -43,11 +58,11 @@ function ToolbarWire() {
           </g>
         )
       })}
-      <rect x={414} y={18} width={90} height={24} rx={6} fill={ACCENT} fillOpacity={0.9} />
-      <text x={459} y={34} fontSize={10} textAnchor="middle" fill="#fff" fontWeight={600} style={{ fontFamily: 'inherit' }}>
+      <rect x={444} y={18} width={64} height={24} rx={6} fill={ACCENT} fillOpacity={0.9} />
+      <text x={476} y={34} fontSize={9} textAnchor="middle" fill="#fff" fontWeight={600} style={{ fontFamily: 'inherit' }}>
         + Yeni Ekle
       </text>
-      <Pin x={459} y={56} n={10} />
+      <Pin x={476} y={56} n={11} />
       {/* altında küçük tablo izlenimi */}
       <Box x={20} y={80} w={480} h={20} r={3} strong />
       {[0, 1].map((r) => (
@@ -344,19 +359,21 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div ref={scrollRef} className="overflow-y-auto p-6 space-y-5">
-          <Section id="rehber-arac" title="Araç çubuğu" intro="Tablonun sağ üstündeki düğmeler, soldan sağa:" wire={<ToolbarWire />}>
+          <Section id="rehber-arac" title="Araç çubuğu" intro="Tablonun sağ üstündeki düğmeler, soldan sağa (üzerine gelince adları da yazar):" wire={<ToolbarWire />}>
             <Steps
               items={[
                 { n: 1, title: 'Ara', text: 'Başlık, oyuncu, tür, ülke… herhangi bir yazıya göre tabloyu süzer.' },
                 { n: 2, title: 'Filtrele', text: 'Bir Seçim/Çoklu Seçim sütununa göre sadece belli kayıtları gösterir (ör. Durum = İzlenecek).' },
                 { n: 3, title: 'Sırala', text: 'Tabloyu bir sütuna göre A→Z, yeniden eskiye vb. dizer.' },
                 { n: 4, title: 'Sütunları göster/gizle', text: 'Görmek istemediğin sütunları kapatırsın. Veri silinmez, sadece gizlenir.' },
-                { n: 5, title: 'API alanları', text: 'TMDB\'den bilgi çekerken hangi alanların doldurulacağını ve dolu alanların üzerine yazılıp yazılmayacağını seçersin.' },
-                { n: 6, title: 'Sağlık Kontrolü', text: 'Görseli, fragmanı, yönetmeni vb. eksik kayıtları ve neyinin eksik olduğunu listeler.' },
+                { n: 5, title: 'Satır sıklığı', text: 'Sıkı (daha çok satır sığar) ile Rahat (daha büyük satır ve afiş) arasında geçer. Seçimin bu arşiv için hatırlanır.' },
+                { n: 6, title: 'API alanları', text: 'TMDB\'den bilgi çekerken hangi alanların doldurulacağını ve dolu alanların üzerine yazılıp yazılmayacağını seçersin.' },
                 { n: 7, title: 'Genel Güncelleme', text: 'Eksik bilgisi olan tüm kayıtları tek seferde TMDB\'den doldurur. İstediğin an durdurabilirsin.' },
-                { n: 8, title: 'Keşfet', text: 'Film mi dizi mi, hangi türde, kaç tane istediğini seçersin; arşivinde OLMAYAN içerikleri getirir. Beğendiğini "+ İzlenecek" ile eklersin, izlediysen "İzledim" deyip tarih ve puan girersin, istemediğini × ile gizlersin (bir daha gelmez).' },
-                { n: 9, title: 'Bu rehber', text: 'Şu an okuduğun sayfa.' },
-                { n: 10, title: '+ Yeni Ekle', text: 'Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "TMDB\'den Doldur" dersen gerisi otomatik gelir.' },
+                { n: 8, title: 'Sağlık Kontrolü', text: 'Görseli, fragmanı, yönetmeni vb. eksik kayıtları ve neyinin eksik olduğunu listeler.' },
+                { n: 9, title: 'Keşfet', text: 'Film mi dizi mi, hangi türde, kaç tane istediğini seçersin; arşivinde OLMAYAN içerikleri getirir. Beğendiğini "+ İzlenecek" ile eklersin, izlediysen "İzledim" deyip tarih ve puan girersin, istemediğini × ile gizlersin (bir daha gelmez).' },
+                { n: 10, title: 'Bu rehber', text: 'Şu an okuduğun sayfa.' },
+                { n: 11, title: '+ Yeni Ekle', text: 'Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "Güncelle" dersen gerisi TMDB\'den otomatik gelir.' },
+                { title: 'Durum düğmeleri', text: 'Tablonun hemen üstündeki "Hepsi · İzlendi · İzlenecek…" düğmeleri tek tıkla duruma göre süzer; yanlarında kaç kayıt olduğu yazar.' },
               ]}
             />
           </Section>
@@ -365,9 +382,12 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
             <Steps
               items={[
                 { n: 1, title: 'Onay kutusu', text: 'Birden çok satırı seçip topluca silebilirsin. Başlıktaki kutu hepsini seçer.' },
-                { n: 2, title: 'Altı nokta ve göz', text: 'Satırın üzerine gelince belirir. Altı nokta satır menüsünü açar (TMDB\'den Doldur, Altına Satır Ekle, Çoğalt, Sil); göz ikonu kaydın detay penceresini açar.' },
+                { n: 2, title: 'Altı nokta ve göz', text: 'Satırın üzerine gelince belirir. Altı nokta satır menüsünü açar (Güncelle, Altına Satır Ekle, Çoğalt, Sil); göz ikonu kaydın detay penceresini açar.' },
                 { n: 3, title: 'Hücreye tıkla', text: 'Herhangi bir hücreye tıklayıp değerini değiştirirsin. Yazı yazılır, seçim listeden seçilir, görsel bilgisayardan ya da medya klasöründen seçilir.' },
                 { n: 4, title: 'Yeni satır', text: 'Tablonun en altından ya da "+ Yeni Ekle" ile eklersin.' },
+                { title: 'Adın yanındaki afiş', text: 'Her kaydın adının solunda küçük afişi durur; sağa kaydırınca ad ve afiş solda sabit kalır.' },
+                { title: '"+2" gibi sayılar', text: 'Hücreye sığmayan etiketler ya da tarihler için kaç tane daha olduğunu gösterir; üzerine gelince hepsi yazar.' },
+                { title: 'Kapat', text: 'Bir hücreyi düzenlerken açılan kutuyu "Kapat" ile ya da boş bir yere tıklayarak kapatırsın; değişiklik kaydedilir.' },
               ]}
             />
           </Section>
@@ -420,7 +440,7 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
               items={[
                 { n: 1, title: 'Hücreye tıkla', text: 'Kaydın Oyuncular hücresine tıkla.' },
                 { n: 2, title: 'Adı yaz', text: 'Listede varsa tıklayıp seç; yoksa "+ ekle"ye bas (ya da Enter). Oyuncu bir kere eklenince bütün kayıtlarda listeden seçilebilir.' },
-                { n: 3, title: 'Ya da otomatik', text: 'Satır menüsündeki "TMDB\'den Doldur" oyuncuları fotoğraflarıyla birlikte kendisi ekler.' },
+                { n: 3, title: 'Ya da otomatik', text: 'Satır menüsündeki "Güncelle" oyuncuları fotoğraflarıyla birlikte TMDB\'den kendisi ekler.' },
                 { title: 'Oyuncunun filmleri', text: 'Detay penceresinde bir oyuncunun adına tıklarsan o oyuncunun oynadığı tüm kayıtlar listelenir. Tür, Ülke gibi diğer etiketler de aynı şekilde çalışır.' },
               ]}
             />
@@ -431,6 +451,7 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
               items={[
                 { n: 1, title: 'Kriterler', text: 'Puan hücresine tıkla, her kriter için kaydırıcıyı ayarla. "+ kriter ekle" ile kendi kriterini ekle (ör. Müzik, Final).' },
                 { n: 2, title: 'Ortalama', text: 'Tabloda tüm kriterlerin ortalaması tek bir puan olarak görünür.' },
+                { title: 'Puanı kaldırma', text: 'Kriterin yanındaki × o kriterin puanını, alttaki "Puanı kaldır" hepsini siler.' },
               ]}
             />
           </Section>

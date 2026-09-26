@@ -243,7 +243,81 @@ function formatDateShort(iso: string): string | null {
   return `${d}.${m}.${y.slice(2)}`
 }
 
-function Cell({ property, value, optionMaps }: { property: PropertyDef; value: PropertyValue; optionMaps: OptionMaps }) {
+// Bir hücreye sığmayan etiketleri/tarihleri kesmek yerine sığanları gösterip kalanı için "+N" yazar
+// (kullanıcı: Tür'de "Anim…", İzleme Tarihi'nde "04.08.24, 05…" gibi yarım kalanlar). Her öğenin
+// genişliği ilk çizimde ölçülüp saklanıyor; sütun genişliği değişince bu ölçülerle yeniden hesaplanıyor.
+// Üzerine gelince hepsi (title) görünüyor.
+const MORE_BADGE_WIDTH = 30
+function FitRow({ items, title }: { items: { key: string; node: React.ReactNode }[]; title: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const widths = useRef<number[]>([])
+  const [visible, setVisible] = useState(items.length)
+  const itemsKey = items.map((i) => i.key).join('|')
+
+  useLayoutEffect(() => {
+    setVisible(items.length)
+    widths.current = []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey])
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    function measure() {
+      if (!el) return
+      if (widths.current.length !== items.length) {
+        const kids = Array.from(el.querySelectorAll<HTMLElement>('[data-fit]'))
+        if (kids.length !== items.length) return
+        widths.current = kids.map((k) => k.offsetWidth + 4)
+      }
+      const avail = el.clientWidth
+      let used = 0
+      let n = 0
+      for (let i = 0; i < widths.current.length; i++) {
+        const rest = i < widths.current.length - 1 ? MORE_BADGE_WIDTH : 0
+        if (used + widths.current[i] + rest > avail) break
+        used += widths.current[i]
+        n++
+      }
+      setVisible(Math.max(1, n))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey, visible === items.length])
+
+  const hidden = items.length - visible
+  return (
+    <div ref={ref} className="flex flex-nowrap items-center gap-1 overflow-hidden min-w-0 w-full" title={title}>
+      {items.slice(0, visible).map((i, idx) => (
+        // Sığmayanlar varken ilk öğe gerekirse kısalıyor (kırpılıyor) ki "+N" hep görünür kalsın.
+        <span key={i.key} data-fit className={`flex ${hidden > 0 && idx === 0 ? 'min-w-0 shrink overflow-hidden' : 'shrink-0'}`}>
+          {i.node}
+        </span>
+      ))}
+      {hidden > 0 && (
+        <span className="shrink-0 text-[11px] leading-none px-1.5 py-1 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
+          +{hidden}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Cell({
+  property,
+  value,
+  optionMaps,
+  roomy = false,
+}: {
+  property: PropertyDef
+  value: PropertyValue
+  optionMaps: OptionMaps
+  // "Rahat" satır sıklığında görseller biraz daha büyük.
+  roomy?: boolean
+}) {
   if (property.type === 'rating') {
     const avg = ratingAverage(value, property)
     return avg === null ? null : <span className="text-neutral-300">⭐ {avg.toFixed(1)}</span>
@@ -261,10 +335,16 @@ function Cell({ property, value, optionMaps }: { property: PropertyDef; value: P
   }
 
   if (property.type === 'multidate') {
-    const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort()
+    // En yeni tarih önce — sığmazsa eskiler "+N"e girer.
+    const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort().reverse()
     const formatted = dates.map(formatDateShort).filter((d): d is string => Boolean(d))
     if (formatted.length === 0) return null
-    return <span className="block truncate text-neutral-300">{formatted.join(', ')}</span>
+    return (
+      <FitRow
+        title={formatted.join(', ')}
+        items={formatted.map((d, i) => ({ key: `${d}-${i}`, node: <span className="text-neutral-300">{d}{i < formatted.length - 1 ? ',' : ''}</span> }))}
+      />
+    )
   }
 
   if (property.type === 'select') {
@@ -278,16 +358,15 @@ function Cell({ property, value, optionMaps }: { property: PropertyDef; value: P
     const opts = ids.map((id) => propMap?.get(id)).filter(Boolean)
     if (opts.length === 0) return null
     return (
-      <div className="flex flex-nowrap gap-1 overflow-hidden">
-        {opts.map((o) => (
-          <OptionBadge key={o!.id} label={o!.label} colorIndex={o!.colorIndex} image={o!.image} />
-        ))}
-      </div>
+      <FitRow
+        title={opts.map((o) => o!.label).join(', ')}
+        items={opts.map((o) => ({ key: o!.id, node: <OptionBadge label={o!.label} colorIndex={o!.colorIndex} image={o!.image} /> }))}
+      />
     )
   }
 
   if (property.type === 'image') {
-    return <img src={value as string} alt="" className="h-8 w-6 object-cover rounded" />
+    return <img src={value as string} alt="" loading="lazy" className={`${roomy ? 'h-12 w-8' : 'h-8 w-6'} object-cover rounded`} />
   }
 
   if (property.type === 'url') {
@@ -350,10 +429,13 @@ function useColumnResize(onResize: (propertyId: string, width: number) => void) 
 // isteği: "tablo tablo olarak durmasın sayfayı kullansın"), bu yüzden görünürlük hesap edilirken
 // bir konteynerin kendi scrollTop'u değil, tablonun sayfa içindeki konumu + PENCERENİN kaydırma
 // konumu kullanılıyor.
-const ROW_HEIGHT = 37 // h-9 (36px) hücre içeriği + 1px'lik üst çizgi (border-t)
+// Satır yüksekliği = hücre içeriği + 1px'lik üst çizgi (border-t). "Sıkı" h-9 (36px), "Rahat" h-14 (56px) —
+// sanal liste (useVirtualRows) ve satıra kaydırma bu değerle hesaplandığı için ikisi hep eşleşmeli.
+const ROW_HEIGHT = 37
+const ROW_HEIGHT_ROOMY = 57
 const OVERSCAN = 10
 
-function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, rowCount: number) {
+function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, rowCount: number, rowHeight: number) {
   const [range, setRange] = useState({ start: 0, end: Math.min(rowCount, 60) })
 
   useEffect(() => {
@@ -363,8 +445,8 @@ function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, ro
       const rect = el.getBoundingClientRect()
       const visibleTop = Math.max(0, -rect.top)
       const visibleBottom = visibleTop + window.innerHeight
-      const start = Math.max(0, Math.floor(visibleTop / ROW_HEIGHT) - OVERSCAN)
-      const end = Math.min(rowCount, Math.ceil(visibleBottom / ROW_HEIGHT) + OVERSCAN)
+      const start = Math.max(0, Math.floor(visibleTop / rowHeight) - OVERSCAN)
+      const end = Math.min(rowCount, Math.ceil(visibleBottom / rowHeight) + OVERSCAN)
       setRange((prev) => (prev.start === start && prev.end === end ? prev : { start, end }))
     }
     update()
@@ -374,7 +456,7 @@ function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, ro
       window.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
     }
-  }, [containerRef, rowCount])
+  }, [containerRef, rowCount, rowHeight])
 
   return range
 }
@@ -447,6 +529,8 @@ const BoardTable = forwardRef<
     onSetTitleImageProperty: (propertyId: string | null) => void
     onSetPropertyRole: (propertyId: string, role: RoleKey | null) => void
     onSetStatusOption: (key: StatusKey, optionId: string) => void
+    // Satır sıklığı: 'siki' (eskisi gibi) ya da 'rahat' (daha yüksek satır, daha büyük poster).
+    density?: 'rahat' | 'siki'
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -485,9 +569,13 @@ const BoardTable = forwardRef<
     onSetPropertyRole,
     onSetStatusOption,
     onFetchTmdb,
+    density = 'siki',
   },
   ref,
 ) {
+  const roomy = density === 'rahat'
+  const rowH = roomy ? ROW_HEIGHT_ROOMY : ROW_HEIGHT
+  const cellH = roomy ? 'h-14' : 'h-9'
   const { confirm, notify } = useToast()
   const [showAddCol, setShowAddCol] = useState(false)
   const [menuFor, setMenuFor] = useState<string | null>(null)
@@ -586,7 +674,7 @@ const BoardTable = forwardRef<
 
   const { liveWidth, startResize } = useColumnResize(onResizeProperty)
   const optionMaps = useMemo(() => buildOptionMaps(board.properties), [board.properties])
-  const { start: visibleStart, end: visibleEnd } = useVirtualRows(scrollContainerRef, rows.length)
+  const { start: visibleStart, end: visibleEnd } = useVirtualRows(scrollContainerRef, rows.length, rowH)
   const visibleRows = rows.slice(visibleStart, visibleEnd)
 
   useImperativeHandle(
@@ -596,19 +684,22 @@ const BoardTable = forwardRef<
         const index = rows.findIndex((r) => r.id === rowId)
         if (index === -1 || !scrollContainerRef.current) return
         const rect = scrollContainerRef.current.getBoundingClientRect()
-        const rowTop = rect.top + window.scrollY + index * ROW_HEIGHT
+        const rowTop = rect.top + window.scrollY + index * rowH
         // Sticky navbar (64px) + tablonun kendi sticky başlığı (37px) satırın üstünü
         // kapatmasın diye biraz pay bırakılıyor. `behavior: 'smooth'` bazı ortamlarda
         // (ör. otomatik/uzaktan kontrollü tarayıcılarda) sessizce hiç kaydırmıyor —
         // güvenilir olsun diye anlık (varsayılan) kaydırma kullanılıyor.
-        window.scrollTo(0, Math.max(0, rowTop - 64 - ROW_HEIGHT - 16))
+        window.scrollTo(0, Math.max(0, rowTop - 64 - rowH - 16))
       },
     }),
-    [rows],
+    [rows, rowH],
   )
 
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const otherProps = board.properties.filter((p) => p.id !== board.titlePropertyId && !hiddenColumnIds.has(p.id))
+  // Adın solundaki küçük afiş: "Poster" görevindeki sütun, yoksa kapak görseli sütunu.
+  const thumbProp =
+    resolveRole(board, 'poster') ?? board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
 
   // Başlığı dolu olan her kayıtta TMDB butonu gösterilir — yeni eklenmiş, başka hiçbir
   // alanı doldurulmamış bir kayıtta bile ilk çekimi bu tetikleyebilsin diye (film/dizi
@@ -651,10 +742,16 @@ const BoardTable = forwardRef<
     onReorderProperties(titleProp ? [titleProp.id, ...ids] : ids)
   }
 
-  function headerCell(p: PropertyDef, fallback: number, reorderable: boolean) {
+  // Solda sabit kalan sütunlar (seçim/tutamaç + başlık): sağa kaydırınca hangi satırda olduğun kaybolmasın
+  // diye yerinde duruyorlar. Arka planları dolu olmalı ki altından kayan hücreler görünmesin.
+  const STICKY_TITLE_STYLE = { position: 'sticky' as const, left: HANDLE_COLUMN_WIDTH, zIndex: 2 }
+  const STICKY_HANDLE_STYLE = { position: 'sticky' as const, left: 0, zIndex: 2 }
+
+  function headerCell(p: PropertyDef, fallback: number, reorderable: boolean, sticky = false) {
     return (
       <th
         key={p.id}
+        style={sticky ? STICKY_TITLE_STYLE : undefined}
         draggable={reorderable}
         onDragStart={reorderable ? () => setDraggedId(p.id) : undefined}
         onDragOver={reorderable ? (e) => e.preventDefault() : undefined}
@@ -707,8 +804,8 @@ const BoardTable = forwardRef<
           onClick={() => onUpdateCell(row.id, p.id, !row.values[p.id])}
           className="px-3 overflow-hidden cursor-pointer border-r border-neutral-800"
         >
-          <div className="h-9 flex items-center overflow-hidden">
-            <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} />
+          <div className={`${cellH} flex items-center overflow-hidden`}>
+            <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} roomy={roomy} />
           </div>
         </td>
       )
@@ -735,14 +832,18 @@ const BoardTable = forwardRef<
         onClick={() => setEditingCell({ rowId: row.id, propertyId: p.id })}
         className="px-3 overflow-hidden cursor-pointer hover:bg-neutral-800/40 border-r border-neutral-800"
       >
-        <div className="h-9 flex items-center overflow-hidden">
-          <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} />
+        <div className={`${cellH} flex items-center overflow-hidden`}>
+          <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} roomy={roomy} />
         </div>
       </td>
     )
   }
 
   const totalColumns = 1 + (titleProp ? 1 : 0) + otherProps.length + 1
+  // Sabit sütunların dolu arka planı — satırın kendi hover/seçili rengine uyar.
+  function stickyBg(selected: boolean) {
+    return selected ? 'bg-neutral-900' : 'bg-neutral-950 group-hover:bg-neutral-900'
+  }
 
   return (
     // Başlık, gövde ve alt kaydırma çubuğu ÜÇ AYRI yatay-kaydırmalı kutu, JS ile senkronize
@@ -791,7 +892,7 @@ const BoardTable = forwardRef<
           {renderColgroup()}
           <thead className="text-neutral-400 text-xs uppercase">
             <tr>
-              <th className="bg-neutral-900 px-2.5">
+              <th className="bg-neutral-900 px-2.5" style={STICKY_HANDLE_STYLE}>
                 <Checkbox
                   checked={allSelected}
                   indeterminate={selectedRowIds.size > 0 && !allSelected}
@@ -799,7 +900,7 @@ const BoardTable = forwardRef<
                   label="Tümünü seç"
                 />
               </th>
-              {titleProp && headerCell(titleProp, TITLE_DEFAULT_WIDTH, false)}
+              {titleProp && headerCell(titleProp, TITLE_DEFAULT_WIDTH, false, true)}
               {otherProps.map((p) => headerCell(p, DEFAULT_COLUMN_WIDTH, true))}
               <th className="bg-neutral-900 px-2 py-2 text-right">
                 <button
@@ -825,16 +926,16 @@ const BoardTable = forwardRef<
           {renderColgroup()}
           <tbody>
           {visibleStart > 0 && (
-            <tr aria-hidden style={{ height: visibleStart * ROW_HEIGHT }}>
+            <tr aria-hidden style={{ height: visibleStart * rowH }}>
               <td colSpan={totalColumns} />
             </tr>
           )}
           {visibleRows.map((row) => {
             const isSelected = selectedRowIds.has(row.id)
             return (
-            <tr key={row.id} className={`group border-t border-neutral-800 hover:bg-neutral-900/60 ${isSelected ? 'bg-sky-500/5' : ''}`}>
-              <td className="px-1.5">
-                <div className="h-9 flex items-center gap-1">
+            <tr key={row.id} className={`group border-t border-neutral-800 hover:bg-neutral-900 ${isSelected ? 'bg-sky-500/5' : ''}`}>
+              <td className={`px-1.5 ${stickyBg(isSelected)}`} style={STICKY_HANDLE_STYLE}>
+                <div className={`${cellH} flex items-center gap-1`}>
                   <Checkbox
                     checked={isSelected}
                     onChange={() => toggleSelectRow(row.id)}
@@ -864,7 +965,7 @@ const BoardTable = forwardRef<
                   const isEditingThis = editingCell?.rowId === row.id && editingCell.propertyId === titleProp.id
                   if (isEditingThis && INLINE_TYPES.has(titleProp.type)) {
                     return (
-                      <td key={titleProp.id} className="px-1 border-r border-neutral-800">
+                      <td key={titleProp.id} className={`px-1 border-r border-neutral-800 ${stickyBg(isSelected)}`} style={STICKY_TITLE_STYLE}>
                         <InlineValueEditor
                           property={titleProp}
                           value={row.values[titleProp.id]}
@@ -880,9 +981,17 @@ const BoardTable = forwardRef<
                         cellRefs.current[key] = el
                       }}
                       onClick={() => setEditingCell({ rowId: row.id, propertyId: titleProp.id })}
-                      className="px-3 text-neutral-100 font-medium overflow-hidden cursor-pointer hover:bg-neutral-800/40 border-r border-neutral-800"
+                      style={STICKY_TITLE_STYLE}
+                      className={`px-3 text-neutral-100 font-medium overflow-hidden cursor-pointer border-r border-neutral-800 shadow-[6px_0_8px_-6px_rgba(0,0,0,0.45)] ${stickyBg(isSelected)}`}
                     >
-                      <div className="h-9 flex items-center overflow-hidden">
+                      <div className={`${cellH} flex items-center gap-2.5 overflow-hidden`}>
+                        {thumbProp && (
+                          <span className={`${roomy ? 'h-12 w-8' : 'h-7 w-5'} shrink-0 rounded overflow-hidden bg-neutral-800`}>
+                            {typeof row.values[thumbProp.id] === 'string' && row.values[thumbProp.id] ? (
+                              <img src={row.values[thumbProp.id] as string} alt="" loading="lazy" className="h-full w-full object-cover" />
+                            ) : null}
+                          </span>
+                        )}
                         <span className="block truncate">{titleText(titleProp, row.values[titleProp.id])}</span>
                       </div>
                     </td>
@@ -894,7 +1003,7 @@ const BoardTable = forwardRef<
             )
           })}
           {visibleEnd < rows.length && (
-            <tr aria-hidden style={{ height: (rows.length - visibleEnd) * ROW_HEIGHT }}>
+            <tr aria-hidden style={{ height: (rows.length - visibleEnd) * rowH }}>
               <td colSpan={totalColumns} />
             </tr>
           )}

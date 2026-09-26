@@ -234,13 +234,13 @@ export default function MoodRowEditor({
                 return (
                 <div
                   key={m.id}
-                  className={`flex items-center gap-1.5 text-xs bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-neutral-300 transition ${
+                  className={`flex items-center gap-2 text-sm bg-neutral-800/70 border border-neutral-700/70 hover:border-neutral-600 rounded-xl px-2.5 py-2 text-neutral-200 transition ${
                     enabled ? '' : 'opacity-50'
                   }`}
                 >
                   <ToggleSwitch checked={enabled} onChange={() => toggleMoodEnabled(m.id)} label={`${m.name} modunu göster`} />
                   {m.image ? (
-                    <img src={m.image} alt="" className="h-6 w-6 object-contain shrink-0" />
+                    <img src={m.image} alt="" className="h-8 w-8 object-contain shrink-0" />
                   ) : (
                     <span className="h-6 w-6 shrink-0 rounded bg-neutral-900" />
                   )}

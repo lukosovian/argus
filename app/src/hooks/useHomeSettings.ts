@@ -67,7 +67,12 @@ export function useHomeSettings() {
   const settings = current ? snap.settings : emptyHomeSettings
   const loading = !current || snap.loading
 
+  // Ayarlar bu profil için henüz yüklenmediyse (yükleniyor ya da profil yeni değişti) ekranda görünen
+  // şey gerçek ayarlar değil, boş varsayılanlar (emptyHomeSettings). O sırada bir kayıt gelirse dosyanın
+  // üzerine BOŞ ayarlar yazılıyordu — kullanıcının menü sayfaları, bölümleri ve modları iki kez silindi
+  // (26 Eylül 2026). Bu yüzden yükleme bitmeden hiçbir kayıt yapılmıyor.
   async function saveSettings(next: HomeSettings) {
+    if (store.loading || store.profileId !== activeProfileId) return
     await api.saveHomeSettings(next)
     setStore({ settings: next })
   }
@@ -77,7 +82,7 @@ export function useHomeSettings() {
   // aynı tek yerden çağrılıyor. Zaten bir arşiv seçiliyse hiç dokunmaz — kullanıcının bilinçli
   // seçimini asla ezmez, sadece "arşiv oluşturdum ama ana sayfa hâlâ boş" tuzağını kapatır.
   async function selectBoardIfNone(boardId: string) {
-    if (store.settings.boardId) return
+    if (store.loading || store.settings.boardId) return
     await saveSettings({ ...store.settings, boardId })
   }
 

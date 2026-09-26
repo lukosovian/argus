@@ -34,7 +34,15 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 function ChevronDownIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+    >
       <path d="m6 9 6 6 6-6" />
     </svg>
   )
@@ -42,7 +50,15 @@ function ChevronDownIcon() {
 
 function ChevronLeftIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-8 w-8"
+    >
       <path d="m15 6-6 6 6 6" />
     </svg>
   )
@@ -50,7 +66,15 @@ function ChevronLeftIcon() {
 
 function ChevronRightIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-8 w-8"
+    >
       <path d="m9 6 6 6-6 6" />
     </svg>
   )
@@ -176,11 +200,7 @@ function MoodCard({
         </div>
         {hovering && (
           <div className="bg-neutral-900 rounded-b-lg px-2.5 py-2 flex items-center justify-between gap-1">
-            {meta.length > 0 ? (
-              <p className="text-[14px] font-bold text-neutral-400 line-clamp-2">{meta.join(' • ')}</p>
-            ) : (
-              <span />
-            )}
+            {meta.length > 0 ? <p className="text-[14px] font-bold text-neutral-400 line-clamp-2">{meta.join(' • ')}</p> : <span />}
             <span
               style={{ background: BRAND_GRADIENT }}
               className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full text-white"
@@ -258,6 +278,7 @@ export default function MoodRow({
   board,
   rows,
   onOpenDetail,
+  titleClass,
 }: {
   title: string
   moods: Mood[]
@@ -266,6 +287,8 @@ export default function MoodRow({
   // filtresine göre daraltılıp o havuzdan tek bir kayıt seçiyor.
   rows: Row[]
   onOpenDetail: (row: Row) => void
+  // Satır başlığı boyutu (bkz. lib/rowMeta.ts rowTitleClass)
+  titleClass?: string
 }) {
   const { activeProfileId } = useProfiles()
   const { theme } = useThemeMode()
@@ -312,7 +335,7 @@ export default function MoodRow({
 
   return (
     <div className="group/row">
-      {title && <h2 className="text-xl font-semibold text-neutral-200 mb-2">{title}</h2>}
+      {title && <h2 className={`${titleClass ?? 'text-xl font-semibold text-neutral-200'} mb-2`}>{title}</h2>}
       {/* `flow-root`: bkz. HomeRow'daki aynı düzeltme — çıplak bir `relative` div, tek
           çocuğunun -mt/-mb marjlarını dışarı sızdırıp kendi yüksekliğini kart yerine
           dolgulu kutunun tam boyuna eşitliyordu. */}

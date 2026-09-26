@@ -27,7 +27,17 @@ function ep(s: number, e: number) {
 // Ana sayfanın en üstündeki "Yeni Bölümler" satırı: Durum'u "İzleniyor" olan dizilerden yeni
 // bölümü çıkmış ya da bu hafta çıkacak olanlar (kurallar için bkz. server'daki /new-episodes).
 // Hiç sonuç yoksa (ya da TMDB anahtarı yoksa) satır hiç görünmüyor.
-export default function NewEpisodesRow({ board, rows, onOpenDetail }: { board: Board; rows: Row[]; onOpenDetail: (row: Row) => void }) {
+export default function NewEpisodesRow({
+  board,
+  rows,
+  onOpenDetail,
+  titleClass,
+}: {
+  board: Board
+  rows: Row[]
+  onOpenDetail: (row: Row) => void
+  titleClass?: string
+}) {
   const [items, setItems] = useState<NewEpisodeItem[]>([])
 
   useEffect(() => {
@@ -59,13 +69,12 @@ export default function NewEpisodesRow({ board, rows, onOpenDetail }: { board: B
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-neutral-200 mb-2">Yeni Bölümler</h2>
+      <h2 className={`${titleClass ?? 'text-xl font-semibold text-neutral-200'} mb-2`}>Yeni Bölümler</h2>
       <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
         {shown.map((item) => {
           const row = byId.get(item.rowId)!
           const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
-          const image =
-            [coverProp, bannerProp, posterProp].map((p) => (p ? (row.values[p.id] as string) : '')).find(Boolean) ?? ''
+          const image = [coverProp, bannerProp, posterProp].map((p) => (p ? (row.values[p.id] as string) : '')).find(Boolean) ?? ''
 
           let headline: string
           if (item.tracking && item.unwatchedCount > 0) {
@@ -79,13 +88,21 @@ export default function NewEpisodesRow({ board, rows, onOpenDetail }: { board: B
           }
           const details: string[] = []
           if (item.tracking && item.nextToWatch) details.push(`Sıradaki: ${ep(item.nextToWatch.season, item.nextToWatch.episode)}`)
-          if (item.latestIsNew && item.latest.airDate) details.push(`${ep(item.latest.season, item.latest.episode)} ${friendlyDate(item.latest.airDate)} çıktı`)
+          if (item.latestIsNew && item.latest.airDate)
+            details.push(`${ep(item.latest.season, item.latest.episode)} ${friendlyDate(item.latest.airDate)} çıktı`)
           if (item.upcoming) details.push(`${ep(item.upcoming.season, item.upcoming.episode)} ${friendlyDate(item.upcoming.airDate)}`)
 
           return (
             <button key={item.rowId} onClick={() => onOpenDetail(row)} className="w-64 shrink-0 text-left group">
               <div className="relative aspect-video rounded-lg overflow-hidden bg-neutral-800">
-                {image && <img src={image} alt={title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />}
+                {image && (
+                  <img
+                    src={image}
+                    alt={title}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                  />
+                )}
                 <span className="absolute top-2 left-2 text-[11px] font-semibold text-white bg-[#00c0fa] rounded px-2 py-0.5 shadow">
                   {headline}
                 </span>

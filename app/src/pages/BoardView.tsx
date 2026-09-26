@@ -27,6 +27,7 @@ import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { OPTION_COLORS } from '../types'
 import {
   BulkRefreshIcon,
   ColumnsIcon,
@@ -128,6 +129,8 @@ function TmdbFieldsPopover({
 
 // Toolbar ikon butonları (arama/filtre/sırala) için ortak görünüm — ikisi de "kapalıyken
 // ikon, tıklanınca genişleyen" mantığıyla çalışıyor (bkz. GlobalSearch.tsx'teki aynı desen).
+// Kullanıcı ikonların ne işe yaradığının belli olmadığını söyleyince (26 Eylül 2026) üzerine gelince
+// altta küçük bir ad etiketi çıkıyor — tarayıcının geç açılan kendi ipucu (title) yerine anında.
 function ToolbarIconButton({
   onClick,
   title,
@@ -139,16 +142,38 @@ function ToolbarIconButton({
   active?: boolean
   children: React.ReactNode
 }) {
+  const short = title.split(' — ')[0]
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`h-9 w-9 flex items-center justify-center rounded-lg transition ${
-        active ? 'text-[#00c0fa] bg-[#015eea]/10' : 'text-neutral-400 hover:text-[#00c0fa] hover:bg-neutral-800'
-      }`}
-    >
-      {children}
-    </button>
+    <span className="relative group/tip inline-flex">
+      <button
+        onClick={onClick}
+        aria-label={title}
+        className={`h-9 w-9 flex items-center justify-center rounded-lg transition ${
+          active ? 'text-[#00c0fa] bg-[#015eea]/10' : 'text-neutral-400 hover:text-[#00c0fa] hover:bg-neutral-800'
+        }`}
+      >
+        {children}
+      </button>
+      <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 z-40 whitespace-nowrap rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-200 shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity delay-150">
+        {short}
+      </span>
+    </span>
+  )
+}
+
+function ToolbarDivider() {
+  return <span aria-hidden className="mx-1 h-6 w-px bg-neutral-800" />
+}
+
+function DensityIcon({ roomy }: { roomy: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="h-4 w-4">
+      {roomy ? (
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      ) : (
+        <path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16" />
+      )}
+    </svg>
   )
 }
 
@@ -500,6 +525,27 @@ export default function BoardView() {
   // Hangi sütunların kapalı olduğu bu tarayıcıda kalıcı (localStorage) — sekme/tarayıcı/
   // bilgisayar kapansa da kaybolmasın diye. Arşive özel (id bazlı anahtar): farklı arşivlerin
   // sütunları birbirini etkilemesin.
+  // Satır sıklığı ("Rahat" / "Sıkı") — gizli sütunlar gibi bu tarayıcıda, arşive özel saklanıyor.
+  const densityKey = id ? `argus_table_density_${id}` : null
+  const [density, setDensity] = useState<'rahat' | 'siki'>('siki')
+  useEffect(() => {
+    if (!densityKey) return
+    try {
+      setDensity(localStorage.getItem(densityKey) === 'rahat' ? 'rahat' : 'siki')
+    } catch {
+      setDensity('siki')
+    }
+  }, [densityKey])
+  function toggleDensity() {
+    const next = density === 'rahat' ? 'siki' : 'rahat'
+    setDensity(next)
+    try {
+      if (densityKey) localStorage.setItem(densityKey, next)
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
+
   const hiddenColumnsKey = id ? `argus_hidden_columns_${id}` : null
   const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<string>>(new Set())
   useEffect(() => {
@@ -685,6 +731,21 @@ export default function BoardView() {
     }
     return maps
   }, [board])
+
+  // Başlıktaki "727 kayıt · 308 izlendi…" ve üstteki tek tıkla durum filtresi: Durum görevindeki sütunun
+  // seçenekleri, sütundaki kendi sırasıyla ve kayıt sayılarıyla (filtreden bağımsız, bütün kayıtlar).
+  const statusProp = board ? resolveRole(board, 'durum') : undefined
+  const statusSummary = useMemo(() => {
+    if (!statusProp) return []
+    const counts = new Map<string, number>()
+    for (const r of rows) {
+      const v = r.values[statusProp.id]
+      if (typeof v === 'string' && v) counts.set(v, (counts.get(v) ?? 0) + 1)
+    }
+    return (statusProp.options ?? [])
+      .map((o) => ({ id: o.id as string | null, label: o.label, count: counts.get(o.id) ?? 0, colorIndex: o.colorIndex }))
+      .filter((o) => o.count > 0)
+  }, [rows, statusProp])
 
   const filteredRows = useMemo(() => {
     if (!board) return []
@@ -1114,19 +1175,24 @@ export default function BoardView() {
 
   return (
     <div className="px-4 py-6">
-      <button
-        onClick={() => navigate('/arsivlerim')}
-        className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-lg px-3 py-1.5 mb-3 transition"
-      >
-        <ArrowLeftIcon />
-        Arşivlerim
-      </button>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="flex-1 min-w-0">
-          <BoardNameInput name={board.name} onSave={(name) => saveBoard({ name })} />
-        </div>
+      <section className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-4 sm:px-5 py-4 mb-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <button
+            onClick={() => navigate('/arsivlerim')}
+            title="Arşivlerime dön"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-neutral-800 text-neutral-400 hover:text-neutral-50 hover:border-neutral-600 transition"
+          >
+            <ArrowLeftIcon />
+          </button>
+          <div className="flex-1 min-w-[12rem]">
+            <BoardNameInput name={board.name} onSave={(name) => saveBoard({ name })} />
+            <p className="text-xs text-neutral-500 mt-0.5">
+              {rows.length} kayıt
+              {statusSummary.map((s) => ` · ${s.count} ${s.label.toLocaleLowerCase('tr')}`).join('')}
+            </p>
+          </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex flex-wrap items-center gap-1">
           <TableSearchInput onSearch={setSearch} />
           <FilterPopover
             filterableProps={filterableProps}
@@ -1154,16 +1220,20 @@ export default function BoardView() {
             hiddenIds={hiddenColumnIds}
             onToggle={toggleColumnHidden}
           />
+          <ToolbarIconButton
+            onClick={toggleDensity}
+            title={density === 'rahat' ? 'Satırlar: Rahat — sıkıya geçmek için tıkla' : 'Satırlar: Sıkı — rahata geçmek için tıkla'}
+            active={density === 'rahat'}
+          >
+            <DensityIcon roomy={density === 'rahat'} />
+          </ToolbarIconButton>
+          <ToolbarDivider />
           <TmdbFieldsPopover
             excludedKeys={tmdbExcludeFields}
             onToggle={toggleTmdbField}
             overwriteExisting={tmdbOverwriteExisting}
             onToggleOverwrite={toggleTmdbOverwrite}
           />
-          <ToolbarIconButton onClick={() => setHealthOpen(true)} title="Sağlık Kontrolü — sorunlu kayıtları listele">
-            <HealthIcon />
-          </ToolbarIconButton>
-
           {bulkUpdating ? (
             <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
               <BulkRefreshIcon spinning />
@@ -1178,6 +1248,10 @@ export default function BoardView() {
             </ToolbarIconButton>
           )}
 
+          <ToolbarDivider />
+          <ToolbarIconButton onClick={() => setHealthOpen(true)} title="Sağlık Kontrolü — sorunlu kayıtları listele">
+            <HealthIcon />
+          </ToolbarIconButton>
           <ToolbarIconButton onClick={() => setDiscoverOpen(true)} title="Keşfet — arşivinde olmayan içerikleri bul">
             <CompassIcon />
           </ToolbarIconButton>
@@ -1189,12 +1263,35 @@ export default function BoardView() {
           <button
             onClick={createRow}
             style={primaryButtonStyle}
-            className={`text-sm px-3 py-1.5 rounded-lg whitespace-nowrap ${PRIMARY_BUTTON}`}
+            className={`ml-1 text-sm px-3 py-1.5 rounded-lg whitespace-nowrap ${PRIMARY_BUTTON}`}
           >
             + Yeni Ekle
           </button>
         </div>
-      </div>
+        </div>
+      </section>
+
+      {statusProp && statusSummary.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-4">
+          {[{ id: null as string | null, label: 'Hepsi', count: rows.length, colorIndex: -1 }, ...statusSummary].map((s) => {
+            const active = s.id === null ? !filterPropertyId : filterPropertyId === statusProp.id && filterOptionId === s.id
+            const c = s.colorIndex >= 0 ? OPTION_COLORS[s.colorIndex % OPTION_COLORS.length] : null
+            return (
+              <button
+                key={s.id ?? 'hepsi'}
+                onClick={() => (s.id === null ? setFilter(null, null) : setFilter(statusProp.id, s.id))}
+                className={`shrink-0 inline-flex items-center gap-2 text-sm rounded-full border px-3.5 py-1.5 transition ${
+                  active ? 'border-[#00c0fa]/50 bg-[#00c0fa]/10 text-neutral-50' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100 hover:border-neutral-600'
+                }`}
+              >
+                {c && <span className={`h-2 w-2 rounded-full border ${c.bg} ${c.border}`} />}
+                {s.label}
+                <span className={`text-xs tabular-nums ${active ? 'text-[#00c0fa]' : 'text-neutral-500'}`}>{s.count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {rowsLoading ? (
         <p className="text-neutral-500 text-sm">Yükleniyor...</p>
@@ -1231,7 +1328,22 @@ export default function BoardView() {
           onSetPropertyRole={setPropertyRole}
           onSetStatusOption={setStatusOption}
           onFetchTmdb={fetchTmdb}
+          density={density}
         />
+      )}
+
+      {!rowsLoading && filteredRows.length !== rows.length && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-sm text-neutral-500">
+          <span>
+            {rows.length} kayıttan <span className="text-neutral-200 font-medium">{filteredRows.length}</span> tanesi gösteriliyor
+          </span>
+          {filterPropertyId && (
+            <button onClick={() => setFilter(null, null)} className="text-[#00c0fa] hover:underline">
+              Filtreyi temizle
+            </button>
+          )}
+          {search && <span className="text-neutral-600">(arama açık — büyüteçteki kutuyu boşaltınca hepsi gelir)</span>}
+        </div>
       )}
 
       {detailRow && (

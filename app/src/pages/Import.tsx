@@ -10,6 +10,8 @@ import { api } from '../lib/api'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import HelpHint from '../components/HelpHint'
 import ToggleSwitch from '../components/ToggleSwitch'
+import FileDrop from '../components/FileDrop'
+import { SettingsTabs } from '../components/settings/SettingsUi'
 import Select from '../components/Select'
 
 function normalizeMatchText(s: string): string {
@@ -118,12 +120,12 @@ function ExistingBoardImagesPanel() {
         <>
           <div>
             <label className="block text-xs text-neutral-400 mb-1">Görsel klasörünü seç</label>
-            <input
-              type="file"
-              multiple
+            <FileDrop
               accept="image/*"
-              onChange={(e) => e.target.files && handleFolder(e.target.files)}
-              className="block text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-neutral-200"
+              multiple
+              title="Görselleri seç ya da buraya sürükle"
+              hint="Klasördeki görsellerin hepsini seçmek için Ctrl+A"
+              onFiles={(files) => handleFolder(files)}
             />
             {imageFiles.size > 0 && <p className="text-sm text-emerald-400 mt-2">✓ {imageFiles.size} dosya bulundu.</p>}
             <p className="text-xs text-neutral-600 mt-1">
@@ -452,24 +454,16 @@ export default function Import() {
         sonradan toplu görsel ekle.
       </p>
 
-      <div className="flex gap-2 mb-6 border-b border-neutral-800">
-        {(
+      <SettingsTabs
+        value={mode}
+        onChange={setMode}
+        tabs={
           [
             ['yeni', 'Yeni Arşiv'],
             ['gorsel', 'Var Olan Arşive Görsel Ekle'],
           ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setMode(key)}
-            className={`text-sm font-semibold px-4 py-2.5 -mb-px border-b-2 transition ${
-              mode === key ? 'text-neutral-50 border-[#00c0fa]' : 'text-neutral-400 border-transparent hover:text-neutral-200'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        }
+      />
 
       {mode === 'gorsel' ? (
         <ExistingBoardImagesPanel />
@@ -489,11 +483,11 @@ export default function Import() {
       </div>
 
       {rawRows.length === 0 ? (
-        <input
-          type="file"
+        <FileDrop
           accept=".csv"
-          onChange={(e) => e.target.files?.[0] && handleCsv(e.target.files[0])}
-          className="block text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-neutral-200"
+          title="CSV dosyasını seç ya da buraya sürükle"
+          hint="Notion'dan, Excel'den ya da başka bir yerden dışa aktardığın .csv dosyası"
+          onFiles={(files) => handleCsv(files[0])}
         />
       ) : (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
@@ -524,17 +518,15 @@ export default function Import() {
                 Aşağıya tıklayınca açılan pencerede görsellerin olduğu klasöre gir — sadece görseller listelenecek.
                 Hepsini seçmek için <strong>Ctrl+A</strong> yap, sonra "Aç"a bas.
               </p>
-              <input
-                type="file"
-                multiple
+              <FileDrop
                 accept="image/*"
-                onChange={(e) => {
-                  if (e.target.files) {
-                    handleFolder(e.target.files)
-                    setSkipImages(false)
-                  }
+                multiple
+                title="Görselleri seç ya da buraya sürükle"
+                hint="Klasördeki görsellerin hepsini seçmek için Ctrl+A"
+                onFiles={(files) => {
+                  handleFolder(files)
+                  setSkipImages(false)
                 }}
-                className="block text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-neutral-200"
               />
               {imageFiles.size > 0 ? (
                 <p className="text-sm text-emerald-400 mt-2">✓ {imageFiles.size} dosya bulundu, görseller eşleştirilecek.</p>

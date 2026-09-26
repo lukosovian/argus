@@ -260,6 +260,19 @@ export const HOME_LAYOUT_LABELS: Record<HomeLayout, string> = {
   izgara: 'Dikey',
 }
 
+// Vitrinin görünümü — kart düzeninden (HomeLayout) bağımsız. 'klasik': eskiden beri olan, kenarlardan
+// içeride, köşeleri yuvarlak, fragmanlı vitrin. 'sinema': ekranı kenardan kenara kaplayan, menünün
+// arkasına kadar uzanan büyük vitrin. 'slayt': fragman yok, birkaç içerik sırayla değişiyor.
+export type ShowcaseStyle = 'klasik' | 'sinema' | 'slayt'
+
+export const SHOWCASE_STYLE_LABELS: Record<ShowcaseStyle, string> = {
+  klasik: 'Klasik',
+  sinema: 'Sinema',
+  slayt: 'Slayt',
+}
+
+export type RowTitleSize = 'kucuk' | 'orta' | 'buyuk'
+
 export interface HomeSection {
   id: string
   name: string
@@ -415,6 +428,17 @@ export interface HomeSettings {
   // Ana sayfanın en üstündeki "Yeni Bölümler" satırı (İzleniyor durumundaki dizilerin yeni
   // bölümleri). Eski kayıtlarda yok, yoksa açık kabul edilir.
   newEpisodesRow?: boolean
+  // "Yeni Bölümler" satırının ana sayfada kaçıncı satır olacağı (1 = en üstte). Eski kayıtlarda yok,
+  // yoksa 1 (önceki tek davranış: hep en üstte).
+  newEpisodesPosition?: number
+  // "Arşivindeki En İyi 10" satırı — en yüksek puan verilen 10 kayıt, büyük sıra numaralarıyla.
+  // Eski kayıtlarda yok, yoksa kapalı.
+  topRated?: { enabled: boolean; position: number }
+  // Vitrin görünümü (bkz. ShowcaseStyle). Eski kayıtlarda yok, yoksa 'klasik'.
+  showcaseStyle?: ShowcaseStyle
+  // Satır başlıklarının ("Tümü", bölümler, mod satırı…) büyüklüğü. Eski kayıtlarda yok, yoksa 'orta'
+  // (önceki tek boyut).
+  rowTitleSize?: RowTitleSize
   // "Ne İzlesem?" nereden seçsin: 'arsiv' (varsayılan, arşivdeki kayıtlardan) ya da 'tmdb'
   // (TMDB'de olup arşivde OLMAYAN içeriklerden — randomPickerTmdb ayarlarıyla).
   randomPickerSource?: 'arsiv' | 'tmdb'

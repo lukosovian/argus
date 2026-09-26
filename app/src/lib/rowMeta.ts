@@ -1,4 +1,4 @@
-import { ratingAverage, type Board, type Row } from '../types'
+import { ratingAverage, type Board, type Row, type RowTitleSize } from '../types'
 import { resolveRole } from './roles'
 
 type MetaType = 'select' | 'date' | 'multiselect' | 'rating'
@@ -25,9 +25,7 @@ export function metaSummary(
         return y ?? null
       }
       if (p.type === 'multiselect' && Array.isArray(v)) {
-        const labels = v
-          .map((id) => p.options?.find((o) => o.id === id)?.label)
-          .filter((l): l is string => Boolean(l))
+        const labels = v.map((id) => p.options?.find((o) => o.id === id)?.label).filter((l): l is string => Boolean(l))
         return labels.length > 0 ? labels.slice(0, 3).join(', ') : null
       }
       const opt = p.options?.find((o) => o.id === v)
@@ -147,4 +145,12 @@ export function hoverCardMeta(board: Board, row: Row): string[] {
   }
 
   return bits
+}
+
+// Ana sayfadaki satır başlıklarının (Tümü, bölümler, mod satırı, Yeni Bölümler, En İyi 10) boyutu —
+// Ana Sayfa Ayarları › Görünüm › "Satır başlığı boyutu". 'orta' eskiden beri kullanılan boyut.
+export function rowTitleClass(size: RowTitleSize = 'orta'): string {
+  if (size === 'kucuk') return 'text-base font-semibold text-neutral-200'
+  if (size === 'buyuk') return 'text-2xl font-bold tracking-tight text-neutral-50'
+  return 'text-xl font-semibold text-neutral-200'
 }

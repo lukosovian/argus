@@ -202,6 +202,15 @@ export default function SeasonsBrowser({
               }`}
             >
               {s.name || `Sezon ${s.seasonNumber}`}
+              {(() => {
+                const seen = s.episodes.filter((ep) => (watched[episodeKey(s.seasonNumber, ep.episodeNumber)] ?? []).length > 0).length
+                if (seen === 0) return null
+                return (
+                  <span className={`ml-1.5 text-[11px] ${seen === s.episodes.length ? 'text-emerald-400' : 'opacity-60'}`}>
+                    {seen === s.episodes.length ? '✓' : `${seen}/${s.episodes.length}`}
+                  </span>
+                )
+              })()}
             </button>
           ))}
         </div>

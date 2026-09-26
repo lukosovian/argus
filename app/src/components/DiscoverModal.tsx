@@ -3,7 +3,8 @@ import { api, type TmdbCard } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { todayIso } from '../types'
 import { useToast } from '../hooks/useToast'
-import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { BRAND_GRADIENT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { CompassIcon } from './toolbarIcons'
 
 // Arşiv tablosunun araç çubuğundaki pusula — "Keşfet". Kullanıcının fikri: "sayısını
 // belirliycez dizi mi film mi... türünü belirliycez... bizde olmayan tablomuzda olmayan
@@ -233,9 +234,14 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
       >
         <div className="p-6 pb-4 border-b border-neutral-800 space-y-4">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-50">Keşfet</h2>
-              <p className="text-sm text-neutral-500 mt-1">Arşivinde olmayan içerikler. Beğendiğini ekle, istemediğini gizle.</p>
+            <div className="flex items-center gap-3">
+              <span className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-white" style={{ background: BRAND_GRADIENT }}>
+              <CompassIcon className="h-5 w-5" />
+            </span>
+              <div>
+                <h2 className="text-xl font-semibold text-neutral-50">Keşfet</h2>
+                <p className="text-sm text-neutral-500 mt-0.5">Arşivinde olmayan içerikler. Beğendiğini ekle, istemediğini gizle.</p>
+              </div>
             </div>
             <button
               onClick={onClose}

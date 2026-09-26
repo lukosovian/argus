@@ -3,7 +3,6 @@ import { useProfiles } from '../../hooks/useProfiles'
 import { useToast } from '../../hooks/useToast'
 import { api } from '../../lib/api'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
-import HelpHint from '../HelpHint'
 
 // "API" sekmesi — TMDB API anahtarını profil başına burada saklıyoruz (bkz. server/index.js'teki
 // /api-key uçları). Bu anahtar, bir kaydın 🔄 (TMDB'den doldur) butonuna basıldığında ya da
@@ -44,51 +43,53 @@ export default function ApiPanel() {
 
   const dirty = key.trim() !== saved
 
+  // Anahtar ekranda açıkça durmasın — varsayılan gizli, göz simgesiyle görülebilir.
+  const [reveal, setReveal] = useState(false)
+
   return (
-    <div>
-      <h2 className="text-lg font-semibold text-neutral-50 mb-2">API</h2>
-      <p className="text-sm text-neutral-400 mb-5 max-w-xl">
-        Bir kaydı TMDB'den otomatik doldurmak (poster, oyuncular, yönetmen, süre gibi bilgileri kendisi getirmek)
-        istiyorsan buraya kendi TMDB anahtarını girmelisin. Girmezsen ARGUS'un geri kalanı normal çalışmaya devam
-        eder, sadece bu otomatik doldurma özelliği kullanılamaz.
-      </p>
+    <div className="max-w-2xl space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm text-neutral-400 flex-1 min-w-[16rem]">
+          Bir kaydı TMDB'den otomatik doldurmak (poster, oyuncular, yönetmen, süre gibi bilgileri kendisi getirmek) için kendi
+          ücretsiz TMDB anahtarını gir. Girmezsen ARGUS'un geri kalanı normal çalışır, sadece otomatik doldurma kullanılamaz.
+        </p>
+        {!loading && (
+          <span
+            className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border ${
+              saved ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/25' : 'text-amber-400 bg-amber-400/10 border-amber-400/25'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${saved ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            {saved ? 'Bağlı' : 'Anahtar yok'}
+          </span>
+        )}
+      </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 max-w-xl">
-        <div className="flex items-center gap-1.5 mb-2">
-          <label className="block text-sm text-neutral-300">TMDB API Anahtarı</label>
-          <HelpHint>
-            <p className="mb-2">
-              <a
-                href="https://www.themoviedb.org/signup"
-                target="_blank"
-                rel="noreferrer"
-                className="text-sky-400 hover:underline"
-              >
-                themoviedb.org
-              </a>{' '}
-              adresinde ücretsiz bir hesap aç.
-            </p>
-            <p className="mb-2">Hesap Ayarları → API sekmesine git, "API Anahtarı İste"ye bas (kişisel/bireysel kullanım seçilebilir).</p>
-            <p>Sana verilen "API Anahtarı (v3 auth)" değerini kopyalayıp buraya yapıştır.</p>
-          </HelpHint>
-        </div>
-
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
+        <label className="block text-sm font-medium text-neutral-200 mb-2">TMDB API Anahtarı</label>
         {loading ? (
           <p className="text-sm text-neutral-500">Yükleniyor...</p>
         ) : (
           <>
-            <input
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="TMDB API anahtarını buraya yapıştır"
-              className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm mb-1 font-mono"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <p className="text-xs text-neutral-600 mb-4">
-              {saved ? 'Bir anahtar kayıtlı. ' : 'Henüz bir anahtar girilmemiş. '}
-              Bu anahtar sadece bu bilgisayarda, bu profil için saklanır.
-            </p>
+            <div className="relative">
+              <input
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                type={reveal ? 'text' : 'password'}
+                placeholder="TMDB API anahtarını buraya yapıştır"
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-700 pl-3 pr-20 py-2.5 text-neutral-100 outline-none focus:border-[#00c0fa]/60 text-sm font-mono"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button
+                type="button"
+                onClick={() => setReveal((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-neutral-50 px-2 py-1 rounded-md hover:bg-neutral-700 transition"
+              >
+                {reveal ? 'Gizle' : 'Göster'}
+              </button>
+            </div>
+            <p className="text-xs text-neutral-500 mt-1.5 mb-4">Bu anahtar sadece bu bilgisayarda, bu profil için saklanır.</p>
             <button
               onClick={handleSave}
               disabled={!dirty || busy}
@@ -99,6 +100,29 @@ export default function ApiPanel() {
             </button>
           </>
         )}
+      </div>
+
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
+        <p className="text-sm font-medium text-neutral-200 mb-3">Anahtar nasıl alınır?</p>
+        <ol className="space-y-2.5">
+          {[
+            <>
+              <a href="https://www.themoviedb.org/signup" target="_blank" rel="noreferrer" className="text-[#00c0fa] hover:underline">
+                themoviedb.org
+              </a>{' '}
+              adresinde ücretsiz bir hesap aç.
+            </>,
+            <>Hesap Ayarları › API sekmesine git, "API Anahtarı İste"ye bas (kişisel kullanım seçilebilir).</>,
+            <>Sana verilen "API Anahtarı (v3 auth)" değerini kopyalayıp yukarıdaki kutuya yapıştır ve Kaydet'e bas.</>,
+          ].map((t, i) => (
+            <li key={i} className="flex gap-3 text-sm text-neutral-400">
+              <span className="h-5 w-5 shrink-0 rounded-full bg-[#00c0fa]/15 text-[#00c0fa] text-[11px] font-bold flex items-center justify-center mt-px">
+                {i + 1}
+              </span>
+              <span>{t}</span>
+            </li>
+          ))}
+        </ol>
       </div>
     </div>
   )
