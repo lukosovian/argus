@@ -37,6 +37,8 @@ import {
   BildirimVisual,
   TarihAraligiVisual,
   OyuncuPencereVisual,
+  YedekVisual,
+  SeriKisiVisual,
 } from '../components/PatchVisuals'
 interface PatchEntry {
   version: string
@@ -49,6 +51,24 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.9.5',
+    date: '27 Eylül 2026',
+    title: 'Daha hızlı ARGUS, yedekleme, puan hatırlatması, film serileri, oyuncu ve yönetmen sayfası',
+    items: [
+      'ARGUS artık daha hızlı: açılırken arayüz birkaç saniyede hazır hale getiriliyor ve sayfalar o hazır halden açılıyor. Arşiv tablosunun açılışındaki takılma yarıdan fazla azaldı, detay penceresi iki kat hızlı açılıyor. Tarayıcı da ARGUS hazır olunca açılıyor. Kayıtları kaydetmek de biraz hızlandı.',
+      'Yeni: Yedekleme (Ayarlar › Veritabanı › Yedekleme). Bir klasör seçiyorsun — OneDrive ya da Google Drive klasörünü seçersen yedeklerin kendiliğinden buluta da gider. "Şimdi yedek al" ile ya da her gün / her hafta kendiliğinden: önce arşivlerin, ayarların ve geçmişin (birkaç saniye), sonra görsellerin sadece yenileri kopyalanır; ilk yedek uzun sürer, sonrakiler kısa. İş arka planda sürer, bu arada ARGUS\x27u kullanmaya devam edebilirsin. Aynı yerden bir yedeği geri yükleyebilirsin (şu anki verin silinmez, kenara alınır).',
+      'Bir şeyi İzlendi yaptığında (tablodan, takvimden, Ne İzlesem\x27den ya da bir dizinin son bölümünü işaretleyince) puanı boşsa sağ altta küçük bir kart "Kaç puan verirsin?" diye soruyor. "Sonra" ya da "Bir daha sorma" diyebilirsin.',
+      'Film serileri: detay penceresinde film bir serinin parçasıysa (Harry Potter, Transformers...) serinin bütün filmleri sırasıyla çıkıyor — kaçını izlediğin, sıradaki hangisi; arşivinde olmayanları tek tıkla İzlenecek\x27e ekleyebilirsin.',
+      'Oyuncu ve yönetmen sayfası: detay penceresinde bir oyuncuya ya da Bilgiler\x27deki yönetmen adına tıklayınca hayatı, arşivindeki yapımları (izlediklerin işaretli) ve arşivinde olmayan en bilinen işleri geliyor; tek tıkla İzlenecek\x27e ekleyebilir ya da önizlemesine bakabilirsin.',
+      'Arşiv tablosunda arama yapınca önce adı eşleşenler geliyor: "harry" yazınca en üstte Harry Potter filmleri, sonra adında değil de başka bir yerinde (oyuncu, özet...) geçenler.',
+      'TMDB eşleştirmesi iyileşti: aynı adlı eski bir yapım (ör. "Transformers" ararken 1986 çizgi filmi) yanlışlıkla seçilmiyor.',
+    ],
+    visuals: [
+      { caption: 'Yedekleme — 1 klasör seç (OneDrive / Google Drive buluta gider) · 2 arka planda ilerleme · 3 yedekten geri yükle', Visual: YedekVisual },
+      { caption: '1 film serisi: kaçını izledin, eksikleri ekle · 2 oyuncu / yönetmen sayfası · 3 izledikten sonra puan kartı', Visual: SeriKisiVisual },
+    ],
+  },
   {
     version: 'v1.9.4',
     date: '27 Eylül 2026',

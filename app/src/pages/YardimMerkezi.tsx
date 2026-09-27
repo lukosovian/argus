@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { GizliSutunVisual, GuncelleVisual, KesfetVisual, SaglikVisual, YeniBolumlerVisual } from '../components/PatchVisuals'
+import { GizliSutunVisual, GuncelleVisual, KesfetVisual, SaglikVisual, YedekVisual, YeniBolumlerVisual } from '../components/PatchVisuals'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useToast } from '../hooks/useToast'
@@ -629,6 +629,23 @@ const TOPICS: Topic[] = [
     ),
   },
   {
+    group: 'arsiv',
+    icon: <PlayCircleIcon />,
+    title: 'Yedekleme',
+    where: 'Ayarlar › Veritabanı › Yedekleme',
+    text: 'Arşivlerinin, ayarlarının ve görsellerinin bir kopyasını seçtiğin klasöre alır. OneDrive ya da Google Drive klasörünü seçersen yedekler kendiliğinden buluta da gider; bilgisayarına bir şey olsa bile arşivin kaybolmaz.',
+    tips: [
+      '"Şimdi yedek al" ile hemen alırsın; "Her gün" ya da "Her hafta" seçersen ARGUS açıkken kendisi alır.',
+      "İlk yedek görseller yüzünden uzun sürebilir; sonrakilerde sadece yeni görseller kopyalandığı için kısa sürer. Bu arada ARGUS'u kullanmaya devam edebilirsin.",
+      'Listedeki bir yedeğin yanındaki "Geri yükle" ile o güne dönersin; şu anki verin silinmez, kenara alınır.',
+    ],
+    visual: (
+      <VisualCard>
+        <YedekVisual />
+      </VisualCard>
+    ),
+  },
+  {
     group: 'kesfet',
     icon: <SearchIcon />,
     title: 'Arama ve Ne İzlesem?',
@@ -651,7 +668,9 @@ const TOPICS: Topic[] = [
     text: "Kaydın bütün bilgileri tek pencerede: fragman, özet, oyuncu kadrosu (rolleriyle), dizilerde sezon ve bölüm listesi, Türkiye'de hangi platformda izlenebildiği (Nerede İzlenir) ve benzer içerikler.",
     tips: [
       'Sağdaki bilgi sütunu sen aşağı kaydırırken yanında kalır: "Puanın" kartında kriter kriter puanların, "İzleme" kartında izleme tarihlerin ve dizilerde kaç bölüm izlediğin, altında da bilgiler ve Nerede İzlenir görünür.',
-      'Bir oyuncuya tıklayınca oynadığı diğer kayıtları görürsün; "Filtreyi Kaldır ve Geri Dön" seni kaldığın yere geri götürür.',
+      'Bir oyuncuya ya da Bilgiler\'deki yönetmen adına tıklayınca kişinin sayfası açılır: arşivindeki yapımları ve arşivinde olmayan en bilinen işleri; tek tıkla İzlenecek\'e eklersin. "Arşivindekileri listele" ile tabloyu o kişiye göre süzersin.',
+      'Film bir serinin parçasıysa detayda serinin bütün filmleri sırasıyla çıkar: kaçını izlediğin, sıradaki hangisi; eksikleri tek tıkla eklersin.',
+      'Bir şeyi İzlendi yaptığında puanı boşsa sağ altta "Kaç puan verirsin?" kartı çıkar.',
       'Benzer İçerikler\'de bir afişe tıklayınca o içeriğin önizlemesi açılır; "+ İzlenecek" ile tek tıkla eklersin.',
       "Tablodan (göz ikonuyla) açtığında izlediğin bölümleri işaretleyebilir, yeni izleme tarihi ekleyebilir ve Güncelle ile TMDB'den yenileyebilirsin.",
     ],

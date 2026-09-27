@@ -8,6 +8,7 @@ import { builtinMediaTemplate, emptyBoard, instantiateTemplate } from '../../typ
 import Import from '../../pages/Import'
 import TemplatesPanel from './TemplatesPanel'
 import ApiPanel from './ApiPanel'
+import BackupPanel from './BackupPanel'
 import DatabaseHelpModal from './DatabaseHelpModal'
 import Select from '../Select'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
@@ -44,7 +45,7 @@ export default function ArchivesPanel() {
   const { settings, saveSettings, selectBoardIfNone } = useHomeSettings()
   const { confirm } = useToast()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'arsivler' | 'sablonlar' | 'ice-aktar' | 'api'>('arsivler')
+  const [tab, setTab] = useState<'arsivler' | 'sablonlar' | 'ice-aktar' | 'api' | 'yedek'>('arsivler')
   const [helpOpen, setHelpOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -122,6 +123,7 @@ export default function ArchivesPanel() {
             ['sablonlar', 'Şablonlar'],
             ['ice-aktar', 'İçe Aktar'],
             ['api', 'API'],
+            ['yedek', 'Yedekleme'],
           ] as const
         }
       />
@@ -132,6 +134,8 @@ export default function ArchivesPanel() {
         <Import />
       ) : tab === 'api' ? (
         <ApiPanel />
+      ) : tab === 'yedek' ? (
+        <BackupPanel />
       ) : (
         <div>
           <div className="flex items-center justify-between mb-4">

@@ -880,6 +880,11 @@ export default function BoardView() {
 
   const filteredRows = useMemo(() => {
     if (!board) return []
+    // Arama sırası: adı (başlık ya da orijinal adı) aramayla başlayanlar en üstte, sonra adında bir
+    // kelimesi öyle başlayanlar, sonra adının içinde geçenler, en son başka sütunlarda geçenler
+    // ("harry" yazınca Dolittle değil Harry Potter'lar önce gelsin).
+    const nameProps = [board.properties.find((p) => p.id === board.titlePropertyId), resolveRole(board, 'orjinalAdi')].filter(Boolean)
+    const searchRank = new Map<string, number>()
     const result = rows.filter((row) => {
       if (!rowMatchesConditions(row, tableConditions)) return false
       if (search.trim()) {
@@ -899,6 +904,16 @@ export default function BoardView() {
           .toLocaleLowerCase('tr')
         const title = ((row.values[board.titlePropertyId] as string) ?? '').toLocaleLowerCase('tr')
         if (!hay.includes(q) && !title.includes(q)) return false
+        let rank = 4
+        for (const p of nameProps) {
+          const v = row.values[p!.id]
+          const name = (typeof v === 'string' ? v : '').toLocaleLowerCase('tr')
+          if (!name.includes(q)) continue
+          const wordStart = name.split(/[\s:(\-–.,]+/).some((w) => w.startsWith(q))
+          const r = name === q ? 0 : name.startsWith(q) ? 1 : wordStart ? 2 : 3
+          rank = Math.min(rank, r)
+        }
+        searchRank.set(row.id, rank)
       }
       return true
     })
@@ -912,6 +927,10 @@ export default function BoardView() {
         else cmp = String(av).localeCompare(String(bv), 'tr')
         return sortDirection === 'asc' ? cmp : -cmp
       })
+    }
+    if (searchRank.size) {
+      // sort() kararlı: aynı derecedekiler seçili sıralamayı korur
+      result.sort((a, b) => (searchRank.get(a.id) ?? 4) - (searchRank.get(b.id) ?? 4))
     }
     return result
   }, [rows, tableConditions, search, board, sortProperty, sortDirection, searchOptionMaps])

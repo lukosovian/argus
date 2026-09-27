@@ -56,9 +56,22 @@ function titleOf(board, row) {
   return typeof v === 'string' ? v : ''
 }
 
-function findBoard(profileId, boardId) {
-  const boards = readJson(path.join(PROFILES_DIR, profileId, 'boards.json'), [])
-  return (Array.isArray(boards) ? boards : []).find((b) => b.id === boardId) ?? null
+// Arşiv şeması (boards.json, ~2 MB) her kayıt yazımında yeniden okunmasın — dosya değişmediyse hafızadaki
+// kopya kullanılır (sadece başlık bulmak için okunuyor, değiştirilmiyor). Hız ölçümünde fark edildi.
+const boardsCache = new Map()
+export function findBoard(profileId, boardId) {
+  const file = path.join(PROFILES_DIR, profileId, 'boards.json')
+  let stamp = ''
+  try {
+    const st = fs.statSync(file)
+    stamp = st.mtimeMs + ':' + st.size
+  } catch {}
+  let hit = boardsCache.get(file)
+  if (!hit || hit.stamp !== stamp) {
+    hit = { stamp, boards: readJson(file, []) }
+    boardsCache.set(file, hit)
+  }
+  return (Array.isArray(hit.boards) ? hit.boards : []).find((b) => b.id === boardId) ?? null
 }
 
 function appendLog(profileId, boardId, entries) {
