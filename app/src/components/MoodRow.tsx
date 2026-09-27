@@ -9,6 +9,7 @@ import { useProfiles } from '../hooks/useProfiles'
 import { useThemeMode } from '../hooks/useThemeMode'
 import HoverPreviewVideo from './HoverPreviewVideo'
 import { gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
+import { conditionsKey, filterConditions, rowMatchesConditions } from '../lib/filters'
 
 // Uygulamayla gelen 10 varsayılan mod görseli koyu temada duracak şekilde (beyaz ikon,
 // saydam arka plan) hazırlandı. CSS `filter: invert()` denendi ama güvenilir çalışmadı
@@ -223,18 +224,15 @@ function MoodCard({
 // Hooks kurallarını bozardı).
 function useDailyMoodPicks(moods: Mood[], rows: Row[], profileId: string | null): { mood: Mood; row: Row }[] {
   const [result, setResult] = useState<{ mood: Mood; row: Row }[]>([])
-  const moodsKey = moods.map((m) => `${m.id}:${m.propertyId ?? ''}:${m.optionIds.join('.')}:${m.image}:${m.name}`).join('|')
+  const moodsKey = moods.map((m) => `${m.id}:${conditionsKey(filterConditions(m))}:${m.image}:${m.name}`).join('|')
   const rowsKey = rows.map((r) => r.id).join(',')
 
   useEffect(() => {
     const next: { mood: Mood; row: Row }[] = []
     for (const mood of moods) {
-      if (!mood.propertyId || mood.optionIds.length === 0) continue
-      const pool = rows.filter((row) => {
-        const v = row.values[mood.propertyId!]
-        if (Array.isArray(v)) return v.some((id) => mood.optionIds.includes(id))
-        return typeof v === 'string' && mood.optionIds.includes(v)
-      })
+      const conds = filterConditions(mood)
+      if (conds.length === 0) continue
+      const pool = rows.filter((row) => rowMatchesConditions(row, conds))
       if (pool.length === 0) continue
 
       const cacheKey = `argus_mood_pick_${profileId ?? 'x'}_${mood.id}`

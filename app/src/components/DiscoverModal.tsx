@@ -5,6 +5,7 @@ import { todayIso } from '../types'
 import { useToast } from '../hooks/useToast'
 import { BRAND_GRADIENT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { CompassIcon } from './toolbarIcons'
+import GenreTriPicker from './GenreTriPicker'
 
 // Arşiv tablosunun araç çubuğundaki pusula — "Keşfet". Kullanıcının fikri: "sayısını
 // belirliycez dizi mi film mi... türünü belirliycez... bizde olmayan tablomuzda olmayan
@@ -129,7 +130,8 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
   const { notify } = useToast()
   const [type, setType] = useState<MediaType>('movie')
   const [genres, setGenres] = useState<{ id: number; name: string }[]>([])
-  const [selectedGenres, setSelectedGenres] = useState<Set<number>>(new Set())
+  const [selectedGenres, setSelectedGenres] = useState<number[]>([])
+  const [excludedGenres, setExcludedGenres] = useState<number[]>([])
   const [count, setCount] = useState(10)
   const [sort, setSort] = useState<Sort>('popular')
   const [needsApiKey, setNeedsApiKey] = useState(false)
@@ -141,7 +143,8 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
 
   useEffect(() => {
     let cancelled = false
-    setSelectedGenres(new Set())
+    setSelectedGenres([])
+    setExcludedGenres([])
     api
       .getTmdbGenres(type)
       .then((d) => {
@@ -162,20 +165,12 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
       .catch(() => {})
   }, [])
 
-  function toggleGenre(id: number) {
-    setSelectedGenres((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   async function fetchItems() {
     setLoading(true)
     setWatchedFormFor(null)
     try {
-      const res = await api.discoverTmdb(boardId, { type, genreIds: [...selectedGenres], count, sort })
+      const res = await api.discoverTmdb(boardId, { type, genreIds: selectedGenres, excludeGenreIds: excludedGenres, count, sort })
       setItems(res.items)
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Sonuçlar alınamadı.', 'danger')
@@ -278,22 +273,18 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
                 </div>
               </div>
               <div>
-                <p className="text-xs text-neutral-500 mb-1.5">Tür (hiçbiri seçilmezse hepsi; birden fazla seçersen hepsini birden taşıyanlar gelir)</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {genres.map((g) => (
-                    <button
-                      key={g.id}
-                      onClick={() => toggleGenre(g.id)}
-                      className={`text-xs rounded-full px-2.5 py-1 border transition ${
-                        selectedGenres.has(g.id)
-                          ? 'border-[#00c0fa] text-[#00c0fa] bg-[#00c0fa]/10'
-                          : 'border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500'
-                      }`}
-                    >
-                      {g.name}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-xs text-neutral-500 mb-1.5">
+                  Tür — bir tık ✓ gelsin, iki tık ✕ gelmesin (hiçbiri seçilmezse hepsi; birden fazla ✓ seçersen hepsini birden taşıyanlar gelir)
+                </p>
+                <GenreTriPicker
+                  genres={genres}
+                  include={selectedGenres}
+                  exclude={excludedGenres}
+                  onChange={(inc, exc) => {
+                    setSelectedGenres(inc)
+                    setExcludedGenres(exc)
+                  }}
+                />
               </div>
               <div className="flex items-center gap-4">
                 <button onClick={fetchItems} disabled={loading} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>

@@ -165,7 +165,14 @@ export const api = {
     request<{ genres: { id: number; name: string }[]; needsApiKey?: boolean }>(profilePath(`/tmdb-genres?type=${type}`)),
   discoverTmdb: (
     boardId: string,
-    query: { type: 'movie' | 'tv'; genreIds: number[]; count: number; sort: 'popular' | 'top' | 'new'; random?: boolean },
+    query: {
+      type: 'movie' | 'tv'
+      genreIds: number[]
+      excludeGenreIds?: number[]
+      count: number
+      sort: 'popular' | 'top' | 'new'
+      random?: boolean
+    },
   ) =>
     request<{ items: TmdbCard[] }>(profilePath(`/tmdb-discover/${boardId}`), { method: 'POST', ...json(query) }),
   dismissTmdb: (item: { tmdbId: number; mediaType: 'movie' | 'tv' }) =>

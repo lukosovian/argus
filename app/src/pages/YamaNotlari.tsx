@@ -25,6 +25,13 @@ import {
   SaglikVisual,
   SinemaVisual,
   YeniBolumlerVisual,
+  OtomatikFiltreVisual,
+  TakvimAyVisual,
+  TakvimGunVisual,
+  TakvimYilVisual,
+  CokluFiltreVisual,
+  NeIzlesemSonucVisual,
+  GenelGuncellemeVisual,
 } from '../components/PatchVisuals'
 interface PatchEntry {
   version: string
@@ -38,12 +45,46 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.9',
+    date: '27 Eylül 2026',
+    title: 'Yeni: Takvim · her yerde çoklu ve ters filtre, yeni Ne İzlesem sonuç ekranı, durdurup devam ettirilebilen Genel Güncelleme',
+    items: [
+      'Yeni Takvim sayfası (profil menüsü › Takvim): ay ay hangi gün ne izlediğini posterleriyle görürsün. Bir günde birden fazla şey varsa hepsi alt alta sıralanır, o günün kutusu uzar. Dizilerde bölüm bölüm görünür (ör. "8 bölüm · S1 · B1–B8"), diziyi bitirdiğin gün "bitirdin", tekrar izlediğin film "↻" ile işaretli. Üstte ayın özeti var: kaç film, kaç bölüm, kaç saat, kaç gün.',
+      'Takvim ileriye de bakıyor: izlediğin dizilerin çıkacak bölümleri ve izleneceklerindeki filmlerin vizyon tarihleri kesik çizgiyle görünüyor.',
+      'Takvimde bir günün numarasına tıklayınca yanda o gün açılıyor; oradan "Bu gün şunu izledim" diye arşivinde arayıp tarihi o güne ekleyebilirsin. Dizi seçersen sezon sezon hangi bölümleri izlediğini işaretliyorsun ("Bu sezonun hepsini seç" de var), istersen "diziyi bu gün bitirdim" diyorsun. Yanlış eklediğini ya da o güne ait bir kaydı yanındaki × ile o günden kaldırabilirsin — kaydın kendisi silinmez.',
+      'Takvimde ekleme kutusunda yazmadan önce en son izlediğin 4 içerik "Son izlediklerin" olarak hazır duruyor, tek tıkla seçiliyor. Her içeriğin altında daha önce ne zaman izlediğin yazıyor (filmde kaç kez ve en son ne zaman, dizide en son hangi bölüm); bölüm listesinde de daha önce izlediğin bölümlerin yanında tarihi çıkıyor. Yine de eklenebiliyor — bir şeyi birkaç günde izlediysen her gün için ayrı ayrı ekleyebilirsin.',
+      'Takvimden açılan detay penceresinde de tablodaki gibi bölüm işaretleyip tekrar izleme tarihi ekleyebiliyorsun; pencereyi kapatınca takvim hemen güncelleniyor.',
+      'Takvimin Yıl görünümü: yılın bütün günleri renkli kutucuklarla (ne kadar koyu, o gün o kadar çok izleme), izleme yaptığın gün sayısı, en uzun serin, şu anki serin ve en yoğun ayın. Filtre de var (ör. sadece diziler ya da ✕ Animasyon). İstatistikler\x27deki aylık grafikte bir aya tıklayınca takvim o ayda açılıyor.',
+      'Ana sayfada yeni "Geçmiş yıllarda bugün" satırı: önceki yıllarda bugün ne izlediğini gösteriyor ("1 yıl önce"). O gün için bir şey yoksa görünmüyor; Ana Sayfa Ayarları\x27ndan kapatılabilir ve kaçıncı satırda olacağı seçilebilir.',
+      'Ne İzlesem\x27in sonuç ekranı yenilendi: animasyon bitince mavi ışıklı ekranda seçilen içeriğin posteri (ya da yatay görseli), yanında logosu, bilgileri, türleri ve kısa özeti çıkıyor; altta "↻ Tekrar getir". TMDB\x27den geldiyse "+ İzleneceklere ekle", "İzledim", "Bir daha gösterme"; arşivinden geldiyse durumuna göre soruyor: izlenecekse "Başlıyorum", izliyorsan "Bitirdim", izlediysen "Bugün yine izledim".',
+      'Genel Güncelleme\x27yi durdurup sonra kaldığın yerden devam ettirebiliyorsun — sayfa yenilense ya da ARGUS kapanıp açılsa bile "▶ Devam et" düğmesi kalan kayıtlarla bekliyor.',
+      'Genel Güncelleme sürerken tablonun üstünde ayrıntı kutusu var: ilerleme çubuğu, şu an hangi kaydın doldurulduğu, kaç güncellendi / kaç bulunamadı, tahmini kalan süre ve her kayıtta nelerin eklendiği (ör. "Film · eklendi: Poster, Banner, Tür").',
+      'Dişli menüsü ("TMDB\x27den neler gelsin?") daha anlaşılır: her alanın ARGUS\x27ta ne işe yaradığı ve hangi sütununa yazacağı yazıyor. Sütunun adı farklıysa (ör. Sinopsis yerine "Özet") oradan o sütunu seçebilirsin; hiç yoksa aynı yerden yeni sütun eklersin. "Hepsini aç" düğmesi de var. Genel Güncelleme öncesi pencere de sütunu bulunamayan alan için "var olan şu sütuna mı yazayım, yeni mi açayım?" diye soruyor.',
+      'Filtre olan her yerde artık birden fazla seçim ve "gelmesin" var: arşiv tablosu, vitrin, Ne İzlesem, Sayfalar ve Modlar. Bir sütunu açıp değere bir kez tıklarsan ✓ gelsin, iki kez tıklarsan ✕ gelmesin. Birden fazla sütunda seçim yapabilirsin (ör. Tür: ✓ Korku ✕ Komedi, Ülke: ✕ ABD) — hepsi birlikte uygulanır.',
+      'Keşfet\x27te ve Ne İzlesem\x27in TMDB modunda da türler için ✓ gelsin / ✕ gelmesin seçilebiliyor.',
+      'Sağlık Kontrolü\x27nde yeni "Sorulmayanlar" listesi: "bir daha sorma" dediğin alanları kayıt kayıt görüp ↺ ile tek tek ya da bir alanın hepsini birden yine sorulur yapabilirsin.',
+      'Genel Güncelleme\x27den önce, tablonda bazı sütunlar yoksa (ör. Kapak Adı) ya da dişli menüsünden bazı alanları kapattıysan küçük bir pencere çıkıyor: hepsinin gelmesini öneriyor ve eksik sütunlar da gelsin mi diye soruyor. "Gelmesin" dediğin alan için tabloya boş sütun eklenmiyor. İçe aktarma bitince de bu öneri yazıyor.',
+      'Genel Güncelleme sürerken "yeni güncelleme var" sorusu artık çıkmıyor, iş bitince soruluyor — önceden "Şimdi Güncelle"ye basılırsa sayfa yenilenip güncelleme yarıda kalıyordu. Kayıtlar da artık daha güvenli yazılıyor: yazma anında ARGUS kapanırsa dosya yarım kalmıyor.',
+    ],
+    visuals: [
+      { caption: 'Takvim — 1 bir günde ne varsa alt alta, kutu uzar · 2 kesik çizgili: yaklaşan bölüm / vizyon', Visual: TakvimAyVisual },
+      { caption: 'Gün paneli — 1 × ile o günden kaldır · 2 son izlediklerin, tek tık · 3 bölüm seç; ✓ olanları daha önce izlemişsin', Visual: TakvimGunVisual },
+      { caption: 'Takvim, Yıl görünümü — 1 izleme günü, en uzun seri, şu anki seri, en yoğun ay', Visual: TakvimYilVisual },
+      { caption: 'Çoklu ve ters filtre — 1 seçtiklerin üstte · 2 bir tık ✓, iki tık ✕ · 3 filtre olan her yerde', Visual: CokluFiltreVisual },
+      { caption: 'Ne İzlesem sonucu — 1 poster ve mavi ışık · 2 logo, bilgiler, özet · 3 ekle / izledim; altta Tekrar getir', Visual: NeIzlesemSonucVisual },
+      { caption: 'Genel Güncelleme — 1 o an ne yaptığı · 2 her alan hangi sütuna yazacak · 3 durdur, sonra devam et', Visual: GenelGuncellemeVisual },
+    ],
+  },
+  {
     version: 'v1.8.2',
     date: '26 Eylül 2026',
     title: 'Otomatik satırlara gelsin / gelmesin filtresi, ülke etiketleri düzeldi',
     items: [
       'Ana Sayfa Ayarları → "En altta otomatik doldur" açıkken artık hangi satırların gelip hangilerinin gelmeyeceğini seçebiliyorsun: bir sütunu (Tür, Ülke...) açıp değerlere tıkla — bir kez tıklayınca ✓ gelsin, bir daha tıklayınca ✕ gelmesin. İkisinden de istediğin kadar seçebilirsin; bir sütunun tamamını da "Hiç gelmesin" ile kapatabilirsin.',
       'TMDB\x27den doldururken yeni eklenen ülke etiketlerinin başında bayrak işareti (bazı yerlerde "HR", "CH" gibi harf olarak görünüyordu) ve İngilizce ad ("Croatia") çıkıyordu. Artık diğer ülkeler gibi sade Türkçe ad yazılıyor; arşivindeki bu şekilde eklenmiş 6 ülke de düzeltildi (Hırvatistan, Porto Riko, İsviçre, Kenya, Yunanistan, Romanya).',
+    ],
+    visuals: [
+      { caption: '1 ✓ gelsin / ✕ gelmesin · 2 bir sütunun tamamını kapat · 3 ülke adları Türkçe ve bayraksız', Visual: OtomatikFiltreVisual },
     ],
   },
   {

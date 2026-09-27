@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { makeId, type Board, type HomeSection } from '../types'
-import PropertyFilterPicker from './PropertyFilterPicker'
+import MultiFilterEditor from './MultiFilterEditor'
+import { filterConditions, withConditions, type FilterCondition } from '../lib/filters'
 import ToggleSwitch from './ToggleSwitch'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 
@@ -103,8 +104,7 @@ export default function HomeSectionEditor({
   // kullanılıyor, tek fark gönderirken onAdd yerine onUpdate çağrılması.
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [propertyId, setPropertyId] = useState('')
-  const [optionIds, setOptionIds] = useState<string[]>([])
+  const [conditions, setConditions] = useState<FilterCondition[]>([])
   const [pinnedToNav, setPinnedToNav] = useState(false)
   const [showInBody, setShowInBody] = useState(false)
 
@@ -112,8 +112,7 @@ export default function HomeSectionEditor({
     setFormOpen(false)
     setEditingId(null)
     setName('')
-    setPropertyId('')
-    setOptionIds([])
+    setConditions([])
     setPinnedToNav(false)
     setShowInBody(false)
   }
@@ -126,20 +125,20 @@ export default function HomeSectionEditor({
   function startEdit(section: HomeSection) {
     setEditingId(section.id)
     setName(section.name)
-    setPropertyId(section.propertyId ?? '')
-    setOptionIds(section.optionIds)
+    setConditions(filterConditions(section))
     setPinnedToNav(section.pinnedToNav ?? false)
     setShowInBody(section.showInBody !== false)
     setFormOpen(true)
   }
 
   function handleSubmit() {
-    if (!name.trim() || !propertyId || optionIds.length === 0) return
+    if (!name.trim() || conditions.length === 0) return
     if (!pinnedToNav && !showInBody) return
+    const base = { name: name.trim(), propertyId: null, optionIds: [], pinnedToNav, showInBody }
     if (editingId) {
-      onUpdate({ id: editingId, name: name.trim(), propertyId, optionIds, pinnedToNav, showInBody })
+      onUpdate(withConditions({ id: editingId, ...base }, conditions))
     } else {
-      onAdd({ id: makeId(), name: name.trim(), propertyId, optionIds, pinnedToNav, showInBody })
+      onAdd(withConditions({ id: makeId(), ...base }, conditions))
     }
     reset()
   }
@@ -181,15 +180,7 @@ export default function HomeSectionEditor({
 
           <div>
             <label className="block text-[11px] text-neutral-400 mb-1">Neye göre filtrelensin</label>
-            <PropertyFilterPicker
-              board={board}
-              propertyId={propertyId}
-              optionIds={optionIds}
-              onChange={(pid, opts) => {
-                setPropertyId(pid)
-                setOptionIds(opts)
-              }}
-            />
+            <MultiFilterEditor board={board} conditions={conditions} onChange={setConditions} />
           </div>
 
           <div className="space-y-2">
@@ -209,7 +200,7 @@ export default function HomeSectionEditor({
           <div className="flex gap-2">
             <button
               onClick={handleSubmit}
-              disabled={!name.trim() || !propertyId || optionIds.length === 0 || (!pinnedToNav && !showInBody)}
+              disabled={!name.trim() || conditions.length === 0 || (!pinnedToNav && !showInBody)}
               style={primaryButtonStyle}
               className={`text-xs rounded-md px-3 py-1.5 ${PRIMARY_BUTTON}`}
             >

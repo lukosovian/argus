@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoards } from '../hooks/useBoards'
 import { useBoard } from '../hooks/useBoard'
@@ -342,10 +342,12 @@ function Columns({
   data,
   palette,
   height = 150,
+  onPick,
 }: {
   data: { key: string; label: string; tipTitle: string; count: number; strong?: boolean }[]
   palette: Palette
   height?: number
+  onPick?: (key: string) => void
 }) {
   const { bind, node, active } = useTip()
   if (data.every((d) => d.count === 0)) return <Empty />
@@ -355,7 +357,12 @@ function Columns({
     <div>
       <div className="flex items-end gap-1.5 sm:gap-2 border-b border-neutral-700" style={{ height }}>
         {data.map((d) => (
-          <div key={d.key} className="flex-1 min-w-0 h-full flex flex-col justify-end items-center" {...bind(d.tipTitle, `${d.count} kayıt`)}>
+          <div
+            key={d.key}
+            className={`flex-1 min-w-0 h-full flex flex-col justify-end items-center ${onPick ? 'cursor-pointer' : ''}`}
+            onClick={onPick ? () => onPick(d.key) : undefined}
+            {...bind(d.tipTitle, onPick ? `${d.count} kayıt · takvimde görmek için tıkla` : `${d.count} kayıt`)}
+          >
             {d.key === maxKey && <span className="text-[11px] font-semibold text-neutral-300 mb-1 tabular-nums">{d.count}</span>}
             <div
               className="w-full max-w-[36px] rounded-t-[4px] transition-opacity"
@@ -482,6 +489,7 @@ function MappingPanel({ board, onSave }: { board: Board; onSave: (patch: Partial
 export default function Istatistikler() {
   const { settings, loading: settingsLoading } = useHomeSettings()
   const { boards, loading: boardsLoading } = useBoards()
+  const navigate = useNavigate()
   const { theme } = useThemeMode()
   const palette = PALETTE[theme === 'light' ? 'light' : 'dark']
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
@@ -572,9 +580,10 @@ export default function Istatistikler() {
       </div>
 
       {stats.hasDates && (
-        <Card title="Son 12 ayda izlediklerin" subtitle={`İzleme tarihine göre aylık · toplam ${monthTotal} izleme (tekrar izlemeler dahil)`}>
+        <Card title="Son 12 ayda izlediklerin" subtitle={`İzleme tarihine göre aylık · toplam ${monthTotal} izleme (tekrar izlemeler dahil) · bir aya tıklayınca Takvim'de açılır`}>
           <Columns
             palette={palette}
+            onPick={(key) => navigate(`/takvim?ay=${key}`)}
             data={stats.months.map((m) => ({
               key: m.key,
               label: m.month === 0 ? `'${String(m.year).slice(2)}` : TR_MONTHS_SHORT[m.month],

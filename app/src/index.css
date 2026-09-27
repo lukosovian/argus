@@ -56,6 +56,18 @@ body {
   }
 }
 
+/* Ne İzlesem sonuç ekranının belirmesi (bkz. components/PickResult.tsx). */
+@keyframes pickIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Uygulama içi bildirim kartlarının (bkz. hooks/useToast.tsx) giriş animasyonu. */
 @keyframes argus-toast-in {
   from {

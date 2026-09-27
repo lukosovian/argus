@@ -2,11 +2,13 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import type { Board, Row } from '../types'
 import { rowsForFilter, shuffle } from '../lib/rowMeta'
+import { hasActiveFilter } from '../lib/filters'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useToast } from '../hooks/useToast'
 import { api, type TmdbCard } from '../lib/api'
 import RowDetailModal from './RowDetailModal'
 import TmdbPreviewModal from './TmdbPreviewModal'
+import PickResult from './PickResult'
 
 // İki üst üste binen "poster kartı" — biri düz, biri hafif çapraz (kullanıcı: "yan yana duran
 // iki kart gibi olsun biri düz biri çapraz olarak"). Soldaki (düz) dolu, sağdaki (çapraz) boş
@@ -130,7 +132,9 @@ export default function RandomPickerButton() {
   const [board, setBoard] = useState<Board | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [winnerId, setWinnerId] = useState<string | null>(null)
-  const [phase, setPhase] = useState<'idle' | 'entering' | 'eliminating' | 'growing' | 'fading'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'entering' | 'eliminating' | 'growing' | 'fading' | 'result'>('idle')
+  // Kazanan: animasyon bitince detay penceresi yerine aynı mavi ışıklı ekranda sonuç gösteriliyor.
+  const [result, setResult] = useState<Candidate | null>(null)
   const [openRow, setOpenRow] = useState<Row | null>(null)
   const [openTmdb, setOpenTmdb] = useState<TmdbCard | null>(null)
   // Hangi posterlerin görseli GERÇEKTEN yüklenip çözüldü — her poster kendi görseli hazır
@@ -140,8 +144,9 @@ export default function RandomPickerButton() {
   // bildirdiği donma) önlüyor — indirme/çözme işi doğal olarak zamana yayılıyor.
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
 
-  async function handleClick() {
-    if (loading || phase !== 'idle') return
+  async function handleClick(again = false) {
+    if (loading || (phase !== 'idle' && !again)) return
+    setResult(null)
     if (!settings.boardId) {
       notify('Önce Ana Sayfa Ayarları\'ndan bir arşiv seçmelisin.', 'danger')
       return
@@ -171,12 +176,12 @@ export default function RandomPickerButton() {
         // TMDB modu: arşivde OLMAYAN (ve daha önce "bir daha gösterme" denmemiş) içerikler.
         // Her tıklamada farklı gelsin diye rastgele sayfalardan toplanıyor (random: true).
         const t = current.randomPickerTmdb ?? { type: 'movie', genreIds: [], sort: 'popular' }
-        const ask = (type: 'movie' | 'tv', n: number, genreIds: number[]) =>
-          api.discoverTmdb(b.id, { type, genreIds, count: n, sort: t.sort, random: true }).then((r) => r.items)
+        const ask = (type: 'movie' | 'tv', n: number, genreIds: number[], excludeGenreIds: number[] = []) =>
+          api.discoverTmdb(b.id, { type, genreIds, excludeGenreIds, count: n, sort: t.sort, random: true }).then((r) => r.items)
         const cards =
           t.type === 'mixed'
             ? shuffle((await Promise.all([ask('movie', Math.ceil(count / 2), []), ask('tv', Math.ceil(count / 2), [])])).flat())
-            : await ask(t.type, count, t.genreIds)
+            : await ask(t.type, count, t.genreIds, t.excludeGenreIds ?? [])
         pool = cards
           .map((c): Entry | null => {
             // Yatay istenirse TMDB'nin yatay görseli (backdrop), yoksa poster.
@@ -193,7 +198,7 @@ export default function RandomPickerButton() {
         const filter = current.randomPickerFilter
         // Hiç filtre ayarlanmadıysa (propertyId yok) arşivin TAMAMI havuz olur — kullanıcının
         // "hiç bi ayar yapılmadıysa default olarak tüm içerikleri gösterebilsin" isteği.
-        const base = filter?.propertyId && filter.optionIds.length > 0 ? rowsForFilter(filter, allRows) : allRows
+        const base = filter && hasActiveFilter(filter) ? rowsForFilter(filter, allRows) : allRows
         // Poster olmadan dağılma animasyonu boş kutulara döner — bu yüzden sadece seçili şekilde
         // bir görseli olan kayıtlar havuza giriyor.
         const columns = await classifyImageColumns(b, allRows)
@@ -300,10 +305,11 @@ export default function RandomPickerButton() {
     if (phase !== 'fading') return
     const t = setTimeout(() => {
       const winner = candidates.find((c) => c.key === winnerId)
-      setPhase('idle')
       setCandidates([])
-      if (winner?.row) setOpenRow(winner.row)
-      else if (winner?.tmdb) setOpenTmdb(winner.tmdb)
+      if (winner) {
+        setResult(winner)
+        setPhase('result')
+      } else setPhase('idle')
     }, FADE_MS)
     return () => clearTimeout(t)
   }, [phase, candidates, winnerId])
@@ -361,6 +367,7 @@ export default function RandomPickerButton() {
   function cancelPick() {
     setPhase('idle')
     setCandidates([])
+    setResult(null)
   }
   useEffect(() => {
     if (phase === 'idle') return
@@ -378,7 +385,7 @@ export default function RandomPickerButton() {
   return (
     <>
       <button
-        onClick={handleClick}
+        onClick={() => handleClick()}
         disabled={loading || phase !== 'idle'}
         title="Ne İzlesem? — kararsızsan rastgele bir şey seçer"
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition disabled:opacity-50 shrink-0"
@@ -402,6 +409,7 @@ export default function RandomPickerButton() {
                 className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[70vmin] w-[70vmin] rounded-full blur-3xl opacity-20"
                 style={{ background: 'radial-gradient(circle, #00c0fa 0%, #015eea 45%, transparent 70%)' }}
               />
+              {phase !== 'result' && (
               <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 backdrop-blur-sm px-4 py-2">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-[#00c0fa] opacity-60 animate-ping" />
@@ -409,12 +417,33 @@ export default function RandomPickerButton() {
                 </span>
                 <span className="text-sm font-medium text-neutral-100">{captionText || 'Ne İzlesem?'}</span>
               </div>
+              )}
               <button
                 onClick={cancelPick}
-                className="absolute top-6 right-6 z-20 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 bg-neutral-900/80 rounded-full px-4 py-2 transition"
+                className="absolute top-6 right-6 z-40 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 bg-neutral-900/80 rounded-full px-4 py-2 transition"
               >
-                Vazgeç <span className="text-neutral-600 text-xs ml-1">Esc</span>
+                {phase === 'result' ? 'Kapat' : 'Vazgeç'} <span className="text-neutral-600 text-xs ml-1">Esc</span>
               </button>
+              {phase === 'result' && result && board && (
+                <PickResult
+                  key={result.key}
+                  board={board}
+                  row={result.row}
+                  tmdb={result.tmdb}
+                  cover={result.cover}
+                  landscape={result.landscape}
+                  onAgain={() => handleClick(true)}
+                  onClose={cancelPick}
+                  onOpenRow={(r) => {
+                    cancelPick()
+                    setOpenRow(r)
+                  }}
+                  onOpenTmdb={(c) => {
+                    cancelPick()
+                    setOpenTmdb(c)
+                  }}
+                />
+              )}
               {candidates.map((c) => {
                 const isWinner = c.key === winnerId
                 const cover = c.cover
@@ -443,7 +472,7 @@ export default function RandomPickerButton() {
               onClose={() => setOpenTmdb(null)}
               onPickAgain={() => {
                 setOpenTmdb(null)
-                handleClick()
+                handleClick(true)
               }}
             />
           )}
