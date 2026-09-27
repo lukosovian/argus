@@ -26,8 +26,21 @@ function readJson(file, fallback) {
   }
 }
 
+// Önce geçici dosyaya yazıp sonra yerine koyuyoruz: yazma sırasında ARGUS kapanırsa (ör.
+// "Şimdi Güncelle" ile yeniden başlarken) asıl dosya yarım kalmasın, eski hali sağlam dursun.
 function writeJson(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
+  const text = JSON.stringify(data, null, 2)
+  const tmp = `${file}.${process.pid}.tmp`
+  try {
+    fs.writeFileSync(tmp, text, 'utf-8')
+    fs.renameSync(tmp, file)
+  } catch {
+    // Windows'ta dosya o an başka bir programda açıksa yer değiştirme reddedilebilir — eski yol.
+    try {
+      fs.unlinkSync(tmp)
+    } catch {}
+    fs.writeFileSync(file, text, 'utf-8')
+  }
 }
 
 function makeId() {
@@ -576,31 +589,34 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     // OLARAK bu yüzden hiç doldurulmuyordu. Artık Süre/Yaş Sınırı'nda zaten var olan
     // "yoksa oluştur" deseni TÜM TMDB alanlarına uygulanıyor — güncelle butonuna basmak
     // eksik sütunları da kendisi ekliyor.
+    // Hariç tutulan (bu sefer "gelmesin" denen) bir alanın sütunu yoksa oluşturulmuyor — kullanıcı
+    // doldurmadan önce çıkan pencerede "Kapak Adı gelmesin" derse tabloya boş sütun eklenmesin.
     const mk = () => makeId()
-    const origProp = ensureRole(board, 'orjinalAdi', mk)
-    const kategoriProp = ensureRole(board, 'kategori', mk, { options: [] })
-    const vizyonProp = ensureRole(board, 'vizyon', mk)
-    const bannerProp = ensureRole(board, 'banner', mk)
-    const posterProp = ensureRole(board, 'poster', mk)
+    const ens = (field, key, extra) => (exclude.has(field) ? resolveRole(board, key) : ensureRole(board, key, mk, extra))
+    const origProp = ens('orjinalAdi', 'orjinalAdi')
+    const kategoriProp = ens('kategori', 'kategori', { options: [] })
+    const vizyonProp = ens('vizyonTarihi', 'vizyon')
+    const bannerProp = ens('banner', 'banner')
+    const posterProp = ens('poster', 'poster')
     // Başlık logosu: arşivde "Vitrin Başlık Görseli" olarak işaretli sütun; hiç yoksa oluşturulup
     // o şekilde işaretleniyor (eskiden "Kapak Adı" adıyla aranıyordu).
     let kapakAdiProp = board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image')
     if (!kapakAdiProp) {
       kapakAdiProp = board.properties.find((p) => p.type === 'image' && p.name.trim().toLocaleLowerCase('tr') === 'kapak adı')
-      if (!kapakAdiProp) {
+      if (!kapakAdiProp && !exclude.has('kapakAdi')) {
         kapakAdiProp = { id: mk(), name: 'Kapak Adı', type: 'image' }
         board.properties.push(kapakAdiProp)
       }
-      board.titleImagePropertyId = kapakAdiProp.id
+      if (kapakAdiProp) board.titleImagePropertyId = kapakAdiProp.id
     }
-    const ulkeProp = ensureRole(board, 'ulke', mk, { options: [] })
-    const turProp = ensureRole(board, 'tur', mk, { options: [] })
-    const yonetmenProp = ensureRole(board, 'yonetmen', mk)
-    const oyuncularProp = ensureRole(board, 'oyuncular', mk, { options: [] })
-    const videoProp = ensureRole(board, 'video', mk)
-    const sureProp = ensureRole(board, 'sure', mk)
-    const yasProp = ensureRole(board, 'yas', mk)
-    const sinopsisProp = ensureRole(board, 'sinopsis', mk)
+    const ulkeProp = ens('ulke', 'ulke', { options: [] })
+    const turProp = ens('tur', 'tur', { options: [] })
+    const yonetmenProp = ens('yonetmen', 'yonetmen')
+    const oyuncularProp = ens('kadro', 'oyuncular', { options: [] })
+    const videoProp = ens('video', 'video')
+    const sureProp = ens('sure', 'sure')
+    const yasProp = ens('yasSiniri', 'yas')
+    const sinopsisProp = ens('sinopsis', 'sinopsis')
 
     const titleTr = titleProp ? row.values[titleProp.id] : ''
     const titleOrig = origProp ? row.values[origProp.id] : ''
@@ -1113,11 +1129,14 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
 
     const type = req.body?.type === 'tv' ? 'tv' : 'movie'
     const genreIds = Array.isArray(req.body?.genreIds) ? req.body.genreIds.filter((n) => Number.isInteger(n)) : []
+    // "Gelmesin" dediği türler (ters filtre).
+    const excludeGenreIds = Array.isArray(req.body?.excludeGenreIds) ? req.body.excludeGenreIds.filter((n) => Number.isInteger(n)) : []
     const count = Math.max(1, Math.min(40, Number(req.body?.count) || 10))
     const sort = ['popular', 'top', 'new'].includes(req.body?.sort) ? req.body.sort : 'popular'
 
     const params = { language: 'tr-TR', include_adult: 'false', 'vote_count.gte': sort === 'top' ? 300 : 50 }
     if (genreIds.length) params.with_genres = genreIds.join(',')
+    if (excludeGenreIds.length) params.without_genres = excludeGenreIds.join(',')
     params.sort_by = sort === 'top' ? 'vote_average.desc' : sort === 'new' ? (type === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc') : 'popularity.desc'
     if (sort === 'new') {
       // "Yeni" = son iki yılda çıkmış ve bugüne kadar yayınlanmış (henüz çıkmamışlar değil).

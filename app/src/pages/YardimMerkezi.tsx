@@ -346,6 +346,43 @@ function IstatistikWireframe() {
   )
 }
 
+// Takvim: 7 sütunlu ay ızgarası, bazı günlerde alt alta posterli kayıtlar (dolu gün uzuyor),
+// bugün mavi, ileriki bir günde kesik çizgili "yaklaşan".
+function TakvimWireframe() {
+  const cellW = 38
+  const cellH = 30
+  const full: Record<number, number> = { 2: 1, 8: 2, 10: 1, 16: 1 }
+  return (
+    <WireframeCard>
+      {Array.from({ length: 7 }, (_, i) => (
+        <rect key={`h${i}`} x={17 + i * cellW} y={12} width={22} height={5} rx={2.5} fill={WF_LINE} />
+      ))}
+      {Array.from({ length: 21 }, (_, i) => {
+        const x = 16 + (i % 7) * cellW
+        const y = 24 + Math.floor(i / 7) * (cellH + 12)
+        const n = full[i] ?? 0
+        const today = i === 11
+        const upcoming = i === 18
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={cellW - 4} height={cellH + 8} rx={4} fill="none" stroke={WF_STROKE} strokeWidth={1} />
+            <rect x={x + 3} y={y + 3} width={7} height={5} rx={2.5} fill={today ? BRAND_TEXT : WF_LINE} />
+            {Array.from({ length: n }, (_, k) => (
+              <g key={k}>
+                <rect x={x + 3} y={y + 11 + k * 12} width={cellW - 10} height={10} rx={2} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={0.8} />
+                <rect x={x + 4.5} y={y + 12.5 + k * 12} width={5} height={7} rx={1} fill={k === 0 && i === 8 ? BRAND_TEXT : WF_EMPHASIS} />
+              </g>
+            ))}
+            {upcoming && (
+              <rect x={x + 3} y={y + 11} width={cellW - 10} height={10} rx={2} fill="none" stroke={BRAND_TEXT} strokeWidth={0.9} strokeDasharray="2 2" />
+            )}
+          </g>
+        )
+      })}
+    </WireframeCard>
+  )
+}
+
 // Profil menüsü + sağ alttaki güncelleme bildirimi.
 function MenuWireframe() {
   const items = ['Ayarlar', 'İstatistikler', 'Yardım Merkezi', 'Yama Notları', 'Açık / Koyu Tema']
@@ -499,7 +536,7 @@ const TOPICS: Topic[] = [
     icon: <DatabaseIcon />,
     title: 'Arşiv tablosu',
     where: 'Ayarlar › Veritabanı › bir arşive tıkla',
-    text: 'Kayıtlarını bir tablo olarak düzenlediğin yer. Sağ üstteki araçlarla arayabilir, filtreleyebilir, sıralayabilir ve istemediğin sütunları gizleyebilirsin. Tablonun sağ üstündeki "i" düğmesi her şeyi çizimlerle anlatan kısa bir rehber açar.',
+    text: 'Kayıtlarını bir tablo olarak düzenlediğin yer. Sağ üstteki araçlarla arayabilir, filtreleyebilir (birden fazla sütun; bir tık ✓ gelsin, iki tık ✕ gelmesin), sıralayabilir ve istemediğin sütunları gizleyebilirsin. Tablonun sağ üstündeki "i" düğmesi her şeyi çizimlerle anlatan kısa bir rehber açar.',
     tips: [
       'Tablonun üstündeki düğmelerle (Hepsi · İzlendi · İzlenecek…) tek tıkla duruma göre süzersin; başlığın altında kaç kayıt olduğu yazar.',
       'Sağa kaydırınca kaydın adı ve küçük afişi solda sabit kalır. Hücreye sığmayan etiketler için "+2" gibi bir sayı çıkar, üzerine gelince hepsi görünür.',
@@ -524,8 +561,9 @@ const TOPICS: Topic[] = [
     text: "Bir kaydın sadece adını yazman yeterli: poster, yatay görsel, logo, özet, tür, ülke, yönetmen, oyuncular, süre, yaş sınırı, fragman ve dizilerde sezon/bölüm listesi TMDB'den gelir. Önce Ayarlar › Veritabanı › API'ye ücretsiz TMDB anahtarını girmen gerekir.",
     tips: [
       'Tek bir kayıt için: satırdaki altı nokta › Güncelle (detay penceresinde de aynı düğme var).',
-      'Hepsi için: araç çubuğundaki Genel Güncelleme, eksik görünen kayıtları sırayla doldurur; istediğin an durdurabilirsin.',
-      'Dişli simgesinden hangi alanların çekileceğini seçersin; "Dolu alanları da güncelle" açıkken dolu alanların üzerine de yazılır.',
+      'Hepsi için: araç çubuğundaki Genel Güncelleme, eksik görünen kayıtları sırayla doldurur; tablonun üstünde o an ne yaptığını görürsün. Durdurduğunda "▶ Devam et" ile kaldığı yerden sürdürürsün.',
+      'Dişli simgesinden (TMDB\'den neler gelsin?) hangi alanların çekileceğini seçersin; her alanın altında hangi sütununa yazacağı yazar — sütunun adı farklıysa (ör. "Özet") oradan seçersin, hiç yoksa yeni sütun eklersin. "Dolu alanları da güncelle" açıkken dolu alanların üzerine de yazılır.',
+      'Önerimiz bütün alanların gelmesi. Tablonda olmayan bir sütun (ör. Kapak Adı) ya da kapattığın bir alan varsa Genel Güncelleme\'den önce sana sorulur.',
       "Türkçe adını bilmiyorsan İngilizce ya da orijinal adıyla yazman yeterli; Kategori'yi Film/Dizi seçersen eşleşme daha isabetli olur.",
     ],
     visual: (
@@ -559,6 +597,7 @@ const TOPICS: Topic[] = [
     tips: [
       'Üstteki düğmelerle "Video yok", "Yönetmen yok" gibi tek bir soruna göre süzebilirsin.',
       'Gerçekten olmayan bir şey için (ör. hiç fragmanı olmayan bir film) × ile "bu kayıtta bir daha sorma" diyebilirsin.',
+      'Fikrini değiştirirsen "Sorulmayanlar" listesinden ↺ ile o alan yine sorulur.',
     ],
     visual: (
       <VisualCard>
@@ -574,7 +613,7 @@ const TOPICS: Topic[] = [
     text: 'Büyüteç her yerden ulaşabileceğin genel arama: başlık, oyuncu, tür ya da ülke adına göre sonuç getirir, başlığa tam uyanlar en üstte çıkar. Yanındaki kart simgesi "Ne İzlesem?": kararsız kaldığında rastgele bir şey seçer.',
     tips: [
       'Klavyeden "/" tuşuna basınca arama kutusu açılır. Aradığın isim bir oyuncuya, türe ya da ülkeye uyuyorsa sonuçların en üstünde fotoğraflı olarak çıkar; tıklayınca onun listesi açılır.',
-      'Ne İzlesem animasyonunu yarıda kesmek için sağ üstteki "Vazgeç"e ya da Esc tuşuna bas.',
+      'Ne İzlesem animasyonunu yarıda kesmek için sağ üstteki "Vazgeç"e ya da Esc tuşuna bas. Sonuç ekranında içeriği ekleyebilir, durumunu işaretleyebilir ya da "↻ Tekrar getir" ile yenisini çekebilirsin.',
       "Ne İzlesem arşivinden ya da TMDB'den (arşivinde olmayanlardan) seçebilir: Ayarlar › Ana Sayfa Ayarları › Ne İzlesem?",
       'Aynı yerden hangi kayıtlar arasından seçileceğini, kaç kartın döneceğini ve kartların dikey mi yatay mı olacağını ayarlarsın.',
       'TMDB\'den seçtiğinde çıkan pencereden tek tıkla İzlenecek\'e ekleyebilir ya da "bir daha gösterme" diyebilirsin.',
@@ -605,10 +644,27 @@ const TOPICS: Topic[] = [
   },
   {
     group: 'diger',
+    icon: <HomeIcon />,
+    title: 'Takvim',
+    where: 'Profil menüsü › Takvim',
+    visual: <TakvimWireframe />,
+    text: 'Hangi gün ne izlediğin, ay ay takvimde: posterleriyle, bir günde ne kadar çok şey varsa o gün o kadar uzar. Dizilerde işaretlediğin bölümler de görünür; izlediğin dizilerin çıkacak bölümleri ve izleneceklerinin vizyon tarihleri de kesik çizgiyle ileriki günlerde yer alır.',
+    tips: [
+      'Bir günün numarasına tıklayınca o gün yanda açılır; "Bu gün şunu izledim" ile arşivinden bir şeyi o güne ekleyebilirsin. Dizilerde hangi bölümleri izlediğini de seçersin.',
+      'O günün listesinde her kaydın yanındaki × ile onu o günden kaldırırsın (dizilerde o gün işaretlenen bölümler de kalkar); kaydın kendisi silinmez.',
+      'Yazmadan önce en son izlediğin 4 içerik hazır durur; daha önce izlediklerin (film ya da bölüm) tarihiyle görünür ama yine de başka bir gün için eklenebilir.',
+      'Takvimden açtığın detay penceresinde bölüm işaretleyebilir, tekrar izleme tarihi ekleyebilirsin.',
+      'Yıl görünümünde bütün yıl renkli kutucuklarla görünür; en uzun serin ve şu anki serin de orada.',
+      'Filtre ile sadece istediklerini gösterebilirsin (ör. sadece diziler).',
+      "İstatistikler'deki aylık grafikte bir aya tıklayınca takvim o ayda açılır. Ana sayfadaki \"Geçmiş yıllarda bugün\" satırı da buradan beslenir.",
+    ],
+  },
+  {
+    group: 'diger',
     icon: <ProfileIcon />,
     title: 'Tema, güncellemeler ve Yama Notları',
     where: 'Profil menüsü',
-    text: "Sağ üstteki profil resmine tıklayınca açılan menüden Ayarlar'a, İstatistikler'e, bu sayfaya ve Yama Notları'na ulaşırsın; açık ve koyu tema arasında da buradan geçersin.",
+    text: "Sağ üstteki profil resmine tıklayınca açılan menüden Ayarlar'a, İstatistikler'e, Takvim'e, bu sayfaya ve Yama Notları'na ulaşırsın; açık ve koyu tema arasında da buradan geçersin.",
     tips: [
       'Yeni bir sürüm çıkınca sağ altta bildirim belirir; "Şimdi Güncelle"ye basman yeterli.',
       "Her sürümde nelerin değiştiğini çizimleriyle birlikte Yama Notları'nda görebilirsin.",

@@ -1,3 +1,4 @@
+import type { FilterCondition } from './lib/filters'
 import { resolveRole, type RoleKey, type StatusKey } from './lib/roles'
 
 export type PropertyType =
@@ -278,6 +279,8 @@ export interface HomeSection {
   name: string
   propertyId: string | null
   optionIds: string[]
+  // Çoklu / ters filtre (bkz. lib/filters.ts). Varsa propertyId/optionIds yerine bu geçerli.
+  conditions?: FilterCondition[]
   pinnedToNav?: boolean
   // Eski kayıtlarda bu alan yok — yoksa true kabul edilir (önceki davranış: her sayfa gövdede de gösterilirdi).
   showInBody?: boolean
@@ -286,6 +289,7 @@ export interface HomeSection {
 export interface ShowcaseFilter {
   propertyId: string | null
   optionIds: string[]
+  conditions?: FilterCondition[]
 }
 
 // "İzlenecekler" (Durum="İzlenecek") havuzundan, kullanıcının o anki ruh haline göre
@@ -301,6 +305,7 @@ export interface Mood {
   image: string
   propertyId: string | null
   optionIds: string[]
+  conditions?: FilterCondition[]
   // Ana sayfada gösterilsin mi — silmeden geçici olarak kapatabilmek için (bkz.
   // MoodRowEditor.tsx'teki ToggleSwitch). Eski kayıtlarda yok, yoksa true kabul edilir.
   enabled?: boolean
@@ -441,6 +446,8 @@ export interface HomeSettings {
   // "Yeni Bölümler" satırının ana sayfada kaçıncı satır olacağı (1 = en üstte). Eski kayıtlarda yok,
   // yoksa 1 (önceki tek davranış: hep en üstte).
   newEpisodesPosition?: number
+  // "Geçmiş yıllarda bugün" satırı (bkz. OnThisDayRow). Eski kayıtlarda yok, yoksa açık ve 1. sırada.
+  onThisDay?: { enabled: boolean; position: number }
   // "Arşivindeki En İyi 10" satırı — en yüksek puan verilen 10 kayıt, büyük sıra numaralarıyla.
   // Eski kayıtlarda yok, yoksa kapalı.
   topRated?: { enabled: boolean; position: number }
@@ -460,6 +467,8 @@ export interface RandomPickerTmdbSettings {
   // TMDB tür id'leri — sadece type 'movie' ya da 'tv' iken kullanılır (iki tarafın tür
   // listeleri farklı olduğu için "karışık"ta tür seçimi yok).
   genreIds: number[]
+  // "Gelmesin" dediği türler. Eski kayıtlarda yok.
+  excludeGenreIds?: number[]
   sort: 'popular' | 'top'
 }
 

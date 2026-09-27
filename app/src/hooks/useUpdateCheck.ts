@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import { useToast } from './useToast'
+import { isBusy } from '../lib/busy'
 
 // Uygulama açılışında bir kere, sonra periyodik olarak (uygulama açık kalsa bile) ARGUS
 // klasörünün git deposunda yeni bir sürüm var mı diye sorar (bkz. server/index.js'teki
@@ -11,6 +12,7 @@ import { useToast } from './useToast'
 // bi şey eklenemez mi" dedi. Reddederse (ya da hiç cevap vermezse) bir sonraki ARGUS.bat
 // açılışında zaten kendiliğinden gelir, eski davranış hâlâ geçerli.
 const CHECK_INTERVAL_MS = 30 * 60 * 1000
+const BUSY_RETRY_MS = 30 * 1000
 // Güncellemeden sonra sayfayı ne zaman yenileyeceğimiz: eskiden sabit 7 saniye bekleniyordu —
 // yeni ARGUS o sürede ayağa kalkmadıysa (ör. yeni bir paket kurulması gerektiyse) sayfa
 // "bağlanılamıyor" hatasıyla açılıyordu. Artık eski sunucunun kapanması için kısa bir süre
@@ -44,6 +46,12 @@ export function useUpdateCheck() {
       try {
         const result = await api.checkUpdate()
         if (cancelled || !result.updateAvailable || notifiedRef.current) return
+        // Genel Güncelleme gibi uzun bir iş sürüyorsa şimdi sorma — iş bitince (aşağıdaki kısa
+        // aralıklı kontrolde) sorulur.
+        if (isBusy()) {
+          setTimeout(check, BUSY_RETRY_MS)
+          return
+        }
         notifiedRef.current = true
         const wantsUpdate = await confirm({
           message: 'Yeni bir ARGUS güncellemesi hazır. Şimdi güncellensin mi? (Az sonra kısa bir an bağlantı kesilip sayfa kendiliğinden yenilenecek.)',

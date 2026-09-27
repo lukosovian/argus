@@ -6,6 +6,7 @@ import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { titleText, ratingAverage, resolveBuiltinMoods, AUTO_FILL_MAX_OPTIONS, type AutoFillSettings, type Board, type Row } from '../types'
 import { splitFlagEmoji } from '../lib/flagEmoji'
+import { conditionsKey, filterConditions, hasActiveFilter } from '../lib/filters'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { showcaseMeta, hoverCardMeta, rowsForFilter, rowTitleClass, shuffle } from '../lib/rowMeta'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
@@ -16,6 +17,7 @@ import RowDetailModal from '../components/RowDetailModal'
 import HoverPreviewVideo from '../components/HoverPreviewVideo'
 import MoodRow from '../components/MoodRow'
 import NewEpisodesRow from '../components/NewEpisodesRow'
+import OnThisDayRow from '../components/OnThisDayRow'
 import AgeRatingChip from '../components/AgeRatingChip'
 import { sortByOrder } from '../components/HomeSectionEditor'
 import { PRIMARY_BUTTON, primaryButtonStyle, gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
@@ -741,11 +743,11 @@ export default function AnaSayfa() {
       ? []
       : activeSection
         ? scopedRows
-        : settings.showcaseFilter?.propertyId && settings.showcaseFilter.optionIds.length > 0
+        : hasActiveFilter(settings.showcaseFilter)
           ? rowsForFilter(settings.showcaseFilter, visibleRows)
           : visibleRows
 
-  const showcaseFilterKey = `${settings.showcaseFilter?.propertyId ?? ''}:${(settings.showcaseFilter?.optionIds ?? []).join(',')}`
+  const showcaseFilterKey = conditionsKey(filterConditions(settings.showcaseFilter))
   // Anlık oyuncu/seçenek filtresi de havuz anahtarına dahil — yoksa uygulama içinden (sayfa
   // yenilenmeden) bir rozete tıklanınca, önceki vitrin state'i temizlenmeden kalıp görünmeye devam ediyordu.
   const adHocFilterKey = `${filterPropId ?? ''}:${filterOptionId ?? ''}`
@@ -953,6 +955,12 @@ export default function AnaSayfa() {
     placed.push({
       position: settings.newEpisodesPosition ?? 1,
       node: <NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />,
+    })
+  }
+  if (settings.onThisDay?.enabled ?? true) {
+    placed.push({
+      position: settings.onThisDay?.position ?? 1,
+      node: <OnThisDayRow key="on-this-day" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />,
     })
   }
   if (settings.topRated?.enabled) {

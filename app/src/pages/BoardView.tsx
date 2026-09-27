@@ -8,21 +8,25 @@ import {
   emptyRow,
   makeId,
   ratingAverage,
+  titleText,
   type PropertyDef,
   type PropertyType,
   type PropertyValue,
   type Row,
-  type SelectOption,
+  type Board,
 } from '../types'
-import { rowMatchesFilter } from '../components/BoardGallery'
+import MultiFilterEditor from '../components/MultiFilterEditor'
+import { decodeConditions, encodeConditions, rowMatchesConditions, type FilterCondition } from '../lib/filters'
 import { hasAnyImage } from '../lib/rowMeta'
-import { assignRole, lockRolesForProperty, resolveRole, type RoleKey, type StatusKey } from '../lib/roles'
+import { ROLE_DEFS, assignRole, lockRolesForProperty, resolveRole, type RoleKey, type StatusKey } from '../lib/roles'
 import BoardTable, { type BoardTableHandle } from '../components/BoardTable'
 import RowDetailModal from '../components/RowDetailModal'
 import HealthCheckModal from '../components/HealthCheckModal'
 import TableGuideModal from '../components/TableGuideModal'
 import DiscoverModal from '../components/DiscoverModal'
-import OptionBadge from '../components/OptionBadge'
+import TmdbFillAdviceModal from '../components/TmdbFillAdviceModal'
+import BulkUpdatePanel, { type BulkLogEntry, type BulkState } from '../components/BulkUpdatePanel'
+import { beginBusy } from '../lib/busy'
 import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
 import { useToast } from '../hooks/useToast'
@@ -56,6 +60,56 @@ function ArrowLeftIcon() {
   )
 }
 
+// Doldurulan alan → o alanın sütun görevi (Genel Güncelleme öncesi "tablonda bu sütun yok" listesi için).
+const FIELD_ROLE: Record<string, RoleKey> = {
+  kategori: 'kategori',
+  orjinalAdi: 'orjinalAdi',
+  vizyonTarihi: 'vizyon',
+  sinopsis: 'sinopsis',
+  poster: 'poster',
+  banner: 'banner',
+  tur: 'tur',
+  ulke: 'ulke',
+  yonetmen: 'yonetmen',
+  sure: 'sure',
+  yasSiniri: 'yas',
+  video: 'video',
+  kadro: 'oyuncular',
+}
+
+// Tabloda sütunu hiç olmayan alanlar ("kullanma" diye bilerek kapatılmış görevler hariç).
+// Bir alanın şu an yazdığı sütun (görevinden ya da adından) ve yazabileceği uygun sütunlar.
+// Kullanıcı "adamın sütun adı farklı olabilir (ör. Sinopsis yerine Özet)" dedi — dişli menüsünde
+// ve Genel Güncelleme öncesi pencerede hangi sütuna yazılacağı seçilebiliyor.
+function fieldColumn(board: Board, key: string): PropertyDef | undefined {
+  if (key === 'kapakAdi') {
+    return (
+      board.properties.find((p) => p.type === 'image' && p.id === board.titleImagePropertyId) ??
+      board.properties.find((p) => p.type === 'image' && p.name.trim().toLocaleLowerCase('tr') === 'kapak adı')
+    )
+  }
+  const role = FIELD_ROLE[key]
+  return role ? resolveRole(board, role) : undefined
+}
+
+function fieldCandidates(board: Board, key: string): PropertyDef[] {
+  const types: PropertyType[] = key === 'kapakAdi' ? ['image'] : (ROLE_DEFS.find((d) => d.key === FIELD_ROLE[key])?.types ?? [])
+  return board.properties.filter((p) => p.id !== board.titlePropertyId && types.includes(p.type))
+}
+
+function missingFillColumns(board: Board): { key: string; label: string }[] {
+  return FETCHABLE_FIELDS.filter((f) => {
+    if (f.key === 'kapakAdi') {
+      return !board.properties.some(
+        (p) => p.type === 'image' && (p.id === board.titleImagePropertyId || p.name.trim().toLocaleLowerCase('tr') === 'kapak adı'),
+      )
+    }
+    const role = FIELD_ROLE[f.key]
+    if (!role || board.roles?.[role] === null) return false
+    return !resolveRole(board, role)
+  })
+}
+
 const FETCHABLE_FIELDS: { key: string; label: string }[] = [
   { key: 'kategori', label: 'Kategori' },
   { key: 'orjinalAdi', label: 'Orjinal Adı' },
@@ -78,47 +132,118 @@ const FETCHABLE_FIELDS: { key: string; label: string }[] = [
 // kimi sütunu TMDB'nin hiç ellememesini isteyebilir (ör. elle özenle yazdığı bir Sinopsis'in
 // yerine TMDB'ninkinin gelmesini istemeyebilir, ya da o sütunu hiç kullanmıyordur). Aynı
 // localStorage deseni (bkz. ColumnVisibilityPopover): arşive özel, kalıcı.
+// Her alanın ARGUS'ta nerede işe yaradığı — dişli menüsünde küçük açıklama olarak.
+const FIELD_HINTS: Record<string, string> = {
+  kategori: 'Film mi dizi mi — arama da daha isabetli olur',
+  orjinalAdi: 'TMDB aramasında kullanılır',
+  vizyonTarihi: 'Yıl, sıralama ve istatistikler',
+  sinopsis: 'Detay penceresi, vitrin ve Ne İzlesem özeti',
+  poster: 'Kartlar, Ne İzlesem ve detay penceresi',
+  banner: 'Vitrin ve detay penceresinin büyük görseli',
+  kapakAdi: 'Vitrinde ve detayda adın yerine çıkan logo',
+  tur: 'Filtreler, otomatik satırlar, modlar, istatistikler',
+  ulke: 'Filtreler, otomatik satırlar, istatistikler',
+  yonetmen: 'Detay penceresi ve arama',
+  sure: 'Detay, vitrin ve toplam izleme süresi',
+  yasSiniri: 'Yaş sınırı rozeti',
+  video: 'Vitrinde ve detayda oynayan fragman',
+  sezonlar: 'Bölümler, bölüm işaretleme, Yeni Bölümler satırı',
+  kadro: 'Oyuncu fotoğrafları, oyuncuya göre filtre',
+}
+
+// "API'den hangi alanlar çekilsin" (dişli). Kullanıcı "daha anlaşılır olsun, kullanıcıda olmayan
+// sütunların yanında 'sende yok, ekle' olsun" dedi: her alanın ne işe yaradığı yazıyor, tabloda
+// sütunu olmayanlarda tek tıkla ekleme var, hepsini açmak da tek tık.
 function TmdbFieldsPopover({
   excludedKeys,
   onToggle,
+  onOpenAll,
+  board,
+  onSetColumn,
   overwriteExisting,
   onToggleOverwrite,
 }: {
   excludedKeys: Set<string>
   onToggle: (key: string) => void
+  onOpenAll: () => void
+  board: Board
+  // propertyId ya da '__new__' (yeni sütun ekle)
+  onSetColumn: (key: string, propertyId: string) => void
   overwriteExisting: boolean
   onToggleOverwrite: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const closedCount = FETCHABLE_FIELDS.filter((f) => excludedKeys.has(f.key)).length
+  const unmapped = FETCHABLE_FIELDS.filter((f) => f.key !== 'sezonlar' && !fieldColumn(board, f.key))
 
   return (
     <div className="relative">
       <ToolbarIconButton
         onClick={() => setOpen((v) => !v)}
-        title="API'den hangi alanlar çekilsin"
-        active={excludedKeys.size > 0 || overwriteExisting}
+        title="TMDB'den neler gelsin — Güncelle ve Genel Güncelleme'nin dolduracağı alanlar"
+        active={excludedKeys.size > 0 || overwriteExisting || unmapped.length > 0}
       >
         <GearIcon />
       </ToolbarIconButton>
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-11 z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-xl p-2 shadow-lg">
-            <p className="text-[11px] text-neutral-500 px-2 pb-1.5">
-              "API eşitle" (tek satır ya da Genel Güncelleme) sadece işaretli alanları doldursun — aşağıdaki anahtar
-              kapalıyken zaten dolu bir alana dokunulmaz, sadece boşken doldurulur.
-            </p>
-            <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-neutral-800 border-b border-neutral-800 mb-1">
-              <span className="text-sm text-neutral-300">Dolu alanları da güncelle</span>
-              <ToggleSwitch checked={overwriteExisting} onChange={onToggleOverwrite} label="Dolu alanları da güncelle" />
+          <div className="absolute right-0 top-11 z-40 w-[22rem] max-w-[calc(100vw-2rem)] bg-neutral-900 border border-neutral-800 rounded-xl shadow-lg">
+            <div className="p-3 border-b border-neutral-800">
+              <p className="text-sm font-semibold text-neutral-100">TMDB'den neler gelsin?</p>
+              <p className="text-xs text-neutral-500 mt-1 leading-relaxed">
+                "Güncelle" ve "Genel Güncelleme" açık olan alanları doldurur; her birinin altında hangi sütununa yazacağı var, istersen
+                değiştir. Önerimiz hepsinin açık olması — ARGUS en iyi böyle çalışır ve görünür.
+              </p>
+              <div className="flex items-center gap-3 mt-2 text-xs">
+                <span className={closedCount ? 'text-amber-400' : 'text-emerald-400'}>
+                  {closedCount ? `${closedCount} alan kapalı` : '✓ Hepsi açık'}
+                </span>
+                {unmapped.length > 0 && <span className="text-amber-400">{unmapped.length} alanın sütunu yok</span>}
+                {closedCount > 0 && (
+                  <button onClick={onOpenAll} className="ml-auto text-[#00c0fa] hover:underline">
+                    Hepsini aç
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="max-h-72 overflow-y-auto space-y-0.5">
-              {FETCHABLE_FIELDS.map((f) => (
-                <div key={f.key} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-neutral-800">
-                  <span className="text-sm text-neutral-300 truncate">{f.label}</span>
-                  <ToggleSwitch checked={!excludedKeys.has(f.key)} onChange={() => onToggle(f.key)} label={f.label} />
-                </div>
-              ))}
+            <div className="max-h-[22rem] overflow-y-auto p-1.5 space-y-0.5">
+              {FETCHABLE_FIELDS.map((f) => {
+                const on = !excludedKeys.has(f.key)
+                const col = f.key === 'sezonlar' ? undefined : fieldColumn(board, f.key)
+                const cands = f.key === 'sezonlar' ? [] : fieldCandidates(board, f.key)
+                return (
+                  <div key={f.key} className="px-2 py-2 rounded-md hover:bg-neutral-800/70">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate ${on ? 'text-neutral-200' : 'text-neutral-500'}`}>{f.label}</p>
+                        <p className="text-[11px] text-neutral-500 truncate">{FIELD_HINTS[f.key]}</p>
+                      </div>
+                      <ToggleSwitch checked={on} onChange={() => onToggle(f.key)} label={f.label} />
+                    </div>
+                    {on && f.key !== 'sezonlar' && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[11px] text-neutral-500 shrink-0">→ Yazdığı sütun</span>
+                        <Select
+                          value={col?.id ?? ''}
+                          onChange={(v) => onSetColumn(f.key, v)}
+                          placeholder={cands.length ? 'Seçilmedi' : 'Sende yok'}
+                          options={[...cands.map((c) => ({ value: c.id, label: c.name })), { value: '__new__', label: `+ Yeni "${f.key === 'kapakAdi' ? 'Kapak Adı' : ROLE_DEFS.find((d) => d.key === FIELD_ROLE[f.key])?.defaultName ?? f.label}" sütunu ekle` }]}
+                          className="flex-1 min-w-0"
+                        />
+                        {!col && <span className="text-[10px] text-amber-400 shrink-0">{cands.length ? 'seç' : 'yok'}</span>}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex items-center justify-between gap-2 p-3 border-t border-neutral-800">
+              <span>
+                <span className="block text-sm text-neutral-300">Dolu alanları da güncelle</span>
+                <span className="block text-[11px] text-neutral-500">Kapalıyken sadece boş alanlar doldurulur, yazdıkların ezilmez.</span>
+              </span>
+              <ToggleSwitch checked={overwriteExisting} onChange={onToggleOverwrite} label="Dolu alanları da güncelle" />
             </div>
           </div>
         </>
@@ -283,87 +408,35 @@ function TableSearchInput({ onSearch }: { onSearch: (value: string) => void }) {
 }
 
 // Filtre de aynı şekilde kapalıyken bir huni ikonu, tıklayınca aşağı açılan bir panelde
-// sütun + seçenek seçimi. Bir filtre aktifken ikon mavi kalıyor (uygulanmış olduğunu
-// hatırlatmak için) — panel kapalı olsa bile.
+// çoklu / ters filtre (bkz. MultiFilterEditor). Bir filtre aktifken ikon mavi kalıyor
+// (uygulanmış olduğunu hatırlatmak için) — panel kapalı olsa bile.
 function FilterPopover({
-  filterableProps,
-  activeFilterProp,
-  filterPropertyId,
-  selectedOption,
-  showOptionSearch,
-  optionSearch,
-  setOptionSearch,
-  visibleOptions,
-  optionCount,
-  setFilter,
+  board,
+  conditions,
+  onChange,
 }: {
-  filterableProps: PropertyDef[]
-  activeFilterProp: PropertyDef | null
-  filterPropertyId: string | null
-  selectedOption: SelectOption | null
-  showOptionSearch: boolean
-  optionSearch: string
-  setOptionSearch: (v: string) => void
-  visibleOptions: SelectOption[]
-  optionCount: number
-  setFilter: (propertyId: string | null, optionId: string | null) => void
+  board: Board
+  conditions: FilterCondition[]
+  onChange: (c: FilterCondition[]) => void
 }) {
   const [open, setOpen] = useState(false)
-  if (filterableProps.length === 0) return null
-
   return (
     <div className="relative">
-      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title="Filtrele" active={Boolean(filterPropertyId)}>
+      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title="Filtrele" active={conditions.length > 0}>
         <FilterIcon />
       </ToolbarIconButton>
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-11 z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-xl p-3 shadow-lg space-y-2">
-            <Select
-              value={filterPropertyId ?? ''}
-              onChange={(v) => {
-                setFilter(v || null, null)
-                setOptionSearch('')
-              }}
-              options={[{ value: '', label: 'Filtrele...' }, ...filterableProps.map((p) => ({ value: p.id, label: p.name }))]}
+          <div className="absolute right-0 top-11 z-40 w-80 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto bg-neutral-900 border border-neutral-800 rounded-xl p-3 shadow-lg">
+            <p className="text-sm font-semibold text-neutral-100 mb-2">Filtrele</p>
+            <MultiFilterEditor
+              board={board}
+              conditions={conditions}
+              onChange={onChange}
+              compact
+              emptyText="Bir sütunu aç; göstermek istediklerine bir kez (✓), gizlemek istediklerine iki kez (✕) tıkla."
             />
-
-            {activeFilterProp && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                {selectedOption && (
-                  <OptionBadge
-                    label={selectedOption.label}
-                    colorIndex={selectedOption.colorIndex}
-                    image={selectedOption.image}
-                    selected
-                    onClick={() => setFilter(filterPropertyId, null)}
-                  />
-                )}
-                {showOptionSearch && (
-                  <input
-                    value={optionSearch}
-                    onChange={(e) => setOptionSearch(e.target.value)}
-                    placeholder={`${activeFilterProp.name} ara... (${optionCount})`}
-                    className="w-full text-sm bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-neutral-300 outline-none"
-                  />
-                )}
-                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                  {visibleOptions.map((o) => (
-                    <OptionBadge
-                      key={o.id}
-                      label={o.label}
-                      colorIndex={o.colorIndex}
-                      image={o.image}
-                      onClick={() => {
-                        setFilter(filterPropertyId, o.id)
-                        setOptionSearch('')
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </>
       )}
@@ -518,7 +591,6 @@ export default function BoardView() {
   // TableSearchInput kendi anlık yazdığını kendi içinde tutuyor, buraya sadece 200ms'lik
   // yazma duraklamasından sonra bildiriyor (bkz. TableSearchInput'un başındaki not).
   const [search, setSearch] = useState('')
-  const [optionSearch, setOptionSearch] = useState('')
   const [sortPropertyId, setSortPropertyId] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
@@ -571,6 +643,25 @@ export default function BoardView() {
       }
       return next
     })
+  }
+
+  // Genel Güncelleme öncesi bilgilendirme penceresi (bkz. TmdbFillAdviceModal). "Bir daha sorma"
+  // arşiv başına hatırlanıyor.
+  const [fillAdvice, setFillAdvice] = useState<{
+    count: number
+    missing: { key: string; label: string; candidates: { id: string; name: string }[] }[]
+    closed: { key: string; label: string }[]
+    resolve: (r: { skip: string[]; mute: boolean; columns: Record<string, string> } | null) => void
+  } | null>(null)
+  const adviceMuteKey = id ? `argus_tmdb_advice_muted_${id}` : null
+
+  function saveTmdbExclude(next: Set<string>) {
+    setTmdbExcludeFields(next)
+    try {
+      if (tmdbExcludeKey) localStorage.setItem(tmdbExcludeKey, JSON.stringify([...next]))
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
   }
 
   // API'den doldurulmasını istemediği alanlar — aynı kalıcılık deseni (bkz. hiddenColumnsKey).
@@ -635,8 +726,39 @@ export default function BoardView() {
   // Python scriptlerindeki `time.sleep` mantığıyla aynı sebep) — bu yüzden uzun sürebilir,
   // istediği an durdurabilsin diye bulkCancelRef ile iptal edilebiliyor.
   const [bulkUpdating, setBulkUpdating] = useState(false)
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
   const bulkCancelRef = useRef(false)
+  // Ayrıntı kutusu (bkz. BulkUpdatePanel) ve "kaldığı yerden devam": kalan kayıtlar arşiv başına
+  // tarayıcıda saklanıyor — durdurunca, sayfa yenilenince ya da ARGUS kapanıp açılınca da devam edilebilsin.
+  const [bulk, setBulk] = useState<BulkState | null>(null)
+  const bulkResumeKey = id ? `argus_bulk_resume_${id}` : null
+  type BulkSaved = { ids: string[]; done: number; total: number; updated: number; failed: number; exclude: string[]; overwrite: boolean }
+  function readBulkSaved(): BulkSaved | null {
+    try {
+      const raw = bulkResumeKey ? localStorage.getItem(bulkResumeKey) : null
+      return raw ? (JSON.parse(raw) as BulkSaved) : null
+    } catch {
+      return null
+    }
+  }
+  function writeBulkSaved(v: BulkSaved | null) {
+    try {
+      if (!bulkResumeKey) return
+      if (v && v.ids.length > 0) localStorage.setItem(bulkResumeKey, JSON.stringify(v))
+      else localStorage.removeItem(bulkResumeKey)
+    } catch {
+      // saklanamazsa sadece bu oturumda devam edilebilir
+    }
+  }
+  // Arşiv açılınca yarım kalmış bir güncelleme varsa kutu "durduruldu" haliyle görünsün.
+  useEffect(() => {
+    const saved = readBulkSaved()
+    setBulk(
+      saved
+        ? { running: false, done: saved.done, total: saved.total, updated: saved.updated, failed: saved.failed, current: null, startedAt: Date.now(), sessionDone: 0, log: [] }
+        : null,
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkResumeKey])
 
   // Filtre URL'de tutuluyor (?filterProp=&filterOption=) — böylece başka bir yerden (ör.
   // detay penceresindeki bir oyuncu rozetine tıklayınca) doğrudan bu arşive, o değere göre
@@ -683,6 +805,7 @@ export default function BoardView() {
   function setFilter(propertyId: string | null, optionId: string | null) {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
+      next.delete('filtre')
       if (propertyId) next.set('filterProp', propertyId)
       else next.delete('filterProp')
       if (optionId) next.set('filterOption', optionId)
@@ -691,26 +814,29 @@ export default function BoardView() {
     })
   }
 
-  const filterableProps = useMemo(
-    () => board?.properties.filter((p) => p.type === 'select' || p.type === 'multiselect') ?? [],
-    [board],
-  )
-  const activeFilterProp = filterableProps.find((p) => p.id === filterPropertyId) ?? null
-  const selectedOption = activeFilterProp?.options?.find((o) => o.id === filterOptionId) ?? null
+  // Çoklu / ters filtre adres çubuğunda ?filtre=... olarak duruyor (bkz. lib/filters.ts). Eski
+  // tek değerli bağlantılar (detay penceresinden bir oyuncuya tıklayınca gelen filterProp/
+  // filterOption, üstteki durum düğmeleri) de aynı listeye tek bir "gelsin" koşulu olarak katılıyor.
+  const filtreParam = searchParams.get('filtre')
+  const tableConditions = useMemo(() => {
+    const list = decodeConditions(filtreParam)
+    if (filterPropertyId && filterOptionId && !list.some((c) => c.propertyId === filterPropertyId)) {
+      list.unshift({ propertyId: filterPropertyId, include: [filterOptionId], exclude: [] })
+    }
+    return list
+  }, [filtreParam, filterPropertyId, filterOptionId])
 
-  // Oyuncular gibi yüzlerce/binlerce seçeneği olan bir sütunda hepsini tek seferde rozet
-  // olarak dökmek kullanılamaz bir duvar yaratıyordu — belli bir sayıdan sonra arama kutusu
-  // çıkıyor ve aratmadan liste boş kalıyor (sadece seçili olan her zaman ayrı gösteriliyor).
-  const optionCount = activeFilterProp?.options?.length ?? 0
-  const showOptionSearch = optionCount > 12
-  const optionQuery = optionSearch.trim().toLocaleLowerCase('tr')
-  const visibleOptions = (activeFilterProp?.options ?? [])
-    .filter((o) => o.id !== filterOptionId)
-    .filter((o) => {
-      if (optionQuery) return o.label.toLocaleLowerCase('tr').includes(optionQuery)
-      return !showOptionSearch
+  function setTableConditions(conds: FilterCondition[]) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('filterProp')
+      next.delete('filterOption')
+      const enc = encodeConditions(conds)
+      if (enc) next.set('filtre', enc)
+      else next.delete('filtre')
+      return next
     })
-    .slice(0, 100)
+  }
 
   const sortableProps = useMemo(() => board?.properties.filter((p) => SORTABLE_TYPES.has(p.type)) ?? [], [board])
   const sortProperty = sortableProps.find((p) => p.id === sortPropertyId) ?? null
@@ -750,7 +876,7 @@ export default function BoardView() {
   const filteredRows = useMemo(() => {
     if (!board) return []
     const result = rows.filter((row) => {
-      if (!rowMatchesFilter(row, filterPropertyId, filterOptionId)) return false
+      if (!rowMatchesConditions(row, tableConditions)) return false
       if (search.trim()) {
         const q = search.trim().toLocaleLowerCase('tr')
         const hay = board.properties
@@ -783,7 +909,7 @@ export default function BoardView() {
       })
     }
     return result
-  }, [rows, filterPropertyId, filterOptionId, search, board, sortProperty, sortDirection, searchOptionMaps])
+  }, [rows, tableConditions, search, board, sortProperty, sortDirection, searchOptionMaps])
 
   // Yeni eklenen satır listede gerçekten görününce (bkz. pendingScrollRowId'nin tanımındaki not)
   // BoardTable'a kaydırma komutunu veriyor.
@@ -857,6 +983,37 @@ export default function BoardView() {
     return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
   }
 
+  // Dişli menüsündeki "Sende yok → + Ekle": o alanın sütununu (görevi otomatik tanınacak adla) ekler.
+  function addFillColumn(key: string) {
+    if (!board) return
+    if (key === 'kapakAdi') {
+      const prop = { id: makeId(), name: 'Kapak Adı', type: 'image' as PropertyType }
+      saveBoard({ properties: [...board.properties, prop], titleImagePropertyId: prop.id })
+      notify('"Kapak Adı" sütunu eklendi — Güncelle ile logolar gelir.')
+      return
+    }
+    const role = FIELD_ROLE[key]
+    const def = ROLE_DEFS.find((d) => d.key === role)
+    if (!def) return
+    addProperty(def.defaultName, def.types[0])
+    notify(`"${def.defaultName}" sütunu eklendi — Güncelle ile doldurulur.`)
+  }
+
+  // Dişli menüsünde bir alanın yazacağı sütunu değiştirme — sütun menüsündeki "Görevi" ile aynı kayıt.
+  async function setFieldColumn(key: string, propertyId: string) {
+    if (!board) return
+    if (propertyId === '__new__') return addFillColumn(key)
+    const name = board.properties.find((p) => p.id === propertyId)?.name ?? ''
+    const label = FETCHABLE_FIELDS.find((f) => f.key === key)?.label ?? key
+    if (key === 'kapakAdi') await saveBoard({ titleImagePropertyId: propertyId })
+    else {
+      const role = FIELD_ROLE[key]
+      if (!role) return
+      await saveBoard({ roles: { ...(board.roles ?? {}), [role]: propertyId } })
+    }
+    notify(`${label} artık "${name}" sütununa yazılacak.`)
+  }
+
   function addProperty(name: string, type: PropertyType) {
     if (!board) return
     const needsOptions = type === 'select' || type === 'multiselect'
@@ -878,7 +1035,7 @@ export default function BoardView() {
     })
     if (!ok) return
     setProperties(board.properties.filter((p) => p.id !== propertyId))
-    if (filterPropertyId === propertyId) setFilter(null, null)
+    if (tableConditions.some((c) => c.propertyId === propertyId)) setTableConditions(tableConditions.filter((c) => c.propertyId !== propertyId))
   }
 
   function renameProperty(propertyId: string, name: string) {
@@ -1136,41 +1293,168 @@ export default function BoardView() {
       notify(tmdbOverwriteExisting ? 'Başlığı dolu bir kayıt yok.' : 'Eksik görünen bir kayıt yok, hepsi dolu görünüyor.')
       return
     }
-    const ok = await confirm({
+    // Eksik sütun ya da kapatılmış alan varsa önce bilgilendirme penceresi (onay yerine geçer).
+    let exclude = tmdbExcludeFields
+    let muted = false
+    try {
+      muted = Boolean(adviceMuteKey && localStorage.getItem(adviceMuteKey))
+    } catch {
+      // yoksa sorulur
+    }
+    const missing = missingFillColumns(board)
+      .filter((f) => !tmdbExcludeFields.has(f.key))
+      .map((f) => ({ ...f, candidates: fieldCandidates(board, f.key).map((p) => ({ id: p.id, name: p.name })) }))
+    const closed = FETCHABLE_FIELDS.filter((f) => tmdbExcludeFields.has(f.key))
+    if (!muted && (missing.length > 0 || closed.length > 0)) {
+      const answer = await new Promise<{ skip: string[]; mute: boolean; columns: Record<string, string> } | null>((resolve) =>
+        setFillAdvice({ count: targets.length, missing, closed, resolve }),
+      )
+      setFillAdvice(null)
+      if (!answer) return
+      if (answer.mute && adviceMuteKey) {
+        try {
+          localStorage.setItem(adviceMuteKey, '1')
+        } catch {
+          // olmazsa yine sorulur
+        }
+      }
+      // "Şu var olan sütuna yaz" dediklerini kaydet (sunucu okumadan önce).
+      const colEntries = Object.entries(answer.columns)
+      if (colEntries.length > 0) {
+        const roles = { ...(board.roles ?? {}) }
+        let titleImagePropertyId = board.titleImagePropertyId
+        for (const [k, pid] of colEntries) {
+          if (k === 'kapakAdi') titleImagePropertyId = pid
+          else if (FIELD_ROLE[k]) roles[FIELD_ROLE[k]] = pid
+        }
+        await saveBoard({ roles, titleImagePropertyId })
+      }
+      // Pencerede verilen karar kalıcı: açılanlar açık, "gelmesin" denenler dişli menüsünde kapalı kalır.
+      const asked = new Set([...missing, ...closed].map((f) => f.key))
+      exclude = new Set([...[...tmdbExcludeFields].filter((k) => !asked.has(k)), ...answer.skip])
+      saveTmdbExclude(exclude)
+    } else if (
+      !(await confirm({
       message: tmdbOverwriteExisting
         ? `"Dolu alanları da güncelle" açık — ${targets.length} kaydın TÜMÜ (eksik olsun olmasın) TMDB'nin güncel verisiyle güncellenecek. Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`
         : `${targets.length} kayıt eksik görünüyor (poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş). TMDB'den doldurulsun mu? Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`,
       confirmLabel: 'Doldur',
       tone: tmdbOverwriteExisting ? 'danger' : 'info',
+    }))
+    )
+      return
+
+    await runBulk({
+      ids: targets.map((r) => r.id),
+      done: 0,
+      total: targets.length,
+      updated: 0,
+      failed: 0,
+      exclude: [...exclude],
+      overwrite: tmdbOverwriteExisting,
     })
-    if (!ok) return
+  }
 
+  function rowTitleOf(row: Row): string {
+    const tp = board?.properties.find((p) => p.id === board.titlePropertyId)
+    return (tp ? titleText(tp, row.values[tp.id]) : '') || 'İsimsiz'
+  }
+
+  async function runBulk(start: BulkSaved) {
+    if (!board) return
     setBulkUpdating(true)
+    const endBusy = beginBusy()
     bulkCancelRef.current = false
-    let updated = 0
-    let failed = 0
+    const state = { ...start, ids: [...start.ids] }
+    const log: BulkLogEntry[] = []
+    const startedAt = Date.now()
+    let sessionDone = 0
+    const push = (current: string | null) =>
+      setBulk({
+        running: true,
+        done: state.done,
+        total: state.total,
+        updated: state.updated,
+        failed: state.failed,
+        current,
+        startedAt,
+        sessionDone,
+        log: [...log],
+      })
+    writeBulkSaved(state)
+    push(null)
 
-    for (let i = 0; i < targets.length; i++) {
+    let sinceReload = 0
+    while (state.ids.length > 0) {
       if (bulkCancelRef.current) break
-      setBulkProgress({ done: i, total: targets.length })
-      try {
-        await api.fetchTmdb(board.id, targets[i].id, [...tmdbExcludeFields], tmdbOverwriteExisting)
-        updated++
-      } catch {
-        failed++
+      const rowId = state.ids[0]
+      const row = rows.find((r) => r.id === rowId)
+      if (!row) {
+        // Bu arada silinmiş kayıt: atla.
+        state.ids.shift()
+        state.done++
+        writeBulkSaved(state)
+        continue
       }
-      if (i % 15 === 14) await Promise.all([reloadBoard(), reloadRows()])
+      const title = rowTitleOf(row)
+      push(title)
+      try {
+        const res = await api.fetchTmdb(board.id, rowId, state.exclude, state.overwrite)
+        state.updated++
+        const bits = [...res.filled]
+        if (res.newEpisodes > 0) bits.push(`${res.newEpisodes} yeni bölüm`)
+        if (res.newActors > 0) bits.push(`${res.newActors} yeni oyuncu`)
+        log.unshift(
+          bits.length > 0
+            ? { title, kind: 'ok', text: `${res.mediaType === 'tv' ? 'Dizi' : 'Film'} · eklendi: ${bits.join(', ')}` }
+            : { title, kind: 'same', text: 'TMDB\'de bulundu, eklenecek yeni bilgi yoktu' },
+        )
+      } catch (e) {
+        state.failed++
+        log.unshift({ title, kind: 'fail', text: e instanceof Error ? e.message.split(' — ')[0] : 'Hata oluştu' })
+      }
+      if (log.length > 30) log.length = 30
+      state.ids.shift()
+      state.done++
+      sessionDone++
+      writeBulkSaved(state)
+      if (++sinceReload >= 15) {
+        sinceReload = 0
+        await Promise.all([reloadBoard(), reloadRows()])
+      }
     }
 
     await Promise.all([reloadBoard(), reloadRows()])
-    const stoppedEarly = bulkCancelRef.current
-    setBulkProgress(null)
+    const stoppedEarly = state.ids.length > 0
     setBulkUpdating(false)
+    endBusy()
+    setBulk({
+      running: false,
+      done: state.done,
+      total: state.total,
+      updated: state.updated,
+      failed: state.failed,
+      current: null,
+      startedAt,
+      sessionDone,
+      log: [...log],
+    })
     notify(
-      `${stoppedEarly ? 'Durduruldu — ' : 'Tamamlandı — '}${updated} kayıt güncellendi${
-        failed > 0 ? `, ${failed} kayıtta eşleşme bulunamadı/hata oluştu` : ''
-      }.`,
+      `${stoppedEarly ? 'Durduruldu — ' : 'Tamamlandı — '}${state.updated} kayıt güncellendi${
+        state.failed > 0 ? `, ${state.failed} kayıtta eşleşme bulunamadı/hata oluştu` : ''
+      }${stoppedEarly ? `. Kalan ${state.ids.length} kayda "Devam et" ile kaldığın yerden devam edebilirsin.` : '.'}`,
     )
+  }
+
+  function resumeBulk() {
+    const saved = readBulkSaved()
+    if (!saved || bulkUpdating) return
+    runBulk(saved)
+  }
+
+  function discardBulk() {
+    writeBulkSaved(null)
+    setBulk(null)
   }
 
   return (
@@ -1194,18 +1478,7 @@ export default function BoardView() {
 
         <div className="flex flex-wrap items-center gap-1">
           <TableSearchInput onSearch={setSearch} />
-          <FilterPopover
-            filterableProps={filterableProps}
-            activeFilterProp={activeFilterProp}
-            filterPropertyId={filterPropertyId}
-            selectedOption={selectedOption}
-            showOptionSearch={showOptionSearch}
-            optionSearch={optionSearch}
-            setOptionSearch={setOptionSearch}
-            visibleOptions={visibleOptions}
-            optionCount={optionCount}
-            setFilter={setFilter}
-          />
+          <FilterPopover board={board} conditions={tableConditions} onChange={setTableConditions} />
           <SortPopover
             sortableProps={sortableProps}
             sortPropertyId={sortPropertyId}
@@ -1231,17 +1504,24 @@ export default function BoardView() {
           <TmdbFieldsPopover
             excludedKeys={tmdbExcludeFields}
             onToggle={toggleTmdbField}
+            onOpenAll={() => saveTmdbExclude(new Set())}
+            board={board}
+            onSetColumn={setFieldColumn}
             overwriteExisting={tmdbOverwriteExisting}
             onToggleOverwrite={toggleTmdbOverwrite}
           />
           {bulkUpdating ? (
             <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
               <BulkRefreshIcon spinning />
-              {bulkProgress ? `${bulkProgress.done}/${bulkProgress.total}` : 'Güncelleniyor...'}
+              {bulk ? `${bulk.done}/${bulk.total}` : 'Güncelleniyor...'}
               <button onClick={() => (bulkCancelRef.current = true)} className="text-rose-400 hover:underline">
                 Durdur
               </button>
             </div>
+          ) : bulk && bulk.done < bulk.total ? (
+            <ToolbarIconButton onClick={resumeBulk} title={`Devam et — Genel Güncelleme'nin kalan ${bulk.total - bulk.done} kaydı`} active>
+              <BulkRefreshIcon />
+            </ToolbarIconButton>
           ) : (
             <ToolbarIconButton onClick={handleBulkUpdate} title="Genel Güncelleme — eksik kayıtları TMDB'den doldur">
               <BulkRefreshIcon />
@@ -1271,10 +1551,21 @@ export default function BoardView() {
         </div>
       </section>
 
+      {bulk && (
+        <BulkUpdatePanel state={bulk} onStop={() => (bulkCancelRef.current = true)} onResume={resumeBulk} onDiscard={discardBulk} />
+      )}
+
       {statusProp && statusSummary.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-4">
           {[{ id: null as string | null, label: 'Hepsi', count: rows.length, colorIndex: -1 }, ...statusSummary].map((s) => {
-            const active = s.id === null ? !filterPropertyId : filterPropertyId === statusProp.id && filterOptionId === s.id
+            const active =
+              s.id === null
+                ? tableConditions.length === 0
+                : tableConditions.length === 1 &&
+                  tableConditions[0].propertyId === statusProp.id &&
+                  tableConditions[0].exclude.length === 0 &&
+                  tableConditions[0].include.length === 1 &&
+                  tableConditions[0].include[0] === s.id
             const c = s.colorIndex >= 0 ? OPTION_COLORS[s.colorIndex % OPTION_COLORS.length] : null
             return (
               <button
@@ -1337,8 +1628,8 @@ export default function BoardView() {
           <span>
             {rows.length} kayıttan <span className="text-neutral-200 font-medium">{filteredRows.length}</span> tanesi gösteriliyor
           </span>
-          {filterPropertyId && (
-            <button onClick={() => setFilter(null, null)} className="text-[#00c0fa] hover:underline">
+          {tableConditions.length > 0 && (
+            <button onClick={() => setTableConditions([])} className="text-[#00c0fa] hover:underline">
               Filtreyi temizle
             </button>
           )}
@@ -1358,6 +1649,16 @@ export default function BoardView() {
 
       {guideOpen && <TableGuideModal onClose={() => setGuideOpen(false)} />}
 
+      {fillAdvice && (
+        <TmdbFillAdviceModal
+          count={fillAdvice.count}
+          overwrite={tmdbOverwriteExisting}
+          missing={fillAdvice.missing}
+          closed={fillAdvice.closed}
+          onDone={fillAdvice.resolve}
+        />
+      )}
+
       {discoverOpen && <DiscoverModal boardId={board.id} exclude={[...tmdbExcludeFields]} onClose={() => setDiscoverOpen(false)} />}
 
       {healthOpen && (
@@ -1374,7 +1675,20 @@ export default function BoardView() {
             const name = board.properties.find((p) => p.id === propertyId)?.name ?? 'Bu alan'
             notify(rowIds.length === 1 ? `Bu kayıtta ${name} artık sorulmayacak.` : `${rowIds.length} kayıtta ${name} artık sorulmayacak.`)
           }}
-          onResetIgnored={() => saveBoard({ healthIgnore: {} })}
+          onUnignore={(pairs) => {
+            const next = { ...(board.healthIgnore ?? {}) }
+            for (const { rowId, propertyId } of pairs) {
+              const left = (next[rowId] ?? []).filter((id) => id !== propertyId)
+              if (left.length) next[rowId] = left
+              else delete next[rowId]
+            }
+            saveBoard({ healthIgnore: next })
+            notify(pairs.length === 1 ? 'Bu alan yine sorulacak.' : `${pairs.length} alan yine sorulacak.`)
+          }}
+          onResetIgnored={() => {
+            saveBoard({ healthIgnore: {} })
+            notify('Sorulmayan alanların hepsi yine sorulacak.')
+          }}
           onOpenRow={(row) => {
             setHealthOpen(false)
             setDetailRow(row)

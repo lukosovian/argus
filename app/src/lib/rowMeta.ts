@@ -1,3 +1,4 @@
+import { filterConditions, rowMatchesConditions, type FilterLike } from './filters'
 import { ratingAverage, type Board, type Row, type RowTitleSize } from '../types'
 import { resolveRole } from './roles'
 
@@ -91,13 +92,10 @@ export function showcaseMeta(board: Board, row: Row, seasonCount?: number): stri
 // ya da hiç seçenek işaretlenmediyse BOŞ dizi döner — "filtresiz" davranışı (tüm satırları
 // göstermek) her çağıran kendi bağlamına göre ayrıca karar veriyor (bkz. AnaSayfa.tsx'teki
 // vitrin/Tümü mantığı ve RandomPickerButton.tsx).
-export function rowsForFilter(filter: { propertyId: string | null; optionIds: string[] }, allRows: Row[]): Row[] {
-  if (!filter.propertyId || filter.optionIds.length === 0) return []
-  return allRows.filter((row) => {
-    const v = row.values[filter.propertyId!]
-    if (Array.isArray(v)) return v.some((id) => filter.optionIds.includes(id))
-    return typeof v === 'string' && filter.optionIds.includes(v)
-  })
+export function rowsForFilter(filter: FilterLike, allRows: Row[]): Row[] {
+  const conds = filterConditions(filter)
+  if (conds.length === 0) return []
+  return allRows.filter((row) => rowMatchesConditions(row, conds))
 }
 
 // Bir satırın board'daki HERHANGİ bir görsel sütununda değeri var mı — Sağlık Kontrolü'nün

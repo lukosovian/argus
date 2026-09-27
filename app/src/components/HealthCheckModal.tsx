@@ -21,6 +21,7 @@ export default function HealthCheckModal({
   incompleteRows,
   incompleteChecks,
   onIgnore,
+  onUnignore,
   onResetIgnored,
   onOpenRow,
   onClose,
@@ -36,6 +37,9 @@ export default function HealthCheckModal({
   // "Bu kayıtta bu alan yok, bir daha sorma" — örn. TMDB'de hiç fragmanı olmayan filmler
   // listede sonsuza kadar "eksik" görünmesin diye (bkz. board.healthIgnore).
   onIgnore: (rowIds: string[], propertyId: string) => void
+  // "Sorulmayanlar"dan geri alma: kullanıcı "bir daha gelmesin dediklerimi sonradan gelsin
+  // diyebileyim" dedi — tek tek (kayıt + alan) ya da bir alanın hepsi birden.
+  onUnignore: (pairs: { rowId: string; propertyId: string }[]) => void
   onResetIgnored: () => void
   onOpenRow: (row: Row) => void
   onClose: () => void
@@ -91,6 +95,24 @@ export default function HealthCheckModal({
     : incompleteRows
   const filterProp = incompleteChecks.find((p) => p.id === missingFilter)
   const ignoredCount = Object.values(board.healthIgnore ?? {}).reduce((n, ids) => n + ids.length, 0)
+  // Sorulmayan (kayıt, alan) çiftleri — silinmiş kayıtlar/sütunlar atlanır.
+  const ignoredPairs = Object.entries(board.healthIgnore ?? {}).flatMap(([rowId, propIds]) => {
+    const row = rowById(rowId)
+    if (!row) return []
+    return propIds.flatMap((pid) => {
+      const prop = board.properties.find((p) => p.id === pid)
+      return prop ? [{ row, prop }] : []
+    })
+  })
+  const [ignoredFilter, setIgnoredFilter] = useState<string | null>(null)
+  const ignoredProps = [...new Map(ignoredPairs.map((x) => [x.prop.id, x.prop])).values()]
+  const shownIgnored = ignoredFilter ? ignoredPairs.filter((x) => x.prop.id === ignoredFilter) : ignoredPairs
+  const ignoredByRow = new Map<string, { row: Row; props: PropertyDef[] }>()
+  for (const x of shownIgnored) {
+    const e = ignoredByRow.get(x.row.id)
+    if (e) e.props.push(x.prop)
+    else ignoredByRow.set(x.row.id, { row: x.row, props: [x.prop] })
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onClose}>
@@ -177,10 +199,7 @@ export default function HealthCheckModal({
             footer={
               ignoredCount > 0 && (
                 <p className="text-xs text-neutral-600 mt-2 px-2.5">
-                  {ignoredCount} alan "sorma" olarak işaretli ·{' '}
-                  <button onClick={onResetIgnored} className="text-neutral-400 hover:text-neutral-50 underline">
-                    hepsini tekrar sor
-                  </button>
+                  {ignoredCount} alan "sorma" olarak işaretli — aşağıdaki "Sorulmayanlar"dan geri açabilirsin.
                 </p>
               )
             }
@@ -196,6 +215,50 @@ export default function HealthCheckModal({
             }))}
             onOpenRow={onOpenRow}
           />
+          {ignoredPairs.length > 0 && (
+            <HealthSection
+              title="Sorulmayanlar"
+              hint={'"Bir daha sorma" dediğin alanlar. Yanındaki ↺ ile o alan yine sorulur.'}
+              count={ignoredByRow.size}
+              neutral
+              filters={
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  <FilterChip active={ignoredFilter === null} onClick={() => setIgnoredFilter(null)}>
+                    Hepsi ({ignoredPairs.length})
+                  </FilterChip>
+                  {ignoredProps.map((p) => (
+                    <FilterChip key={p.id} active={ignoredFilter === p.id} onClick={() => setIgnoredFilter(p.id)}>
+                      {p.name} ({ignoredPairs.filter((x) => x.prop.id === p.id).length})
+                    </FilterChip>
+                  ))}
+                  <button
+                    onClick={() => {
+                      if (ignoredFilter) onUnignore(shownIgnored.map((x) => ({ rowId: x.row.id, propertyId: x.prop.id })))
+                      else onResetIgnored()
+                      setIgnoredFilter(null)
+                    }}
+                    className="text-xs rounded-full px-2.5 py-1 border border-dashed border-neutral-600 text-neutral-400 hover:text-neutral-50 hover:border-neutral-400 transition"
+                  >
+                    {ignoredFilter
+                      ? `Bu ${shownIgnored.length} kayıtta "${ignoredProps.find((p) => p.id === ignoredFilter)?.name}" yine sorulsun`
+                      : 'Hepsi yine sorulsun'}
+                  </button>
+                </div>
+              }
+              items={[...ignoredByRow.values()].map(({ row, props }) => ({
+                key: row.id,
+                row,
+                label: rowTitle(row),
+                tags: props.map((p) => ({
+                  label: p.name,
+                  undo: true,
+                  dismissTitle: `Bu kayıtta ${p.name} yine sorulsun`,
+                  onDismiss: () => onUnignore([{ rowId: row.id, propertyId: p.id }]),
+                })),
+              }))}
+              onOpenRow={onOpenRow}
+            />
+          )}
           <HealthSection
             title="Görsel dosyası silinmiş kayıtlar"
             hint="Sütunda bir görsel kayıtlı ama dosyası medya klasöründe artık yok."
@@ -228,7 +291,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
   )
 }
 
-type HealthTag = { label: string; dismissTitle?: string; onDismiss?: () => void }
+type HealthTag = { label: string; dismissTitle?: string; onDismiss?: () => void; undo?: boolean }
 type HealthItem = { key: string; row: Row; label: string; tags: HealthTag[] }
 
 // Her bölüm kapalı gelir (başlık + sayı), tıklayınca açılır — üç uzun liste alt alta tek
@@ -242,6 +305,7 @@ function HealthSection({
   filters,
   footer,
   loading = false,
+  neutral = false,
   onOpenRow,
 }: {
   title: string
@@ -251,6 +315,8 @@ function HealthSection({
   filters?: React.ReactNode
   footer?: React.ReactNode
   loading?: boolean
+  // Sorun değil, bilgi listesi (Sorulmayanlar) — sayı rozeti gri.
+  neutral?: boolean
   onOpenRow: (row: Row) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -269,7 +335,7 @@ function HealthSection({
         </div>
         <span
           className={`shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 ${
-            loading ? 'text-neutral-500' : count === 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'
+            loading ? 'text-neutral-500' : neutral ? 'text-neutral-300 bg-neutral-800' : count === 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'
           }`}
         >
           {loading ? 'Kontrol ediliyor...' : count === 0 ? 'Sorun yok' : `${count} kayıt ${open ? '▴' : '▾'}`}
@@ -297,8 +363,12 @@ function HealthSection({
                       >
                         {t.label}
                         {t.onDismiss && (
-                          <button onClick={t.onDismiss} title={t.dismissTitle} className="text-neutral-500 hover:text-rose-400 leading-none">
-                            ×
+                          <button
+                            onClick={t.onDismiss}
+                            title={t.dismissTitle}
+                            className={`text-neutral-500 leading-none ${t.undo ? 'hover:text-emerald-400' : 'hover:text-rose-400'}`}
+                          >
+                            {t.undo ? '↺' : '×'}
                           </button>
                         )}
                       </span>

@@ -10,6 +10,7 @@ import Boards from './pages/Boards'
 import BoardView from './pages/BoardView'
 import YardimMerkezi from './pages/YardimMerkezi'
 import Istatistikler from './pages/Istatistikler'
+import Takvim from './pages/Takvim'
 import YamaNotlari from './pages/YamaNotlari'
 
 // Bir profil ilk kez aktif olduğunda (o profil daha önce hiç görmediyse) Yardım Merkezi'ni
@@ -92,6 +93,14 @@ function AppRoutes() {
         element={
           <Shell>
             <Istatistikler />
+          </Shell>
+        }
+      />
+      <Route
+        path="/takvim"
+        element={
+          <Shell>
+            <Takvim />
           </Shell>
         }
       />

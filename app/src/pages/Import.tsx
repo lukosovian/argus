@@ -406,6 +406,11 @@ export default function Import() {
       <div className="max-w-2xl mx-auto px-4 py-10">
         <div className="bg-emerald-600/10 border border-emerald-600/30 rounded-xl p-6 text-center">
           <p className="text-emerald-400 font-medium">{rawRows.length} kayıt yeni bir arşive aktarıldı 🎉</p>
+          <p className="text-sm text-neutral-400 mt-3 max-w-md mx-auto">
+            Sırada: arşivi açıp üstteki <span className="text-neutral-200">Genel Güncelleme</span> ile eksikleri TMDB'den doldur. Önerimiz
+            bütün alanların gelmesi — posterler, logolar, fragmanlar ve oyuncularla ARGUS hem daha iyi çalışır hem çok daha güzel
+            görünür. Tablonda olmayan bir sütun varsa (ör. Kapak Adı) doldurmadan önce sana sorulur.
+          </p>
           <Link
             to={`/board/${doneBoardId}`}
             style={primaryButtonStyle}

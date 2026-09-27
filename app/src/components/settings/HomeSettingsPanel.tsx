@@ -13,7 +13,9 @@ import {
 import { api } from '../../lib/api'
 import HomeSectionEditor from '../HomeSectionEditor'
 import MoodRowEditor from '../MoodRowEditor'
-import PropertyFilterPicker from '../PropertyFilterPicker'
+import MultiFilterEditor from '../MultiFilterEditor'
+import GenreTriPicker from '../GenreTriPicker'
+import { filterConditions, withConditions } from '../../lib/filters'
 import AutoFillFilterEditor from './AutoFillFilterEditor'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
@@ -66,10 +68,6 @@ function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettin
     }
   }, [value.type])
 
-  function toggleGenre(id: number) {
-    const has = value.genreIds.includes(id)
-    onChange({ ...value, genreIds: has ? value.genreIds.filter((g) => g !== id) : [...value.genreIds, id] })
-  }
 
   if (needsApiKey) {
     return <p className="text-sm text-amber-500">Bunun için önce Ayarlar → Veritabanı → API'den TMDB anahtarını girmelisin.</p>
@@ -82,7 +80,7 @@ function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettin
         <ChoiceButtons
           value={value.type}
           // Tür id'leri film ve dizi için farklı — tür değişince seçili türler sıfırlanıyor.
-          onChange={(type) => onChange({ ...value, type, genreIds: [] })}
+          onChange={(type) => onChange({ ...value, type, genreIds: [], excludeGenreIds: [] })}
           options={[
             { value: 'movie', label: 'Film' },
             { value: 'tv', label: 'Dizi' },
@@ -92,22 +90,13 @@ function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettin
       </div>
       {value.type !== 'mixed' && (
         <div>
-          <label className="block text-xs text-neutral-400 mb-1.5">Tür (hiçbiri seçilmezse hepsi)</label>
-          <div className="flex flex-wrap gap-1.5">
-            {genres.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => toggleGenre(g.id)}
-                className={`text-xs rounded-full px-2.5 py-1 border transition ${
-                  value.genreIds.includes(g.id)
-                    ? 'border-[#00c0fa] text-[#00c0fa] bg-[#00c0fa]/10'
-                    : 'border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500'
-                }`}
-              >
-                {g.name}
-              </button>
-            ))}
-          </div>
+          <label className="block text-xs text-neutral-400 mb-1.5">Tür — bir tık ✓ gelsin, iki tık ✕ gelmesin (hiçbiri seçilmezse hepsi)</label>
+          <GenreTriPicker
+            genres={genres}
+            include={value.genreIds}
+            exclude={value.excludeGenreIds ?? []}
+            onChange={(genreIds, excludeGenreIds) => onChange({ ...value, genreIds, excludeGenreIds })}
+          />
         </div>
       )}
       <div>
@@ -530,12 +519,12 @@ export default function HomeSettingsPanel() {
                   <label className="block text-xs text-neutral-400 mb-1">
                     Vitrinde ne gösterilsin (her girişte bu havuzdan rastgele bir tanesi seçilir)
                   </label>
-                  <PropertyFilterPicker
+                  <MultiFilterEditor
                     board={board}
-                    propertyId={settings.showcaseFilter?.propertyId ?? ''}
-                    optionIds={settings.showcaseFilter?.optionIds ?? []}
-                    onChange={(propertyId, optionIds) =>
-                      saveSettings({ ...settings, showcaseFilter: { propertyId: propertyId || null, optionIds } })
+                    conditions={filterConditions(settings.showcaseFilter)}
+                    emptyText="Filtre yok — arşivin tamamından rastgele."
+                    onChange={(c) =>
+                      saveSettings({ ...settings, showcaseFilter: withConditions(settings.showcaseFilter ?? { propertyId: null, optionIds: [] }, c) })
                     }
                   />
                 </div>
@@ -566,6 +555,35 @@ export default function HomeSettingsPanel() {
                     min={1}
                     max={30}
                     onCommit={(n) => saveSettings({ ...settings, newEpisodesPosition: n })}
+                    className="w-16 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
+                  />
+                  <span className="text-xs text-neutral-600">(1 = en üstte)</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">
+                  "Geçmiş yıllarda bugün" satırını göster
+                  <span className="block text-xs text-neutral-600 mt-0.5">
+                    Önceki yıllarda bugün ne izlediğin (ör. "1 yıl önce"). O gün için bir şey yoksa görünmez.
+                  </span>
+                </span>
+                <ToggleSwitch
+                  checked={settings.onThisDay?.enabled ?? true}
+                  onChange={(v) => saveSettings({ ...settings, onThisDay: { position: settings.onThisDay?.position ?? 1, enabled: v } })}
+                  label="Geçmiş yıllarda bugün satırını göster"
+                />
+              </div>
+              {(settings.onThisDay?.enabled ?? true) && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-neutral-400 shrink-0">Kaçıncı satırda görünsün</label>
+                  <ClampedNumberInput
+                    value={settings.onThisDay?.position ?? 1}
+                    min={1}
+                    max={30}
+                    onCommit={(n) => saveSettings({ ...settings, onThisDay: { enabled: true, position: n } })}
                     className="w-16 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
                   />
                   <span className="text-xs text-neutral-600">(1 = en üstte)</span>
@@ -779,12 +797,12 @@ export default function HomeSettingsPanel() {
               <label className="block text-xs text-neutral-400 mb-1">
                 Hangi havuzdan seçilsin (hiçbir filtre seçilmezse arşivdeki her şeyden rastgele seçilir)
               </label>
-              <PropertyFilterPicker
+              <MultiFilterEditor
                 board={board}
-                propertyId={settings.randomPickerFilter?.propertyId ?? ''}
-                optionIds={settings.randomPickerFilter?.optionIds ?? []}
-                onChange={(propertyId, optionIds) =>
-                  saveSettings({ ...settings, randomPickerFilter: { propertyId: propertyId || null, optionIds } })
+                conditions={filterConditions(settings.randomPickerFilter)}
+                emptyText="Filtre yok — arşivin tamamından rastgele."
+                onChange={(c) =>
+                  saveSettings({ ...settings, randomPickerFilter: withConditions(settings.randomPickerFilter ?? { propertyId: null, optionIds: [] }, c) })
                 }
               />
             </div>

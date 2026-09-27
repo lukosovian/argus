@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BUILTIN_MOODS, makeId, resolveBuiltinMoods, type Board, type Mood, type MoodRowSettings } from '../types'
-import PropertyFilterPicker from './PropertyFilterPicker'
+import MultiFilterEditor from './MultiFilterEditor'
+import { filterConditions, hasActiveFilter, withConditions, type FilterCondition } from '../lib/filters'
 import ToggleSwitch from './ToggleSwitch'
 import { api } from '../lib/api'
 import { useToast } from '../hooks/useToast'
@@ -95,16 +96,14 @@ export default function MoodRowEditor({
   const [editingMoodId, setEditingMoodId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [image, setImage] = useState('')
-  const [propertyId, setPropertyId] = useState('')
-  const [optionIds, setOptionIds] = useState<string[]>([])
+  const [conditions, setConditions] = useState<FilterCondition[]>([])
 
   function resetForm() {
     setFormOpen(false)
     setEditingMoodId(null)
     setName('')
     setImage('')
-    setPropertyId('')
-    setOptionIds([])
+    setConditions([])
   }
 
   function startAdd() {
@@ -130,24 +129,25 @@ export default function MoodRowEditor({
     setEditingMoodId(mood.id)
     setName(mood.name)
     setImage(mood.image)
-    setPropertyId(mood.propertyId ?? '')
-    setOptionIds(mood.optionIds)
+    setConditions(filterConditions(mood))
     setFormOpen(true)
   }
 
   function handleSubmit() {
-    if (!name.trim() || !image || !propertyId || optionIds.length === 0) return
+    if (!name.trim() || !image || conditions.length === 0) return
     if (editingMoodId) {
       onChange({
         ...settings,
         moods: settings.moods.map((m) =>
-          m.id === editingMoodId ? { id: editingMoodId, name: name.trim(), image, propertyId, optionIds } : m,
+          m.id === editingMoodId
+            ? withConditions({ ...m, id: editingMoodId, name: name.trim(), image, propertyId: null, optionIds: [] }, conditions)
+            : m,
         ),
       })
     } else {
       onChange({
         ...settings,
-        moods: [...settings.moods, { id: makeId(), name: name.trim(), image, propertyId, optionIds }],
+        moods: [...settings.moods, withConditions({ id: makeId(), name: name.trim(), image, propertyId: null, optionIds: [] }, conditions)],
       })
     }
     resetForm()
@@ -250,7 +250,7 @@ export default function MoodRowEditor({
                         boş bir filtreyle (optionIds=[]) üretilir — silinmiş/kapatılmış değil,
                         sadece henüz uygun bir filtresi yok. Kullanıcı "sen hepsini getir uygun
                         filtre olmadığı için görünmez falan de" dedi. */}
-                    {m.optionIds.length === 0 && (
+                    {!hasActiveFilter(m) && (
                       <span className="block text-[10px] text-amber-500/80 truncate">uygun tür bulunamadı, düzenle</span>
                     )}
                   </button>
@@ -348,20 +348,12 @@ export default function MoodRowEditor({
               </div>
               <div>
                 <label className="block text-[11px] text-neutral-400 mb-1">Neye göre filtrelensin</label>
-                <PropertyFilterPicker
-                  board={board}
-                  propertyId={propertyId}
-                  optionIds={optionIds}
-                  onChange={(pid, opts) => {
-                    setPropertyId(pid)
-                    setOptionIds(opts)
-                  }}
-                />
+                <MultiFilterEditor board={board} conditions={conditions} onChange={setConditions} />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleSubmit}
-                  disabled={!name.trim() || !image || !propertyId || optionIds.length === 0}
+                  disabled={!name.trim() || !image || conditions.length === 0}
                   style={primaryButtonStyle}
                   className={`text-xs rounded-md px-3 py-1.5 ${PRIMARY_BUTTON}`}
                 >
