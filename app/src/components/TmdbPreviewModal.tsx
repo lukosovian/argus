@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api, type TmdbCard, type TmdbItem } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { formatRuntime } from '../lib/rowMeta'
@@ -84,8 +85,10 @@ export default function TmdbPreviewModal({
     ...(item?.genres.slice(0, 3) ?? []),
   ].filter(Boolean)
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto py-6 px-4 sm:px-10" onClick={onClose}>
+  // document.body'ye çiziliyor ve her şeyin üstünde (z-70): detay penceresinin içinden (Benzer İçerikler)
+  // açılınca oranın bulanıklık efekti pencereyi kaydırılan içeriğe hapsedip en üstte açtırıyordu.
+  return createPortal(
+    <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-6 px-4 sm:px-10" onClick={onClose}>
       <div className="bg-neutral-900 rounded-xl w-full max-w-4xl mx-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="relative">
           {/* Arşivdeki detay penceresiyle aynı üst bölüm: yatay görsel, üstünde başlık logosu,
@@ -187,6 +190,7 @@ export default function TmdbPreviewModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

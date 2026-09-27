@@ -495,7 +495,7 @@ export default function RowDetailModal({
             {oyuncularProp && actorIds.length > 0 && (
               <section id="rd-oyuncular">
                 <SectionTitle title={oyuncularProp.name} count={String(actorIds.length)} />
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start">
                   {(showAllCast ? actorIds : actorIds.slice(0, CAST_PREVIEW)).map((id) => {
                     const opt = oyuncularProp.options?.find((o) => o.id === id)
                     if (!opt) return null
@@ -503,9 +503,9 @@ export default function RowDetailModal({
                     const roleLine = entry?.episodeCount ? `${entry.character} · ${entry.episodeCount} bölüm` : entry?.character
                     return (
                       <button key={id} onClick={() => handleOptionClick(oyuncularProp.id, opt, roleLine)} className="min-w-0 text-center group">
-                        <span className="block mx-auto h-24 w-24 sm:h-[104px] sm:w-[104px] rounded-full overflow-hidden bg-neutral-800 ring-2 ring-neutral-800 group-hover:ring-[#3fa9ff] transition">
+                        <span className="block w-full aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800 ring-1 ring-neutral-800 group-hover:ring-2 group-hover:ring-[#3fa9ff] transition">
                           {opt.image ? (
-                            <img src={opt.image} alt={opt.label} loading="lazy" className="h-full w-full object-cover" />
+                            <img src={opt.image} alt={opt.label} loading="lazy" className="h-full w-full object-cover object-top" />
                           ) : (
                             <span className="h-full w-full flex items-center justify-center text-2xl text-neutral-600">🎭</span>
                           )}

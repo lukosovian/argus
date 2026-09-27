@@ -1316,3 +1316,36 @@ export function TarihAraligiVisual() {
     </Frame>
   )
 }
+
+// ---- v1.9.4 --------------------------------------------------------------------------------
+
+export function OyuncuPencereVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* aşağı kaydırılmış detay penceresi, dikey oyuncu kartları */}
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <Label x={18} y={24} size={8}>
+        Oyuncular
+      </Label>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <g key={i}>
+          <rect x={18 + i * 48} y={32} width={40} height={60} rx={5} className="fill-neutral-700" />
+          <Line x={20 + i * 48} y={98} w={34} />
+        </g>
+      ))}
+      <Pin x={300} y={40} n={1} />
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <rect key={`b${i}`} x={18 + i * 48} y={112} width={40} height={50} rx={5} className="fill-neutral-800" />
+      ))}
+      {/* ekranın ortasında açılan oyuncu penceresi */}
+      <rect x={0} y={0} width={320} height={180} className="fill-neutral-950" opacity={0.55} />
+      <Box x={108} y={40} w={104} h={112} r={8} strong />
+      <rect x={140} y={48} width={40} height={60} rx={4} className="fill-neutral-600" />
+      <Line x={128} y={116} w={64} />
+      <Line x={132} y={125} w={56} light />
+      <MiniButton x={122} y={135} w={44} text="İçerikleri gör" accent />
+      <MiniButton x={170} y={135} w={32} text="Kapat" />
+      <Pin x={220} y={46} n={2} />
+    </Frame>
+  )
+}
