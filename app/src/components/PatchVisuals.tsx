@@ -1349,3 +1349,112 @@ export function OyuncuPencereVisual() {
     </Frame>
   )
 }
+
+// ---- v1.9.5 --------------------------------------------------------------------------------
+
+export function YedekVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} strong />
+      <Label x={18} y={24} size={8.5}>
+        Ayarlar › Veritabanı › Yedekleme
+      </Label>
+      <NewTag x={186} y={15} />
+      {['OneDrive (buluta gider)', 'Belgeler'].map((t, i) => (
+        <g key={t}>
+          <rect x={18 + i * 118} y={34} width={112} height={24} rx={5} fill={i === 0 ? ACCENT : 'none'} fillOpacity={i === 0 ? 0.12 : 0} stroke={i === 0 ? ACCENT : undefined} className={i === 0 ? undefined : 'stroke-neutral-600'} strokeWidth={0.8} />
+          <text x={24 + i * 118} y={48} fontSize={6.8} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+            {t}
+          </text>
+        </g>
+      ))}
+      <Pin x={292} y={46} n={1} />
+      <text x={18} y={76} fontSize={6.8} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Yedek alınıyor · görseller 1.500 / 31.000
+      </text>
+      <rect x={18} y={82} width={270} height={4} rx={2} className="fill-neutral-800" />
+      <rect x={18} y={82} width={60} height={4} rx={2} fill={ACCENT} />
+      <Pin x={300} y={84} n={2} />
+      <text x={18} y={104} fontSize={6.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        Otomatik:
+      </text>
+      {['Kapalı', 'Her gün', 'Her hafta'].map((t, i) => (
+        <MiniButton key={t} x={56 + i * 44} y={97} w={40} text={t} accent={i === 2} />
+      ))}
+      <line x1={16} y1={118} x2={304} y2={118} className="stroke-neutral-700" />
+      {['27 Eylül 2026, 23:10', '20 Eylül 2026, 21:00'].map((t, i) => (
+        <g key={t}>
+          <text x={18} y={134 + i * 16} fontSize={6.8} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+            {t}
+          </text>
+          <MiniButton x={250} y={126 + i * 16} w={48} text="Geri yükle" />
+        </g>
+      ))}
+      <Pin x={236} y={140} n={3} />
+    </Frame>
+  )
+}
+
+export function SeriKisiVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* seri */}
+      <Label x={10} y={16} size={8}>
+        Transformers serisi · 1/5 izledin
+      </Label>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={10 + i * 30} y={22} width={26} height={39} rx={3} className="fill-neutral-700" stroke={i === 0 ? ACCENT : undefined} strokeWidth={i === 0 ? 1.2 : 0} />
+          <text x={14 + i * 30} y={30} fontSize={6} fill="#fff" style={{ fontFamily: 'inherit' }}>
+            {i + 1}
+          </text>
+          {i === 0 && <rect x={12} y={53} width={22} height={6} rx={2} fill="#10b981" />}
+        </g>
+      ))}
+      <MiniButton x={40} y={66} w={44} text="+ İzlenecek" />
+      <Pin x={168} y={40} n={1} />
+      {/* kişi sayfası */}
+      <Box x={178} y={8} w={134} h={164} r={7} strong />
+      <rect x={186} y={16} width={30} height={44} rx={3} className="fill-neutral-600" />
+      <Label x={222} y={26} size={7.5}>
+        Christopher Nolan
+      </Label>
+      <text x={222} y={36} fontSize={5.8} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        Yönetmen · arşivinde 3 yapımı
+      </text>
+      <Line x={222} y={44} w={80} light />
+      <Line x={222} y={52} w={70} light />
+      <text x={186} y={72} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Arşivinde
+      </text>
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={186 + i * 24} y={76} width={20} height={30} rx={2} className="fill-neutral-700" />
+      ))}
+      <text x={186} y={118} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Arşivinde olmayanlar
+      </text>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={186 + i * 24} y={122} width={20} height={30} rx={2} className="fill-neutral-700" />
+          <rect x={186 + i * 24} y={155} width={20} height={7} rx={2} fill="none" stroke={ACCENT} strokeWidth={0.7} />
+        </g>
+      ))}
+      <Pin x={300} y={112} n={2} />
+      {/* puan kartı */}
+      <Box x={10} y={100} w={160} h={72} r={7} strong />
+      <rect x={18} y={108} width={14} height={20} rx={2} className="fill-neutral-600" />
+      <text x={38} y={116} fontSize={6.8} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        İzledin! Kaç puan verirsin?
+      </text>
+      {[0, 1].map((i) => (
+        <g key={i}>
+          <rect x={38} y={124 + i * 10} width={110} height={3} rx={1.5} className="fill-neutral-700" />
+          <rect x={38} y={124 + i * 10} width={70 + i * 15} height={3} rx={1.5} fill="#fbbf24" />
+        </g>
+      ))}
+      <MiniButton x={18} y={152} w={36} text="Kaydet" accent />
+      <MiniButton x={58} y={152} w={30} text="Sonra" />
+      <Pin x={160} y={110} n={3} />
+    </Frame>
+  )
+}

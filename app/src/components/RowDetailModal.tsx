@@ -19,6 +19,8 @@ import TmdbExtras from './TmdbExtras'
 import SectionTitle from './SectionTitle'
 import AgeRatingChip from './AgeRatingChip'
 import { showLabel, useShowInfo } from '../lib/showStatus'
+import PersonModal from './PersonModal'
+import CollectionSection from './CollectionSection'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 
 const CAST_PREVIEW = 12
@@ -198,9 +200,16 @@ export default function RowDetailModal({
   // kendi bilgi kartını gösteriyoruz; oradan "içerikleri gör" ile filtreye geçiliyor.
   // Görseli olmayan seçenekler (Tür/Ülke gibi) eskisi gibi doğrudan filtreye gider.
   function handleOptionClick(propertyId: string, option: SelectOption, role?: string) {
+    // Oyuncular: kişi sayfası (filmografisi, arşivinde olmayanlar) — bkz. PersonModal
+    if (propertyId === oyuncularProp?.id) {
+      setPerson({ name: option.label, role: 'acting', character: role, propertyId, optionId: option.id })
+      return
+    }
     if (option.image || option.subtitle || role) setDetailOption({ propertyId, option, role })
     else goToFilter(propertyId, option.id)
   }
+  const [person, setPerson] = useState<{ name: string; role: 'acting' | 'directing'; character?: string; propertyId?: string; optionId?: string } | null>(null)
+  const yonetmenPropForLinks = resolveRole(board, 'yonetmen')
   const coverProp = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const titleImageProp = board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image')
@@ -527,6 +536,8 @@ export default function RowDetailModal({
               </section>
             )}
 
+            <CollectionSection boardId={board.id} rowId={row.id} />
+
             <TmdbExtras board={board} row={row} part="similar" />
           </div>
 
@@ -598,7 +609,21 @@ export default function RowDetailModal({
                   return (
                     <div key={p.id} className="min-w-0">
                       <p className="text-[11px] uppercase tracking-wide text-neutral-500 mb-1">{p.name}</p>
-                      <DetailValue property={p} value={v} isRuntime={p.id === sureProp?.id} onOptionClick={(propId, opt) => handleOptionClick(propId, opt)} />
+                      {p.id === yonetmenPropForLinks?.id && typeof v === 'string' ? (
+                        // Yönetmen adları tıklanabilir → yönetmen sayfası
+                        <span className="text-neutral-300 text-base">
+                          {v.split(',').map((n, i, arr) => (
+                            <span key={i}>
+                              <button onClick={() => setPerson({ name: n.trim(), role: 'directing' })} className="hover:text-[#00c0fa] hover:underline transition">
+                                {n.trim()}
+                              </button>
+                              {i < arr.length - 1 ? ', ' : ''}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <DetailValue property={p} value={v} isRuntime={p.id === sureProp?.id} onOptionClick={(propId, opt) => handleOptionClick(propId, opt)} />
+                      )}
                     </div>
                   )
                 })}
@@ -609,6 +634,16 @@ export default function RowDetailModal({
           </aside>
         </div>
       </div>
+      {person && (
+        <PersonModal
+          boardId={board.id}
+          name={person.name}
+          role={person.role}
+          character={person.character}
+          onClose={() => setPerson(null)}
+          onShowContents={person.propertyId && person.optionId ? () => goToFilter(person.propertyId!, person.optionId!) : undefined}
+        />
+      )}
       {detailOption && (
         <OptionDetailModal
           option={detailOption.option}

@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
 import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
 import { buildRestartScript, launchDetachedRestart } from './restart.js'
-import { beforeWrite, initHistory, registerHistoryRoutes, setHistoryWriter } from './history.js'
+import { beforeWrite, findBoard as findBoardCached, initHistory, registerHistoryRoutes, setHistoryWriter } from './history.js'
 import { initNotifications, pushNotification, registerNotificationRoutes } from './notifications.js'
+import { initBackup, registerBackupRoutes } from './backup.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -138,6 +139,8 @@ setHistoryWriter(writeJson)
 registerHistoryRoutes(app)
 initNotifications({ profilesDir: PROFILES_DIR, readJson, writeJson, makeId })
 registerNotificationRoutes(app)
+initBackup({ dataDir: DATA_DIR, medyaDir: MEDYA_DIR, root: ROOT, readJson, writeJson: rawWriteJson })
+registerBackupRoutes(app)
 
 app.get('/api/profiles/:profileId/boards', (req, res) => {
   res.json(readJson(profileBoardsFile(req.params.profileId), []))
@@ -216,11 +219,32 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   const rows = readJson(rowsFile, [])
   const idx = rows.findIndex((r) => r.id === req.params.rowId)
   const saved = { ...req.body, id: req.params.rowId, updatedAt: Date.now() }
+  const before = idx === -1 ? null : rows[idx]
   if (idx === -1) rows.unshift(saved)
   else rows[idx] = saved
   writeJson(rowsFile, rows)
+  if (shouldAskRating(req.params.profileId, req.params.id, before, saved)) setAskRating(res, req.params.id, saved.id)
   res.json(saved)
 })
+
+// Puan hatırlatması: kullanıcı "izledikten sonra puan sorsun" dedi. Bir kayıt İzlendi olduysa ve puanı
+// boşsa arayüze bir başlıkla (X-Argus-Ask-Rating) haber verilir, arayüz küçük bir puan penceresi açar.
+function shouldAskRating(profileId, boardId, before, after) {
+  const board = findBoardCached(profileId, boardId)
+  if (!board) return false
+  const durumProp = resolveRole(board, 'durum')
+  const izlendi = resolveStatusOption(board, 'izlendi')
+  const puanProp = resolveRole(board, 'puan')
+  if (!durumProp || !izlendi || !puanProp) return false
+  if (after?.values?.[durumProp.id] !== izlendi) return false
+  if (before && before.values?.[durumProp.id] === izlendi) return false
+  const score = after.values?.[puanProp.id]
+  return !(score && typeof score === 'object' && Object.keys(score).length > 0)
+}
+function setAskRating(res, boardId, rowId) {
+  res.setHeader('X-Argus-Ask-Rating', encodeURIComponent(JSON.stringify({ boardId, rowId })))
+  res.setHeader('Access-Control-Expose-Headers', 'X-Argus-Ask-Rating')
+}
 
 app.delete('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   const rowsFile = profileRowsFile(req.params.profileId, req.params.id)
@@ -375,6 +399,11 @@ app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
     if (!autoWatched) autoWatching = autoUnmarkSeriesWatched(req.params.profileId, req.params.rowId, before, req.body ?? {})
   } catch (e) {
     console.error('otomatik durum hata:', e)
+  }
+  if (autoWatched) {
+    const rows = readJson(profileRowsFile(req.params.profileId, autoWatched.boardId), [])
+    const row = rows.find((r) => r.id === req.params.rowId)
+    if (row && shouldAskRating(req.params.profileId, autoWatched.boardId, null, row)) setAskRating(res, autoWatched.boardId, row.id)
   }
   res.json({ ok: true, autoWatched, autoWatching })
 })
@@ -580,14 +609,23 @@ async function searchTv(query, year, apiKey) {
   return noYear?.results?.[0] ?? null
 }
 
+// Önce İLK vizyon yılıyla (primary_release_year) aranır — sadece 'year' ile arayınca o yıl yeniden
+// gösterime giren eski yapımlar öne çıkabiliyordu (ör. 'Transformers' 2007 → 1986 çizgi film). Sonuçlar
+// arasında adı birebir tutan tercih edilir.
+function pickByTitle(results, query) {
+  const q = normalizeText(query)
+  return results.find((r) => normalizeText(r.title ?? '') === q || normalizeText(r.original_title ?? '') === q) ?? results[0] ?? null
+}
 async function searchMovie(query, year, apiKey) {
   if (!query) return null
-  const params = { query, language: 'tr-TR' }
-  if (year) params.year = year
-  const withYear = year ? await tmdbGet('/search/movie', params, apiKey) : null
-  if (withYear?.results?.[0]) return withYear.results[0]
+  if (year) {
+    const primary = await tmdbGet('/search/movie', { query, language: 'tr-TR', primary_release_year: year }, apiKey)
+    if (primary?.results?.length) return pickByTitle(primary.results, query)
+    const withYear = await tmdbGet('/search/movie', { query, language: 'tr-TR', year }, apiKey)
+    if (withYear?.results?.length) return pickByTitle(withYear.results, query)
+  }
   const noYear = await tmdbGet('/search/movie', { query, language: 'tr-TR' }, apiKey)
-  return noYear?.results?.[0] ?? null
+  return noYear?.results?.length ? pickByTitle(noYear.results, query) : null
 }
 
 async function searchMulti(query, year, apiKey) {
@@ -1146,6 +1184,170 @@ function toCard(r, mediaType) {
   }
 }
 
+// Arşivdeki bir TMDB içeriğinin satırı ve durumu (seri ve oyuncu sayfalarında "arşivinde / izledin" için).
+function archiveLookup(profileId, board, rows) {
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const byKey = new Map()
+  for (const [rowId, r] of Object.entries(refs)) if (r?.id) byKey.set(tmdbKey(r.mediaType, r.id), rowId)
+  const index = buildArchiveIndex(profileId, board, rows)
+  const durumProp = resolveRole(board, 'durum')
+  const izlendi = resolveStatusOption(board, 'izlendi')
+  const rowById = new Map(rows.map((r) => [r.id, r]))
+  // TMDB bağlantısı olmayan eski kayıtlar için adıyla eşleştirme
+  const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const origProp = resolveRole(board, 'orjinalAdi')
+  const byTitle = new Map()
+  for (const r of rows) {
+    if (refs[r.id]) continue
+    for (const p of [origProp, titleProp]) {
+      const v = p ? r.values[p.id] : ''
+      if (typeof v === 'string' && v.trim() && !byTitle.has(normalizeText(v))) byTitle.set(normalizeText(v), r.id)
+    }
+  }
+  return (card) => {
+    const rowId = byKey.get(tmdbKey(card.mediaType, card.tmdbId)) ?? byTitle.get(normalizeText(card.originalTitle)) ?? byTitle.get(normalizeText(card.title))
+    const row = rowId ? rowById.get(rowId) : null
+    const statusId = row && durumProp ? row.values[durumProp.id] : null
+    return {
+      ...card,
+      inArchive: Boolean(row) || index.has(card),
+      rowId: row ? row.id : null,
+      status: statusId ? (durumProp.options?.find((o) => o.id === statusId)?.label ?? null) : null,
+      watched: Boolean(statusId && statusId === izlendi),
+    }
+  }
+}
+
+// Film serileri — kullanıcı "serinin kaçını izledim, sıradaki hangisi" görmek istedi. Filmin TMDB'deki
+// serisi (belongs_to_collection) bir kez öğrenilip tmdb.json'a yazılır; serinin filmleri 6 saat önbellekte.
+const collectionCache = new Map()
+app.get('/api/profiles/:profileId/collection/:boardId/:rowId', async (req, res) => {
+  try {
+    const { profileId, boardId, rowId } = req.params
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) return res.json({ collection: null })
+    const refsFile = profileTmdbFile(profileId)
+    let ref = readJson(refsFile, {})[rowId]
+    // Eski (Notion'dan gelen) kayıtların bir kısmında TMDB bağlantısı yok — adıyla bulunup kaydedilir.
+    if (!ref) {
+      const loaded0 = loadBoardAndRows(profileId, boardId)
+      const row0 = loaded0?.rows.find((r) => r.id === rowId)
+      if (row0) ref = await ensureTmdbRef(profileId, loaded0.board, row0, apiKey)
+    }
+    if (!ref || ref.mediaType !== 'movie') return res.json({ collection: null })
+    if (ref.collection === undefined) {
+      const d = await tmdbGet(`/movie/${ref.id}`, { language: 'tr-TR' }, apiKey)
+      if (!d) return res.json({ collection: null })
+      const c = d.belongs_to_collection
+      const fresh = readJson(refsFile, {})
+      if (fresh[rowId]) {
+        fresh[rowId] = { ...fresh[rowId], collection: c ? { id: c.id, name: c.name } : null }
+        writeJson(refsFile, fresh)
+      }
+      ref.collection = c ? { id: c.id, name: c.name } : null
+    }
+    if (!ref.collection) return res.json({ collection: null })
+    let col = collectionCache.get(ref.collection.id)
+    if (!col || Date.now() - col.at > 6 * 3600e3) {
+      const d = await tmdbGet(`/collection/${ref.collection.id}`, { language: 'tr-TR' }, apiKey)
+      if (!d) return res.json({ collection: null })
+      col = { at: Date.now(), data: d }
+      collectionCache.set(ref.collection.id, col)
+    }
+    const loaded = loadBoardAndRows(profileId, boardId)
+    if (!loaded) return res.json({ collection: null })
+    const look = archiveLookup(profileId, loaded.board, loaded.rows)
+    const today = new Date().toISOString().slice(0, 10)
+    const parts = (col.data.parts ?? [])
+      .filter((p) => p.release_date || p.id === ref.id)
+      .sort((a, b) => (a.release_date || '9999').localeCompare(b.release_date || '9999'))
+      .map((p) => ({ ...look(toCard(p, 'movie')), released: Boolean(p.release_date && p.release_date <= today), releaseDate: p.release_date || '' }))
+    if (parts.length < 2) return res.json({ collection: null })
+    res.json({
+      collection: { id: col.data.id, name: col.data.name, backdrop: col.data.backdrop_path ? `${TMDB_IMG_BASE}/w780${col.data.backdrop_path}` : null },
+      parts,
+    })
+  } catch (e) {
+    console.error('seri hata:', e)
+    res.json({ collection: null })
+  }
+})
+
+// Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,
+// tek tıkla ekleyeyim" dedi. Kişi TMDB'de adıyla aranır (arşivde kişi kimliği tutulmuyor), filmografisi
+// arşivde olanlar / olmayanlar diye ayrılır.
+const personCache = new Map()
+app.get('/api/profiles/:profileId/person/:boardId', async (req, res) => {
+  try {
+    const { profileId, boardId } = req.params
+    const name = String(req.query.name ?? '').trim()
+    const role = req.query.role === 'directing' ? 'directing' : 'acting'
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) return res.json({ needsApiKey: true })
+    if (!name) return res.json({ person: null })
+    const ck = `${role}:${normalizeText(name)}`
+    let hit = personCache.get(ck)
+    if (!hit || Date.now() - hit.at > 6 * 3600e3) {
+      const sr = await tmdbGet('/search/person', { query: name, language: 'tr-TR' }, apiKey)
+      const want = role === 'directing' ? 'Directing' : 'Acting'
+      const results = sr?.results ?? []
+      const pick =
+        results.find((p) => normalizeText(p.name) === normalizeText(name) && p.known_for_department === want) ??
+        results.find((p) => normalizeText(p.name) === normalizeText(name)) ??
+        results[0]
+      if (!pick) return res.json({ person: null })
+      const d = await tmdbGet(`/person/${pick.id}`, { language: 'tr-TR', append_to_response: 'combined_credits' }, apiKey)
+      let bio = d?.biography ?? ''
+      if (!bio) bio = (await tmdbGet(`/person/${pick.id}`, { language: 'en-US' }, apiKey))?.biography ?? ''
+      hit = { at: Date.now(), data: { d, bio } }
+      personCache.set(ck, hit)
+    }
+    const { d, bio } = hit.data
+    const loaded = loadBoardAndRows(profileId, boardId)
+    if (!loaded) return res.json({ person: null })
+    const look = archiveLookup(profileId, loaded.board, loaded.rows)
+    const credits = role === 'directing' ? (d.combined_credits?.crew ?? []).filter((c) => c.job === 'Director') : d.combined_credits?.cast ?? []
+    const seen = new Set()
+    const items = []
+    for (const c of credits) {
+      const type = c.media_type
+      if (type !== 'movie' && type !== 'tv') continue
+      // talk show / haber / "kendisi" rolleri filmografiyi kalabalıklaştırmasın
+      if ((c.genre_ids ?? []).some((g) => g === 10767 || g === 10763 || g === 99)) continue
+      if (/^(self|himself|herself|kendisi)\b/i.test(c.character ?? '')) continue
+      // dizilerde bir iki bölümlük konuk oyunculuklar filmografiyi kalabalıklaştırmasın
+      if (role === 'acting' && type === 'tv' && (c.episode_count ?? 0) < 3) continue
+      const k = tmdbKey(type, c.id)
+      if (seen.has(k)) continue
+      seen.add(k)
+      items.push({ ...look(toCard(c, type)), character: c.character ?? '', popularity: c.popularity ?? 0, votes: c.vote_count ?? 0 })
+    }
+    const inArchive = items.filter((i) => i.inArchive).sort((a, b) => (b.year || '').localeCompare(a.year || ''))
+    const notInArchive = items
+      .filter((i) => !i.inArchive && i.votes >= 20)
+      .sort((a, b) => b.popularity - a.popularity)
+      .slice(0, 40)
+    const place = d.place_of_birth ?? ''
+    res.json({
+      person: {
+        id: d.id,
+        name: d.name,
+        bio,
+        birthday: d.birthday ?? '',
+        deathday: d.deathday ?? '',
+        place,
+        image: d.profile_path ? `${TMDB_IMG_BASE}/w342${d.profile_path}` : null,
+        department: d.known_for_department ?? '',
+      },
+      inArchive,
+      notInArchive,
+    })
+  } catch (e) {
+    console.error('kişi hata:', e)
+    res.json({ person: null })
+  }
+})
+
 function loadBoardAndRows(profileId, boardId) {
   const board = readJson(profileBoardsFile(profileId), []).find((b) => b.id === boardId)
   if (!board) return null
@@ -1645,6 +1847,43 @@ app.post('/api/apply-update', (req, res) => {
     launchDetachedRestart(buildRestartScript({ oldPid, batPath: path.join(ROOT, 'ARGUS.bat'), root: ROOT }), ROOT)
   } catch {}
 })
+
+// Özellik anahtarları (app/features.json, kodla birlikte GitHub'a gider). Geliştirici bilgisayarında her şey
+// açık; bazı özellikler (ör. Yıllık Özet) diğer kullanıcılara buradan açılıp kapatılıyor.
+const FEATURES_FILE = path.join(__dirname, '..', 'features.json')
+const isDevMachine = () => fs.existsSync(path.join(ROOT, '.gelistirici'))
+app.get('/api/features', (req, res) => {
+  const f = readJson(FEATURES_FILE, {})
+  res.json({ developer: isDevMachine(), wrappedForAll: Boolean(f.wrappedForAll) })
+})
+app.post('/api/features', (req, res) => {
+  if (!isDevMachine()) return res.status(403).json({ error: 'Bu ayar sadece geliştirici bilgisayarında değiştirilebilir.' })
+  const f = readJson(FEATURES_FILE, {})
+  if (typeof req.body?.wrappedForAll === 'boolean') f.wrappedForAll = req.body.wrappedForAll
+  fs.writeFileSync(FEATURES_FILE, JSON.stringify(f, null, 2), 'utf-8')
+  res.json({ ok: true, wrappedForAll: Boolean(f.wrappedForAll) })
+})
+
+// Paketli arayüz (bkz. start.mjs): ARGUS_SERVE_UI varsa dist/ klasörü de bu sunucudan, 5173 portundan
+// sunuluyor — ayrı bir Vite sürecine gerek kalmıyor. index.html önbelleğe alınmıyor (güncellemeden sonra
+// hemen yeni sürüm gelsin), adlarında içerik özeti olan diğer dosyalar uzun süre önbellekte kalabiliyor.
+if (process.env.ARGUS_SERVE_UI) {
+  const DIST = path.join(__dirname, '..', 'dist')
+  app.use(
+    express.static(DIST, {
+      index: false,
+      setHeaders: (res, file) =>
+        res.setHeader('Cache-Control', file.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache'),
+    }),
+  )
+  // Sayfa adresleri (/board/..., /takvim ...) hep index.html'e düşer; API ve medya hariç.
+  app.get(/^(?!\/api\/|\/medya\/).*/, (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache')
+    res.sendFile(path.join(DIST, 'index.html'))
+  })
+  const UI_PORT = Number(process.env.UI_PORT) || 5173
+  app.listen(UI_PORT, () => console.log(`ARGUS arayüzü: http://localhost:${UI_PORT}`))
+}
 
 const PORT = Number(process.env.PORT) || 4000
 app.listen(PORT, () => {

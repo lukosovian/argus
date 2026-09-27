@@ -4,6 +4,7 @@ import { ProfilesProvider, useProfiles } from './hooks/useProfiles'
 import { ToastProvider } from './hooks/useToast'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
 import { useHistoryLimit } from './hooks/useHistoryLimit'
+import RatePrompt from './components/RatePrompt'
 import Navbar from './components/Navbar'
 import ProfilePicker from './components/ProfilePicker'
 import AnaSayfa from './pages/AnaSayfa'
@@ -12,6 +13,7 @@ import BoardView from './pages/BoardView'
 import YardimMerkezi from './pages/YardimMerkezi'
 import Istatistikler from './pages/Istatistikler'
 import Takvim from './pages/Takvim'
+import YillikOzet from './pages/YillikOzet'
 import YamaNotlari from './pages/YamaNotlari'
 
 // Bir profil ilk kez aktif olduğunda (o profil daha önce hiç görmediyse) Yardım Merkezi'ni
@@ -51,6 +53,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <Navbar />
       {!loading && !activeProfile && <ProfilePicker />}
       {children}
+      <RatePrompt />
     </>
   )
 }
@@ -95,6 +98,14 @@ function AppRoutes() {
         element={
           <Shell>
             <Istatistikler />
+          </Shell>
+        }
+      />
+      <Route
+        path="/ozet"
+        element={
+          <Shell>
+            <YillikOzet />
           </Shell>
         }
       />

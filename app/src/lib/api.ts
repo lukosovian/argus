@@ -4,6 +4,32 @@ import { pingNotifications, type AppNotification, type ShowInfo } from './notifi
 import { notifyDataChanged } from './dataEvents'
 
 // TMDB'deki bir içeriğin kart bilgisi (Benzerler / Keşfet sonuçları).
+// Seri / kişi sayfalarındaki kartlar: TMDB kartı + arşivdeki durumu
+export interface ArchiveCard extends TmdbCard {
+  rowId: string | null
+  status: string | null
+  watched: boolean
+  character?: string
+}
+export interface PersonInfo {
+  id: number
+  name: string
+  bio: string
+  birthday: string
+  deathday: string
+  place: string
+  image: string | null
+  department: string
+}
+
+export interface BackupInfo {
+  settings: { target: string; auto: 'off' | 'daily' | 'weekly'; keep: number; lastAt: number | null; lastError: string | null }
+  snapshots: string[]
+  job: { kind: 'backup' | 'restore'; running: boolean; phase: string; done: number; total: number; error: string | null; result: unknown } | null
+  suggestions: { label: string; path: string }[]
+  targetExists: boolean
+}
+
 export interface TmdbCard {
   tmdbId: number
   mediaType: 'movie' | 'tv'
@@ -77,6 +103,16 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
       // yanıt JSON değildi — genel mesaj kalsın
     }
     throw new Error(message)
+  }
+  // Sunucu bir kaydın yeni İzlendi olduğunu ve puanının boş olduğunu söylüyorsa puan penceresi açılsın
+  // (bkz. RatePrompt.tsx, server/index.js'teki shouldAskRating).
+  const ask = res.headers.get('X-Argus-Ask-Rating')
+  if (ask) {
+    try {
+      window.dispatchEvent(new CustomEvent('argus-ask-rating', { detail: JSON.parse(decodeURIComponent(ask)) }))
+    } catch {
+      // bozuk başlık — önemsiz
+    }
   }
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
@@ -223,6 +259,20 @@ export const api = {
     request<{ ok: true }>(profilePath(`/history/${boardId}/undo`), { method: 'POST', ...json({ entryId }) }),
   restoreHistoryDay: (boardId: string, day: string) =>
     request<{ ok: true; count: number }>(profilePath(`/history/${boardId}/restore-day`), { method: 'POST', ...json({ day }) }),
+  // Yedekleme (bkz. server/backup.js) — profile bağlı değil, bütün veriyi kapsar.
+  getBackup: () => request<BackupInfo>('/api/backup'),
+  getCollection: (boardId: string, rowId: string) =>
+    request<{ collection: { id: number; name: string; backdrop: string | null } | null; parts?: (ArchiveCard & { released: boolean; releaseDate: string })[] }>(
+      profilePath(`/collection/${boardId}/${rowId}`),
+    ),
+  getPerson: (boardId: string, name: string, role: 'acting' | 'directing') =>
+    request<{ person: PersonInfo | null; inArchive: ArchiveCard[]; notInArchive: ArchiveCard[]; needsApiKey?: boolean }>(
+      profilePath(`/person/${boardId}?name=${encodeURIComponent(name)}&role=${role}`),
+    ),
+  saveBackupSettings: (patch: { target?: string; auto?: 'off' | 'daily' | 'weekly'; keep?: number }) =>
+    request<{ ok: true }>('/api/backup/settings', { method: 'POST', ...json(patch) }),
+  runBackup: () => request<{ ok: true }>('/api/backup/run', { method: 'POST', ...json({}) }),
+  restoreBackup: (snapshot: string) => request<{ ok: true }>('/api/backup/restore', { method: 'POST', ...json({ snapshot }) }),
   getHistoryStatus: () => request<{ bytes: number; limitBytes: number; over: boolean }>('/api/history/status'),
   setHistoryLimit: (limitBytes: number) => request<{ ok: true }>('/api/history/limit', { method: 'POST', ...json({ limitBytes }) }),
   trimHistory: () => request<{ ok: true; removed: number; bytes: number }>('/api/history/trim', { method: 'POST', ...json({}) }),
