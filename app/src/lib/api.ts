@@ -1,4 +1,5 @@
 import type { Board, CastMap, EpisodesMap, HomeSettings, Profile, Row, Template, WatchedMap } from '../types'
+import type { HistoryDay, HistoryEntry } from './history'
 
 // TMDB'deki bir içeriğin kart bilgisi (Benzerler / Keşfet sonuçları).
 export interface TmdbCard {
@@ -189,6 +190,19 @@ export const api = {
   // yüzden istek "tamamlanmadan" bağlantı kopabilir, çağıran taraf bunu normal karşılamalı
   // (bkz. useUpdateCheck.ts).
   applyUpdate: () => request<{ ok: true }>('/api/apply-update', { method: 'POST' }),
+
+  // Arşiv geçmişi (bkz. server/history.js)
+  getHistoryDays: (boardId: string) => request<{ days: HistoryDay[] }>(profilePath(`/history/${boardId}/days`)),
+  getHistoryDay: (boardId: string, day: string) =>
+    request<{ entries: HistoryEntry[] }>(profilePath(`/history/${boardId}/day/${encodeURIComponent(day)}`)),
+  getRowHistory: (boardId: string, rowId: string) => request<{ entries: HistoryEntry[] }>(profilePath(`/history/${boardId}/row/${rowId}`)),
+  undoHistory: (boardId: string, entryId: string) =>
+    request<{ ok: true }>(profilePath(`/history/${boardId}/undo`), { method: 'POST', ...json({ entryId }) }),
+  restoreHistoryDay: (boardId: string, day: string) =>
+    request<{ ok: true; count: number }>(profilePath(`/history/${boardId}/restore-day`), { method: 'POST', ...json({ day }) }),
+  getHistoryStatus: () => request<{ bytes: number; limitBytes: number; over: boolean }>('/api/history/status'),
+  setHistoryLimit: (limitBytes: number) => request<{ ok: true }>('/api/history/limit', { method: 'POST', ...json({ limitBytes }) }),
+  trimHistory: () => request<{ ok: true; removed: number; bytes: number }>('/api/history/trim', { method: 'POST', ...json({}) }),
 
   // Medya klasörü tüm profiller arasında ortak (görsel dosyaları profile özel değil).
   getMedyaFiles: () => request<string[]>('/api/medya'),

@@ -5,6 +5,8 @@ import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../ty
 import type { PropertyType } from '../types'
 import { titleText, ratingAverage, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH } from '../types'
 import { useToast } from '../hooks/useToast'
+import { api } from '../lib/api'
+import { formatStamp, summarizeEntry, type HistoryEntry } from '../lib/history'
 import OptionBadge from './OptionBadge'
 import Checkbox from './Checkbox'
 import AddPropertyPopover from './AddPropertyPopover'
@@ -106,21 +108,42 @@ function EyeIcon() {
 // fixed` + tutamacın gerçek ekran konumundan hesaplanan koordinat bu kesilmeyi tamamen ortadan
 // kaldırıyor, tablo kaç satır olursa olsun.
 function RowMenu({
+  board,
+  row,
   hasTitle,
   refreshing,
   onFetchTmdb,
   onAddRow,
   onDuplicate,
   onDelete,
+  onShowHistory,
 }: {
+  board: Board
+  row: Row
   hasTitle: boolean
   refreshing: boolean
   onFetchTmdb: () => void
   onAddRow: () => void
   onDuplicate: () => void
   onDelete: () => void
+  // "Tüm geçmişi" — arşiv geçmişi penceresini bu kayda süzülmüş açar.
+  onShowHistory?: () => void
 }) {
   const [open, setOpen] = useState(false)
+  // Menünün altında: ne zaman eklendi, en son ne zaman değişti ve son değişiklikler (arşiv geçmişinden).
+  // Kullanıcı "ne zaman eklediğimi görmek istiyorum, altı noktaya basınca altta yazsın" dedi.
+  const [recent, setRecent] = useState<HistoryEntry[] | null>(null)
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    Promise.resolve()
+      .then(() => api.getRowHistory(board.id, row.id))
+      .then((r) => !cancelled && setRecent(r.entries))
+      .catch(() => !cancelled && setRecent([]))
+    return () => {
+      cancelled = true
+    }
+  }, [open, board.id, row.id])
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -166,7 +189,7 @@ function RowMenu({
             <div
               ref={menuRef}
               style={{ top: menuPos.top, left: menuPos.left }}
-              className="fixed z-40 w-56 bg-neutral-900 border border-neutral-800 rounded-xl py-1 shadow-lg"
+              className="fixed z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-xl py-1 shadow-lg"
             >
               {hasTitle && (
                 <button
@@ -213,6 +236,44 @@ function RowMenu({
                 <TrashIcon />
                 Sil
               </button>
+              <div className="mt-1 border-t border-neutral-800 px-3 pt-2 pb-1.5 space-y-1 text-[11px] text-neutral-500">
+                <p>
+                  Eklendi: <span className="text-neutral-300">{row.createdAt ? formatStamp(row.createdAt) : '—'}</span>
+                </p>
+                {row.updatedAt && row.createdAt && row.updatedAt - row.createdAt > 60_000 && (
+                  <p>
+                    Son değişiklik: <span className="text-neutral-300">{formatStamp(row.updatedAt)}</span>
+                  </p>
+                )}
+                {recent === null ? (
+                  <p className="text-neutral-600">Değişiklikler yükleniyor...</p>
+                ) : (
+                  (() => {
+                    const list = recent.filter((e) => e.type === 'update').slice(0, 3)
+                    return list.length > 0 ? (
+                      <div className="pt-1 space-y-0.5">
+                        {list.map((e) => (
+                          <p key={e.id} className="truncate" title={summarizeEntry(board, e)}>
+                            <span className="text-neutral-600">{formatStamp(e.t, false)} · </span>
+                            <span className="text-neutral-400">{summarizeEntry(board, e)}</span>
+                          </p>
+                        ))}
+                      </div>
+                    ) : null
+                  })()
+                )}
+                {onShowHistory && (
+                  <button
+                    onClick={() => {
+                      setOpen(false)
+                      onShowHistory()
+                    }}
+                    className="pt-0.5 text-[#00c0fa] hover:underline"
+                  >
+                    Tüm geçmişi ›
+                  </button>
+                )}
+              </div>
             </div>
           </>,
           document.body,
@@ -521,6 +582,8 @@ const BoardTable = forwardRef<
     // görmek isteyen kullanıcı için ("o altı noktanın yanına ... detay penceresini görebileceğim
     // bi buton eklesene").
     onOpenDetail: (row: Row) => void
+    // Altı nokta menüsündeki "Tüm geçmişi" — arşiv geçmişini bu kayda süzülmüş açar.
+    onShowRowHistory?: (row: Row) => void
     // Toplu silme — seçim çubuğu tek bir onay soruyor (bkz. handleBulkDelete), bu yüzden
     // burası (tek satır silmenin aksine) kendi başına ayrıca sormuyor.
     onBulkDeleteRows: (rowIds: string[]) => Promise<void>
@@ -562,6 +625,7 @@ const BoardTable = forwardRef<
     onDuplicateRow,
     onDeleteRow,
     onOpenDetail,
+    onShowRowHistory,
     onBulkDeleteRows,
     onReorderProperties,
     onSetCoverProperty,
@@ -943,6 +1007,9 @@ const BoardTable = forwardRef<
                     className={selectedRowIds.size > 0 || isSelected ? '' : 'opacity-0 group-hover:opacity-100'}
                   />
                   <RowMenu
+                    board={board}
+                    row={row}
+                    onShowHistory={onShowRowHistory ? () => onShowRowHistory(row) : undefined}
                     hasTitle={hasTitle(row)}
                     refreshing={refreshingRowId === row.id}
                     onFetchTmdb={() => handleRefreshClick(row.id)}

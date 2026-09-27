@@ -25,6 +25,7 @@ import HealthCheckModal from '../components/HealthCheckModal'
 import TableGuideModal from '../components/TableGuideModal'
 import DiscoverModal from '../components/DiscoverModal'
 import TmdbFillAdviceModal from '../components/TmdbFillAdviceModal'
+import HistoryModal from '../components/HistoryModal'
 import BulkUpdatePanel, { type BulkLogEntry, type BulkState } from '../components/BulkUpdatePanel'
 import { beginBusy } from '../lib/busy'
 import ToggleSwitch from '../components/ToggleSwitch'
@@ -39,6 +40,7 @@ import {
   FilterIcon,
   GearIcon,
   HealthIcon,
+  HistoryIcon,
   InfoIcon,
   SearchIcon,
   SortIcon,
@@ -726,6 +728,8 @@ export default function BoardView() {
   // Python scriptlerindeki `time.sleep` mantığıyla aynı sebep) — bu yüzden uzun sürebilir,
   // istediği an durdurabilsin diye bulkCancelRef ile iptal edilebiliyor.
   const [bulkUpdating, setBulkUpdating] = useState(false)
+  // Arşiv geçmişi penceresi (row verilirse sadece o kaydın geçmişi).
+  const [historyFor, setHistoryFor] = useState<{ row: Row | null } | null>(null)
   const bulkCancelRef = useRef(false)
   // Ayrıntı kutusu (bkz. BulkUpdatePanel) ve "kaldığı yerden devam": kalan kayıtlar arşiv başına
   // tarayıcıda saklanıyor — durdurunca, sayfa yenilenince ya da ARGUS kapanıp açılınca da devam edilebilsin.
@@ -1529,6 +1533,9 @@ export default function BoardView() {
           )}
 
           <ToolbarDivider />
+          <ToolbarIconButton onClick={() => setHistoryFor({ row: null })} title="Geçmiş — arşivdeki bütün değişiklikler, geri alma">
+            <HistoryIcon />
+          </ToolbarIconButton>
           <ToolbarIconButton onClick={() => setHealthOpen(true)} title="Sağlık Kontrolü — sorunlu kayıtları listele">
             <HealthIcon />
           </ToolbarIconButton>
@@ -1611,6 +1618,7 @@ export default function BoardView() {
           onAddRowAfter={createRowAfter}
           onDuplicateRow={duplicateRow}
           onDeleteRow={deleteRowDirect}
+          onShowRowHistory={(row) => setHistoryFor({ row })}
           onOpenDetail={setDetailRow}
           onBulkDeleteRows={bulkDeleteRows}
           onReorderProperties={reorderProperties}
@@ -1648,6 +1656,18 @@ export default function BoardView() {
       )}
 
       {guideOpen && <TableGuideModal onClose={() => setGuideOpen(false)} />}
+
+      {historyFor && (
+        <HistoryModal
+          board={board}
+          row={historyFor.row}
+          onClose={() => setHistoryFor(null)}
+          onChanged={() => {
+            reloadBoard()
+            reloadRows()
+          }}
+        />
+      )}
 
       {fillAdvice && (
         <TmdbFillAdviceModal
