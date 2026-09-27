@@ -1192,3 +1192,68 @@ export function GecmisVisual() {
     </Frame>
   )
 }
+
+// ---- v1.9.2 --------------------------------------------------------------------------------
+
+export function BildirimVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* üst menü: zil + rozet */}
+      <rect x={0} y={0} width={320} height={26} className="fill-neutral-900" />
+      <Line x={10} y={10} w={34} />
+      {[0, 1].map((i) => (
+        <circle key={i} cx={236 + i * 22} cy={13} r={6} className="fill-neutral-700" />
+      ))}
+      <path d="M275 17 a6 6 0 0 1 12 0 c0 0 1 1 2 2 h-16 c1 -1 2 -2 2 -2 Z" fill={ACCENT} />
+      <circle cx={288} cy={7} r={5} fill="#f43f5e" />
+      <text x={288} y={9.5} fontSize={6.5} fontWeight={700} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
+        3
+      </text>
+      <circle cx={306} cy={13} r={7} className="fill-neutral-600" />
+      <Pin x={270} y={40} n={1} />
+      {/* bildirim listesi */}
+      <Box x={150} y={30} w={164} h={112} r={7} strong />
+      <Label x={158} y={43} size={7.5}>
+        Bildirimler
+      </Label>
+      {[
+        ['✓', '#34d399', 'Star Trek SNW', 'İzlendi yapıldı'],
+        ['▶', ACCENT, 'The Boys', "İzleniyor'a alındı"],
+        ['📅', '#fbbf24', 'Silo', '3. sezon: 12 Mart'],
+      ].map(([ic, c, t, x], i) => (
+        <g key={t}>
+          <circle cx={164} cy={60 + i * 26} r={7} fill={c} fillOpacity={0.18} />
+          <text x={164} y={62.5 + i * 26} fontSize={7} textAnchor="middle" fill={c} style={{ fontFamily: 'inherit' }}>
+            {ic}
+          </text>
+          <text x={176} y={58 + i * 26} fontSize={6.8} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+            {t}
+          </text>
+          <text x={176} y={67 + i * 26} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+            {x}
+          </text>
+        </g>
+      ))}
+      <Pin x={140} y={86} n={2} />
+      {/* detaydaki etiket */}
+      <Box x={8} y={34} w={128} h={108} r={6} />
+      <rect x={16} y={44} width={26} height={39} rx={3} className="fill-neutral-700" />
+      <Line x={48} y={48} w={60} />
+      <rect x={48} y={58} width={18} height={8} rx={4} fill="#fbbf24" />
+      <rect x={70} y={58} width={20} height={8} rx={4} className="fill-neutral-700" />
+      <rect x={48} y={70} width={80} height={10} rx={5} fill="#f59e0b" fillOpacity={0.12} stroke="#f59e0b" strokeOpacity={0.6} strokeWidth={0.8} />
+      <text x={88} y={77.3} fontSize={6} textAnchor="middle" fill="#fbbf24" style={{ fontFamily: 'inherit' }}>
+        Yeni sezon bekleniyor
+      </text>
+      <Pin x={24} y={100} n={3} />
+      <text x={36} y={104} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        Dizi bitti · 4. sezon: 12 Mart
+      </text>
+      {/* akış */}
+      <text x={8} y={160} fontSize={6.8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        Bütün bölümler işaretlendi → İzlendi · yeni bölüm çıktı → İzleniyor
+      </text>
+      <NewTag x={8} y={165} />
+    </Frame>
+  )
+}

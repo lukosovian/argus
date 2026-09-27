@@ -383,6 +383,28 @@ function TakvimWireframe() {
   )
 }
 
+// Üst menüdeki zil + açılan bildirim listesi.
+function BildirimWireframe() {
+  return (
+    <WireframeCard>
+      <rect x={16} y={12} width={268} height={22} rx={6} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      <rect x={24} y={20} width={40} height={6} rx={3} fill={WF_LINE} />
+      <circle cx={236} cy={23} r={6} fill={WF_LINE} />
+      <circle cx={254} cy={23} r={6} fill={BRAND_TEXT} />
+      <circle cx={260} cy={17} r={4} fill="#f43f5e" />
+      <circle cx={274} cy={23} r={6} fill={WF_LINE} />
+      <rect x={120} y={40} width={164} height={110} rx={8} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <circle cx={136} cy={60 + i * 30} r={8} fill={i === 0 ? BRAND_TEXT : WF_LINE} />
+          <rect x={150} y={54 + i * 30} width={70} height={5} rx={2.5} fill={WF_EMPHASIS} />
+          <rect x={150} y={63 + i * 30} width={110} height={4} rx={2} fill={WF_LINE} />
+        </g>
+      ))}
+    </WireframeCard>
+  )
+}
+
 // Profil menüsü + sağ alttaki güncelleme bildirimi.
 function MenuWireframe() {
   const items = ['Ayarlar', 'İstatistikler', 'Yardım Merkezi', 'Yama Notları', 'Açık / Koyu Tema']
@@ -642,6 +664,20 @@ const TOPICS: Topic[] = [
     where: 'Profil menüsü › İstatistikler',
     text: 'Arşivinin özeti: toplam kayıt, izlenen ve izlenecek sayısı, bu yıl izlediklerin, toplam izleme süresi ve ortalama puan; son 12 ayda aylara göre izlediklerin, kategori ve durum dağılımı, en çok geçen türler ve ülkeler, vizyon yılına ve verdiğin puanlara göre dağılım ve en çok karşına çıkan oyuncular. Grafiklerin üzerine gelince tam sayılar görünür.',
     visual: <IstatistikWireframe />,
+  },
+  {
+    group: 'diger',
+    icon: <ProfileIcon />,
+    title: 'Bildirimler',
+    where: 'Üst menüdeki zil',
+    text: 'Önemli şeyler burada birikir: bir dizinin çıkmış bütün bölümlerini işaretleyince durumu kendiliğinden İzlendi yapılır, izlediğin bir diziye yeni bölüm gelince İzleniyor\'a alınır, yeni sezonun tarihi açıklanınca haber verilir. Zilin üstünde okunmamış sayısı yazar.',
+    tips: [
+      'Bir bildirime tıklayınca o kaydın detayı açılır.',
+      'Bitmiş bir dizide bir bölümün işaretini kaldırırsan durumu İzleniyor\'a geri alınır.',
+      '"Hepsini okundu say" ile işaretler, "Temizle" ile listeyi boşaltırsın.',
+      'Detay penceresinde dizilerin yanında TMDB\'ye göre durumu yazar: "Dizi bitti", "Yeni sezon bekleniyor" ya da tarih belliyse "4. sezon: 12 Mart".',
+    ],
+    visual: <BildirimWireframe />,
   },
   {
     group: 'diger',

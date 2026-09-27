@@ -8,6 +8,7 @@ import { execSync } from 'node:child_process'
 import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
 import { buildRestartScript, launchDetachedRestart } from './restart.js'
 import { beforeWrite, initHistory, registerHistoryRoutes, setHistoryWriter } from './history.js'
+import { initNotifications, pushNotification, registerNotificationRoutes } from './notifications.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -135,6 +136,8 @@ app.use('/medya', express.static(MEDYA_DIR))
 initHistory({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId })
 setHistoryWriter(writeJson)
 registerHistoryRoutes(app)
+initNotifications({ profilesDir: PROFILES_DIR, readJson, writeJson, makeId })
+registerNotificationRoutes(app)
 
 app.get('/api/profiles/:profileId/boards', (req, res) => {
   res.json(readJson(profileBoardsFile(req.params.profileId), []))
@@ -362,10 +365,127 @@ app.get('/api/profiles/:profileId/watched', (req, res) => {
 app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
   const file = profileWatchedFile(req.params.profileId)
   const all = readJson(file, {})
+  const before = all[req.params.rowId] ?? {}
   all[req.params.rowId] = req.body
   writeJson(file, all)
-  res.json({ ok: true })
+  let autoWatched = null
+  let autoWatching = null
+  try {
+    autoWatched = autoMarkSeriesWatched(req.params.profileId, req.params.rowId, req.body ?? {})
+    if (!autoWatched) autoWatching = autoUnmarkSeriesWatched(req.params.profileId, req.params.rowId, before, req.body ?? {})
+  } catch (e) {
+    console.error('otomatik durum hata:', e)
+  }
+  res.json({ ok: true, autoWatched, autoWatching })
 })
+
+// Yayınlanmış bölümlerin anahtarları (episodes.json'a göre) — yoksa null.
+function airedEpisodeKeys(profileId, rowId) {
+  const seasons = readJson(profileEpisodesFile(profileId), {})[rowId]
+  if (!Array.isArray(seasons) || seasons.length === 0) return null
+  const today = localToday()
+  const aired = []
+  for (const s of seasons) {
+    if (!(s.seasonNumber >= 1)) continue
+    for (const e of s.episodes ?? []) if (e.airDate && e.airDate <= today) aired.push(`${s.seasonNumber}-${e.episodeNumber}`)
+  }
+  return aired.length ? aired : null
+}
+
+// Tersi: kullanıcı "son bölümün izleme tarihini kaldırdım, durumu İzleniyor yapsın" dedi. Bütün
+// bölümleri işaretliyken (tamamlanmışken) bir bölümün işareti kaldırılırsa ve durum İzlendi ise
+// İzleniyor'a alınır. İzleme tarihine dokunulmaz (o gün gerçekten izlemiş olabilir).
+function autoUnmarkSeriesWatched(profileId, rowId, before, after) {
+  const aired = airedEpisodeKeys(profileId, rowId)
+  if (!aired) return null
+  const complete = (seen) => aired.every((k) => seen?.[k]?.length > 0)
+  if (!complete(before) || complete(after)) return null
+  const boards = readJson(profileBoardsFile(profileId), [])
+  for (const board of boards) {
+    const rowsFile = profileRowsFile(profileId, board.id)
+    const rows = readJson(rowsFile, [])
+    const row = rows.find((r) => r.id === rowId)
+    if (!row) continue
+    const durumProp = resolveRole(board, 'durum')
+    const izlendi = resolveStatusOption(board, 'izlendi')
+    const izleniyor = resolveStatusOption(board, 'izleniyor')
+    if (!durumProp || !izlendi || !izleniyor || row.values[durumProp.id] !== izlendi) return null
+    row.values = { ...row.values, [durumProp.id]: izleniyor }
+    row.updatedAt = Date.now()
+    writeJson(rowsFile, rows)
+    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+    const title = String((tp && row.values[tp.id]) || 'Dizi')
+    pushNotification(profileId, {
+      type: 'newSeason',
+      boardId: board.id,
+      rowId,
+      title,
+      text: 'Bir bölümün işaretini kaldırdın, artık bütün bölümler izlenmiş değil — durumu İzleniyor\'a alındı.',
+    })
+    return { title, boardId: board.id }
+  }
+  return null
+}
+
+function localToday() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Kullanıcı "dizinin çıkmış bölümlerinin hepsine izleme tarihi girdim, durumu İzlendi'ye çeksin"
+// dedi: bir dizinin YAYINLANMIŞ bütün bölümleri işaretlenince Durum kendiliğinden İzlendi olur,
+// son izlenen bölümün tarihi İzleme Tarihi'ne eklenir ve bildirim düşer.
+function autoMarkSeriesWatched(profileId, rowId, seen) {
+  const seasons = readJson(profileEpisodesFile(profileId), {})[rowId]
+  if (!Array.isArray(seasons) || seasons.length === 0) return null
+  const today = localToday()
+  const aired = []
+  for (const s of seasons) {
+    if (!(s.seasonNumber >= 1)) continue
+    for (const e of s.episodes ?? []) if (e.airDate && e.airDate <= today) aired.push(`${s.seasonNumber}-${e.episodeNumber}`)
+  }
+  if (aired.length === 0 || !aired.every((k) => seen[k]?.length > 0)) return null
+  const boards = readJson(profileBoardsFile(profileId), [])
+  for (const board of boards) {
+    const rowsFile = profileRowsFile(profileId, board.id)
+    const rows = readJson(rowsFile, [])
+    const row = rows.find((r) => r.id === rowId)
+    if (!row) continue
+    const durumProp = resolveRole(board, 'durum')
+    const izlendi = resolveStatusOption(board, 'izlendi')
+    if (!durumProp || !izlendi || row.values[durumProp.id] === izlendi) return null
+    row.values = { ...row.values, [durumProp.id]: izlendi }
+    const dateProp = resolveRole(board, 'izlemeTarihi')
+    const lastDate = Object.values(seen).flat().filter(Boolean).sort().pop()
+    if (dateProp && lastDate) {
+      const v = row.values[dateProp.id]
+      if (dateProp.type === 'multidate') {
+        const list = Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : []
+        if (!list.includes(lastDate)) row.values[dateProp.id] = [...list, lastDate].sort()
+      } else if (!v) row.values[dateProp.id] = lastDate
+    }
+    row.updatedAt = Date.now()
+    writeJson(rowsFile, rows)
+    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+    const title = (tp && row.values[tp.id]) || 'Dizi'
+    const show = readJson(profileTmdbFile(profileId), {})[rowId]?.show
+    const tail = show?.status === 'Ended' || show?.status === 'Canceled' ? ' Dizi bitti, yeni bölüm gelmeyecek.' : show?.next?.airDate ? ` Yeni bölüm ${trDate(show.next.airDate)}'de.` : ' Yeni sezon çıkınca haber vereceğim.'
+    pushNotification(profileId, {
+      type: 'watched',
+      boardId: board.id,
+      rowId,
+      title: String(title),
+      text: `Çıkmış bütün bölümleri izledin, durumu İzlendi yapıldı.${tail}`,
+    })
+    return { title: String(title), boardId: board.id }
+  }
+  return null
+}
+
+function trDate(iso) {
+  const [y, m, d] = String(iso).split('-').map(Number)
+  return d && m ? `${d} ${TR_MONTHS[m]} ${y}` : String(iso)
+}
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p'
@@ -675,7 +795,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     // Bu kaydın TMDB kimliği saklanıyor — Nerede İzlenir, Benzerler, yeni bölüm kontrolü ve
     // Keşfet'in "zaten arşivde var" ayıklaması bunu kullanıyor (bkz. tmdb.json).
     const refs = readJson(profileTmdbFile(profileId), {})
-    refs[row.id] = { id: result.id, mediaType }
+    refs[row.id] = { id: result.id, mediaType, ...(mediaType === 'tv' ? { show: showInfoFromDetails(details) } : {}) }
     writeJson(profileTmdbFile(profileId), refs)
 
     const filled = []
@@ -948,6 +1068,22 @@ function profileDismissedFile(profileId) {
 
 function tmdbKey(mediaType, id) {
   return `${mediaType}:${id}`
+}
+
+// Dizinin TMDB durumu: bitti mi, devam mı ediyor, sıradaki bölüm ne zaman — detay penceresindeki
+// "Dizi bitti / Yeni sezon: 12 Mart" etiketi için tmdb.json'daki kayda yazılıyor.
+function showInfoFromDetails(d) {
+  const ep = (x) => (x ? { season: x.season_number, episode: x.episode_number, airDate: x.air_date ?? '' } : null)
+  return { status: d.status ?? '', next: ep(d.next_episode_to_air), last: ep(d.last_episode_to_air), checkedAt: Date.now() }
+}
+function saveShowInfo(profileId, rowId, st) {
+  const file = profileTmdbFile(profileId)
+  const refs = readJson(file, {})
+  if (!refs[rowId]) return
+  const next = { status: st.status ?? '', next: st.next, last: st.last, checkedAt: Date.now() }
+  if (JSON.stringify(refs[rowId].show ?? null) === JSON.stringify({ ...next, checkedAt: refs[rowId].show?.checkedAt })) return
+  refs[rowId] = { ...refs[rowId], show: next }
+  writeJson(file, refs)
 }
 
 async function ensureTmdbRef(profileId, board, row, apiKey) {
@@ -1271,6 +1407,7 @@ async function getTvStatus(tmdbId, apiKey) {
   const d = await tmdbGet(`/tv/${tmdbId}`, { language: 'tr-TR' }, apiKey)
   if (!d) return null
   const data = {
+    status: d.status ?? '',
     seasons: (d.seasons ?? []).filter((s) => s.season_number >= 1).map((s) => ({ season: s.season_number, count: s.episode_count ?? 0 })),
     last: d.last_episode_to_air
       ? { season: d.last_episode_to_air.season_number, episode: d.last_episode_to_air.episode_number, name: d.last_episode_to_air.name ?? '', airDate: d.last_episode_to_air.air_date ?? '' }
@@ -1282,6 +1419,81 @@ async function getTvStatus(tmdbId, apiKey) {
   tvStatusCache.set(tmdbId, { at: Date.now(), data })
   return data
 }
+
+// Kullanıcı: "yeni sezon çıkınca İzleniyor'a alsın" ve "haber versin". İzlendi durumundaki dizilere
+// bakılır: sonradan yeni bölüm yayınlandıysa durum İzleniyor olur + bildirim; yeni sezonun tarihi
+// açıklandıysa (henüz çıkmadıysa) sadece bir kez duyuru bildirimi.
+const finishedCheckAt = new Map()
+const FINISHED_CHECK_MS = 6 * 60 * 60 * 1000
+async function checkFinishedSeries(profileId, boardId, apiKey) {
+  const k = `${profileId}:${boardId}`
+  if (Date.now() - (finishedCheckAt.get(k) ?? 0) < FINISHED_CHECK_MS) return
+  finishedCheckAt.set(k, Date.now())
+  const loaded = loadBoardAndRows(profileId, boardId)
+  if (!loaded) return
+  const { board } = loaded
+  const durumProp = resolveRole(board, 'durum')
+  const izlendi = resolveStatusOption(board, 'izlendi')
+  const izleniyor = resolveStatusOption(board, 'izleniyor')
+  const dateProp = resolveRole(board, 'izlemeTarihi')
+  if (!durumProp || !izlendi || !izleniyor) return
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const watched = readJson(profileWatchedFile(profileId), {})
+  const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const today = localToday()
+  for (const row of loaded.rows.filter((r) => r.values[durumProp.id] === izlendi)) {
+    const ref = refs[row.id]
+    if (!ref || ref.mediaType !== 'tv') continue
+    const st = await getTvStatus(ref.id, apiKey)
+    if (!st) continue
+    saveShowInfo(profileId, row.id, st)
+    const title = String((tp && row.values[tp.id]) || 'Dizi')
+    // En son ne zaman izledin: bölüm işaretleri ya da izleme tarihi
+    const seen = watched[row.id] ?? {}
+    const dv = dateProp ? row.values[dateProp.id] : null
+    const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : [])].filter(Boolean).sort()
+    const lastWatch = dates[dates.length - 1] ?? ''
+    const lastKey = st.last ? `${st.last.season}-${st.last.episode}` : ''
+    const newAired = st.last && st.last.airDate && st.last.airDate <= today && !(seen[lastKey]?.length > 0) && (!lastWatch || st.last.airDate > lastWatch)
+    if (newAired) {
+      const rowsFile = profileRowsFile(profileId, boardId)
+      const rows = readJson(rowsFile, [])
+      const r = rows.find((x) => x.id === row.id)
+      if (r && r.values[durumProp.id] === izlendi) {
+        r.values = { ...r.values, [durumProp.id]: izleniyor }
+        r.updatedAt = Date.now()
+        writeJson(rowsFile, rows)
+        pushNotification(profileId, {
+          key: `new:${row.id}:${lastKey}`,
+          type: 'newSeason',
+          boardId,
+          rowId: row.id,
+          title,
+          text: `Yeni bölüm çıktı (S${st.last.season}B${st.last.episode}, ${trDate(st.last.airDate)}) — durumu İzleniyor'a alındı.`,
+        })
+      }
+      continue
+    }
+    if (st.next && st.next.episode === 1 && st.next.airDate && st.next.airDate > today) {
+      pushNotification(profileId, {
+        key: `announce:${row.id}:${st.next.season}`,
+        type: 'announce',
+        boardId,
+        rowId: row.id,
+        title,
+        text: `${st.next.season}. sezon ${trDate(st.next.airDate)}'de başlıyor.`,
+      })
+    }
+  }
+}
+
+// Detay penceresindeki "Dizi bitti / Yeni sezon" etiketi için saklanan dizi durumları (TMDB'ye gitmez).
+app.get('/api/profiles/:profileId/show-status', (req, res) => {
+  const refs = readJson(profileTmdbFile(req.params.profileId), {})
+  const out = {}
+  for (const [rowId, r] of Object.entries(refs)) if (r?.show) out[rowId] = r.show
+  res.json(out)
+})
 
 app.get('/api/profiles/:profileId/new-episodes/:boardId', async (req, res) => {
   try {
@@ -1301,6 +1513,7 @@ app.get('/api/profiles/:profileId/new-episodes/:boardId', async (req, res) => {
       const ref = await ensureTmdbRef(profileId, board, row, apiKey)
       if (!ref || ref.mediaType !== 'tv') continue
       const st = await getTvStatus(ref.id, apiKey)
+      if (st) saveShowInfo(profileId, row.id, st)
       if (!st?.last) continue
       // Yayınlanmış bölümler: son yayınlanan bölüme kadar her şey.
       const aired = []
@@ -1338,6 +1551,8 @@ app.get('/api/profiles/:profileId/new-episodes/:boardId', async (req, res) => {
     // En yeni yayınlanan bölüm en üstte.
     items.sort((a, b) => (b.latest.airDate || '').localeCompare(a.latest.airDate || ''))
     res.json({ items })
+    // Bitirilmiş (İzlendi) dizilerde yeni sezon kontrolü — cevabı bekletmesin diye arkada, en fazla 6 saatte bir.
+    checkFinishedSeries(profileId, boardId, apiKey).catch((e) => console.error('bitmiş dizi kontrolü hata:', e))
   } catch (e) {
     console.error('new-episodes hata:', e)
     res.json({ items: [] })

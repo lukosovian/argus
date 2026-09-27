@@ -18,6 +18,7 @@ import SeasonsBrowser from './SeasonsBrowser'
 import TmdbExtras from './TmdbExtras'
 import SectionTitle from './SectionTitle'
 import AgeRatingChip from './AgeRatingChip'
+import { showLabel, useShowInfo } from '../lib/showStatus'
 
 const CAST_PREVIEW = 12
 
@@ -133,6 +134,8 @@ export default function RowDetailModal({
   const cast = useCast()
   const { episodes, reload: reloadEpisodes } = useEpisodes()
   const { watched, saveRowWatched } = useWatched()
+  // Dizilerde TMDB durumu: bitti mi, yeni sezon ne zaman (bkz. lib/showStatus.ts)
+  const showTag = showLabel(useShowInfo(row.id))
   const { notify } = useToast()
   const [refreshing, setRefreshing] = useState(false)
   // Oyuncular ızgarası: ilk iki sıra görünür, "Tümünü göster" ile hepsi açılır (kullanıcı yatay
@@ -424,6 +427,20 @@ export default function RowDetailModal({
                   </span>
                 ))}
                 {yasValue && <AgeRatingChip raw={yasValue} className="h-6 min-w-6" />}
+                {showTag && (
+                  <span
+                    title="TMDB'ye göre dizinin durumu"
+                    className={`text-[11px] leading-none px-2 py-1 rounded-full border ${
+                      showTag.tone === 'done'
+                        ? 'border-neutral-500 text-neutral-300 bg-black/20'
+                        : showTag.tone === 'soon'
+                          ? 'border-[#00c0fa]/60 text-[#7fdcff] bg-[#00c0fa]/10'
+                          : 'border-amber-500/50 text-amber-300 bg-amber-500/10'
+                    }`}
+                  >
+                    {showTag.text}
+                  </span>
+                )}
               </div>
               {editable && onFetchTmdb && hasTitle && (
                 <button

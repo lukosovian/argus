@@ -7,6 +7,7 @@ import { useThemeMode } from '../hooks/useThemeMode'
 import { sortByOrder } from './HomeSectionEditor'
 import GlobalSearch from './GlobalSearch'
 import RandomPickerButton from './RandomPickerButton'
+import NotificationBell from './NotificationBell'
 import { gradientBorderStyle } from '../lib/theme'
 import { APP_VERSION } from '../lib/version'
 
@@ -95,9 +96,9 @@ export default function Navbar() {
           scrolled ? 'bg-neutral-950/95 backdrop-blur-sm' : 'bg-transparent'
         }`}
       >
-        <div className="px-3 sm:px-4 h-16 flex items-center gap-2 sm:gap-4">
+        <div className="px-2.5 sm:px-4 h-16 flex items-center gap-1 sm:gap-4">
           <Link to="/" className="flex items-center shrink-0">
-            <img src="/logoblue-yatay.png" alt="ARGUS" className="h-7 sm:h-9 w-auto" />
+            <img src="/logoblue-yatay.png" alt="ARGUS" className="h-6 sm:h-9 w-auto" />
           </Link>
           {/* Sayfa bağlantıları tek satırda kalıyor (telefonda "Ana Sayfa" iki satıra kayıyordu); sığmazsa
               yana kaydırılıyor. */}
@@ -121,6 +122,7 @@ export default function Navbar() {
 
           <GlobalSearch />
           <RandomPickerButton />
+          <NotificationBell />
 
           <div className="relative shrink-0">
             <button
