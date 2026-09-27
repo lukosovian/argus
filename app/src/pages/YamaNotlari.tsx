@@ -36,6 +36,7 @@ import {
   GecmisVisual,
   BildirimVisual,
   TarihAraligiVisual,
+  OyuncuPencereVisual,
 } from '../components/PatchVisuals'
 interface PatchEntry {
   version: string
@@ -48,6 +49,17 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.9.4',
+    date: '27 Eylül 2026',
+    title: 'Detay penceresinde oyuncular',
+    items: [
+      'Detay penceresinde aşağı kaydırmışken bir oyuncuya tıklayınca açılan pencere sayfanın en üstünde açılıyordu, fark edilmiyordu — artık ekranın ortasında açılıyor. Aynı sorun "Benzer İçerikler"den açılan önizlemede de düzeltildi.',
+      'Detay penceresindeki oyuncu fotoğrafları artık yuvarlak değil, dikey (afiş gibi) kartlar; hepsi aynı hizada ve yüzler üstten hizalı.',
+      'Oyuncu penceresinde doğum yerinin başında "us" gibi harfler görünüyordu (bayrak işareti), temizlendi.',
+    ],
+    visuals: [{ caption: '1 dikey oyuncu kartları · 2 oyuncu penceresi, nerede olursan ol ekranın ortasında', Visual: OyuncuPencereVisual }],
+  },
   {
     version: 'v1.9.3',
     date: '27 Eylül 2026',
