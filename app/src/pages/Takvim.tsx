@@ -375,6 +375,7 @@ export default function Takvim() {
           onAdd={async (row, opts) => {
             const day = openDay
             const eps = opts.episodes ?? []
+            let autoWatched = false
             // Bölümler: o kaydın bölüm haritasına bu günün tarihi eklenir.
             if (eps.length > 0) {
               const current = (await api.getWatched())[row.id] ?? {}
@@ -384,7 +385,7 @@ export default function Takvim() {
                 const list = next[k] ?? []
                 if (!list.includes(day)) next[k] = [...list, day].sort()
               }
-              await api.saveRowWatched(row.id, next)
+              autoWatched = Boolean((await api.saveRowWatched(row.id, next)).autoWatched)
             }
             // İzleme tarihi (film ya da "diziyi bitirdim") ve durum.
             const fresh = (await api.getRows(board.id)).find((r) => r.id === row.id) ?? row
@@ -400,7 +401,8 @@ export default function Takvim() {
               changed = true
             }
             const durumProp = resolveRole(board, 'durum')
-            if (opts.status && durumProp) {
+            // Bütün bölümler bittiği için sunucu diziyi İzlendi yaptıysa üstüne "İzleniyor" yazılmasın.
+            if (opts.status && durumProp && !(autoWatched && opts.status === 'izleniyor')) {
               const statusId = resolveStatusOption(board, opts.status)
               if (statusId) {
                 values[durumProp.id] = statusId

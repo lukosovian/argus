@@ -34,6 +34,7 @@ import {
   GenelGuncellemeVisual,
   NeIzlesemPencereVisual,
   GecmisVisual,
+  BildirimVisual,
 } from '../components/PatchVisuals'
 interface PatchEntry {
   version: string
@@ -46,6 +47,19 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.9.2',
+    date: '27 Eylül 2026',
+    title: 'Bildirimler, bitince kendiliğinden İzlendi, yeni sezon haberleri',
+    items: [
+      'Üst menüde yeni bir zil var: bildirimler burada birikiyor, okunmamış sayısı zilin üstünde yazıyor. Bir bildirime tıklayınca o kaydın detayı açılıyor; "Hepsini okundu say" ve "Temizle" de var. Uygulama açıkken yeni bir bildirim gelirse köşede kısa bir kart olarak da görünüyor.',
+      'Bir dizinin çıkmış bütün bölümlerini işaretleyince durumu kendiliğinden İzlendi oluyor ve son izlediğin bölümün tarihi İzleme Tarihi\x27ne ekleniyor. Bildirimde dizinin bitip bitmediği de yazıyor ("Dizi bitti" ya da "Yeni sezon çıkınca haber vereceğim"). Tersi de var: bitmiş bir dizide bir bölümün işaretini kaldırırsan durum İzleniyor\x27a geri dönüyor.',
+      'İzlendi dizilerine yeni bölüm çıkınca durum kendiliğinden İzleniyor\x27a geçiyor ve bildirim geliyor. Yeni sezonun tarihi açıklanınca da bir kez haber veriliyor ("4. sezon 12 Mart\x27ta başlıyor").',
+      'Detay penceresinde dizilerin yanında TMDB\x27ye göre durumu yazıyor: "Dizi bitti", "Dizi iptal edildi", "Yeni sezon bekleniyor" ya da tarih belliyse "4. sezon: 12 Mart". Final mi sezon finali mi diye düşünmene gerek kalmıyor.',
+      'Telefonda üst menü biraz sıkılaştırıldı, sayfa adları daha rahat sığıyor.',
+    ],
+    visuals: [{ caption: '1 zil ve okunmamış sayısı · 2 bildirim listesi · 3 detayda dizinin durumu (bitti / yeni sezon)', Visual: BildirimVisual }],
+  },
   {
     version: 'v1.9.1',
     date: '27 Eylül 2026',

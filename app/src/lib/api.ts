@@ -1,5 +1,7 @@
 import type { Board, CastMap, EpisodesMap, HomeSettings, Profile, Row, Template, WatchedMap } from '../types'
 import type { HistoryDay, HistoryEntry } from './history'
+import { pingNotifications, type AppNotification, type ShowInfo } from './notifications'
+import { notifyDataChanged } from './dataEvents'
 
 // TMDB'deki bir içeriğin kart bilgisi (Benzerler / Keşfet sonuçları).
 export interface TmdbCard {
@@ -147,8 +149,29 @@ export const api = {
   getCast: () => request<CastMap>(profilePath('/cast')),
   getEpisodes: () => request<EpisodesMap>(profilePath('/episodes')),
   getWatched: () => request<WatchedMap>(profilePath('/watched')),
-  saveRowWatched: (rowId: string, map: Record<string, string[]>) =>
-    request<{ ok: true }>(profilePath(`/watched/${rowId}`), { method: 'PUT', ...json(map) }),
+  // Sunucu, dizinin çıkmış bütün bölümleri işaretlenince durumu kendiliğinden İzlendi yapıyor
+  // (autoWatched) — o zaman açık ekranlar yenilensin ve zil baksın.
+  saveRowWatched: async (rowId: string, map: Record<string, string[]>) => {
+    const res = await request<{
+      ok: true
+      autoWatched?: { title: string; boardId: string } | null
+      autoWatching?: { title: string; boardId: string } | null
+    }>(profilePath(`/watched/${rowId}`), {
+      method: 'PUT',
+      ...json(map),
+    })
+    const changed = res.autoWatched ?? res.autoWatching
+    if (changed) {
+      notifyDataChanged(changed.boardId)
+      pingNotifications()
+    }
+    return res
+  },
+  getNotifications: () => request<{ items: AppNotification[] }>(profilePath('/notifications')),
+  markNotificationsRead: (ids?: string[]) =>
+    request<{ ok: true }>(profilePath('/notifications/read'), { method: 'POST', ...json(ids ? { ids } : {}) }),
+  clearNotifications: () => request<{ ok: true }>(profilePath('/notifications'), { method: 'DELETE' }),
+  getShowStatus: () => request<Record<string, ShowInfo>>(profilePath('/show-status')),
   fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false) =>
     request<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number }>(
       profilePath(`/fetch-tmdb/${boardId}/${rowId}`),
