@@ -10,6 +10,7 @@ import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '
 import HelpHint from '../components/HelpHint'
 import { ROLE_DEFS, resolveRole, resolveStatusOption, type RoleKey } from '../lib/roles'
 import Select from '../components/Select'
+import { entryEnd } from '../lib/dateRange'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -175,7 +176,8 @@ function useStats(board: Board | null | undefined, rows: Row[]) {
       const yearPrefix = String(now.getFullYear())
       for (const r of rows) {
         const v = r.values[tarihProp.id]
-        const dates = Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []
+        // Aralıklarda (başladım → bitirdim) bitiş günü sayılır.
+        const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).map(entryEnd)
         if (dates.length) anyDate = true
         if (dates.some((d) => d.startsWith(yearPrefix))) thisYearRows++
         for (const d of dates) {

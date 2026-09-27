@@ -456,12 +456,20 @@ function autoMarkSeriesWatched(profileId, rowId, seen) {
     if (!durumProp || !izlendi || row.values[durumProp.id] === izlendi) return null
     row.values = { ...row.values, [durumProp.id]: izlendi }
     const dateProp = resolveRole(board, 'izlemeTarihi')
-    const lastDate = Object.values(seen).flat().filter(Boolean).sort().pop()
+    const allDates = Object.values(seen).flat().filter(Boolean).sort()
+    const lastDate = allDates[allDates.length - 1]
     if (dateProp && lastDate) {
       const v = row.values[dateProp.id]
       if (dateProp.type === 'multidate') {
         const list = Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : []
-        if (!list.includes(lastDate)) row.values[dateProp.id] = [...list, lastDate].sort()
+        // Kullanıcı: "en son yazdığım tarihi izleme tarihi yapıyorsun ama başlama tarihim çok daha önce" —
+        // izleme tarihi, bu izlemeye ait ilk bölümün gününden son bölümün gününe bir aralık olarak yazılır.
+        // Bu izlemenin başı: bir önceki izleme tarihinin bitişinden sonraki ilk bölüm günü.
+        const prevEnd = list.map((x) => String(x).split('/').pop()).filter((d) => d < lastDate).sort().pop() ?? ''
+        const start = allDates.find((d) => d > prevEnd) ?? lastDate
+        const entry = start < lastDate ? `${start}/${lastDate}` : lastDate
+        const covered = list.some((x) => String(x).split('/').includes(lastDate))
+        if (!covered) row.values[dateProp.id] = [...list, entry].sort()
       } else if (!v) row.values[dateProp.id] = lastDate
     }
     row.updatedAt = Date.now()
@@ -1451,7 +1459,7 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
     // En son ne zaman izledin: bölüm işaretleri ya da izleme tarihi
     const seen = watched[row.id] ?? {}
     const dv = dateProp ? row.values[dateProp.id] : null
-    const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : [])].filter(Boolean).sort()
+    const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : []).map((x) => String(x).split('/').pop())].filter(Boolean).sort()
     const lastWatch = dates[dates.length - 1] ?? ''
     const lastKey = st.last ? `${st.last.season}-${st.last.episode}` : ''
     const newAired = st.last && st.last.airDate && st.last.airDate <= today && !(seen[lastKey]?.length > 0) && (!lastWatch || st.last.airDate > lastWatch)

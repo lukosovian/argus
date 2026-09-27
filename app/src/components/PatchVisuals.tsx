@@ -1257,3 +1257,62 @@ export function BildirimVisual() {
     </Frame>
   )
 }
+
+// ---- v1.9.3 --------------------------------------------------------------------------------
+
+export function TarihAraligiVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* tarih düzenleyicisi */}
+      <Box x={8} y={8} w={150} h={96} r={6} strong />
+      <Label x={16} y={22} size={7.5}>
+        İzleme Tarihi
+      </Label>
+      <rect x={16} y={30} width={118} height={14} rx={7} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} />
+      <text x={24} y={40} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        09.08.24 → 12.08.24
+      </text>
+      <rect x={16} y={50} width={60} height={14} rx={7} className="fill-neutral-800 stroke-neutral-600" strokeWidth={0.8} />
+      <text x={24} y={60} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        03.08.25
+      </text>
+      <text x={68} y={60} fontSize={8} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        →
+      </text>
+      <Pin x={146} y={42} n={1} />
+      <text x={16} y={80} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        Tarihin yanındaki → ile bitiş günü eklenir
+      </text>
+      {/* takvim: başladın / bitirdin */}
+      {Array.from({ length: 4 }, (_, i) => (
+        <g key={i}>
+          <rect x={170 + i * 36} y={8} width={33} height={60} rx={3} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.8} />
+          <circle cx={177 + i * 36} cy={14} r={3} className="fill-neutral-700" />
+        </g>
+      ))}
+      <rect x={173} y={22} width={27} height={17} rx={2} className="fill-neutral-800" />
+      <text x={186.5} y={34} fontSize={5.2} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        Başladın
+      </text>
+      <rect x={281} y={22} width={27} height={17} rx={2} className="fill-neutral-800" />
+      <text x={294.5} y={34} fontSize={5.2} textAnchor="middle" fill="#34d399" style={{ fontFamily: 'inherit' }}>
+        Bitirdin
+      </text>
+      <line x1={200} y1={30} x2={281} y2={30} stroke={ACCENT} strokeOpacity={0.4} strokeDasharray="3 3" />
+      <Pin x={240} y={80} n={2} />
+      {/* dizi bitince aralık */}
+      <Box x={8} y={114} w={304} h={58} r={6} />
+      <text x={16} y={130} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Dizinin son bölümünü işaretledin → İzlendi
+      </text>
+      <text x={16} y={144} fontSize={7} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        İzleme Tarihi: ilk bölümü izlediğin gün → son bölümü izlediğin gün
+      </text>
+      <rect x={16} y={151} width={112} height={13} rx={6.5} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} />
+      <text x={22} y={160} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        14.07.25 → 18.08.25
+      </text>
+      <Pin x={300} y={140} n={3} />
+    </Frame>
+  )
+}

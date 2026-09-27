@@ -35,6 +35,7 @@ import {
   NeIzlesemPencereVisual,
   GecmisVisual,
   BildirimVisual,
+  TarihAraligiVisual,
 } from '../components/PatchVisuals'
 interface PatchEntry {
   version: string
@@ -47,6 +48,18 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.9.3',
+    date: '27 Eylül 2026',
+    title: 'İzleme tarihinde başlangıç → bitiş',
+    items: [
+      'İzleme Tarihi\x27ne artık bitiş günü de eklenebiliyor (Notion\x27daki "end date" gibi): dün başlayıp bugün bitirdiysen tarihin yanındaki → ile bitişini seç, "09.08.24 → 12.08.24" olarak görünür. Tabloda, detay penceresinde, sıralamada ve İstatistikler\x27de bitiş günü esas alınıyor.',
+      'Takvimde aralıklı izlemeler başladığın gün "Başladın", bitirdiğin gün "Bitirdin" olarak görünüyor. Takvimden bir film eklerken son 30 gün içinde başlayıp bitirmediğin bir izlemesi varsa "Bu gün bitirdim" ya da "Yeni bir izleme" diye soruyor; bir diziyi "bu gün bitirdim" diye eklerken de tarih ilk izlediğin bölümün gününden başlıyor.',
+      'Bir dizinin bütün bölümlerini işaretleyince yazılan İzleme Tarihi artık sadece son günü değil, ilk bölümü izlediğin günden son bölümü izlediğin güne kadar olan aralığı gösteriyor.',
+      'Notion\x27dan aktarılan ve "başlangıç → bitiş" olan izleme tarihleri iki ayrı tarihe bölünmüştü (takvim bunları "tekrar izledin" sanıyordu); tek aralık olarak düzeltildi. Notion\x27dan yeni içe aktarmalarda da aralıklar doğru geliyor.',
+    ],
+    visuals: [{ caption: '1 tarihin yanındaki → ile bitiş günü · 2 takvimde Başladın / Bitirdin · 3 dizi bitince ilk → son bölüm günü', Visual: TarihAraligiVisual }],
+  },
   {
     version: 'v1.9.2',
     date: '27 Eylül 2026',

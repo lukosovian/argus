@@ -13,6 +13,7 @@ import AddPropertyPopover from './AddPropertyPopover'
 import ColumnMenu from './ColumnMenu'
 import CellEditor from './CellEditor'
 import InlineValueEditor from './InlineValueEditor'
+import { entryEnd, formatEntry } from '../lib/dateRange'
 
 const TITLE_DEFAULT_WIDTH = 220
 const ACTIONS_COLUMN_WIDTH = 44
@@ -396,9 +397,9 @@ function Cell({
   }
 
   if (property.type === 'multidate') {
-    // En yeni tarih önce — sığmazsa eskiler "+N"e girer.
-    const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort().reverse()
-    const formatted = dates.map(formatDateShort).filter((d): d is string => Boolean(d))
+    // En yeni tarih önce — sığmazsa eskiler "+N"e girer. Aralıklar "09.08.24 → 12.08.24" (bkz. lib/dateRange.ts).
+    const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort((a, b) => (entryEnd(a) < entryEnd(b) ? 1 : -1))
+    const formatted = dates.map((d) => formatEntry(d, (x) => formatDateShort(x) ?? x)).filter((d): d is string => Boolean(d))
     if (formatted.length === 0) return null
     return (
       <FitRow

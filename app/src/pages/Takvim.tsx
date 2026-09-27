@@ -11,6 +11,7 @@ import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { rowMatchesConditions, type FilterCondition } from '../lib/filters'
 import { episodeKey, titleText, type Board, type EpisodesMap, type Row, type WatchedMap } from '../types'
+import { entryEnd, entryTouches, makeEntry, parseEntry, toEntries } from '../lib/dateRange'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from '../components/Select'
 import MultiFilterEditor from '../components/MultiFilterEditor'
@@ -54,6 +55,9 @@ interface CalEvent {
   rewatch?: boolean
   episodeCount?: number
   finished?: boolean
+  // İzleme Tarihi öğesi (tek gün ya da "başlangıç/bitiş") ve bu olayın o öğenin neresi olduğu
+  entry?: string
+  part?: 'single' | 'start' | 'end'
 }
 
 // "S1B3" / "S1 · B1–B8" gibi kısa bölüm etiketi.
@@ -87,11 +91,21 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
       const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean).slice().sort()
       // Dizilerde birden fazla tarih genelde başlama/bitirme ya da sezonlar — tekrar izleme sayılmıyor.
       const series = (episodes[row.id]?.length ?? 0) > 0 || /dizi/i.test(kategoriProp?.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '')
-      dates.forEach((d, i) => {
+      dates.forEach((entry, i) => {
         const rewatch = i > 0 && !series
-        const ev: CalEvent = { key: `w:${row.id}:${d}:${i}`, date: d, row, kind: 'watch', sub: rewatch ? 'Tekrar izledin' : '', rewatch }
-        if (!byKey.has(`${d}|${row.id}`)) byKey.set(`${d}|${row.id}`, ev)
-        out.push(ev)
+        const { start, end } = parseEntry(entry)
+        // Aralık (başladım → bitirdim): başladığın gün "Başladın", bitirdiğin gün "Bitirdin".
+        const parts: { d: string; part: 'single' | 'start' | 'end'; sub: string }[] = end
+          ? [
+              { d: start, part: 'start', sub: 'Başladın' },
+              { d: end, part: 'end', sub: rewatch ? 'Tekrar izledin · bitirdin' : 'Bitirdin' },
+            ]
+          : [{ d: start, part: 'single', sub: rewatch ? 'Tekrar izledin' : '' }]
+        for (const p of parts) {
+          const ev: CalEvent = { key: `w:${row.id}:${p.d}:${i}:${p.part}`, date: p.d, row, kind: 'watch', sub: p.sub, rewatch, entry, part: p.part, finished: p.part === 'end' }
+          if (p.part !== 'start' && !byKey.has(`${p.d}|${row.id}`)) byKey.set(`${p.d}|${row.id}`, ev)
+          out.push(ev)
+        }
       })
     }
 
@@ -396,7 +410,15 @@ export default function Takvim() {
               const v = values[dateProp.id]
               if (dateProp.type === 'multidate') {
                 const list = Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []
-                values[dateProp.id] = list.includes(day) ? list : [...list, day].sort()
+                let entry = day
+                if (opts.extendEntry && list.includes(opts.extendEntry)) {
+                  // "Şu gün başladığımı bugün bitirdim": o öğe aralığa dönüşür
+                  entry = makeEntry(parseEntry(opts.extendEntry).start, day)
+                  values[dateProp.id] = list.map((x) => (x === opts.extendEntry ? entry : x)).sort()
+                } else {
+                  if (opts.rangeStart && opts.rangeStart < day) entry = makeEntry(opts.rangeStart, day)
+                  values[dateProp.id] = list.some((x) => entryTouches(x, day)) ? list : [...list, entry].sort()
+                }
               } else values[dateProp.id] = day
               changed = true
             }
@@ -421,7 +443,9 @@ export default function Takvim() {
             const tp = board.properties.find((p) => p.id === board.titlePropertyId)
             const name = tp ? titleText(tp, ev.row.values[tp.id]) : 'Kayıt'
             const ok = await confirm({
-              message: `"${name}" ${dayLabel(day).split(',')[0]} tarihinden kaldırılsın mı?${ev.episodeCount ? ` O gün işaretlediğin ${ev.episodeCount} bölümün işareti de kalkar.` : ''} Kaydın kendisi silinmez.`,
+              message: `"${name}" ${dayLabel(day).split(',')[0]} tarihinden kaldırılsın mı?${
+                ev.part === 'start' ? ` Bu izleme ${dayLabel(parseEntry(ev.entry!).end!).split(',')[0]} tarihine kadar sürüyordu, tamamı kalkar.` : ev.part === 'end' ? ' Sadece bitiş günü kalkar, başladığın gün kalır.' : ''
+              }${ev.episodeCount ? ` O gün işaretlediğin ${ev.episodeCount} bölümün işareti de kalkar.` : ''} Kaydın kendisi silinmez.`,
               confirmLabel: 'Kaldır',
             })
             if (!ok) return
@@ -444,8 +468,12 @@ export default function Takvim() {
                 const v = values[dateProp.id]
                 if (Array.isArray(v)) {
                   const list = [...(v as string[])]
-                  const i = list.indexOf(day)
-                  if (i >= 0) list.splice(i, 1)
+                  const target = ev.entry ?? day
+                  const i = list.indexOf(target)
+                  // Aralığın bitiş gününden kaldırılırsa sadece bitiş gider (başladığın gün kalır);
+                  // başlangıç gününden ya da tek günden kaldırılırsa o izlemenin tamamı gider.
+                  if (i >= 0 && ev.part === 'end') list[i] = parseEntry(target).start
+                  else if (i >= 0) list.splice(i, 1)
                   values[dateProp.id] = list
                 } else if (v === day) values[dateProp.id] = dateProp.type === 'multidate' ? [] : ''
                 await saveRow({ values, createdAt: fresh.createdAt, updatedAt: Date.now() }, fresh.id)
@@ -566,9 +594,10 @@ function MonthView({
   const monthEvents = [...byDay.entries()].filter(([d]) => d.startsWith(monthPrefix)).flatMap(([, l]) => l)
   const past = monthEvents.filter((e) => e.kind === 'watch' || e.kind === 'episodes')
   const isSeries = (r: Row) => /dizi/i.test(look.kategori(r))
-  const films = past.filter((e) => e.kind === 'watch' && !isSeries(e.row))
+  // Aralıklı izlemelerde (başladın → bitirdin) sadece bitiş günü sayılır, film iki kez sayılmasın.
+  const films = past.filter((e) => e.kind === 'watch' && e.part !== 'start' && !isSeries(e.row))
   const episodeCount = past.reduce((n, e) => n + (e.episodeCount ?? 0), 0)
-  const finishedSeries = past.filter((e) => e.kind === 'watch' && isSeries(e.row)).length
+  const finishedSeries = past.filter((e) => e.kind === 'watch' && e.part !== 'start' && isSeries(e.row)).length
   const filmMinutes = films.reduce((n, e) => n + look.minutes(e.row), 0)
   const activeDays = new Set(past.map((e) => e.date)).size
   const upcoming = monthEvents.filter((e) => e.kind === 'upcoming' || e.kind === 'release').length
@@ -824,7 +853,15 @@ function YearTile({ label, value, sub }: { label: string; value: string; sub?: s
 
 // ---- Gün paneli (sağdan açılır) + takvimden ekleme / kaldırma ----------------------------------
 
-type AddOptions = { episodes?: [number, number][]; addDate: boolean; status?: 'izleniyor' | 'izlendi' }
+type AddOptions = {
+  episodes?: [number, number][]
+  addDate: boolean
+  status?: 'izleniyor' | 'izlendi'
+  // Film: daha önce başlanan tek günlük izlemeyi bu güne kadar uzat ("dün başladım, bugün bitirdim")
+  extendEntry?: string
+  // Dizi bitirildiğinde: ilk izlenen bölümün günü → bu gün aralığı
+  rangeStart?: string
+}
 
 function DayPanel({
   board,
@@ -890,11 +927,30 @@ function DayPanel({
     }
   }
 
+  // Film için: bu günden önceki son 30 gün içinde başlanmış (bitişi olmayan) bir izleme varsa
+  // "yeni izleme mi, yoksa o gün başladığını bu gün mü bitirdin?" diye sorulur.
+  function openStart(r: Row): string | null {
+    if (!dateProp) return null
+    const list = toEntries(r.values[dateProp.id])
+    const limit = new Date(parseYmd(date).getTime() - 30 * 864e5)
+    const cands = list.filter((x) => {
+      const e = parseEntry(x)
+      return !e.end && e.start < date && parseYmd(e.start) >= limit
+    })
+    return cands.sort().pop() ?? null
+  }
+  const [filmChoice, setFilmChoice] = useState<{ row: Row; entry: string } | null>(null)
+
   function pick(r: Row) {
     const seasons = seasonsOf(r)
     if (seasons.length === 0) {
       // Film (ya da bölüm bilgisi olmayan kayıt): doğrudan izleme tarihi.
       if (!dateProp) return
+      const open = openStart(r)
+      if (open) {
+        setFilmChoice({ row: r, entry: open })
+        return
+      }
       run(async () => {
         await onAdd(r, { addDate: true, status: markStatus && hasDurum ? 'izlendi' : undefined })
         setQ('')
@@ -919,9 +975,9 @@ function DayPanel({
       return `Dizi · en son S${sn}B${en} (${shortDate(last.d)})`
     }
     const v = dateProp ? r.values[dateProp.id] : undefined
-    const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean).sort()
+    const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean).map(entryEnd).sort()
     if (dates.length === 0) return 'Henüz izlemedin'
-    const onDay = dates.includes(date) ? ' · bu gün zaten ekli' : ''
+    const onDay = toEntries(v).some((x) => entryTouches(x, date)) ? ' · bu gün zaten ekli' : ''
     return `${dates.length === 1 ? 'İzledin' : `${dates.length} kez izledin`}, en son ${shortDate(dates[dates.length - 1])}${onDay}`
   }
 
@@ -1003,7 +1059,47 @@ function DayPanel({
           <p className="text-sm text-neutral-500">Bu gün için bir şey yok.</p>
         )}
 
-        {canAdd && !picked && (
+        {canAdd && filmChoice && (
+          <div className="rounded-xl border border-[#00c0fa]/30 bg-neutral-950/40 p-3 space-y-2.5">
+            <p className="text-sm text-neutral-100">
+              <span className="font-medium">{look.title(filmChoice.row)}</span> — {shortDate(parseEntry(filmChoice.entry).start)} tarihinde başlamışsın.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await onAdd(filmChoice.row, { addDate: true, extendEntry: filmChoice.entry, status: markStatus && hasDurum ? 'izlendi' : undefined })
+                    setFilmChoice(null)
+                    setQ('')
+                  })
+                }
+                style={primaryButtonStyle}
+                className={`text-xs px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}
+              >
+                Bu gün bitirdim ({shortDate(parseEntry(filmChoice.entry).start)} → {shortDate(date)})
+              </button>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await onAdd(filmChoice.row, { addDate: true, status: markStatus && hasDurum ? 'izlendi' : undefined })
+                    setFilmChoice(null)
+                    setQ('')
+                  })
+                }
+                className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-300 hover:border-neutral-500"
+              >
+                Yeni bir izleme
+              </button>
+              <button onClick={() => setFilmChoice(null)} className="text-xs text-neutral-500 hover:text-neutral-200 px-2">
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        )}
+
+        {canAdd && !picked && !filmChoice && (
           <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3 space-y-2.5">
             <p className="text-sm font-medium text-neutral-100">Bu gün şunu izledim</p>
             <input
@@ -1127,9 +1223,12 @@ function DayPanel({
                 onClick={() =>
                   run(async () => {
                     const eps = [...chosen].map((k) => k.split('-').map(Number) as [number, number])
+                    // Diziyi bitirdiysen izleme tarihi "ilk izlediğin bölümün günü → bu gün" aralığı olur.
+                    const firstSeen = Object.values(watched[picked.id] ?? {}).flat().filter(Boolean).sort()[0]
                     await onAdd(picked, {
                       episodes: eps,
                       addDate: finished,
+                      rangeStart: finished && firstSeen && firstSeen < date ? firstSeen : undefined,
                       status: markStatus && hasDurum ? (finished ? 'izlendi' : 'izleniyor') : undefined,
                     })
                     setPicked(null)
