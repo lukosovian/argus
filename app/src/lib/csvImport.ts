@@ -1,4 +1,5 @@
 import { makeId, type PropertyDef, type PropertyType, type PropertyValue, type SelectOption } from '../types'
+import { makeEntry } from './dateRange'
 
 const IMAGE_HINTS = ['banner', 'görsel', 'gorsel', 'kapak', 'cover', 'image', 'foto', 'poster']
 const DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
@@ -107,6 +108,15 @@ export function parseCellValue(property: PropertyDef, raw: string): PropertyValu
   switch (property.type) {
     case 'date':
       return toIsoDate(value)
+    // Birden fazla tarih virgülle; Notion'un "09/08/2024 → 12/08/2024" aralıkları başlangıç/bitiş olarak.
+    case 'multidate':
+      return value
+        .split(',')
+        .map((part) => {
+          const [a, b] = part.split(/→|->/).map((x) => toIsoDate(x.trim()))
+          return a ? makeEntry(a, b || null) : ''
+        })
+        .filter(Boolean)
     case 'number': {
       const n = Number(value.replace(',', '.'))
       return Number.isFinite(n) ? n : ''

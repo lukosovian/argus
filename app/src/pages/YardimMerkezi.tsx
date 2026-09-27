@@ -692,6 +692,7 @@ const TOPICS: Topic[] = [
       'Yazmadan önce en son izlediğin 4 içerik hazır durur; daha önce izlediklerin (film ya da bölüm) tarihiyle görünür ama yine de başka bir gün için eklenebilir.',
       'Takvimden açtığın detay penceresinde bölüm işaretleyebilir, tekrar izleme tarihi ekleyebilirsin.',
       'Yıl görünümünde bütün yıl renkli kutucuklarla görünür; en uzun serin ve şu anki serin de orada.',
+      'Başladığın ve bitirdiğin gün farklıysa (ör. "dün başladım, bugün bitirdim") İzleme Tarihi\'nde tarihin yanındaki → ile bitiş gününü eklersin; takvimde başladığın gün "Başladın", bitirdiğin gün "Bitirdin" görünür.',
       'Filtre ile sadece istediklerini gösterebilirsin (ör. sadece diziler).',
       "İstatistikler'deki aylık grafikte bir aya tıklayınca takvim o ayda açılır. Ana sayfadaki \"Geçmiş yıllarda bugün\" satırı da buradan beslenir.",
     ],

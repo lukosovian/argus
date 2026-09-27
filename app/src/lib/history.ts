@@ -59,7 +59,7 @@ export function formatValue(board: Board, propId: string, v: PropertyValue | nul
     const nums = Object.values(v as Record<string, number>).filter((n) => typeof n === 'number')
     return nums.length ? `★ ${(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1)}` : '—'
   }
-  if (Array.isArray(v)) return (v as unknown[]).join(', ')
+  if (Array.isArray(v)) return (v as unknown[]).map((x) => String(x).replace('/', ' → ')).join(', ')
   const s = String(v)
   return s.length > 60 ? s.slice(0, 60) + '…' : s
 }

@@ -37,7 +37,7 @@ export default function OnThisDayRow({
     const years = new Map<number, number>()
     if (dateProp) {
       const v = row.values[dateProp.id]
-      for (const d of Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []) {
+      for (const d of (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).flatMap((x) => x.split('/'))) {
         const y = Number(d.slice(0, 4))
         if (d.slice(5) === md && y < thisYear) years.set(y, years.get(y) ?? 0)
       }

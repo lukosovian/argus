@@ -19,6 +19,7 @@ import TmdbExtras from './TmdbExtras'
 import SectionTitle from './SectionTitle'
 import AgeRatingChip from './AgeRatingChip'
 import { showLabel, useShowInfo } from '../lib/showStatus'
+import { entryEnd, formatEntry } from '../lib/dateRange'
 
 const CAST_PREVIEW = 12
 
@@ -79,7 +80,7 @@ function DetailValue({
   if (property.type === 'multidate') {
     const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort()
     if (dates.length === 0) return null
-    return <span className="text-neutral-300 text-base">{dates.map(formatDate).join(', ')}</span>
+    return <span className="text-neutral-300 text-base">{dates.map((d) => formatEntry(d, formatDate)).join(', ')}</span>
   }
   if (isRuntime && typeof value === 'number') {
     return <span className="text-neutral-300 text-base">{formatRuntime(value)}</span>
@@ -320,7 +321,7 @@ export default function RowDetailModal({
   const watchDates = (() => {
     if (!tarihProp) return [] as string[]
     const v = row.values[tarihProp.id]
-    return (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).slice().sort().reverse()
+    return (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).slice().sort((a, b) => (entryEnd(a) < entryEnd(b) ? 1 : -1))
   })()
   // Dizilerde bölüm ilerlemesi: yayınlanmış bölümlerden kaçının işaretli olduğu.
   const episodeProgress = (() => {
@@ -580,7 +581,7 @@ export default function RowDetailModal({
                     <div className="flex flex-wrap gap-1.5">
                       {watchDates.map((d, i) => (
                         <span key={`${d}-${i}`} className="text-xs px-2 py-1 rounded-md bg-neutral-800 text-neutral-200 tabular-nums">
-                          {formatDate(d)}
+                          {formatEntry(d, formatDate)}
                         </span>
                       ))}
                     </div>

@@ -33,6 +33,7 @@ import Select from '../components/Select'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { OPTION_COLORS } from '../types'
+import { entryEnd } from '../lib/dateRange'
 import {
   BulkRefreshIcon,
   ColumnsIcon,
@@ -316,7 +317,7 @@ function sortValue(row: Row, property: PropertyDef): string | number | boolean {
   // En son (en büyük) tarihe göre sıralanır — ISO ("YYYY-MM-DD") string'ler zaten
   // sözlüksel sırayla kronolojik sırayla aynı, ekstra bir tarih ayrıştırmaya gerek yok.
   if (property.type === 'multidate') {
-    const dates = Array.isArray(v) ? (v as string[]) : []
+    const dates = Array.isArray(v) ? (v as string[]).map(entryEnd) : []
     return dates.length > 0 ? dates.slice().sort().at(-1)! : ''
   }
   if (property.type === 'select') {
