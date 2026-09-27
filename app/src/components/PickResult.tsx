@@ -20,7 +20,6 @@ export default function PickResult({
   cover,
   landscape,
   onAgain,
-  onClose,
   onOpenRow,
   onOpenTmdb,
 }: {
@@ -30,7 +29,6 @@ export default function PickResult({
   cover: string
   landscape: boolean
   onAgain: () => void
-  onClose: () => void
   onOpenRow: (row: Row) => void
   onOpenTmdb: (card: TmdbCard) => void
 }) {
@@ -298,19 +296,6 @@ export default function PickResult({
               )}
             </div>
           </div>
-        </div>
-
-        {/* Altta: tekrar getir */}
-        <div className="mt-12 flex items-center gap-3">
-          <button
-            onClick={onAgain}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-white rounded-full px-6 py-3 bg-gradient-to-r from-[#00c0fa] to-[#015eea] shadow-lg shadow-[#00c0fa]/30 hover:shadow-[#00c0fa]/50 hover:scale-[1.03] transition"
-          >
-            ↻ Tekrar getir
-          </button>
-          <button onClick={onClose} className="text-sm text-neutral-400 hover:text-neutral-50 px-4 py-3 transition">
-            Kapat
-          </button>
         </div>
       </div>
     </div>

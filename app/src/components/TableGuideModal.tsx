@@ -7,6 +7,7 @@ import {
   FilterIcon,
   GearIcon,
   HealthIcon,
+  HistoryIcon,
   InfoIcon,
   SearchIcon,
   SortIcon,
@@ -35,12 +36,12 @@ function DensityGlyph({ className }: { className?: string }) {
 function ToolbarWire() {
   // Gerçek araç çubuğundaki ikonların aynısı (bkz. toolbarIcons.tsx), aynı sırayla ve aynı üç grupta
   // (26 Eylül 2026'da araç çubuğu gruplara ayrılıp Rahat/Sıkı düğmesi eklendi).
-  const icons = [SearchIcon, FilterIcon, SortIcon, ColumnsIcon, DensityGlyph, GearIcon, BulkRefreshIcon, HealthIcon, CompassIcon, InfoIcon]
+  const icons = [SearchIcon, FilterIcon, SortIcon, ColumnsIcon, DensityGlyph, GearIcon, BulkRefreshIcon, HistoryIcon, HealthIcon, CompassIcon, InfoIcon]
   // Grup aralarındaki boşluk: 5. ve 7. düğmeden sonra.
   const xs = icons.map((_, i) => 122 + i * 30 + (i >= 5 ? 10 : 0) + (i >= 7 ? 10 : 0))
   return (
-    <Frame viewBox="0 0 520 150">
-      <Box x={4} y={4} w={512} h={142} r={10} />
+    <Frame viewBox="0 0 550 150">
+      <Box x={4} y={4} w={542} h={142} r={10} />
       <Line x={20} y={30} w={90} />
       {[270, 340].map((x) => (
         <line key={x} x1={x} x2={x} y1={20} y2={40} className="stroke-neutral-700" strokeWidth={1} />
@@ -58,11 +59,11 @@ function ToolbarWire() {
           </g>
         )
       })}
-      <rect x={444} y={18} width={64} height={24} rx={6} fill={ACCENT} fillOpacity={0.9} />
-      <text x={476} y={34} fontSize={9} textAnchor="middle" fill="#fff" fontWeight={600} style={{ fontFamily: 'inherit' }}>
+      <rect x={474} y={18} width={64} height={24} rx={6} fill={ACCENT} fillOpacity={0.9} />
+      <text x={506} y={34} fontSize={9} textAnchor="middle" fill="#fff" fontWeight={600} style={{ fontFamily: 'inherit' }}>
         + Yeni Ekle
       </text>
-      <Pin x={476} y={56} n={11} />
+      <Pin x={506} y={56} n={12} />
       {/* altında küçük tablo izlenimi */}
       <Box x={20} y={80} w={480} h={20} r={3} strong />
       {[0, 1].map((r) => (
@@ -363,16 +364,17 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
             <Steps
               items={[
                 { n: 1, title: 'Ara', text: 'Başlık, oyuncu, tür, ülke… herhangi bir yazıya göre tabloyu süzer.' },
-                { n: 2, title: 'Filtrele', text: 'Bir Seçim/Çoklu Seçim sütununa göre sadece belli kayıtları gösterir (ör. Durum = İzlenecek).' },
+                { n: 2, title: 'Filtrele', text: 'Bir ya da birden fazla sütuna göre süzer: bir değere bir kez tıklarsan ✓ gelsin, iki kez tıklarsan ✕ gelmesin (ör. Tür: ✓ Korku, Ülke: ✕ ABD).' },
                 { n: 3, title: 'Sırala', text: 'Tabloyu bir sütuna göre A→Z, yeniden eskiye vb. dizer.' },
                 { n: 4, title: 'Sütunları göster/gizle', text: 'Görmek istemediğin sütunları kapatırsın. Veri silinmez, sadece gizlenir.' },
                 { n: 5, title: 'Satır sıklığı', text: 'Sıkı (daha çok satır sığar) ile Rahat (daha büyük satır ve afiş) arasında geçer. Seçimin bu arşiv için hatırlanır.' },
-                { n: 6, title: 'API alanları', text: 'TMDB\'den bilgi çekerken hangi alanların doldurulacağını ve dolu alanların üzerine yazılıp yazılmayacağını seçersin.' },
-                { n: 7, title: 'Genel Güncelleme', text: 'Eksik bilgisi olan tüm kayıtları tek seferde TMDB\'den doldurur. İstediğin an durdurabilirsin.' },
-                { n: 8, title: 'Sağlık Kontrolü', text: 'Görseli, fragmanı, yönetmeni vb. eksik kayıtları ve neyinin eksik olduğunu listeler.' },
-                { n: 9, title: 'Keşfet', text: 'Film mi dizi mi, hangi türde, kaç tane istediğini seçersin; arşivinde OLMAYAN içerikleri getirir. Beğendiğini "+ İzlenecek" ile eklersin, izlediysen "İzledim" deyip tarih ve puan girersin, istemediğini × ile gizlersin (bir daha gelmez).' },
-                { n: 10, title: 'Bu rehber', text: 'Şu an okuduğun sayfa.' },
-                { n: 11, title: '+ Yeni Ekle', text: 'Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "Güncelle" dersen gerisi TMDB\'den otomatik gelir.' },
+                { n: 6, title: 'TMDB\'den neler gelsin', text: 'TMDB\'den bilgi çekerken hangi alanların doldurulacağını, her birinin hangi sütununa yazılacağını ve dolu alanların üzerine yazılıp yazılmayacağını seçersin.' },
+                { n: 7, title: 'Genel Güncelleme', text: 'Eksik bilgisi olan tüm kayıtları tek seferde TMDB\'den doldurur; tablonun üstünde o an ne yaptığını görürsün. Durdurursan sonra kaldığı yerden devam ettirebilirsin.' },
+                { n: 8, title: 'Geçmiş', text: 'Arşivdeki her ekleme, değişiklik ve silme gün gün burada. Tek tek geri alabilir, silineni geri getirebilir ya da arşivi bir günün başındaki haline döndürebilirsin.' },
+                { n: 9, title: 'Sağlık Kontrolü', text: 'Görseli, fragmanı, yönetmeni vb. eksik kayıtları ve neyinin eksik olduğunu listeler.' },
+                { n: 10, title: 'Keşfet', text: 'Film mi dizi mi, hangi türde, kaç tane istediğini seçersin; arşivinde OLMAYAN içerikleri getirir. Beğendiğini "+ İzlenecek" ile eklersin, izlediysen "İzledim" deyip tarih ve puan girersin, istemediğini × ile gizlersin (bir daha gelmez).' },
+                { n: 11, title: 'Bu rehber', text: 'Şu an okuduğun sayfa.' },
+                { n: 12, title: '+ Yeni Ekle', text: 'Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "Güncelle" dersen gerisi TMDB\'den otomatik gelir.' },
                 { title: 'Durum düğmeleri', text: 'Tablonun hemen üstündeki "Hepsi · İzlendi · İzlenecek…" düğmeleri tek tıkla duruma göre süzer; yanlarında kaç kayıt olduğu yazar.' },
               ]}
             />

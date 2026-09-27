@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
 import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
 import { buildRestartScript, launchDetachedRestart } from './restart.js'
+import { beforeWrite, initHistory, registerHistoryRoutes, setHistoryWriter } from './history.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -29,6 +30,12 @@ function readJson(file, fallback) {
 // Önce geçici dosyaya yazıp sonra yerine koyuyoruz: yazma sırasında ARGUS kapanırsa (ör.
 // "Şimdi Güncelle" ile yeniden başlarken) asıl dosya yarım kalmasın, eski hali sağlam dursun.
 function writeJson(file, data) {
+  // Arşiv geçmişi: kayıt/şema dosyasıysa eski haliyle karşılaştırıp değişiklikleri kaydeder (bkz. history.js).
+  beforeWrite(file, data)
+  rawWriteJson(file, data)
+}
+
+function rawWriteJson(file, data) {
   const text = JSON.stringify(data, null, 2)
   const tmp = `${file}.${process.pid}.tmp`
   try {
@@ -124,6 +131,10 @@ const app = express()
 app.use(cors())
 app.use(express.json({ limit: '15mb' }))
 app.use('/medya', express.static(MEDYA_DIR))
+
+initHistory({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId })
+setHistoryWriter(writeJson)
+registerHistoryRoutes(app)
 
 app.get('/api/profiles/:profileId/boards', (req, res) => {
   res.json(readJson(profileBoardsFile(req.params.profileId), []))

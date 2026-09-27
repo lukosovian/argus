@@ -32,6 +32,8 @@ import {
   CokluFiltreVisual,
   NeIzlesemSonucVisual,
   GenelGuncellemeVisual,
+  NeIzlesemPencereVisual,
+  GecmisVisual,
 } from '../components/PatchVisuals'
 interface PatchEntry {
   version: string
@@ -44,6 +46,22 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.9.1',
+    date: '27 Eylül 2026',
+    title: 'Arşiv geçmişi, kaydın ne zaman eklendiği; Ne İzlesem sonuç ekranı düzeltmeleri',
+    items: [
+      'Yeni: Arşiv geçmişi. ARGUS artık arşivindeki her eklemeyi, değişikliği ve silmeyi kendiliğinden kaydediyor. Tablodaki yeni "Geçmiş" (saat) düğmesinden gün gün ne değiştiğini görürsün: "3 eklendi · 5 değişti · 1 silindi", değişenlerde hangi alanın neyden neye döndüğü (ör. Durum: İzlenecek → İzlendi). Her birini tek tıkla geri alabilirsin — yanlışlıkla sildiğin bir kaydı "Geri getir"le geri getirirsin. Arşivin her günün başındaki hali de saklanıyor; "Arşivi bu hale döndür" ile bütün arşivi o güne döndürebilirsin (dönmeden önceki hal de saklanır, fikrini değiştirirsen geri gelirsin).',
+      'Geçmiş için 5 GB yer ayrıldı. Dolarsa sana soruluyor: alanı 5 GB daha artırayım mı, yoksa en eski geçmişten başlayarak sileyim mi? Cevap vermezsen hiçbir şey silinmez. Geçmiş penceresindeki "⚙ Alan ayarları"ndan ne kadar yer kullanıldığını görür, sınırı değiştirir (1–50 GB ya da istediğin bir değer) ya da istediğin an en eskilerden silip yer açarsın.',
+      'Tablodaki satırların altı nokta menüsünün altında artık o kaydın ne zaman eklendiği, en son ne zaman değiştiği ve son değişiklikleri yazıyor; "Tüm geçmişi" ile sadece o kaydın geçmişini açarsın. (Notion\x27dan aktardıklarında eklenme tarihi olarak aktarıldıkları gün görünür — Notion o bilgiyi vermiyor.)',
+      'Ne İzlesem\x27in sonuç ekranında "Fragman · Nerede izlenir"e ya da "Detayı aç"a basınca bulunan sonuç kayboluyordu — artık pencere sonucun üstünde açılıyor, kapatınca aynı sonuca geri dönüyorsun.',
+      '"↻ Tekrar getir" artık sağ üstte, "Kapat"ın solunda: mavi çerçeveli, üzerine gelince mavi doluyor. "Kapat" da kırmızı çerçeveli, üzerine gelince kırmızı doluyor. Alttaki ikinci "Kapat" kaldırıldı.',
+    ],
+    visuals: [
+      { caption: 'Arşiv geçmişi — 1 altı nokta menüsünde eklenme ve değişiklik tarihleri · 2 her değişiklik geri alınabilir · 3 kullanılan alan; ⚙ Alan ayarları ile sınırı değiştir', Visual: GecmisVisual },
+      { caption: '1 sağ üstte Tekrar getir (mavi) ve Kapat (kırmızı) · 2 fragman penceresi sonucun üstünde açılır, kapatınca sonuç yerinde', Visual: NeIzlesemPencereVisual },
+    ],
+  },
   {
     version: 'v1.9',
     date: '27 Eylül 2026',

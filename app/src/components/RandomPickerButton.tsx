@@ -370,14 +370,14 @@ export default function RandomPickerButton() {
     setResult(null)
   }
   useEffect(() => {
-    if (phase === 'idle') return
+    if (phase === 'idle' || openRow || openTmdb) return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') cancelPick()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase])
+  }, [phase, openRow, openTmdb])
 
   const captionText =
     phase === 'entering' ? 'Karıştırılıyor...' : phase === 'eliminating' ? 'Eleniyor...' : phase === 'growing' ? 'Bu nasıl?' : ''
@@ -418,12 +418,25 @@ export default function RandomPickerButton() {
                 <span className="text-sm font-medium text-neutral-100">{captionText || 'Ne İzlesem?'}</span>
               </div>
               )}
-              <button
-                onClick={cancelPick}
-                className="absolute top-6 right-6 z-40 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 bg-neutral-900/80 rounded-full px-4 py-2 transition"
-              >
-                {phase === 'result' ? 'Kapat' : 'Vazgeç'} <span className="text-neutral-600 text-xs ml-1">Esc</span>
-              </button>
+              {/* Sağ üst: sonuç ekranında "Tekrar getir" (mavi çerçeve, üstüne gelince mavi dolu) ve
+                  "Kapat" (kırmızı çerçeve, üstüne gelince kırmızı dolu, yazı siyah) — kullanıcı böyle istedi. */}
+              <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
+                {phase === 'result' && (
+                  <button
+                    onClick={() => handleClick(true)}
+                    disabled={loading}
+                    className="text-sm font-medium rounded-full px-4 py-2 border border-[#00c0fa] text-[#00c0fa] bg-neutral-900/80 hover:bg-[#00c0fa] hover:text-black transition disabled:opacity-50"
+                  >
+                    ↻ Tekrar getir
+                  </button>
+                )}
+                <button
+                  onClick={cancelPick}
+                  className="group text-sm font-medium rounded-full px-4 py-2 border border-rose-500 text-rose-400 bg-neutral-900/80 hover:bg-rose-500 hover:text-black transition"
+                >
+                  {phase === 'result' ? 'Kapat' : 'Vazgeç'} <span className="text-rose-400/60 group-hover:text-black/60 text-xs ml-1">Esc</span>
+                </button>
+              </div>
               {phase === 'result' && result && board && (
                 <PickResult
                   key={result.key}
@@ -433,15 +446,9 @@ export default function RandomPickerButton() {
                   cover={result.cover}
                   landscape={result.landscape}
                   onAgain={() => handleClick(true)}
-                  onClose={cancelPick}
-                  onOpenRow={(r) => {
-                    cancelPick()
-                    setOpenRow(r)
-                  }}
-                  onOpenTmdb={(c) => {
-                    cancelPick()
-                    setOpenTmdb(c)
-                  }}
+                  // Sonuç ekranı arkada açık kalıyor — pencere kapanınca aynı sonuca geri dönülür.
+                  onOpenRow={(r) => setOpenRow(r)}
+                  onOpenTmdb={(c) => setOpenTmdb(c)}
                 />
               )}
               {candidates.map((c) => {
@@ -464,8 +471,13 @@ export default function RandomPickerButton() {
             </div>
           )}
 
-          {openRow && board && <RowDetailModal board={board} row={openRow} onClose={() => setOpenRow(null)} />}
+          {openRow && board && (
+            <div className="relative z-[70]">
+              <RowDetailModal board={board} row={openRow} onClose={() => setOpenRow(null)} />
+            </div>
+          )}
           {openTmdb && board && (
+            <div className="relative z-[70]">
             <TmdbPreviewModal
               boardId={board.id}
               card={openTmdb}
@@ -475,6 +487,7 @@ export default function RandomPickerButton() {
                 handleClick(true)
               }}
             />
+            </div>
           )}
         </>,
         document.body,

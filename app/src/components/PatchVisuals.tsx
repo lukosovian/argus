@@ -1077,3 +1077,118 @@ export function GenelGuncellemeVisual() {
     </Frame>
   )
 }
+
+// ---- v1.9.1 --------------------------------------------------------------------------------
+
+export function NeIzlesemPencereVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* arkada açık kalan sonuç ekranı */}
+      <rect x={0} y={0} width={320} height={180} className="fill-neutral-900" />
+      <rect x={14} y={30} width={50} height={75} rx={4} className="fill-neutral-700" />
+      <rect x={76} y={34} width={64} height={11} rx={2} className="fill-neutral-600" />
+      <Line x={76} y={52} w={90} light />
+      <Line x={76} y={60} w={80} light />
+      <MiniButton x={76} y={76} w={46} text="+ İzlenecek" accent />
+      <MiniButton x={126} y={76} w={34} text="İzledim" />
+      <MiniButton x={164} y={76} w={58} text="Fragman · Nerede" />
+      {/* sağ üst: Tekrar getir (mavi çerçeve) + Kapat (kırmızı çerçeve) */}
+      <rect x={200} y={7} width={58} height={13} rx={6.5} fill="none" stroke={ACCENT} strokeWidth={1} />
+      <text x={229} y={16} fontSize={6.5} fontWeight={700} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        ↻ Tekrar getir
+      </text>
+      <rect x={264} y={7} width={46} height={13} rx={6.5} fill="none" stroke="#f43f5e" strokeWidth={1} />
+      <text x={287} y={16} fontSize={6.5} fontWeight={700} textAnchor="middle" fill="#fb7185" style={{ fontFamily: 'inherit' }}>
+        Kapat Esc
+      </text>
+      <Pin x={190} y={14} n={1} />
+      {/* üstte açılan fragman penceresi */}
+      <rect x={92} y={98} width={160} height={76} rx={6} className="fill-neutral-800 stroke-neutral-600" strokeWidth={1} />
+      <rect x={96} y={102} width={152} height={34} rx={3} className="fill-neutral-700" />
+      <polygon points="166,112 166,126 178,119" fill="#fff" opacity={0.8} />
+      <Line x={100} y={144} w={70} />
+      <Line x={100} y={153} w={110} light />
+      <text x={244} y={112} fontSize={9} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        ×
+      </text>
+      <Pin x={262} y={140} n={2} />
+    </Frame>
+  )
+}
+
+export function GecmisVisual() {
+  const tag = (x: number, y: number, t: string, c: string) => (
+    <g>
+      <rect x={x} y={y} width={t.length * 4.2 + 8} height={10} rx={5} fill={c} fillOpacity={0.15} stroke={c} strokeOpacity={0.5} strokeWidth={0.8} />
+      <text x={x + (t.length * 4.2 + 8) / 2} y={y + 7.3} fontSize={6} textAnchor="middle" fill={c} style={{ fontFamily: 'inherit' }}>
+        {t}
+      </text>
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      {/* altı nokta menüsü */}
+      <Box x={8} y={8} w={118} h={122} r={6} strong />
+      {['Güncelle', 'Altına Satır Ekle', 'Çoğalt', 'Sil'].map((t, i) => (
+        <text key={t} x={16} y={24 + i * 13} fontSize={7} className={i === 3 ? undefined : 'fill-neutral-300'} fill={i === 3 ? '#fb7185' : undefined} style={{ fontFamily: 'inherit' }}>
+          {t}
+        </text>
+      ))}
+      <line x1={12} y1={72} x2={122} y2={72} className="stroke-neutral-700" />
+      <text x={16} y={84} fontSize={6.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        Eklendi: 27 Eyl 2026 09:57
+      </text>
+      <text x={16} y={94} fontSize={6.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        Son değişiklik: 27 Eyl 14:11
+      </text>
+      <text x={16} y={105} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        27 Eyl · Durum: İzlenecek → İzlendi
+      </text>
+      <text x={16} y={120} fontSize={6.5} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        Tüm geçmişi ›
+      </text>
+      <Pin x={118} y={90} n={1} />
+      {/* geçmiş penceresi */}
+      <Box x={136} y={8} w={176} h={164} r={7} strong />
+      <Label x={144} y={22} size={8}>
+        Arşiv Geçmişi
+      </Label>
+      <text x={144} y={31} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        2.8 MB / 5 GB
+      </text>
+      <MiniButton x={242} y={13} w={52} text="⚙ Alan ayarları" />
+      <Pin x={302} y={19} n={3} />
+      <rect x={144} y={38} width={48} height={22} rx={4} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} />
+      <text x={148} y={47} fontSize={6} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        27 Eylül
+      </text>
+      <text x={148} y={55} fontSize={5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        1 değişti · 1 silindi
+      </text>
+      <rect x={144} y={64} width={48} height={22} rx={4} fill="none" className="stroke-neutral-700" />
+      <rect x={198} y={38} width={108} height={14} rx={4} fill="none" stroke="#f59e0b" strokeOpacity={0.6} />
+      <text x={252} y={47.5} fontSize={5.8} textAnchor="middle" fill="#fbbf24" style={{ fontFamily: 'inherit' }}>
+        Arşivi bu hale döndür
+      </text>
+      {[
+        ['Silindi', '#fb7185', 'Geri getir'],
+        ['Değişti', ACCENT, 'Geri al'],
+        ['Eklendi', '#34d399', 'Geri al'],
+      ].map(([t, c, u], i) => (
+        <g key={t}>
+          <rect x={198} y={58 + i * 24} width={108} height={20} rx={4} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.8} />
+          {tag(202, 63 + i * 24, t, c)}
+          <Line x={240} y={65.5 + i * 24} w={26} />
+          <MiniButton x={272} y={62.5 + i * 24} w={30} text={u} />
+        </g>
+      ))}
+      <Pin x={194} y={80} n={2} />
+      <Label x={144} y={144} size={6.5} muted>
+        Her ekleme, değişiklik ve silme
+      </Label>
+      <Label x={144} y={154} size={6.5} muted>
+        kendiliğinden kaydedilir.
+      </Label>
+    </Frame>
+  )
+}

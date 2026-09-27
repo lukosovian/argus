@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import { ProfilesProvider, useProfiles } from './hooks/useProfiles'
 import { ToastProvider } from './hooks/useToast'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
+import { useHistoryLimit } from './hooks/useHistoryLimit'
 import Navbar from './components/Navbar'
 import ProfilePicker from './components/ProfilePicker'
 import AnaSayfa from './pages/AnaSayfa'
@@ -44,6 +45,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const { loading, activeProfile } = useProfiles()
   useAutoShowHelpOnce()
   useUpdateCheck()
+  useHistoryLimit()
   return (
     <>
       <Navbar />
