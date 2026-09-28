@@ -13,7 +13,7 @@ import BoardView from './pages/BoardView'
 import YardimMerkezi from './pages/YardimMerkezi'
 import Istatistikler from './pages/Istatistikler'
 import Takvim from './pages/Takvim'
-import YillikOzet from './pages/YillikOzet'
+import Flashback from './pages/Flashback'
 import Koleksiyon from './pages/Koleksiyon'
 import YamaNotlari from './pages/YamaNotlari'
 
@@ -103,13 +103,15 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/ozet"
+        path="/flashback"
         element={
           <Shell>
-            <YillikOzet />
+            <Flashback />
           </Shell>
         }
       />
+      {/* Eski adı: Yıllık Özet */}
+      <Route path="/ozet" element={<OzetRedirect />} />
       <Route
         path="/koleksiyon"
         element={
@@ -137,6 +139,12 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
+}
+
+// Eski "Yıllık Özet" adresi (/ozet?yil=2025) yeni adına yönlensin, seçili yıl kaybolmasın
+function OzetRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/flashback${search}`} replace />
 }
 
 export default function App() {

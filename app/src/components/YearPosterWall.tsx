@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useToast } from '../hooks/useToast'
+import { whiteLogo } from '../lib/whiteLogo'
 
 // Yıllık Özet'teki "izleme sıran" duvarı — kullanıcı "izleme sırama göre izlediğim şeylerin dikey
 // posterlerini veren bir görsel oluştursun, istersem indirebileyim" dedi. Sayfada küçük önizleme var;
@@ -66,7 +67,7 @@ async function drawWall(items: WallItem[], year: string, showNumbers: boolean): 
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = '#7fdcff'
   ctx.font = `600 26px ${font}`
-  ctx.fillText('ARGUS · YILLIK ÖZET', PAD, PAD + 30)
+  ctx.fillText('ARGUS · FLASHBACK', PAD, PAD + 30)
   ctx.fillStyle = '#fafafa'
   ctx.font = `900 96px ${font}`
   ctx.fillText(year, PAD, PAD + 125)
@@ -74,7 +75,7 @@ async function drawWall(items: WallItem[], year: string, showNumbers: boolean): 
   ctx.font = `400 28px ${font}`
   ctx.fillText(`${items.length} yapım · izleme sırasıyla`, PAD, PAD + 170)
 
-  const images = await Promise.all(items.map((it) => loadImage(it.poster)))
+  const [logo, images] = await Promise.all([whiteLogo(), Promise.all(items.map((it) => loadImage(it.poster)))])
   const top = PAD + header
   items.forEach((it, i) => {
     const x = PAD + (i % cols) * (CELL + GAP)
@@ -130,13 +131,21 @@ async function drawWall(items: WallItem[], year: string, showNumbers: boolean): 
     ctx.restore()
   })
 
-  ctx.fillStyle = '#525252'
-  ctx.font = `400 22px ${font}`
-  ctx.fillText('ARGUS', PAD, H - 30)
+  // Sol altta beyaz ARGUS "A" logosu (yüklenemezse yazıyla)
+  if (logo) {
+    ctx.save()
+    ctx.globalAlpha = 0.7
+    ctx.drawImage(logo, PAD, H - 58, 40, 40)
+    ctx.restore()
+  } else {
+    ctx.fillStyle = '#525252'
+    ctx.font = `400 22px ${font}`
+    ctx.fillText('ARGUS', PAD, H - 30)
+  }
   return canvas
 }
 
-export default function YearPosterWall({ items, year, onOpen }: { items: WallItem[]; year: string; onOpen: (i: number) => void }) {
+export default function YearPosterWall({ items, year, onOpen, onStory }: { items: WallItem[]; year: string; onOpen: (i: number) => void; onStory?: () => void }) {
   const { notify } = useToast()
   const [busy, setBusy] = useState(false)
   const [showNumbers, setShowNumbers] = useState(true)
@@ -151,7 +160,7 @@ export default function YearPosterWall({ items, year, onOpen }: { items: WallIte
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `ARGUS ${year} - izlediklerim.png`
+      a.download = `ARGUS Flashback ${year} - izlediklerim.png`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -171,7 +180,12 @@ export default function YearPosterWall({ items, year, onOpen }: { items: WallIte
           <p className="text-lg font-bold text-neutral-50">İzleme sıran</p>
           <p className="text-xs text-neutral-500">{year}'te izlediğin {items.length} yapım, ilk izlediğinden sonuncusuna</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {onStory && (
+            <button onClick={onStory} className="text-sm rounded-full px-4 py-1.5 border border-neutral-700 text-neutral-200 hover:border-[#8b5cf6] hover:text-[#c4b5fd] transition">
+              Hikâye kartları
+            </button>
+          )}
           <label className="flex items-center gap-1.5 text-xs text-neutral-400 cursor-pointer select-none">
             <input type="checkbox" checked={showNumbers} onChange={(e) => setShowNumbers(e.target.checked)} className="accent-[#00c0fa]" />
             Sıra numaraları
@@ -181,7 +195,7 @@ export default function YearPosterWall({ items, year, onOpen }: { items: WallIte
             disabled={busy}
             className="text-sm rounded-full px-4 py-1.5 border border-[#00c0fa] text-[#7fdcff] hover:bg-[#00c0fa] hover:text-neutral-950 transition disabled:opacity-50"
           >
-            {busy ? 'Hazırlanıyor…' : '↓ Görseli indir'}
+            {busy ? 'Hazırlanıyor…' : '↓ Posterleri indir'}
           </button>
         </div>
       </div>

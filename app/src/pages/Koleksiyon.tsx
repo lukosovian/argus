@@ -10,47 +10,14 @@ import { entryEnd, toEntries } from '../lib/dateRange'
 import { titleText, type Row } from '../types'
 import RowDetailModal from '../components/RowDetailModal'
 import SymbolEditor from '../components/SymbolEditor'
+import BackgroundProgress from '../components/BackgroundProgress'
+import { autoShelf, commonTitle, shelfKey } from '../lib/shelves'
 
 // Koleksiyon — kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) bir yerde
 // sergileyeyim" dedi. İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım kendiliğinden gelir (sembolü yoksa
 // logosuyla); aynı seriden olanlar bir rafta toplanır (filmler TMDB serisiyle, diğerleri adının ":"
 // öncesiyle). Bir yapıma ya da rafa kendi sembolünü koyabilir, rafların adını ve bir yapımın rafını
 // değiştirebilirsin (koleksiyon.json). Bazı raflara ARGUS'la gelen hazır semboller kendiliğinden konur.
-
-// Raf anahtarı: "Star Trek: Discovery" / "Star Trek: The Kelvin Timeline Collection" → "star trek".
-// split=false: ":" sonrası atılmaz (bkz. items'taki tek kelimelik dizi adı notu).
-function cleanSeriesName(s: string, split = true) {
-  const base = s
-    .replace(/\s*[([][^)\]]*[)\]]\s*$/, '')
-    .replace(/\s*\b(koleksiyonu|koleksiyon|collection|serisi|series)\b\s*$/i, '')
-    .trim()
-  return (split ? base.split(/:|\s[-–]\s/)[0] : base).trim()
-}
-function shelfKey(s: string, split = true) {
-  return cleanSeriesName(s, split)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLocaleLowerCase('en')
-    .replace(/^the\s+/, '')
-    .replace(/[^a-z0-9ğüşıöç ]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-const TRAILING = /^(ve|and|the|of|ile|a|an|[-–:&,.]|\d+|ii|iii|iv|bölüm|episode|part|kısım|chapter)$/i
-function commonTitle(titles: string[]): string | null {
-  if (titles.length < 2) return null
-  const split = titles.map((t) => t.replace(/[:]/g, ' : ').split(/\s+/).filter(Boolean))
-  const out: string[] = []
-  for (let i = 0; i < split[0].length; i++) {
-    const w = split[0][i]
-    if (split.every((ws) => ws[i]?.toLocaleLowerCase('tr') === w.toLocaleLowerCase('tr'))) out.push(w)
-    else break
-  }
-  while (out.length && TRAILING.test(out[out.length - 1])) out.pop()
-  const name = out.join(' ').replace(/\s:\s?/g, ': ').trim()
-  return name.length >= 3 ? name : null
-}
 
 // ARGUS'la gelen, bazı raflara kendiliğinden konan semboller (değiştirilebilir)
 const DEFAULT_SHELF_SYMBOLS: Record<string, string> = {
@@ -92,13 +59,18 @@ export default function Koleksiyon() {
   const [kind, setKind] = useState<'hepsi' | 'film' | 'dizi'>('hepsi')
   const [onlySymbols, setOnlySymbols] = useState(false)
   const [q, setQ] = useState('')
+  // Sunucuya ulaşılamazsa sonsuza kadar "Yükleniyor" demesin (ör. ARGUS güncellendi ama sunucusu eski)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     if (!board) return
     api
       .getKoleksiyon(board.id)
-      .then(setInfo)
-      .catch(() => {})
+      .then((d) => {
+        setInfo(d)
+        setError(null)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Sunucuya ulaşılamadı.'))
   }, [board])
 
   useEffect(() => {
@@ -132,10 +104,8 @@ export default function Koleksiyon() {
         const col = info.collections[r.id]
         const source = col?.name ?? original
         const isSeries = info.mediaTypes[r.id] ? info.mediaTypes[r.id] === 'tv' : /dizi/i.test(kategori?.options?.find((o) => o.id === r.values[kategori.id])?.label ?? '')
-        // Tek kelimelik ön ekli dizi adları başka bir seriye karışmasın: "Avatar: The Last Airbender"
-        // Cameron'ın Avatar filmlerinin rafına düşmesin (iki kelime ve üstü, ör. "Star Trek: ..." birleşir).
-        const split = !(isSeries && !col && !/\s/.test(cleanSeriesName(source)))
-        const autoKey = shelfKey(source, split)
+        const auto = autoShelf(source, isSeries, Boolean(col))
+        const autoKey = auto.key
         const override = info.data.items[r.id]?.shelf
         const dates = dateProp ? toEntries(r.values[dateProp.id]).map(entryEnd).sort() : []
         return {
@@ -149,7 +119,7 @@ export default function Koleksiyon() {
           symbol: info.data.items[r.id]?.image ?? null,
           key: override !== undefined ? override : autoKey,
           autoKey,
-          autoName: cleanSeriesName(source, split),
+          autoName: auto.name,
         }
       })
   }, [board, rows, info])
@@ -214,7 +184,29 @@ export default function Koleksiyon() {
     }
   }
 
-  if (!board || loading || !info) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (error && !info)
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <p className="text-lg font-semibold text-neutral-100">Koleksiyon açılamadı</p>
+        <p className="text-sm text-neutral-400 mt-2">{error}</p>
+        <p className="text-sm text-neutral-500 mt-3">ARGUS yeni güncellendiyse sunucusu eski kalmış olabilir: ARGUS'u kapatıp yeniden açmayı dene.</p>
+        <button onClick={load} className="mt-5 text-sm rounded-xl px-4 py-2 border border-neutral-700 text-neutral-200 hover:border-[#00c0fa]">
+          Tekrar dene
+        </button>
+      </div>
+    )
+  if (!board || loading || !info)
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-4">
+        <div className="flex items-center gap-3 text-sm text-neutral-400">
+          <span className="h-4 w-4 rounded-full border-2 border-[#00c0fa] border-t-transparent animate-spin" />
+          Koleksiyonun hazırlanıyor…
+        </div>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-48 rounded-3xl border border-neutral-800 bg-neutral-900/40 animate-pulse" />
+        ))}
+      </div>
+    )
 
   const Exhibit = ({ it, big = false }: { it: Item; big?: boolean }) => (
     <button onClick={() => setEditing({ kind: 'item', item: it })} className={`group text-left shrink-0 ${big ? 'w-36 sm:w-40' : 'w-full'}`} title={`${it.title} — sembolünü değiştirmek için tıkla`}>
@@ -253,12 +245,16 @@ export default function Koleksiyon() {
           ) : null}
           . Bir yapıma ya da rafın büyük sembolüne tıklayıp sembolünü koyabilirsin.
         </p>
-        {info.pending && (
-          <p className="text-xs text-neutral-500 mt-3">
-            Film serileri öğreniliyor ({info.pending.done}/{info.pending.total}) — raflar birazdan tamamlanır.
-          </p>
-        )}
       </section>
+
+      {info.pending && (
+        <BackgroundProgress
+          title="İlk açılış: filmlerinin hangi seriden olduğu TMDB'den öğreniliyor"
+          done={info.pending.done}
+          total={info.pending.total}
+          note="Raflar bu sırada kendiliğinden tamamlanıyor, sayfayı kullanmaya devam edebilirsin. Bu sadece ilk seferde (ve yeni eklediğin filmler için) olur."
+        />
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="grid grid-cols-3 rounded-xl bg-neutral-900 border border-neutral-800 p-1 text-sm">

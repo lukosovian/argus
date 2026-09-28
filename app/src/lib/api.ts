@@ -278,6 +278,11 @@ export const api = {
     request<{ ok: true; count: number }>(profilePath(`/history/${boardId}/restore-day`), { method: 'POST', ...json({ day }) }),
   // Yedekleme (bkz. server/backup.js) — profile bağlı değil, bütün veriyi kapsar.
   getBackup: () => request<BackupInfo>('/api/backup'),
+  // Flashback (yıllık özet): dizilerin bölüm süreleri (TMDB'den arka planda öğrenilir) ve kaydedilmiş izleme saatleri
+  getFlashback: (boardId: string, year: string) =>
+    request<{ runtimes: Record<string, number>; hours: number[]; timed: number; pending: { done: number; total: number } | null }>(
+      profilePath(`/flashback/${boardId}?year=${year}`),
+    ),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),
   saveKoleksiyon: (patch: KoleksiyonPatch) => request<KoleksiyonData>(profilePath('/koleksiyon'), { method: 'POST', ...json(patch) }),
   // İnternetteki bir görseli medya klasörüne indirir (Koleksiyon'da adres yapıştırarak sembol ekleme)

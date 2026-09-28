@@ -38,6 +38,7 @@ import {
   TarihAraligiVisual,
   OyuncuPencereVisual,
   KoleksiyonVisual,
+  IlerlemeVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -52,6 +53,16 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.10.1',
+    date: '28 Eylül 2026',
+    title: 'Koleksiyon açılırken ne yaptığını gösteriyor',
+    items: [
+      'Koleksiyon ilk açılışta filmlerinin hangi seriden olduğunu TMDB\'den öğreniyor; artık bunu sayfanın üstünde ilerleme çubuğu ve kalan süreyle gösteriyor ("205/297 · yaklaşık 30 saniye kaldı"). Bu sırada raflar kendiliğinden tamamlanıyor, sayfayı kullanmaya devam edebilirsin.',
+      'Koleksiyon bir sebeple açılamazsa (ör. ARGUS yeni güncellenmiş ama kapatılıp açılmamış) sonsuza kadar "Yükleniyor" demiyor: ne olduğunu söylüyor ve "Tekrar dene" düğmesi çıkıyor.',
+    ],
+    visuals: [{ caption: '1 ilk açılıştaki ilerleme ve kalan süre · 2 bu sırada raflar kullanılabilir', Visual: IlerlemeVisual }],
+  },
   {
     version: 'v1.10',
     date: '28 Eylül 2026',
