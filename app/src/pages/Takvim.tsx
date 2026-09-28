@@ -238,7 +238,11 @@ export default function Takvim() {
 
   const [conditions, setConditions] = useState<FilterCondition[]>([])
   const [filterOpen, setFilterOpen] = useState(false)
-  const [openDay, setOpenDay] = useState<string | null>(null)
+  // ?gun=YYYY-MM-DD ile gelinirse o günün paneli açık gelir (ana sayfadaki "Geçmiş yıllarda bugün" → o yılın o günü)
+  const [openDay, setOpenDay] = useState<string | null>(() => {
+    const g = params.get('gun')
+    return g && /^\d{4}-\d{2}-\d{2}$/.test(g) ? g : null
+  })
   const [detailRow, setDetailRow] = useState<Row | null>(null)
 
   const filteredRows = useMemo(() => (conditions.length ? rows.filter((r) => rowMatchesConditions(r, conditions)) : rows), [rows, conditions])

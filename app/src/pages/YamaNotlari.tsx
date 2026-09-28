@@ -39,6 +39,7 @@ import {
   OyuncuPencereVisual,
   KoleksiyonVisual,
   IlerlemeVisual,
+  TarihSeciciVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -53,6 +54,18 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11',
+    date: '29 Eylül 2026',
+    visuals: [{ caption: '1 "Bitiş tarihi" anahtarı · 2 ay/yıl gezmek bir şey seçmez · 3 başlangıç → bitiş arası vurgulanır', Visual: TarihSeciciVisual }],
+    title: 'Yeni tarih seçici, sezonu bitmemiş dizi kendiliğinden İzlendi olmuyor, "Geçmiş yıllarda bugün"den doğru güne gitme',
+    items: [
+      'İzleme tarihi (ve bölüm tarihleri) artık ARGUS\'un kendi küçük takvimiyle seçiliyor. Önceden geçmiş bir aya gidince o aydaki aynı gün kendiliğinden ekleniyordu; artık ay/yıl gezmek hiçbir şey seçmez, sadece güne tıklayınca eklenir. Ay adına tıklayınca yıl ve ay seçimi açılır (eski yıllara hızlı gitmek için); "Bugün" ve "Dün" kısayolları var.',
+      'Başladığın ve bitirdiğin gün farklıysa "Bitiş tarihi" anahtarını aç: önce başladığın, sonra bitirdiğin güne tıkla, arası vurgulanır. Anahtar kapalıyken tek tıkla tek gün eklenir. Var olan bir tarihe tıklayınca takvim o tarihe gider; yeni güne tıklarsan değişir, "Vazgeç" dersen eskisi kalır.',
+      'Ana sayfadaki "Geçmiş yıllarda bugün" satırında "Takvimde gör" bu yılın ayını açıyordu; artık o yılın o gününe gidiyor ve günün paneli açık geliyor (ör. "3 yıl önce" → 29 Eylül 2023). Her kartın altında da kendi yılına giden "takvimde gör" var.',
+      "Bir dizinin çıkmış bütün bölümlerini işaretleyince durumu kendiliğinden İzlendi oluyordu — sezonun ortasında bile (ör. 8 bölümlük sezonun 7. bölümünü izleyince, son bölüm daha çıkmadan İzlendi olup puan soruyordu). Artık izlediğin sezonda henüz yayınlanmamış bölüm varsa dizi İzleniyor'da kalıyor; sezon finalini işaretleyince İzlendi oluyor. İleride yeni bir sezon açıklanmışsa eskisi gibi İzlendi olup yeni sezon haberini veriyor.",
+    ],
+  },
   {
     version: 'v1.10.2',
     date: '28 Eylül 2026',
