@@ -22,6 +22,23 @@ export interface PersonInfo {
   department: string
 }
 
+// Koleksiyon (bkz. pages/Koleksiyon.tsx): kullanıcının eklediği semboller, raf adları ve raf değişiklikleri.
+// items[rowId].shelf: kaydın elle seçilen rafı ('' = rafsız); yoksa raf kendiliğinden bulunur.
+export interface KoleksiyonData {
+  items: Record<string, { image?: string; shelf?: string }>
+  shelves: Record<string, { image?: string; name?: string }>
+}
+export interface KoleksiyonInfo {
+  collections: Record<string, { id: number; name: string }>
+  mediaTypes: Record<string, 'movie' | 'tv'>
+  pending: { done: number; total: number } | null
+  data: KoleksiyonData
+}
+export type KoleksiyonPatch = {
+  items?: Record<string, { image?: string | null; shelf?: string | null } | null>
+  shelves?: Record<string, { image?: string | null; name?: string | null } | null>
+}
+
 export interface BackupInfo {
   settings: { target: string; auto: 'off' | 'daily' | 'weekly'; keep: number; lastAt: number | null; lastError: string | null }
   snapshots: string[]
@@ -261,6 +278,10 @@ export const api = {
     request<{ ok: true; count: number }>(profilePath(`/history/${boardId}/restore-day`), { method: 'POST', ...json({ day }) }),
   // Yedekleme (bkz. server/backup.js) — profile bağlı değil, bütün veriyi kapsar.
   getBackup: () => request<BackupInfo>('/api/backup'),
+  getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),
+  saveKoleksiyon: (patch: KoleksiyonPatch) => request<KoleksiyonData>(profilePath('/koleksiyon'), { method: 'POST', ...json(patch) }),
+  // İnternetteki bir görseli medya klasörüne indirir (Koleksiyon'da adres yapıştırarak sembol ekleme)
+  medyaFromUrl: (url: string) => request<{ filename: string }>('/api/medya/from-url', { method: 'POST', ...json({ url }) }),
   getCollection: (boardId: string, rowId: string) =>
     request<{ collection: { id: number; name: string; backdrop: string | null } | null; parts?: (ArchiveCard & { released: boolean; releaseDate: string })[] }>(
       profilePath(`/collection/${boardId}/${rowId}`),

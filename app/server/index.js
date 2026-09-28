@@ -1273,6 +1273,113 @@ app.get('/api/profiles/:profileId/collection/:boardId/:rowId', async (req, res) 
   }
 })
 
+// ---- Koleksiyon ----------------------------------------------------------------------------------
+// Kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) sergileyen bir sayfa"
+// istedi. İzlenen, izlenmekte olan ve yarım bırakılan yapımlar raflara ayrılıyor (raf anahtarı arayüzde hesaplanıyor):
+// filmler için TMDB serisi (belongs_to_collection, İngilizce adıyla — dizilerin orijinal adıyla aynı
+// raf anahtarını versin diye, ör. "Star Trek: ..." ), bu yüzden eksik seri bilgileri arka planda
+// bir kez öğrenilip tmdb.json'a yazılıyor. Kullanıcının eklediği semboller, raf adları ve raf
+// değişiklikleri koleksiyon.json'da.
+function profileKoleksiyonFile(profileId) {
+  return path.join(profileDir(profileId), 'koleksiyon.json')
+}
+const koleksiyonJobs = new Map() // profileId → { running, done, total }
+const koleksiyonNoMatch = new Set() // TMDB'de bulunamayan kayıtlar (her açılışta yeniden aranmasın)
+
+function koleksiyonRows(board, rows) {
+  const durumProp = resolveRole(board, 'durum')
+  if (!durumProp) return []
+  // İzlenecek dışındaki her durum (İzlendi, İzleniyor, Yarım…): bir kısmını bile izlediysen koleksiyonda
+  const later = resolveStatusOption(board, 'izlenecek')
+  return rows.filter((r) => r.values[durumProp.id] && r.values[durumProp.id] !== later)
+}
+
+async function fillKoleksiyonCollections(profileId, boardId, apiKey) {
+  if (koleksiyonJobs.get(profileId)?.running) return
+  const loaded = loadBoardAndRows(profileId, boardId)
+  if (!loaded) return
+  const refsFile = profileTmdbFile(profileId)
+  const refs0 = readJson(refsFile, {})
+  const needs = (ref) => ref && ref.mediaType === 'movie' && (ref.collection === undefined || (ref.collection && !ref.collection.en))
+  const todo = koleksiyonRows(loaded.board, loaded.rows).filter((r) => (refs0[r.id] ? needs(refs0[r.id]) : !koleksiyonNoMatch.has(`${profileId}:${r.id}`)))
+  if (!todo.length) return
+  const job = { running: true, done: 0, total: todo.length }
+  koleksiyonJobs.set(profileId, job)
+  try {
+    for (const row of todo) {
+      try {
+        let ref = readJson(refsFile, {})[row.id]
+        if (!ref) {
+          ref = await ensureTmdbRef(profileId, loaded.board, row, apiKey)
+          if (!ref) koleksiyonNoMatch.add(`${profileId}:${row.id}`)
+        }
+        if (needs(ref)) {
+          const d = await tmdbGet(`/movie/${ref.id}`, { language: 'en-US' }, apiKey)
+          if (d) {
+            const c = d.belongs_to_collection
+            const fresh = readJson(refsFile, {})
+            if (fresh[row.id]) {
+              fresh[row.id] = { ...fresh[row.id], collection: c ? { id: c.id, name: fresh[row.id].collection?.name ?? c.name, en: c.name } : null }
+              writeJson(refsFile, fresh)
+            }
+          }
+        }
+      } catch {
+        /* tek kayıt yüzünden iş durmasın */
+      }
+      job.done++
+    }
+  } finally {
+    job.running = false
+  }
+}
+
+app.get('/api/profiles/:profileId/koleksiyon/:boardId', (req, res) => {
+  const { profileId, boardId } = req.params
+  const loaded = loadBoardAndRows(profileId, boardId)
+  if (!loaded) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const collections = {}
+  const mediaTypes = {}
+  for (const row of koleksiyonRows(loaded.board, loaded.rows)) {
+    const ref = refs[row.id]
+    if (!ref) continue
+    mediaTypes[row.id] = ref.mediaType
+    if (ref.collection) collections[row.id] = { id: ref.collection.id, name: ref.collection.en ?? ref.collection.name }
+  }
+  const apiKey = readProfileApiKey(profileId)
+  if (apiKey) fillKoleksiyonCollections(profileId, boardId, apiKey).catch(() => {})
+  const job = koleksiyonJobs.get(profileId)
+  res.json({
+    collections,
+    mediaTypes,
+    pending: job?.running ? { done: job.done, total: job.total } : null,
+    data: readJson(profileKoleksiyonFile(profileId), { items: {}, shelves: {} }),
+  })
+})
+
+// Kısmi güncelleme: { items: { rowId: {...} | null }, shelves: { key: {...} | null } } — null siler.
+app.post('/api/profiles/:profileId/koleksiyon', (req, res) => {
+  const file = profileKoleksiyonFile(req.params.profileId)
+  const data = readJson(file, { items: {}, shelves: {} })
+  for (const kind of ['items', 'shelves']) {
+    const patch = req.body?.[kind]
+    if (!patch || typeof patch !== 'object') continue
+    data[kind] = data[kind] ?? {}
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) delete data[kind][k]
+      else if (typeof v === 'object') {
+        const merged = { ...(data[kind][k] ?? {}), ...v }
+        for (const [mk, mv] of Object.entries(merged)) if (mv === null) delete merged[mk]
+        if (Object.keys(merged).length) data[kind][k] = merged
+        else delete data[kind][k]
+      }
+    }
+  }
+  writeJson(file, data)
+  res.json(data)
+})
+
 // Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,
 // tek tıkla ekleyeyim" dedi. Kişi TMDB'de adıyla aranır (arşivde kişi kimliği tutulmuyor), filmografisi
 // arşivde olanlar / olmayanlar diye ayrılır.
@@ -1803,6 +1910,27 @@ const upload = multer({
 app.post('/api/medya/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Dosya gelmedi' })
   res.json({ filename: req.file.filename })
+})
+
+// İnternetteki bir görseli (adresi yapıştırılan) medya klasörüne indirir — Koleksiyon'da sembol eklerken.
+app.post('/api/medya/from-url', async (req, res) => {
+  try {
+    const url = String(req.body?.url ?? '').trim()
+    if (!/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'Geçerli bir görsel adresi değil.' })
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 ARGUS' }, signal: AbortSignal.timeout(20000) })
+    if (!r.ok) return res.status(400).json({ error: `Görsel indirilemedi (${r.status}).` })
+    const type = (r.headers.get('content-type') ?? '').split(';')[0].trim()
+    const ext = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif', 'image/svg+xml': '.svg', 'image/avif': '.avif' }[type]
+    if (!ext) return res.status(400).json({ error: 'Bu adres bir görsel değil (sayfanın değil, görselin kendi adresini yapıştır).' })
+    const buf = Buffer.from(await r.arrayBuffer())
+    if (buf.length > 15 * 1024 * 1024) return res.status(400).json({ error: 'Görsel çok büyük (15 MB üstü).' })
+    let name = `sembol_${Date.now().toString(36)}${ext}`
+    while (fs.existsSync(path.join(MEDYA_DIR, name))) name = `sembol_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}${ext}`
+    fs.writeFileSync(path.join(MEDYA_DIR, name), buf)
+    res.json({ filename: name })
+  } catch (e) {
+    res.status(400).json({ error: 'Görsel indirilemedi.' })
+  }
 })
 
 app.get('/api/update-check', (req, res) => {

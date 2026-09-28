@@ -37,6 +37,7 @@ import {
   BildirimVisual,
   TarihAraligiVisual,
   OyuncuPencereVisual,
+  KoleksiyonVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -51,6 +52,19 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.10',
+    date: '28 Eylül 2026',
+    title: 'Koleksiyon, oyuncu sayfasından arşivdeki yapımlara geçiş',
+    items: [
+      'Yeni: Koleksiyon (profil menüsünde, Takvim\'in altında). İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım burada sergileniyor; aynı seriden olanlar kendi rafında toplanıyor (Star Trek dizileri ve filmleri, Harry Potter, Recep İvedik...). Raf adları Türkçe adlarından geliyor.',
+      'Bir yapıma tıklayıp ona kendi sembolünü koyabilirsin (ör. Star Trek dizilerinin göğüslerindeki deltalar): bilgisayarından sürükle-bırak, kopyaladığın bir görseli Ctrl+V ile yapıştır ya da internetteki görselin adresini gir. Görselin düz beyaz/siyah bir arka planı varsa ARGUS onu temizleyip sembolü kırpıyor.',
+      'Rafların büyük sembolüne tıklayınca rafın sembolünü ve adını değiştirebilirsin; bir yapımı başka bir rafa taşıyabilir ya da yeni bir raf açabilirsin. Bazı raflara (Star Trek, Harry Potter, Fantastik Canavarlar, Yüzüklerin Efendisi, TRON) hazır semboller kendiliğinden geliyor; aynı hazır sembolleri istediğin yapıma da koyabilirsin.',
+      'Oyuncu ya da yönetmen sayfasında "Arşivinde" kısmındaki bir yapıma tıklayınca artık onun detay penceresi açılıyor; oradan başka bir oyuncuya, onun yapımlarına geçmeye devam edebilirsin; her kapattığında bir önceki pencereye dönüyorsun. Film serisi kısmında arşivindeki filmlere tıklayınca da aynısı oluyor.',
+      'Oyuncu ya da yönetmen sayfasında "Devamını oku"ya basınca fotoğraf yazıyla birlikte aşağı doğru uzuyordu; artık fotoğraf yerinde ve boyunda kalıyor, sadece yazı uzuyor.',
+    ],
+    visuals: [{ caption: 'Koleksiyon — 1 rafın sembolü ve adı · 2 yapımların sembolleri (yoksa logosu) · 3 sembol ekleme penceresi', Visual: KoleksiyonVisual }],
+  },
   {
     version: 'v1.9.5',
     date: '27 Eylül 2026',

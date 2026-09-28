@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { api } from '../lib/api'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../types'
 import { titleText, episodeKey, todayIso, ratingAverage } from '../types'
@@ -207,6 +209,20 @@ export default function RowDetailModal({
     }
     if (option.image || option.subtitle || role) setDetailOption({ propertyId, option, role })
     else goToFilter(propertyId, option.id)
+  }
+  // Kişi sayfasından ya da seri bölümünden açılan başka bir kaydın detayı (bunun üstünde açılır)
+  const [subRow, setSubRow] = useState<Row | null>(null)
+  async function openRow(rowId: string) {
+    if (rowId === row.id) {
+      setPerson(null)
+      return
+    }
+    try {
+      const r = (await api.getRows(board.id)).find((x) => x.id === rowId)
+      if (r) setSubRow(r)
+    } catch {
+      /* açılamadıysa bir şey yapma */
+    }
   }
   const [person, setPerson] = useState<{ name: string; role: 'acting' | 'directing'; character?: string; propertyId?: string; optionId?: string } | null>(null)
   const yonetmenPropForLinks = resolveRole(board, 'yonetmen')
@@ -536,7 +552,7 @@ export default function RowDetailModal({
               </section>
             )}
 
-            <CollectionSection boardId={board.id} rowId={row.id} />
+            <CollectionSection boardId={board.id} rowId={row.id} onOpenRow={openRow} />
 
             <TmdbExtras board={board} row={row} part="similar" />
           </div>
@@ -635,15 +651,28 @@ export default function RowDetailModal({
         </div>
       </div>
       {person && (
-        <PersonModal
-          boardId={board.id}
-          name={person.name}
-          role={person.role}
-          character={person.character}
-          onClose={() => setPerson(null)}
-          onShowContents={person.propertyId && person.optionId ? () => goToFilter(person.propertyId!, person.optionId!) : undefined}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <PersonModal
+            boardId={board.id}
+            name={person.name}
+            role={person.role}
+            character={person.character}
+            onClose={() => setPerson(null)}
+            onShowContents={person.propertyId && person.optionId ? () => goToFilter(person.propertyId!, person.optionId!) : undefined}
+            onOpenRow={openRow}
+            paused={!!subRow}
+          />
+        </div>
       )}
+      {/* Kişi / önizleme pencereleriyle aynı katman (z-70): hepsi body'ye sırayla eklendiği için sonra
+          açılan üstte kalıyor — buradan açılan bir oyuncu sayfası da bu pencerenin arkasında kalmıyor. */}
+      {subRow &&
+        createPortal(
+          <div className="fixed inset-0 z-[70]" onClick={(e) => e.stopPropagation()}>
+            <RowDetailModal board={board} row={subRow} editable={editable} onFetchTmdb={onFetchTmdb} onClose={() => setSubRow(null)} />
+          </div>,
+          document.body,
+        )}
       {detailOption && (
         <OptionDetailModal
           option={detailOption.option}

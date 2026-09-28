@@ -1458,3 +1458,69 @@ export function SeriKisiVisual() {
     </Frame>
   )
 }
+
+// ---- v1.10 -----------------------------------------------------------------------------------
+
+const DELTA_PATH = 'M50 0 C64 22 84 72 97 130 C84 113 67 103 50 103 C33 103 16 113 3 130 C16 72 36 22 50 0 Z'
+
+function Exhibit({ x, y, s = 34, children }: { x: number; y: number; s?: number; children?: React.ReactNode }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={s} height={s} rx={5} className="fill-neutral-950 stroke-neutral-700" strokeWidth={0.7} />
+      {children}
+    </g>
+  )
+}
+
+export function KoleksiyonVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={16} size={9}>
+        Koleksiyon
+      </Label>
+      <NewTag x={46} y={7} />
+      {/* raf */}
+      <Box x={8} y={24} w={304} h={78} r={7} />
+      <Exhibit x={16} y={31} s={48}>
+        <path d={DELTA_PATH} transform="translate(29 36) scale(0.3)" fill="#e3c26a" />
+      </Exhibit>
+      <text x={16} y={92} fontSize={7} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        Star Trek
+      </text>
+      <Pin x={70} y={34} n={1} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Exhibit key={i} x={82 + i * 44} y={33} s={38}>
+          {i === 3 ? (
+            <path d={DELTA_PATH} transform={`translate(${93 + i * 44} 39) scale(0.17)`} fill="#d4d4d4" />
+          ) : (
+            <Line x={88 + i * 44} y={52} w={26} light />
+          )}
+        </Exhibit>
+      ))}
+      <rect x={82} y={78} width={216} height={2} rx={1} className="fill-neutral-600" />
+      <Pin x={264} y={30} n={2} />
+      {/* tek başına olanlar */}
+      <Label x={10} y={116} size={7.5}>
+        Tek başına olanlar
+      </Label>
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+        <Exhibit key={i} x={10 + i * 43} y={122} s={36}>
+          <Line x={16 + i * 43} y={140} w={24} light />
+        </Exhibit>
+      ))}
+      {/* sembol penceresi */}
+      <Box x={196} y={96} w={116} h={78} r={6} strong />
+      <rect x={202} y={103} width={40} height={40} rx={4} className="fill-neutral-950" />
+      <path d={DELTA_PATH} transform="translate(211 110) scale(0.2)" fill="#e3c26a" />
+      <rect x={248} y={103} width={58} height={20} rx={3} fill="none" strokeDasharray="3 2" className="stroke-neutral-500" strokeWidth={0.7} />
+      <text x={252} y={115} fontSize={5.2} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Sürükle / Ctrl+V
+      </text>
+      <text x={248} y={133} fontSize={5.2} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        ya da adres, hazır sembol
+      </text>
+      <MiniButton x={270} y={156} w={36} text="Kaydet" accent />
+      <Pin x={194} y={100} n={3} />
+    </Frame>
+  )
+}
