@@ -402,6 +402,8 @@ app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
     const today = localToday()
     const n = Object.entries(req.body ?? {}).filter(([k, ds]) => Array.isArray(ds) && ds.includes(today) && !(before[k] ?? []).includes(today)).length
     if (n) appendWatchTime(req.params.profileId, { rowId: req.params.rowId, kind: 'ep', n })
+    const added = Object.entries(req.body ?? {}).some(([k, ds]) => Array.isArray(ds) && ds.some((d) => !(before[k] ?? []).includes(d)))
+    if (added) touchRecentWatch(req.params.profileId, req.params.rowId)
   } catch {
     /* saat kaydı önemsiz */
   }
@@ -1303,9 +1305,26 @@ function recordRowWatchTime(profileId, boardId, before, after) {
   const list = (v) => (Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : []).map(String)
   const today = localToday()
   const old = new Set(list(before?.values?.[dateProp.id]))
-  const added = list(after?.values?.[dateProp.id]).filter((e) => !old.has(e) && (e === today || e.endsWith('/' + today)))
-  if (added.length) appendWatchTime(profileId, { rowId: after.id, kind: 'row' })
+  const added = list(after?.values?.[dateProp.id]).filter((e) => !old.has(e))
+  if (added.length) touchRecentWatch(profileId, after.id)
+  if (added.some((e) => e === today || e.endsWith('/' + today))) appendWatchTime(profileId, { rowId: after.id, kind: 'row' })
 }
+
+// Son izleme verisi girilen kayıtlar (en yeni önce) — Takvim'deki "Son izlediklerin — tek tıkla seç"
+// için. Kullanıcı "son verisini girdiğim gelmiyor" dedi: liste izleme tarihine göre sıralanınca geçmiş bir
+// tarih girilen yapım (ör. dün izlediğini bugün eklemek) listeye girmiyordu. Artık girildiği ana göre.
+function profileRecentWatchFile(profileId) {
+  return path.join(profileDir(profileId), 'recent-watch.json')
+}
+function touchRecentWatch(profileId, rowId) {
+  const file = profileRecentWatchFile(profileId)
+  const list = readJson(file, []).filter((x) => x.rowId !== rowId)
+  list.unshift({ rowId, t: Date.now() })
+  writeJson(file, list.slice(0, 30))
+}
+app.get('/api/profiles/:profileId/recent-watch', (req, res) => {
+  res.json(readJson(profileRecentWatchFile(req.params.profileId), []))
+})
 
 // Dizilerin ortalama bölüm süresi (toplam ekran süresi için): TMDB'den bir kez öğrenilip tmdb.json'daki
 // kayda epRuntime olarak yazılır (0 = TMDB'de yok). Sadece o yıl bölümü işaretlenmiş diziler için.
