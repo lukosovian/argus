@@ -186,6 +186,7 @@ export default function Takvim() {
   const { rows, loading: rowsLoading, saveRow } = useRows(selectedBoardId ?? undefined)
   const [watched, setWatched] = useState<WatchedMap>({})
   const [episodes, setEpisodes] = useState<EpisodesMap>({})
+  const [recentIds, setRecentIds] = useState<string[]>([])
 
   useEffect(() => {
     // Profil henüz seçilmediyse (ör. sayfa doğrudan açıldıysa) istek atma — api o durumda hemen hata fırlatıyor.
@@ -198,6 +199,10 @@ export default function Takvim() {
       Promise.resolve()
         .then(() => api.getEpisodes())
         .then(setEpisodes)
+        .catch(() => {})
+      Promise.resolve()
+        .then(() => api.getRecentWatch())
+        .then((l) => setRecentIds(l.map((x) => x.rowId)))
         .catch(() => {})
     }
     load()
@@ -252,10 +257,19 @@ export default function Takvim() {
     return m
   }, [events])
 
-  // Hızlı seçim: en son izlediğin 4 farklı içerik (bugüne kadar, yeniden eskiye).
+  // Hızlı seçim: en son izleme verisi girdiğin 4 farklı içerik (girildiği ana göre, bkz. server'daki
+  // touchRecentWatch); yetmezse izleme tarihine göre en son izlediklerinle tamamlanır.
   const recentRows = (() => {
     const seen = new Set<string>()
     const out: Row[] = []
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    for (const id of recentIds) {
+      const r = byId.get(id)
+      if (!r || seen.has(id)) continue
+      seen.add(id)
+      out.push(r)
+      if (out.length === 4) return out
+    }
     const past = events.filter((e) => (e.kind === 'watch' || e.kind === 'episodes') && e.date <= today).sort((a, b) => (a.date < b.date ? 1 : -1))
     for (const e of past) {
       if (seen.has(e.row.id)) continue

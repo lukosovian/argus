@@ -279,6 +279,8 @@ export const api = {
   // Yedekleme (bkz. server/backup.js) — profile bağlı değil, bütün veriyi kapsar.
   getBackup: () => request<BackupInfo>('/api/backup'),
   // Flashback (yıllık özet): dizilerin bölüm süreleri (TMDB'den arka planda öğrenilir) ve kaydedilmiş izleme saatleri
+  // Son izleme verisi girilen kayıtlar, en yeni önce (Takvim'in hızlı seçimi için)
+  getRecentWatch: () => request<{ rowId: string; t: number }[]>(profilePath('/recent-watch')),
   getFlashback: (boardId: string, year: string) =>
     request<{ runtimes: Record<string, number>; hours: number[]; timed: number; pending: { done: number; total: number } | null }>(
       profilePath(`/flashback/${boardId}?year=${year}`),

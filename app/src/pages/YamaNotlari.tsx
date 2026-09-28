@@ -54,6 +54,14 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.10.2',
+    date: '28 Eylül 2026',
+    title: 'Takvim: son girdiğin yapım hızlı seçimde',
+    items: [
+      'Takvim\'de bir güne eklerken çıkan "Son izlediklerin — tek tıkla seç" listesi artık en son izleme verisi girdiğin yapımları gösteriyor. Önceden izleme tarihine göre sıralandığı için geçmiş bir tarih girdiğin yapım (ör. dün izlediğini bugün eklemek) listeye gelmiyordu; bölüm işaretlemeleri de artık sayılıyor.',
+    ],
+  },
+  {
     version: 'v1.10.1',
     date: '28 Eylül 2026',
     title: 'Koleksiyon açılırken ne yaptığını gösteriyor',
