@@ -1558,3 +1558,57 @@ export function IlerlemeVisual() {
     </Frame>
   )
 }
+
+// ---- v1.11 -----------------------------------------------------------------------------------
+
+export function TarihSeciciVisual() {
+  const cells = Array.from({ length: 30 }, (_, i) => i + 1)
+  return (
+    <Frame viewBox={VB}>
+      <Box x={60} y={8} w={200} h={166} r={8} strong />
+      {/* kutucuklar */}
+      <rect x={70} y={16} width={86} height={13} rx={6.5} className="fill-neutral-800" />
+      <text x={76} y={25} fontSize={6} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        03.06.24 → 09.06.24
+      </text>
+      <rect x={160} y={16} width={48} height={13} rx={6.5} className="fill-neutral-800" />
+      <text x={166} y={25} fontSize={6} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        03.08.24
+      </text>
+      {/* anahtar */}
+      <text x={196} y={42} fontSize={6} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Bitiş tarihi
+      </text>
+      <rect x={232} y={36} width={16} height={8} rx={4} fill={ACCENT} />
+      <circle cx={244} cy={40} r={3} fill="#fff" />
+      <Pin x={254} y={32} n={1} />
+      {/* takvim */}
+      <text x={124} y={60} fontSize={7.5} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        Haziran 2024
+      </text>
+      <text x={76} y={60} fontSize={8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        ‹
+      </text>
+      <text x={240} y={60} fontSize={8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        ›
+      </text>
+      <Pin x={70} y={50} n={2} />
+      {cells.map((d) => {
+        const i = d + 4
+        const x = 74 + (i % 7) * 25
+        const y = 70 + Math.floor(i / 7) * 17
+        const edge = d === 3 || d === 9
+        const inRange = d > 3 && d < 9
+        return (
+          <g key={d}>
+            {(edge || inRange) && <rect x={x - 2} y={y - 2} width={21} height={13} rx={3} fill={ACCENT} fillOpacity={edge ? 1 : 0.25} />}
+            <text x={x + 8.5} y={y + 7.5} fontSize={6} textAnchor="middle" className={edge ? 'fill-white' : 'fill-neutral-300'} style={{ fontFamily: 'inherit' }}>
+              {d}
+            </text>
+          </g>
+        )
+      })}
+      <Pin x={254} y={84} n={3} />
+    </Frame>
+  )
+}

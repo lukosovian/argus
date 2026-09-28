@@ -489,6 +489,16 @@ function autoMarkSeriesWatched(profileId, rowId, seen) {
     for (const e of s.episodes ?? []) if (e.airDate && e.airDate <= today) aired.push(`${s.seasonNumber}-${e.episodeNumber}`)
   }
   if (aired.length === 0 || !aired.every((k) => seen[k]?.length > 0)) return null
+  // Sezon ortasındaysa (yayınlanmış bölümü olan bir sezonda henüz çıkmamış ya da tarihi belli olmayan bölüm
+  // varsa) İzlendi yapma — kullanıcı "Lanterns'ün 7. bölümünü girdim, İzlendi yaptı ama bir bölüm daha var"
+  // dedi. Sadece ilerideki yeni bir sezon açıklanmışsa (hiç bölümü çıkmamış sezon) eskisi gibi İzlendi olur.
+  const midSeason = seasons.some(
+    (s) => s.seasonNumber >= 1 && (s.episodes ?? []).some((e) => e.airDate && e.airDate <= today) && (s.episodes ?? []).some((e) => !e.airDate || e.airDate > today),
+  )
+  const lastAiredSeason = Math.max(...aired.map((k) => Number(k.split('-')[0])))
+  const next = readJson(profileTmdbFile(profileId), {})[rowId]?.show?.next
+  const nextInSameSeason = next && next.season === lastAiredSeason && (!next.airDate || next.airDate > today)
+  if (midSeason || nextInSameSeason) return null
   const boards = readJson(profileBoardsFile(profileId), [])
   for (const board of boards) {
     const rowsFile = profileRowsFile(profileId, board.id)
