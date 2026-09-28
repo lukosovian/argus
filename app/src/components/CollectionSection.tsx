@@ -13,7 +13,7 @@ function cleanName(name: string) {
   return name.replace(/\s*\[seri\]\s*/i, '').replace(/\s+(serisi|koleksiyonu|collection)$/i, '').trim()
 }
 
-export default function CollectionSection({ boardId, rowId }: { boardId: string; rowId: string }) {
+export default function CollectionSection({ boardId, rowId, onOpenRow }: { boardId: string; rowId: string; onOpenRow?: (rowId: string) => void }) {
   const { notify } = useToast()
   const [data, setData] = useState<{ collection: { name: string } | null; parts?: Part[] } | null>(null)
   const [preview, setPreview] = useState<TmdbCard | null>(null)
@@ -68,10 +68,10 @@ export default function CollectionSection({ boardId, rowId }: { boardId: string;
           return (
             <div key={p.tmdbId} className={`w-28 shrink-0 ${isThis ? '' : ''}`}>
               <button
-                onClick={() => !inArch && setPreview(p)}
-                className={`block w-full relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 ${isThis ? 'ring-2 ring-[#00c0fa]' : ''} ${inArch ? 'cursor-default' : 'group'}`}
+                onClick={() => (!inArch ? setPreview(p) : p.rowId && !isThis && onOpenRow?.(p.rowId))}
+                className={`block w-full relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 ${isThis ? 'ring-2 ring-[#00c0fa]' : ''} ${isThis || (inArch && !(p.rowId && onOpenRow)) ? 'cursor-default' : 'group'}`}
               >
-                {p.poster && <img src={p.poster} alt={p.title} loading="lazy" className={`h-full w-full object-cover ${!inArch ? 'group-hover:scale-105 transition' : ''} ${!p.released ? 'opacity-50' : ''}`} />}
+                {p.poster && <img src={p.poster} alt={p.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!p.released ? 'opacity-50' : ''}`} />}
                 <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-black/70 text-neutral-100 rounded px-1.5 py-0.5">{i + 1}</span>
                 {p.watched ? (
                   <span className="absolute bottom-1.5 left-1.5 text-[10px] font-semibold bg-emerald-500 text-white rounded px-1.5 py-0.5">✓ İzledin</span>

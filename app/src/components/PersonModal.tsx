@@ -22,6 +22,8 @@ export default function PersonModal({
   character,
   onClose,
   onShowContents,
+  onOpenRow,
+  paused = false,
 }: {
   boardId: string
   name: string
@@ -31,6 +33,11 @@ export default function PersonModal({
   onClose: () => void
   // Arşivde bu kişiye göre filtrele (tablo / ana sayfa)
   onShowContents?: () => void
+  // Arşivindeki bir kartın detay penceresini aç (kullanıcı "arşivimdekilere tıklayıp detayını
+  // açamıyorum" dedi) — pencere bunun üstünde açılır, kapatınca bu sayfaya dönülür.
+  onOpenRow?: (rowId: string) => void
+  // Üstte başka bir pencere açıkken Esc bu sayfayı kapatmasın
+  paused?: boolean
 }) {
   const { notify } = useToast()
   const [data, setData] = useState<{ person: PersonInfo | null; inArchive: ArchiveCard[]; notInArchive: ArchiveCard[]; needsApiKey?: boolean } | null>(null)
@@ -51,10 +58,10 @@ export default function PersonModal({
   }, [boardId, name, role])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !preview && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !preview && !paused && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, preview])
+  }, [onClose, preview, paused])
 
   async function addWatchlist(c: ArchiveCard) {
     const k = `${c.mediaType}:${c.tmdbId}`
@@ -88,8 +95,8 @@ export default function PersonModal({
           <p className="text-sm text-neutral-500 py-10 text-center">"{name}" TMDB'de bulunamadı.</p>
         ) : (
           <>
-            <div className="flex gap-5">
-              {p.image && <img src={p.image} alt={p.name} className="w-28 sm:w-36 aspect-[2/3] rounded-xl object-cover object-top shrink-0 bg-neutral-800" />}
+            <div className="flex items-start gap-5">
+              {p.image && <img src={p.image} alt={p.name} className="w-28 sm:w-36 aspect-[2/3] rounded-xl object-cover object-top shrink-0 self-start bg-neutral-800" />}
               <div className="min-w-0 flex-1 pr-8">
                 <h2 className="text-2xl font-bold text-neutral-50">{p.name}</h2>
                 <p className="text-sm text-neutral-400 mt-1">
@@ -129,14 +136,18 @@ export default function PersonModal({
                 <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
                   {data.inArchive.map((c) => (
                     <div key={`${c.mediaType}:${c.tmdbId}`} className="min-w-0">
-                      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800">
-                        {c.poster && <img src={c.poster} alt={c.title} loading="lazy" className="h-full w-full object-cover" />}
+                      <button
+                        onClick={() => c.rowId && onOpenRow?.(c.rowId)}
+                        disabled={!c.rowId || !onOpenRow}
+                        className="block w-full relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group enabled:cursor-pointer disabled:cursor-default"
+                      >
+                        {c.poster && <img src={c.poster} alt={c.title} loading="lazy" className="h-full w-full object-cover group-enabled:group-hover:scale-105 transition" />}
                         {c.watched ? (
                           <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-emerald-500 text-white rounded px-1.5 py-0.5">✓ İzledin</span>
                         ) : c.status ? (
                           <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-black/70 text-neutral-100 rounded px-1.5 py-0.5">{c.status}</span>
                         ) : null}
-                      </div>
+                      </button>
                       <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{c.title}</p>
                       <p className="text-[11px] text-neutral-500 truncate">
                         {[c.year, c.character].filter(Boolean).join(' · ')}

@@ -14,6 +14,7 @@ import YardimMerkezi from './pages/YardimMerkezi'
 import Istatistikler from './pages/Istatistikler'
 import Takvim from './pages/Takvim'
 import YillikOzet from './pages/YillikOzet'
+import Koleksiyon from './pages/Koleksiyon'
 import YamaNotlari from './pages/YamaNotlari'
 
 // Bir profil ilk kez aktif olduğunda (o profil daha önce hiç görmediyse) Yardım Merkezi'ni
@@ -106,6 +107,14 @@ function AppRoutes() {
         element={
           <Shell>
             <YillikOzet />
+          </Shell>
+        }
+      />
+      <Route
+        path="/koleksiyon"
+        element={
+          <Shell>
+            <Koleksiyon />
           </Shell>
         }
       />

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { GizliSutunVisual, GuncelleVisual, KesfetVisual, SaglikVisual, YedekVisual, YeniBolumlerVisual } from '../components/PatchVisuals'
+import { GizliSutunVisual, GuncelleVisual, KesfetVisual, KoleksiyonVisual, SaglikVisual, YedekVisual, YeniBolumlerVisual } from '../components/PatchVisuals'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useToast } from '../hooks/useToast'
@@ -642,6 +642,23 @@ const TOPICS: Topic[] = [
     visual: (
       <VisualCard>
         <YedekVisual />
+      </VisualCard>
+    ),
+  },
+  {
+    group: 'diger',
+    icon: <PlayCircleIcon />,
+    title: 'Koleksiyon',
+    where: 'Profil menüsü › Koleksiyon',
+    text: 'İzlediğin (izlemekte olduğun, yarım bıraktığın) her yapımın sergilendiği sayfa. Aynı seriden olanlar kendi rafında durur; her yapımın sembolü yoksa logosu görünür.',
+    tips: [
+      'Bir yapıma tıklayınca sembolünü değiştirirsin: görseli sürükle-bırak, Ctrl+V ile yapıştır ya da internetteki görselin adresini gir ("Resim adresini kopyala"). Düz arka planlı görsellerde "Arka planı temizle" kendiliğinden açık gelir.',
+      'Rafın büyük sembolüne tıklayınca rafın sembolünü ve adını değiştirirsin. Bir yapımın penceresindeki "Hangi rafta?" ile onu başka rafa taşır ya da yeni bir raf açarsın.',
+      'Film serileri ilk açılışta TMDB\'den öğrenilir; raflar bir iki dakika içinde tamamlanır.',
+    ],
+    visual: (
+      <VisualCard>
+        <KoleksiyonVisual />
       </VisualCard>
     ),
   },
