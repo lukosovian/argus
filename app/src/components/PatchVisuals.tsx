@@ -1524,3 +1524,37 @@ export function KoleksiyonVisual() {
     </Frame>
   )
 }
+
+// ---- v1.10.1 ---------------------------------------------------------------------------------
+
+export function IlerlemeVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={18} size={9}>
+        Koleksiyon
+      </Label>
+      <Box x={8} y={28} w={304} h={52} r={7} strong />
+      <circle cx={24} cy={44} r={5} fill="none" stroke={ACCENT} strokeWidth={1.6} strokeDasharray="20 12" />
+      <text x={36} y={47} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        İlk açılış: filmlerinin hangi seriden olduğu öğreniliyor
+      </text>
+      <text x={250} y={47} fontSize={6} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        205/297 · ~30 sn
+      </text>
+      <rect x={18} y={56} width={284} height={4} rx={2} className="fill-neutral-800" />
+      <rect x={18} y={56} width={196} height={4} rx={2} fill={ACCENT} />
+      <Line x={18} y={70} w={180} light />
+      <Pin x={300} y={32} n={1} />
+      {/* raflar bu sırada kullanılabilir */}
+      {[0, 1].map((i) => (
+        <g key={i}>
+          <Box x={8} y={88 + i * 44} w={304} h={38} r={6} />
+          {[0, 1, 2, 3, 4, 5].map((j) => (
+            <rect key={j} x={16 + j * 48} y={94 + i * 44} width={40} height={26} rx={3} className="fill-neutral-800" />
+          ))}
+        </g>
+      ))}
+      <Pin x={300} y={92} n={2} />
+    </Frame>
+  )
+}

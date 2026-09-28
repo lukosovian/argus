@@ -8,6 +8,8 @@ export interface AppNotification {
   text: string
   boardId?: string
   rowId?: string
+  // Tıklayınca açılacak sayfa (ör. yeni açılan bir özellik: '/ozet')
+  link?: string
 }
 
 // Dizinin TMDB durumu (tmdb.json'da saklanan) — "Dizi bitti / Yeni sezon: 12 Mart" etiketi için.

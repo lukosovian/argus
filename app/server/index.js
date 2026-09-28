@@ -10,6 +10,7 @@ import { buildRestartScript, launchDetachedRestart } from './restart.js'
 import { beforeWrite, findBoard as findBoardCached, initHistory, registerHistoryRoutes, setHistoryWriter } from './history.js'
 import { initNotifications, pushNotification, registerNotificationRoutes } from './notifications.js'
 import { initBackup, registerBackupRoutes } from './backup.js'
+import { publishFile } from './featurePublish.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -224,6 +225,11 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   else rows[idx] = saved
   writeJson(rowsFile, rows)
   if (shouldAskRating(req.params.profileId, req.params.id, before, saved)) setAskRating(res, req.params.id, saved.id)
+  try {
+    recordRowWatchTime(req.params.profileId, req.params.id, before, saved)
+  } catch {
+    /* saat kaydı önemsiz */
+  }
   res.json(saved)
 })
 
@@ -392,6 +398,13 @@ app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
   const before = all[req.params.rowId] ?? {}
   all[req.params.rowId] = req.body
   writeJson(file, all)
+  try {
+    const today = localToday()
+    const n = Object.entries(req.body ?? {}).filter(([k, ds]) => Array.isArray(ds) && ds.includes(today) && !(before[k] ?? []).includes(today)).length
+    if (n) appendWatchTime(req.params.profileId, { rowId: req.params.rowId, kind: 'ep', n })
+  } catch {
+    /* saat kaydı önemsiz */
+  }
   let autoWatched = null
   let autoWatching = null
   try {
@@ -1273,6 +1286,104 @@ app.get('/api/profiles/:profileId/collection/:boardId/:rowId', async (req, res) 
   }
 })
 
+// ---- Flashback (yıllık özet) --------------------------------------------------------------------
+// İzleme saatleri: kullanıcı "en çok gece mi gündüz mü izliyorum" görmek istedi ama arşivde sadece
+// tarih var. Bundan sonra bir şey BUGÜNÜN tarihiyle izlendi diye işaretlenince o anın saati
+// watch-times.jsonl'a eklenir (işaretleme genelde izledikten hemen sonra yapıldığı için yaklaşık izleme saati).
+function profileWatchTimesFile(profileId) {
+  return path.join(profileDir(profileId), 'watch-times.jsonl')
+}
+function appendWatchTime(profileId, entry) {
+  fs.appendFileSync(profileWatchTimesFile(profileId), JSON.stringify({ t: Date.now(), ...entry }) + '\n')
+}
+function recordRowWatchTime(profileId, boardId, before, after) {
+  const board = findBoardCached(profileId, boardId)
+  const dateProp = board && resolveRole(board, 'izlemeTarihi')
+  if (!dateProp) return
+  const list = (v) => (Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : []).map(String)
+  const today = localToday()
+  const old = new Set(list(before?.values?.[dateProp.id]))
+  const added = list(after?.values?.[dateProp.id]).filter((e) => !old.has(e) && (e === today || e.endsWith('/' + today)))
+  if (added.length) appendWatchTime(profileId, { rowId: after.id, kind: 'row' })
+}
+
+// Dizilerin ortalama bölüm süresi (toplam ekran süresi için): TMDB'den bir kez öğrenilip tmdb.json'daki
+// kayda epRuntime olarak yazılır (0 = TMDB'de yok). Sadece o yıl bölümü işaretlenmiş diziler için.
+const flashbackJobs = new Map() // profileId → { running, done, total }
+const flashbackNoMatch = new Set()
+async function fillEpisodeRuntimes(profileId, boardId, rowIds, apiKey) {
+  if (flashbackJobs.get(profileId)?.running) return
+  const loaded = loadBoardAndRows(profileId, boardId)
+  if (!loaded) return
+  const refsFile = profileTmdbFile(profileId)
+  const refs0 = readJson(refsFile, {})
+  const rowById = new Map(loaded.rows.map((r) => [r.id, r]))
+  const todo = rowIds.filter((id) => rowById.has(id) && (refs0[id] ? refs0[id].mediaType === 'tv' && refs0[id].epRuntime === undefined : !flashbackNoMatch.has(`${profileId}:${id}`)))
+  if (!todo.length) return
+  const job = { running: true, done: 0, total: todo.length }
+  flashbackJobs.set(profileId, job)
+  try {
+    for (const id of todo) {
+      try {
+        let ref = readJson(refsFile, {})[id]
+        if (!ref) {
+          ref = await ensureTmdbRef(profileId, loaded.board, rowById.get(id), apiKey)
+          if (!ref) flashbackNoMatch.add(`${profileId}:${id}`)
+        }
+        if (ref && ref.mediaType === 'tv' && ref.epRuntime === undefined) {
+          const d = await tmdbGet(`/tv/${ref.id}`, { language: 'en-US' }, apiKey)
+          if (d) {
+            const list = (d.episode_run_time ?? []).filter((m) => m > 0)
+            const rt = list.length ? Math.round(list.reduce((a, b) => a + b, 0) / list.length) : d.last_episode_to_air?.runtime || d.next_episode_to_air?.runtime || 0
+            const fresh = readJson(refsFile, {})
+            if (fresh[id]) {
+              fresh[id] = { ...fresh[id], epRuntime: rt }
+              writeJson(refsFile, fresh)
+            }
+          }
+        }
+      } catch {
+        /* tek kayıt yüzünden iş durmasın */
+      }
+      job.done++
+    }
+  } finally {
+    job.running = false
+  }
+}
+
+app.get('/api/profiles/:profileId/flashback/:boardId', (req, res) => {
+  const { profileId, boardId } = req.params
+  const year = String(req.query.year ?? '')
+  if (!/^\d{4}$/.test(year)) return res.status(400).json({ error: 'Yıl eksik' })
+  const watched = readJson(profileWatchedFile(profileId), {})
+  const seriesIds = Object.entries(watched)
+    .filter(([, eps]) => Object.values(eps ?? {}).some((ds) => (ds ?? []).some((d) => String(d).startsWith(year))))
+    .map(([id]) => id)
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const runtimes = {}
+  for (const id of seriesIds) if (refs[id]?.epRuntime) runtimes[id] = refs[id].epRuntime
+  const apiKey = readProfileApiKey(profileId)
+  if (apiKey) fillEpisodeRuntimes(profileId, boardId, seriesIds, apiKey).catch(() => {})
+  // Saat dağılımı (0-23) ve haftanın günü — sadece kaydedilmiş işaretlemelerden
+  const hours = Array(24).fill(0)
+  let timed = 0
+  try {
+    for (const line of fs.readFileSync(profileWatchTimesFile(profileId), 'utf-8').split('\n')) {
+      if (!line.trim()) continue
+      const e = JSON.parse(line)
+      const d = new Date(e.t)
+      if (String(d.getFullYear()) !== year) continue
+      hours[d.getHours()]++
+      timed++
+    }
+  } catch {
+    /* dosya yoksa saat bilgisi yok */
+  }
+  const job = flashbackJobs.get(profileId)
+  res.json({ runtimes, hours, timed, pending: job?.running ? { done: job.done, total: job.total } : null })
+})
+
 // ---- Koleksiyon ----------------------------------------------------------------------------------
 // Kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) sergileyen bir sayfa"
 // istedi. İzlenen, izlenmekte olan ve yarım bırakılan yapımlar raflara ayrılıyor (raf anahtarı arayüzde hesaplanıyor):
@@ -1977,19 +2088,44 @@ app.post('/api/apply-update', (req, res) => {
 })
 
 // Özellik anahtarları (app/features.json, kodla birlikte GitHub'a gider). Geliştirici bilgisayarında her şey
-// açık; bazı özellikler (ör. Yıllık Özet) diğer kullanıcılara buradan açılıp kapatılıyor.
+// açık; bazı özellikler (ör. Flashback — yıllık özet) diğer kullanıcılara buradan açılıp kapatılıyor.
 const FEATURES_FILE = path.join(__dirname, '..', 'features.json')
 const isDevMachine = () => fs.existsSync(path.join(ROOT, '.gelistirici'))
+// Flashback (yıllık özet) diğer kullanıcılara açıldığında her profile bir kez bildirim düşer (kullanıcı "onlarda açılınca
+// haberleri olsun" dedi). Aynı anahtarla ikinci kez eklenmez (bkz. pushNotification); geliştirici
+// bilgisayarında zaten hep açık olduğu için orada gönderilmez.
+function announceFeatures() {
+  if (isDevMachine()) return
+  const f = readJson(FEATURES_FILE, {})
+  if (!f.wrappedForAll) return
+  for (const p of readProfiles()) {
+    try {
+      pushNotification(p.id, {
+        key: 'feature:wrapped',
+        type: 'feature',
+        title: 'Yeni: Flashback',
+        text: 'Yılın nasıl geçti? Toplam ekran süren, izleyici unvanın, maratonların, en sevdiklerin ve paylaşabileceğin bir hikâye kartı. Profil menüsünde.',
+        link: '/flashback',
+      })
+    } catch {
+      /* bildirim yazılamadıysa önemsiz */
+    }
+  }
+}
+
 app.get('/api/features', (req, res) => {
   const f = readJson(FEATURES_FILE, {})
+  announceFeatures()
   res.json({ developer: isDevMachine(), wrappedForAll: Boolean(f.wrappedForAll) })
 })
-app.post('/api/features', (req, res) => {
+app.post('/api/features', async (req, res) => {
   if (!isDevMachine()) return res.status(403).json({ error: 'Bu ayar sadece geliştirici bilgisayarında değiştirilebilir.' })
   const f = readJson(FEATURES_FILE, {})
   if (typeof req.body?.wrappedForAll === 'boolean') f.wrappedForAll = req.body.wrappedForAll
-  fs.writeFileSync(FEATURES_FILE, JSON.stringify(f, null, 2), 'utf-8')
-  res.json({ ok: true, wrappedForAll: Boolean(f.wrappedForAll) })
+  fs.writeFileSync(FEATURES_FILE, JSON.stringify(f, null, 2) + '\n', 'utf-8')
+  // Kullanıcı ayrıca "gönder" demek zorunda kalmasın: sadece bu dosya Git'e gönderilir (bkz. featurePublish.js)
+  const pub = await publishFile(ROOT, FEATURES_FILE, f.wrappedForAll ? 'Flashback diger kullanicilara acildi' : 'Flashback diger kullanicilara kapatildi')
+  res.json({ ok: true, wrappedForAll: Boolean(f.wrappedForAll), ...pub })
 })
 
 // Paketli arayüz (bkz. start.mjs): ARGUS_SERVE_UI varsa dist/ klasörü de bu sunucudan, 5173 portundan

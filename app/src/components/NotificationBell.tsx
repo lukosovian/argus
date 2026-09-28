@@ -26,6 +26,7 @@ const TYPE_ICON: Record<string, { icon: string; cls: string }> = {
   watched: { icon: '✓', cls: 'bg-emerald-500/15 text-emerald-300' },
   newSeason: { icon: '▶', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
   announce: { icon: '📅', cls: 'bg-amber-500/15 text-amber-300' },
+  feature: { icon: '★', cls: 'bg-fuchsia-500/15 text-fuchsia-300' },
 }
 
 function BellIcon() {
@@ -99,6 +100,7 @@ export default function NotificationBell() {
     if (!n.read) await api.markNotificationsRead([n.id]).catch(() => {})
     load()
     if (n.boardId && n.rowId) navigate(`/board/${n.boardId}?detay=${n.rowId}`)
+    else if (n.link) navigate(n.link)
   }
 
   return (

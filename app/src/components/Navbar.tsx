@@ -10,7 +10,7 @@ import RandomPickerButton from './RandomPickerButton'
 import NotificationBell from './NotificationBell'
 import { gradientBorderStyle } from '../lib/theme'
 import { APP_VERSION } from '../lib/version'
-import { canSeeWrapped, useFeatures } from '../hooks/useFeatures'
+import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
 
 function SunIcon() {
   return (
@@ -43,7 +43,7 @@ const ICONS = {
   istatistik: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
   takvim: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
   koleksiyon: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3',
-  ozet: 'M12 2l2.4 5.6L20 8.2l-4.3 3.9 1.2 5.9L12 15l-4.9 3 1.2-5.9L4 8.2l5.6-.6L12 2Z',
+  ozet: 'M3 12a9 9 0 1 0 2.64-6.36L3 8.3M3 3v5.3h5.3M12 7v5l3.5 2',
   yardim: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
   yama: 'M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4L12 3ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z',
 }
@@ -194,7 +194,15 @@ export default function Navbar() {
                     <MenuLink to="/istatistikler" icon="istatistik" label="İstatistikler" onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/takvim" icon="takvim" label="Takvim" onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/koleksiyon" icon="koleksiyon" label="Koleksiyon" onClick={() => setMenuOpen(false)} />
-                    {canSeeWrapped(features) && <MenuLink to="/ozet" icon="ozet" label="Yıllık Özet" onClick={() => setMenuOpen(false)} />}
+                    {canSeeWrapped(features) && (
+                      <MenuLink
+                        to="/flashback"
+                        icon="ozet"
+                        label="Flashback"
+                        extra={wrappedIsNew(features) ? <span className="text-[10px] font-bold text-white bg-fuchsia-500 rounded-full px-2 py-0.5">YENİ</span> : undefined}
+                        onClick={() => setMenuOpen(false)}
+                      />
+                    )}
                     <MenuLink to="/yardim" icon="yardim" label="Yardım Merkezi" onClick={() => setMenuOpen(false)} />
                     <MenuLink
                       to="/yama-notlari"
