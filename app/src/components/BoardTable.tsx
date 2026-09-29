@@ -725,10 +725,11 @@ const BoardTable = forwardRef<
 
   async function handleRefreshClick(rowId: string) {
     setRefreshingRowIds((s) => new Set(s).add(rowId))
-    let ok = false
+    // 'none': "Hangisi?" penceresinde vazgeçildi — satır parlamasın
+    let ok: boolean | 'none' = false
     try {
       const result = await onFetchTmdb(rowId)
-      ok = Boolean(result)
+      ok = result ? true : 'none'
       if (result) {
         const parts: string[] = []
         if (result.filled.length > 0) parts.push(`dolduruldu: ${result.filled.join(', ')}`)
@@ -745,7 +746,7 @@ const BoardTable = forwardRef<
         return next
       })
       const n = ++flashN.current
-      setDoneRow({ id: rowId, ok, n })
+      if (ok !== 'none') setDoneRow({ id: rowId, ok, n })
       setTimeout(() => setDoneRow((d) => (d && d.n === n ? null : d)), 1400)
     }
   }

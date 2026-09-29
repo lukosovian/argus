@@ -1706,6 +1706,52 @@ export function UygulamaAyarVisual() {
   )
 }
 
+// "Hangisi?" penceresi: TMDB'de aynı adlı birden fazla yapım — afiş, ad, yıl, Film/Dizi, "adı tutuyor".
+export function HangisiVisual() {
+  const items: [string, string, string, boolean][] = [
+    ['Joker', '2019', 'Film', true],
+    ['Joker', '2012', 'Film', true],
+    ['Joker', '2021', 'Dizi', true],
+    ['Joker: Folie à Deux', '2024', 'Film', false],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={40} y={8} w={240} h={164} r={8} strong />
+      <Label x={52} y={24} size={9}>
+        Hangisi?
+      </Label>
+      <Line x={52} y={31} w={150} light />
+      {items.map(([t, y, k, exact], i) => {
+        const top = 38 + i * 32
+        return (
+          <g key={i}>
+            <rect x={50} y={top} width={220} height={28} rx={5} fill="none" stroke={i === 0 ? ACCENT : undefined} strokeOpacity={i === 0 ? 0.8 : 1} className={i === 0 ? undefined : 'stroke-neutral-700'} strokeWidth={0.7} />
+            <rect x={55} y={top + 3} width={15} height={22} rx={2} className="fill-neutral-700" />
+            <text x={76} y={top + 12} fontSize={6.6} className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
+              {t}
+            </text>
+            <text x={76 + t.length * 3.4 + 4} y={top + 12} fontSize={5.4} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+              {y} · {k}
+            </text>
+            {exact && (
+              <g>
+                <rect x={214} y={top + 5} width={48} height={10} rx={2} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} strokeWidth={0.5} />
+                <text x={238} y={top + 12} fontSize={5} textAnchor="middle" fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
+                  adı tutuyor
+                </text>
+              </g>
+            )}
+            <Line x={76} y={top + 20} w={110} light />
+          </g>
+        )
+      })}
+      <Pin x={34} y={12} n={1} />
+      <Pin x={276} y={44} n={2} />
+      <Pin x={34} y={46} n={3} />
+    </Frame>
+  )
+}
+
 // Tabloda Güncelle'ye basılan satırın üstünden geçen mavi ışık hüzmesi; altta bitmiş, parlayan satır.
 export function SatirGuncelleVisual() {
   const rows = ['Artemis Fowl', 'Düşler Fabrikası', 'Snowpiercer', 'Narnia Günlükleri', 'Hayaller Diyarı']

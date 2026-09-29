@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
-import { api } from '../lib/api'
+import { api, type TmdbChoice } from '../lib/api'
+import TmdbChoiceModal from '../components/TmdbChoiceModal'
 import {
   emptyRow,
   makeId,
@@ -1019,6 +1020,8 @@ export default function BoardView() {
   // hesaplanabiliyor, üçüncü liste (bozuk dosya bağlantıları) modalın kendisi açılınca
   // ayrıca sunucudan çekiliyor (bkz. HealthCheckModal.tsx).
   const [healthOpen, setHealthOpen] = useState(false)
+  // Güncelle'de birden fazla TMDB adayı çıkınca açılan "Hangisi?" penceresi (bkz. fetchTmdb).
+  const [tmdbChoice, setTmdbChoice] = useState<{ query: string; choices: TmdbChoice[]; resolve: (c: TmdbChoice | null) => void } | null>(null)
   // Mükerrer olabilecek kayıtlar — tabloda altı noktanın yerinde kırmızı nokta. Kayıtlar değişince
   // (biraz bekleyip, her tuşta değil) sunucudan yeniden sorulur.
   const [duplicateRowIds, setDuplicateRowIds] = useState<Set<string>>(new Set())
@@ -1387,7 +1390,21 @@ export default function BoardView() {
   // buradaki state'i tazeler.
   async function fetchTmdb(rowId: string) {
     if (!board) return
-    const result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields], tmdbOverwriteExisting)
+    let result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields], tmdbOverwriteExisting, { ask: true })
+    // TMDB'de kesin tek eşleşme yoksa aday listesi geldi: kullanıcı seçene kadar bekle (satırdaki ışık
+    // hüzmesi bu sırada sürüyor), vazgeçerse hiçbir şey değişmez.
+    if (result.choose) {
+      const choices = result.choose
+      const row = rows.find((r) => r.id === rowId)
+      const origProp = resolveRole(board, 'orjinalAdi')
+      const query = String((row && (row.values[board.titlePropertyId] || (origProp && row.values[origProp.id]))) || '')
+      const picked = await new Promise<TmdbChoice | null>((resolve) => setTmdbChoice({ query, choices, resolve }))
+      setTmdbChoice(null)
+      if (!picked) return undefined
+      result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields], tmdbOverwriteExisting, {
+        forced: { tmdbId: picked.tmdbId, mediaType: picked.mediaType },
+      })
+    }
     await Promise.all([reloadBoard(), reloadRows()])
     if (result.duplicateOf) {
       notify(`Bu içerik arşivde zaten var: "${result.duplicateOf.title}" — mükerrer olabilir, Sağlık Kontrolü'nden birleştirebilirsin.`, 'danger')
@@ -1742,6 +1759,14 @@ export default function BoardView() {
         />
       )}
       {!rowsLoading && <ScrollEndsButtons />}
+      {tmdbChoice && (
+        <TmdbChoiceModal
+          query={tmdbChoice.query}
+          choices={tmdbChoice.choices}
+          onPick={(c) => tmdbChoice.resolve(c)}
+          onCancel={() => tmdbChoice.resolve(null)}
+        />
+      )}
 
       {!rowsLoading && filteredRows.length !== rows.length && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-sm text-neutral-500">

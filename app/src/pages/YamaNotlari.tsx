@@ -46,6 +46,7 @@ import {
   TabloMukerrerVisual,
   SatirTasiVisual,
   SatirGuncelleVisual,
+  HangisiVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -60,6 +61,17 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11.7',
+    date: '29 Eylül 2026',
+    title: 'Güncelle, TMDB\'de birden fazla yapım çıkınca hangisi olduğunu soruyor',
+    visuals: [{ caption: '1 aynı adlı birden fazla yapım çıkınca liste açılır · 2 adı yazdığınla birebir tutanlar üstte · 3 doğrusuna tıkla, bilgiler ondan gelsin', Visual: HangisiVisual }],
+    items: [
+      'Tabloda ya da detay penceresinde Güncelle\'ye basınca TMDB\'de adı tutan birden fazla yapım çıkarsa (ör. "Joker" 2019 filmi, 2012 filmi, 2021 dizisi…) artık kendisi birini seçmiyor: "Hangisi?" penceresi açılıyor, afişi, yılı, Film/Dizi olduğu ve kısa özetiyle listeliyor, sen doğrusunu seçiyorsun. Adı yazdığınla birebir tutanlar üstte ve "adı tutuyor" etiketli.',
+      'Tek bir kesin eşleşme varsa sormadan dolduruyor. Kategori\'si (Film/Dizi) ya da vizyon yılı dolu kayıtlarda aday ona göre daraltılıyor, çoğu zaman sormaya gerek kalmıyor. Daha önce bir yapıma bağlanmış kayıtlar da sormadan aynı yapımdan güncelleniyor.',
+      'Pencerede vazgeçersen hiçbir şey değişmiyor. Genel Güncelleme (bütün arşiv) yine sormadan kendisi seçiyor, yoksa yüzlerce kez sorardı.',
+    ],
+  },
   {
     version: 'v1.11.6',
     date: '29 Eylül 2026',
