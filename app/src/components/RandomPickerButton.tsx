@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import type { Board, Row } from '../types'
 import { rowsForFilter, shuffle } from '../lib/rowMeta'
@@ -143,6 +143,14 @@ export default function RandomPickerButton() {
   // hepsini aynı anda indirip çözmeye çalışıp ana iş parçacığını tıkamasını (kullanıcının
   // bildirdiği donma) önlüyor — indirme/çözme işi doğal olarak zamana yayılıyor.
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
+
+  // Uygulamanın tepsi menüsündeki "Ne İzlesem?" (bkz. desktop/main.cjs openInApp)
+  const clickRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    const open = () => clickRef.current()
+    window.addEventListener('argus-ne-izlesem', open)
+    return () => window.removeEventListener('argus-ne-izlesem', open)
+  }, [])
 
   async function handleClick(again = false) {
     if (loading || (phase !== 'idle' && !again)) return
@@ -381,6 +389,10 @@ export default function RandomPickerButton() {
 
   const captionText =
     phase === 'entering' ? 'Karıştırılıyor...' : phase === 'eliminating' ? 'Eleniyor...' : phase === 'growing' ? 'Bu nasıl?' : ''
+
+  clickRef.current = () => {
+    void handleClick()
+  }
 
   return (
     <>

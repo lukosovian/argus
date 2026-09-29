@@ -17,18 +17,29 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 
 static class Program
 {
+    // Görev çubuğunda uygulamayla (Electron penceresi, appId ARGUS) aynı grupta dursun; sabitlenen ARGUS simgesine
+    // basınca açılış penceresi de o simgenin altında görünür
+    [System.Runtime.InteropServices.DllImport("shell32.dll")]
+    static extern int SetCurrentProcessExplicitAppUserModelID([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string id);
+
     public static string Root, App, StatusFile;
 
     [STAThread]
     static void Main(string[] args)
     {
+        try { SetCurrentProcessExplicitAppUserModelID("ARGUS"); } catch { }
         bool guncelleme = Array.IndexOf(args, "--guncelleme") >= 0;
+        // --arka-plan: bilgisayar açılırken (Ayarlar › Uygulama Ayarları › tepside başla) — açılış penceresi yok
+        bool arkaPlan = Array.IndexOf(args, "--arka-plan") >= 0;
         bool created;
         using (var mutex = new Mutex(true, "ARGUS_Baslatici", out created))
         {
@@ -38,11 +49,13 @@ static class Program
             App = Path.Combine(Root, "app");
             StatusFile = Path.Combine(Path.GetTempPath(), "argus-durum.txt");
             try { Duzenle(); } catch { }
+            try { BaslatMenusu.Hazirla(Root); } catch { }
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
             bool zatenAcik = !guncelleme && PortAcik(150);
+            if (arkaPlan && zatenAcik) return;
             if (zatenAcik)
             {
                 string exe = Path.Combine(App, @"node_modules\electron\dist\electron.exe");
@@ -56,17 +69,70 @@ static class Program
             else
             {
                 try { File.WriteAllText(StatusFile, guncelleme ? "guncelleme" : "update"); } catch { }
+                // Ayarlar › Uygulama Ayarları › Güncellemeler "Önce sor": yeni sürüm varsa sor; atlanırsa bu
+                // açılışta ARGUS.bat'ın git komutları geçersiz bir GIT_DIR ile çalışıp hiçbir şey çekmez (ARGUS.bat
+                // :check_node'da GIT_DIR'i temizler, uygulama içindeki "Şimdi Güncelle" etkilenmez).
+                bool atla = false;
+                if (!guncelleme && GuncellemeTercihi() == "sor")
+                {
+                    if (arkaPlan) atla = true; // bilgisayar açılırken soru penceresi çıkmasın
+                    else if (YeniSurumVar())
+                    {
+                        var soru = new Soru();
+                        Application.Run(soru);
+                        atla = !soru.Guncelle;
+                    }
+                }
                 var psi = new ProcessStartInfo("cmd.exe", "/c \"\"" + Path.Combine(Root, "ARGUS.bat") + "\"\"");
                 psi.WorkingDirectory = Root;
                 psi.UseShellExecute = false;
                 psi.CreateNoWindow = true;
                 psi.EnvironmentVariables["ARGUS_STATUS_FILE"] = StatusFile;
                 if (guncelleme) psi.EnvironmentVariables["ARGUS_NO_BROWSER"] = "1";
+                if (arkaPlan) psi.EnvironmentVariables["ARGUS_ARKA_PLAN"] = "1";
+                if (atla) psi.EnvironmentVariables["GIT_DIR"] = Path.Combine(Root, ".guncelleme-atlandi");
                 try { Process.Start(psi); }
                 catch (Exception e) { MessageBox.Show("ARGUS başlatılamadı: " + e.Message, "ARGUS"); return; }
             }
+            if (arkaPlan) return;
             Application.Run(new Splash(guncelleme, zatenAcik));
         }
+    }
+
+    // %APPDATA%\ARGUS\ayarlar.json'daki "guncelleme" ('otomatik' | 'sor'), bkz. app\desktop\main.cjs
+    static string GuncellemeTercihi()
+    {
+        try
+        {
+            string f = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ARGUS"), "ayarlar.json");
+            var m = Regex.Match(File.ReadAllText(f), "\"guncelleme\"\\s*:\\s*\"(\\w+)\"");
+            return m.Success ? m.Groups[1].Value : "otomatik";
+        }
+        catch { return "otomatik"; }
+    }
+
+    static string Git(string args, int ms)
+    {
+        try
+        {
+            var p = new ProcessStartInfo("git", args) { WorkingDirectory = Root, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            using (var pr = Process.Start(p))
+            {
+                string o = pr.StandardOutput.ReadToEnd();
+                if (!pr.WaitForExit(ms)) { try { pr.Kill(); } catch { } return null; }
+                return pr.ExitCode == 0 ? o : null;
+            }
+        }
+        catch { return null; }
+    }
+
+    static bool YeniSurumVar()
+    {
+        if (!Directory.Exists(Path.Combine(Root, ".git"))) return false;
+        if (Git("fetch --quiet origin", 20000) == null) return false;
+        string n = Git("rev-list --count HEAD..@{u}", 5000);
+        int k;
+        return n != null && int.TryParse(n.Trim(), out k) && k > 0;
     }
 
     public static bool PortAcik(int ms)
@@ -286,3 +352,170 @@ class Splash : Form
     }
 }
 
+
+// Başlat menüsünde "ARGUS" kısayolu, ARGUS kimliğiyle (AppUserModelID = "ARGUS"). Kullanıcı "görev çubuğuna
+// sabitle deyince uygulamayı değil Electron'u sabitliyor" dedi: Windows, sabitlenen pencerenin kimliğiyle (ARGUS
+// penceresi de "ARGUS" kimliğini taşıyor, bkz. app\desktop\main.cjs) eşleşen Başlat menüsü kısayolunu sabitliyor —
+// adı, simgesi ve tıklanınca açılan program (ARGUS.exe) buradan geliyor. Ayrıca ARGUS Başlat menüsünde aranabiliyor.
+static class BaslatMenusu
+{
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+    class CShellLink { }
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
+    interface IShellLinkW
+    {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch, IntPtr pfd, uint fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cch);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cch);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cch);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+        void GetHotkey(out short pwHotkey);
+        void SetHotkey(short wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cch, out int piIcon);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, uint dwReserved);
+        void Resolve(IntPtr hwnd, uint fFlags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    struct PropertyKey { public Guid fmtid; public uint pid; }
+
+    [StructLayout(LayoutKind.Explicit)]
+    struct PropVariant { [FieldOffset(0)] public ushort vt; [FieldOffset(8)] public IntPtr p; }
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99")]
+    interface IPropertyStore
+    {
+        void GetCount(out uint cProps);
+        void GetAt(uint iProp, out PropertyKey pkey);
+        void GetValue(ref PropertyKey key, out PropVariant pv);
+        void SetValue(ref PropertyKey key, ref PropVariant pv);
+        void Commit();
+    }
+
+    public static void Hazirla(string root)
+    {
+        string exe = Path.Combine(root, "ARGUS.exe");
+        string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "");
+        string lnk = Path.Combine(dir, "ARGUS.lnk");
+        // Zaten doğru hedefi gösteren bir kısayol varsa dokunma
+        if (File.Exists(lnk))
+        {
+            var mevcut = (IShellLinkW)new CShellLink();
+            ((IPersistFile)mevcut).Load(lnk, 0);
+            var sb = new StringBuilder(520);
+            mevcut.GetPath(sb, sb.Capacity, IntPtr.Zero, 0);
+            if (string.Equals(sb.ToString(), exe, StringComparison.OrdinalIgnoreCase)) return;
+        }
+        var link = (IShellLinkW)new CShellLink();
+        link.SetPath(exe);
+        link.SetWorkingDirectory(root);
+        link.SetIconLocation(exe, 0);
+        link.SetDescription("ARGUS");
+        var store = (IPropertyStore)link;
+        var key = new PropertyKey { fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), pid = 5 }; // System.AppUserModel.ID
+        var pv = new PropVariant { vt = 31, p = Marshal.StringToCoTaskMemUni("ARGUS") }; // VT_LPWSTR
+        try
+        {
+            store.SetValue(ref key, ref pv);
+            store.Commit();
+        }
+        finally { Marshal.FreeCoTaskMem(pv.p); }
+        ((IPersistFile)link).Save(lnk, true);
+    }
+}
+
+// "Önce sor" seçiliyken yeni sürüm varsa açılışta çıkan küçük soru penceresi (açılış penceresiyle aynı görünüm)
+class Soru : Form
+{
+    public bool Guncelle;
+    const int W = 440, H = 250;
+    Image logo;
+
+    public Soru()
+    {
+        FormBorderStyle = FormBorderStyle.None;
+        StartPosition = FormStartPosition.CenterScreen;
+        ClientSize = new Size(W, H);
+        BackColor = Color.FromArgb(11, 11, 14);
+        ShowInTaskbar = true;
+        TopMost = true;
+        Text = "ARGUS";
+        DoubleBuffered = true;
+        KeyPreview = true;
+        try { Icon = new Icon(Path.Combine(Program.App, @"public\argus.ico")); } catch { }
+        try { logo = Image.FromFile(Path.Combine(Program.App, @"public\logoblue.png")); } catch { }
+        var path = new GraphicsPath();
+        int r = 26;
+        path.AddArc(0, 0, r, r, 180, 90);
+        path.AddArc(W - r, 0, r, r, 270, 90);
+        path.AddArc(W - r, H - r, r, r, 0, 90);
+        path.AddArc(0, H - r, r, r, 90, 90);
+        path.CloseFigure();
+        Region = new Region(path);
+        var guncelle = Dugme("Güncelle", true, new Rectangle(W / 2 + 6, 176, 150, 38));
+        guncelle.Click += (s, e) => { Guncelle = true; Close(); };
+        var atla = Dugme("Şimdilik atla", false, new Rectangle(W / 2 - 156, 176, 150, 38));
+        atla.Click += (s, e) => { Guncelle = false; Close(); };
+        Controls.Add(guncelle);
+        Controls.Add(atla);
+        AcceptButton = guncelle;
+        KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) { Guncelle = false; Close(); } };
+        Shown += (s, e) => { WindowState = FormWindowState.Normal; Activate(); guncelle.Focus(); };
+    }
+
+    static Button Dugme(string text, bool accent, Rectangle b)
+    {
+        var btn = new Button { Text = text, Bounds = b, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+        btn.FlatAppearance.BorderSize = 1;
+        if (accent)
+        {
+            btn.BackColor = Color.FromArgb(0, 128, 230);
+            btn.ForeColor = Color.White;
+            btn.FlatAppearance.BorderColor = Color.FromArgb(0, 192, 250);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(0, 150, 245);
+        }
+        else
+        {
+            btn.BackColor = Color.FromArgb(24, 24, 28);
+            btn.ForeColor = Color.FromArgb(210, 210, 215);
+            btn.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 68);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(38, 38, 44);
+        }
+        return btn;
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        using (var glow = new GraphicsPath())
+        {
+            glow.AddEllipse(-120, -170, W + 240, 340);
+            using (var pb = new PathGradientBrush(glow))
+            {
+                pb.CenterColor = Color.FromArgb(70, 0, 110, 200);
+                pb.SurroundColors = new[] { Color.FromArgb(0, 0, 0, 0) };
+                g.FillPath(pb, glow);
+            }
+        }
+        if (logo != null) g.DrawImage(logo, (W - 60) / 2, 28, 60, 60);
+        var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        using (var f = new Font("Segoe UI", 14, FontStyle.Bold))
+            g.DrawString("ARGUS'un yeni bir sürümü var", f, Brushes.White, new RectangleF(0, 100, W, 30), center);
+        using (var f = new Font("Segoe UI", 9.5f))
+        using (var b = new SolidBrush(Color.FromArgb(165, 165, 175)))
+            g.DrawString("Şimdi güncelleyebilir ya da bu sefer atlayabilirsin. Yenilikleri Yama Notları'nda görürsün.", f, b, new RectangleF(30, 128, W - 60, 40), center);
+        using (var pen = new Pen(Color.FromArgb(40, 255, 255, 255)))
+            g.DrawRectangle(pen, 0, 0, W - 1, H - 1);
+    }
+}

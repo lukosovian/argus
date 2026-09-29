@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import '../lib/desktopApp'
 import type { Profile } from '../types'
 import { api, setApiProfileId } from '../lib/api'
 
@@ -56,6 +57,11 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
   // id'siyle isteği atmış olabilirdi. Bu satır React state'ini değil, sadece api.ts'nin
   // içindeki modül-seviyesi bir değişkeni günceller; render çıktısını etkilemez.
   setApiProfileId(activeProfileId)
+
+  // ARGUS uygulamasına seçili profili bildir (Windows bildirimleri o profilin haberlerinden çıkar)
+  useEffect(() => {
+    if (activeProfileId) window.argusApp?.reportProfile?.(activeProfileId)
+  }, [activeProfileId])
 
   function setActiveProfileId(id: string | null) {
     setActiveProfileIdState(id)

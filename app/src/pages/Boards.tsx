@@ -4,8 +4,9 @@ import { BRAND_GRADIENT } from '../lib/theme'
 import ArchivesPanel from '../components/settings/ArchivesPanel'
 import HomeSettingsPanel from '../components/settings/HomeSettingsPanel'
 import ProfileSettingsPanel from '../components/settings/ProfileSettingsPanel'
+import AppSettingsPanel from '../components/settings/AppSettingsPanel'
 
-type Tab = 'veritabani' | 'ana-sayfa' | 'profil'
+type Tab = 'veritabani' | 'ana-sayfa' | 'uygulama' | 'profil'
 
 function DatabaseIcon() {
   return (
@@ -59,9 +60,19 @@ function UserIcon() {
   )
 }
 
+function MonitorIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+    </svg>
+  )
+}
+
 const TABS: { key: Tab; label: string; hint: string; icon: ComponentType }[] = [
   { key: 'veritabani', label: 'Veritabanı', hint: 'Arşivler, şablonlar, içe aktarma, API', icon: DatabaseIcon },
   { key: 'ana-sayfa', label: 'Ana Sayfa Ayarları', hint: 'Görünüm, sayfalar, modlar, Ne İzlesem', icon: HomeGearIcon },
+  { key: 'uygulama', label: 'Uygulama Ayarları', hint: 'Başlangıç, kapatma, tepsi', icon: MonitorIcon },
   { key: 'profil', label: 'Profil Ayarları', hint: 'Profil ekle, düzenle, değiştir', icon: UserIcon },
 ]
 
@@ -94,7 +105,7 @@ export default function Boards() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-neutral-50 tracking-tight">Ayarlar</h1>
-        <p className="text-sm text-neutral-500 mt-1">Arşivlerini, ana sayfanı ve profillerini buradan yönet.</p>
+        <p className="text-sm text-neutral-500 mt-1">Arşivlerini, ana sayfanı, uygulamayı ve profillerini buradan yönet.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-5 md:gap-8 items-stretch md:items-start">
@@ -136,6 +147,7 @@ export default function Boards() {
         <div className="flex-1 min-w-0 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-4 sm:p-6 md:p-7">
           {tab === 'veritabani' && <ArchivesPanel />}
           {tab === 'ana-sayfa' && <HomeSettingsPanel />}
+          {tab === 'uygulama' && <AppSettingsPanel />}
           {tab === 'profil' && <ProfileSettingsPanel />}
         </div>
       </div>

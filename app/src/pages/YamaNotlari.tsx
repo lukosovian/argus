@@ -41,6 +41,7 @@ import {
   IlerlemeVisual,
   TarihSeciciVisual,
   AcilisVisual,
+  UygulamaAyarVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -55,6 +56,21 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11.2',
+    date: '29 Eylül 2026',
+    title: 'Uygulama Ayarları (açılış, tepsi, Windows bildirimleri, yazı boyutu, kısayol, güncelleme tercihi), kendi başlık çubuğu, görev çubuğuna sabitleme, fragman düzeltmesi',
+    visuals: [{ caption: '1 Ayarlar › Uygulama Ayarları · 2 bilgisayar açılınca başlat, istersen pencere açmadan tepside · 3 × ARGUS\'u kapatmak yerine tepsiye küçültsün', Visual: UygulamaAyarVisual }],
+    items: [
+      'Yeni: Ayarlar › Uygulama Ayarları. "Bilgisayar açılınca ARGUS\'u da aç" ile Windows açılırken ARGUS da başlıyor; istersen "Pencereyi açmadan, tepside başlasın" ile pencere açılmadan saatin yanındaki simgelerde bekliyor.',
+      '"Kapatınca tepsiye küçült" açıksa × ARGUS\'u kapatmıyor, saatin yanındaki simgelere küçültüyor; ARGUS arkada çalışmaya devam ediyor (otomatik yedekleme, yeni bölüm kontrolleri pencere kapalıyken de sürüyor). Simgeye tıklayınca açılıyor, sağ tıklayıp "ARGUS\'u kapat" ile tamamen kapanıyor.',
+      'Uygulama Ayarları\'nda ayrıca: yeni bölüm ve sezon haberlerini Windows bildirimi olarak gösterme (ARGUS tepsideyken bile; tıklayınca o dizinin detayı açılıyor), yazı ve arayüz boyutu (%90 / %100 / %110 / %125 — Ctrl + / Ctrl − ile de, kalıcı), hep büyütülmüş pencereyle açılma, Ctrl + Alt + A ile ARGUS\'u her yerden öne getirme ve güncellemeler için "Kendiliğinden güncelle" ya da "Önce sor" (açılışta "Güncelle / Şimdilik atla" diye sorar).',
+      'Tepsideki ARGUS simgesine sağ tıklayınca "Ne İzlesem?", "Takvim" ve "Bugün izlediğimi ekle" kısayolları var.',
+      'Düzeltme: ARGUS penceresi büyütülünce (tam ekran yapılınca) oynayan fragman eski boyutunda kalıyor, arkasından yatay görsel görünüyordu; artık fragman da pencereyle birlikte büyüyüp küçülüyor.',
+      'Görev çubuğuna sabitlerken artık "Electron" değil ARGUS sabitleniyor (ARGUS adı ve logosuyla; tıklayınca ARGUS açılıyor). Daha önce Electron diye sabitlediysen onu kaldırıp ARGUS açıkken yeniden sabitle. ARGUS artık Başlat menüsünde de var — "ARGUS" diye aratabilirsin.',
+      "ARGUS penceresinin en üstündeki çubuk artık ARGUS'un kendisi: biraz daha kalın, solda logo ve sadece \"ARGUS\" yazıyor (\"ARGUS — Medya Arşivi\" gibi sayfa adları yazmıyor), ARGUS'un koyu renginde. Tutup sürükleyerek taşıyabilir, çift tıklayıp büyütebilirsin; küçült / büyüt / kapat düğmeleri yine sağda.",
+    ],
+  },
   {
     version: 'v1.11.1',
     date: '29 Eylül 2026',
