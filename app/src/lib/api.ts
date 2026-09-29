@@ -176,9 +176,11 @@ export const api = {
   clearColumn: (boardId: string, propertyId: string) =>
     request<{ ok: true; count: number }>(profilePath(`/boards/${boardId}/clear-column/${propertyId}`), { method: 'POST' }),
   getBoardHealth: (boardId: string) =>
-    request<{ brokenImages: { rowId: string; propertyId: string; propertyName: string; value: string }[] }>(
+    request<{ brokenImages: { rowId: string; propertyId: string; propertyName: string; value: string }[]; duplicates: { rowIds: string[] }[] }>(
       profilePath(`/boards/${boardId}/health`),
     ),
+  mergeRows: (boardId: string, keepId: string, removeIds: string[]) =>
+    request<{ ok: true; movedFields: string[] }>(profilePath(`/boards/${boardId}/merge-rows`), { method: 'POST', ...json({ keepId, removeIds }) }),
 
   // Profillerin kendisi (isim/fotoğraf) profile-scoped DEĞİL — hepsi ortak, aktif profil
   // seçilmeden de listelenebilmesi/oluşturulabilmesi gerekiyor (kim izliyor ekranı için).
@@ -226,7 +228,7 @@ export const api = {
   clearNotifications: () => request<{ ok: true }>(profilePath('/notifications'), { method: 'DELETE' }),
   getShowStatus: () => request<Record<string, ShowInfo>>(profilePath('/show-status')),
   fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false) =>
-    request<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number }>(
+    request<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number; duplicateOf?: { rowId: string; title: string } | null }>(
       profilePath(`/fetch-tmdb/${boardId}/${rowId}`),
       { method: 'POST', ...json({ exclude, overwrite }) },
     ),

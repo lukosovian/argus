@@ -4,6 +4,8 @@ import { titleText } from '../types'
 import { api } from '../lib/api'
 import { BRAND_GRADIENT } from '../lib/theme'
 import { HealthIcon } from './toolbarIcons'
+import { resolveRole } from '../lib/roles'
+import { useToast } from '../hooks/useToast'
 
 const MAX_SHOWN = 40
 
@@ -24,6 +26,8 @@ export default function HealthCheckModal({
   onUnignore,
   onResetIgnored,
   onOpenRow,
+  onMerge,
+  onIgnoreDuplicate,
   onClose,
 }: {
   board: Board
@@ -42,10 +46,17 @@ export default function HealthCheckModal({
   onUnignore: (pairs: { rowId: string; propertyId: string }[]) => void
   onResetIgnored: () => void
   onOpenRow: (row: Row) => void
+  // Mükerrer kayıtlar: `keepId` kalır, diğerlerinin dolu alanları ona aktarılıp silinir (sunucuda).
+  onMerge: (keepId: string, removeIds: string[]) => Promise<void>
+  // "Bunlar farklı" — bu grup bir daha mükerrer diye gösterilmez (board.duplicateIgnore).
+  onIgnoreDuplicate: (rowIds: string[]) => void
   onClose: () => void
 }) {
   const [brokenLoading, setBrokenLoading] = useState(true)
   const [brokenImages, setBrokenImages] = useState<{ rowId: string; propertyName: string; value: string }[]>([])
+  const [duplicates, setDuplicates] = useState<string[][]>([])
+  const [merging, setMerging] = useState(false)
+  const { confirm } = useToast()
 
   useEffect(() => {
     let cancelled = false
@@ -53,7 +64,10 @@ export default function HealthCheckModal({
     api
       .getBoardHealth(board.id)
       .then((res) => {
-        if (!cancelled) setBrokenImages(res.brokenImages)
+        if (!cancelled) {
+          setBrokenImages(res.brokenImages)
+          setDuplicates((res.duplicates ?? []).map((g) => g.rowIds))
+        }
       })
       .catch(() => {
         if (!cancelled) setBrokenImages([])
@@ -107,6 +121,73 @@ export default function HealthCheckModal({
   const [ignoredFilter, setIgnoredFilter] = useState<string | null>(null)
   const ignoredProps = [...new Map(ignoredPairs.map((x) => [x.prop.id, x.prop])).values()]
   const shownIgnored = ignoredFilter ? ignoredPairs.filter((x) => x.prop.id === ignoredFilter) : ignoredPairs
+  function filledCount(row: Row): number {
+    return board.properties.filter((p) => {
+      const v = row.values[p.id]
+      return !(v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0))
+    }).length
+  }
+  // Mükerrer gruplar — silinmiş kayıtlar düşülür; her grupta en çok alanı dolu olan önce (o kalır).
+  const dupGroups = duplicates
+    .map((ids) => ids.map(rowById).filter((r): r is Row => Boolean(r)))
+    .filter((g) => g.length > 1)
+    .map((g) => [...g].sort((a, b) => filledCount(b) - filledCount(a) || a.createdAt - b.createdAt))
+  const dupRowCount = dupGroups.reduce((n, g) => n + g.length - 1, 0)
+
+  // Grupları ayırt etmeye yarayan kısa özet: "Film · 2019 · İzlendi · 2 izleme · puanlı · 14 alan dolu".
+  function rowSummary(row: Row): string {
+    const parts: string[] = []
+    for (const key of ['kategori', 'vizyon', 'durum'] as const) {
+      const p = resolveRole(board, key)
+      const v = p ? row.values[p.id] : null
+      if (!p || !v) continue
+      if (key === 'vizyon') parts.push(String(v).slice(0, 4))
+      else parts.push(titleText(p, v))
+    }
+    const dates = resolveRole(board, 'izlemeTarihi')
+    const dv = dates ? row.values[dates.id] : null
+    const n = Array.isArray(dv) ? dv.length : dv ? 1 : 0
+    if (n > 0) parts.push(`${n} izleme`)
+    const puan = resolveRole(board, 'puan')
+    const pv = puan ? row.values[puan.id] : null
+    if (pv && typeof pv === 'object' && Object.keys(pv).length > 0) parts.push('puanlı')
+    parts.push(`${filledCount(row)} alan dolu`)
+    return parts.filter(Boolean).join(' · ')
+  }
+
+  async function merge(keep: Row, group: Row[]) {
+    setMerging(true)
+    try {
+      await onMerge(
+        keep.id,
+        group.filter((r) => r.id !== keep.id).map((r) => r.id),
+      )
+      setDuplicates((prev) => prev.filter((ids) => !ids.includes(keep.id)))
+    } finally {
+      setMerging(false)
+    }
+  }
+
+  async function mergeAll() {
+    const ok = await confirm({
+      message: `${dupGroups.length} grupta bilgisi az olan ${dupRowCount} kayıt silinecek; dolu alanları (izleme tarihleri, puan...) kalan kayda aktarılacak. Devam edilsin mi?`,
+      confirmLabel: 'Hepsini birleştir',
+    })
+    if (!ok) return
+    setMerging(true)
+    try {
+      for (const g of dupGroups) {
+        await onMerge(
+          g[0].id,
+          g.slice(1).map((r) => r.id),
+        )
+      }
+      setDuplicates([])
+    } finally {
+      setMerging(false)
+    }
+  }
+
   const ignoredByRow = new Map<string, { row: Row; props: PropertyDef[] }>()
   for (const x of shownIgnored) {
     const e = ignoredByRow.get(x.row.id)
@@ -137,7 +218,7 @@ export default function HealthCheckModal({
         </p>
         {(() => {
           // Özet: en az bir sorunu olan kayıt sayısı (aynı kayıt iki listede olsa da bir kez sayılır).
-          const problem = new Set([...missingImageRows, ...incompleteRows].map((r) => r.id)).size
+          const problem = new Set([...missingImageRows, ...incompleteRows, ...dupGroups.flatMap((g) => g.slice(1))].map((r) => r.id)).size
           const healthy = rows.length ? Math.round(((rows.length - problem) / rows.length) * 100) : 100
           return (
             <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 mb-5">
@@ -155,6 +236,20 @@ export default function HealthCheckModal({
         })()}
 
         <div className="space-y-3">
+          <DuplicateSection
+            groups={dupGroups}
+            loading={brokenLoading}
+            busy={merging}
+            rowTitle={rowTitle}
+            rowSummary={rowSummary}
+            onOpenRow={onOpenRow}
+            onMerge={merge}
+            onMergeAll={mergeAll}
+            onIgnore={(g) => {
+              onIgnoreDuplicate(g.map((r) => r.id))
+              setDuplicates((prev) => prev.filter((ids) => !ids.includes(g[0].id)))
+            }}
+          />
           <HealthSection
             title="Hiç görseli olmayan kayıtlar"
             hint="Hiçbir görsel sütununda (Poster, Banner, Kapak Adı...) değeri yok."
@@ -272,6 +367,117 @@ export default function HealthCheckModal({
           />
         </div>
       </div>
+    </div>
+  )
+}
+
+// Mükerrer kayıtlar — gruplar halinde (aynı içerik iki-üç kez eklenmiş). Her grupta en çok alanı dolu olan
+// üstte ve "kalır" işaretli; "Birleştir" diğerlerinin dolu alanlarını ona aktarıp onları siler. Başka bir
+// kaydın kalmasını istersen o satırdaki "Bu kalsın". Aynı adlı ama gerçekten farklı yapımlar için "Bunlar farklı".
+function DuplicateSection({
+  groups,
+  loading,
+  busy,
+  rowTitle,
+  rowSummary,
+  onOpenRow,
+  onMerge,
+  onMergeAll,
+  onIgnore,
+}: {
+  groups: Row[][]
+  loading: boolean
+  busy: boolean
+  rowTitle: (row: Row) => string
+  rowSummary: (row: Row) => string
+  onOpenRow: (row: Row) => void
+  onMerge: (keep: Row, group: Row[]) => void
+  onMergeAll: () => void
+  onIgnore: (group: Row[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const count = groups.length
+  return (
+    <div className="border border-neutral-800 rounded-xl">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={loading || count === 0}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left disabled:cursor-default"
+      >
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-50">Mükerrer kayıtlar</h3>
+          <p className="text-xs text-neutral-500 mt-0.5">Aynı içerik birden fazla kez eklenmiş (aynı TMDB yapımı ya da aynı Türkçe/orijinal ad).</p>
+        </div>
+        <span
+          className={`shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 ${
+            loading ? 'text-neutral-500' : count === 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'
+          }`}
+        >
+          {loading ? 'Kontrol ediliyor...' : count === 0 ? 'Sorun yok' : `${count} grup ${open ? '▴' : '▾'}`}
+        </span>
+      </button>
+      {open && count > 0 && (
+        <div className="px-4 pb-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-neutral-500">
+              "Birleştir": en dolu kayıt kalır, diğerlerinin dolu alanları (izleme tarihleri, puan, bölüm işaretleri...) ona aktarılıp silinir.
+            </p>
+            {count > 1 && (
+              <button
+                onClick={onMergeAll}
+                disabled={busy}
+                className="text-xs rounded-full px-2.5 py-1 border border-dashed border-neutral-600 text-neutral-300 hover:text-neutral-50 hover:border-neutral-400 transition disabled:opacity-50"
+              >
+                Hepsini birleştir ({count} grup)
+              </button>
+            )}
+          </div>
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+            {groups.map((g) => (
+              <div key={g.map((r) => r.id).join('|')} className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-2">
+                <ul className="space-y-0.5">
+                  {g.map((row, i) => (
+                    <li key={row.id} className="flex items-center gap-3 rounded-md hover:bg-neutral-800 px-2 py-1 transition">
+                      <button onClick={() => onOpenRow(row)} className="flex-1 min-w-0 text-left py-0.5">
+                        <span className="block text-sm text-neutral-200 hover:text-[#00c0fa] truncate">{rowTitle(row)}</span>
+                        <span className="block text-[11px] text-neutral-500 truncate">{rowSummary(row)}</span>
+                      </button>
+                      {i === 0 ? (
+                        <span className="shrink-0 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-1.5 py-0.5">kalır</span>
+                      ) : (
+                        <button
+                          onClick={() => onMerge(row, g)}
+                          disabled={busy}
+                          title="Bu kayıt kalsın, diğerleri buna birleştirilsin"
+                          className="shrink-0 text-[11px] text-neutral-400 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded px-1.5 py-0.5 transition disabled:opacity-50"
+                        >
+                          Bu kalsın
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex justify-end gap-1.5 mt-1.5">
+                  <button
+                    onClick={() => onIgnore(g)}
+                    disabled={busy}
+                    className="text-xs rounded-full px-2.5 py-1 border border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500 transition disabled:opacity-50"
+                  >
+                    Bunlar farklı
+                  </button>
+                  <button
+                    onClick={() => onMerge(g[0], g)}
+                    disabled={busy}
+                    className="text-xs rounded-full px-2.5 py-1 border border-[#00c0fa]/60 text-[#7fdcff] hover:bg-[#00c0fa]/10 transition disabled:opacity-50"
+                  >
+                    Birleştir
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
