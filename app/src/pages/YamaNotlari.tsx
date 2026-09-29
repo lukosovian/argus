@@ -62,6 +62,15 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.11.8',
+    date: '29 Eylül 2026',
+    title: 'Yeni güncelleme sorusu kaçmıyor',
+    items: [
+      'ARGUS açıkken yeni sürüm artık 5 dakikada bir kontrol ediliyor (önceden yarım saatte bir), yeni bir sürüm çıkınca çok daha çabuk haberin oluyor.',
+      '"Yeni bir ARGUS güncellemesi hazır" sorusu artık 12 saniye sonra kendiliğinden kaybolmuyor; cevap verene kadar sağ altta duruyor — ekrana bakmıyorken ya da ARGUS tepsideyken çıksa bile döndüğünde görüyorsun. "Sonra" dersen 2 saat sonra yine soruyor (önceden ARGUS kapanıp açılana kadar bir daha sormuyordu).',
+    ],
+  },
+  {
     version: 'v1.11.7',
     date: '29 Eylül 2026',
     title: 'Güncelle, TMDB\'de birden fazla yapım çıkınca hangisi olduğunu soruyor',

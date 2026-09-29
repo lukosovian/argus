@@ -4,7 +4,7 @@ import multer from 'multer'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync } from 'node:child_process'
+import { execFile, execSync } from 'node:child_process'
 import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
 import { buildRestartScript, launchDetachedRestart } from './restart.js'
 import { beforeWrite, findBoard as findBoardCached, initHistory, registerHistoryRoutes, setHistoryWriter } from './history.js'
@@ -2402,9 +2402,8 @@ const isDevMachine = () => fs.existsSync(path.join(ROOT, '.gelistirici'))
 // Flashback (yıllık özet) diğer kullanıcılara açıldığında her profile bir kez bildirim düşer (kullanıcı "onlarda açılınca
 // haberleri olsun" dedi). Aynı anahtarla ikinci kez eklenmez (bkz. pushNotification); geliştirici
 // bilgisayarında zaten hep açık olduğu için orada gönderilmez.
-function announceFeatures() {
+function announceFeatures(f) {
   if (isDevMachine()) return
-  const f = readJson(FEATURES_FILE, {})
   if (!f.wrappedForAll) return
   for (const p of readProfiles()) {
     try {
@@ -2441,9 +2440,40 @@ app.post('/api/ui-prefs', (req, res) => {
   res.json({ ok: true })
 })
 
-app.get('/api/features', (req, res) => {
-  const f = readJson(FEATURES_FILE, {})
-  announceFeatures()
+// Diğer bilgisayarlarda anahtarlar GitHub'daki güncel features.json'dan okunur (dakikada en çok bir kez
+// bakılır), kod güncellemesi beklenmez. Kullanıcı "Flashback'i açtım ama arkadaşa güncelle bildirimi
+// gitmedi" dedi: anahtar sadece bir açma/kapama, özelliğin kodu zaten orada — açınca birkaç dakikada
+// kendiliğinden görünsün. İnternet yoksa yerel dosyaya düşülür.
+const remoteFeatures = { at: 0, value: null, pending: null }
+function gitOut(args, timeout) {
+  return new Promise((resolve, reject) =>
+    execFile('git', args, { cwd: ROOT, timeout, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(String(stdout)))),
+  )
+}
+async function currentFeatures() {
+  const local = readJson(FEATURES_FILE, {})
+  if (isDevMachine()) return local
+  if (Date.now() - remoteFeatures.at > 60_000 && !remoteFeatures.pending) {
+    remoteFeatures.pending = (async () => {
+      try {
+        await gitOut(['fetch', '--quiet', 'origin'], 15000)
+        remoteFeatures.value = JSON.parse(await gitOut(['show', '@{u}:app/features.json'], 5000))
+      } catch {
+        /* internet yok — son bilinen ya da yerel değer */
+      } finally {
+        remoteFeatures.at = Date.now()
+        remoteFeatures.pending = null
+      }
+    })()
+  }
+  // İlk seferde cevabı bekle; sonrakilerde eldeki değerle hemen dön, arkada tazelensin.
+  if (remoteFeatures.pending && !remoteFeatures.value) await remoteFeatures.pending
+  return remoteFeatures.value ?? local
+}
+
+app.get('/api/features', async (req, res) => {
+  const f = await currentFeatures()
+  announceFeatures(f)
   res.json({ developer: isDevMachine(), wrappedForAll: Boolean(f.wrappedForAll) })
 })
 app.post('/api/features', async (req, res) => {

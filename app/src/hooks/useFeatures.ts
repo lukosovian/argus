@@ -15,16 +15,24 @@ export function setFeaturesCache(f: Features) {
   for (const l of listeners) l(f)
 }
 
+function load() {
+  fetch('/api/features')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => d && (!cache || cache.developer !== d.developer || cache.wrappedForAll !== d.wrappedForAll) && setFeaturesCache(d))
+    .catch(() => {})
+}
+
+// Açık kalan ARGUS'ta da anahtar değişikliği (ör. Flashback açıldı) birkaç dakikada görünsün diye ara ara
+// yeniden sorulur (sunucu GitHub'daki güncel değeri okuyor, bkz. server/index.js currentFeatures).
+const REFRESH_MS = 3 * 60 * 1000
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
 export function useFeatures(): Features | null {
   const [f, setF] = useState<Features | null>(cache)
   useEffect(() => {
     listeners.add(setF)
-    if (!cache) {
-      fetch('/api/features')
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => d && setFeaturesCache(d))
-        .catch(() => {})
-    }
+    if (!cache) load()
+    if (!refreshTimer) refreshTimer = setInterval(load, REFRESH_MS)
     return () => {
       listeners.delete(setF)
     }
