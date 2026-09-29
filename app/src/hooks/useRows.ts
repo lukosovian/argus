@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Row } from '../types'
+import { rowOrder } from '../types'
 import { api } from '../lib/api'
 import { useProfiles } from './useProfiles'
 import { onDataChanged } from '../lib/dataEvents'
 
+// Sıra: sürüklenip taşınan kayıtlarda sortKey, diğerlerinde eklenme zamanı (bkz. types.ts rowOrder).
 function byCreatedAtAsc(a: Row, b: Row) {
-  return a.createdAt - b.createdAt
+  return rowOrder(a) - rowOrder(b)
 }
 
 export function useRows(boardId: string | undefined) {

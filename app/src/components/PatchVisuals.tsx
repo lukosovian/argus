@@ -1706,6 +1706,48 @@ export function UygulamaAyarVisual() {
   )
 }
 
+// Satırı altı noktadan tutup sürükleyerek taşıma: sürüklenen satır soluk, bırakılacak yerde mavi çizgi.
+export function SatirTasiVisual() {
+  const rows = ['Artemis Fowl', 'Düşler Fabrikası', 'Snowpiercer', 'Narnia Günlükleri', 'Hayaller Diyarı']
+  return (
+    <Frame viewBox={VB}>
+      <Box x={20} y={12} w={280} h={140} r={8} strong />
+      {rows.map((t, i) => {
+        const y = 22 + i * 25
+        const dragged = i === 0
+        return (
+          <g key={t} opacity={dragged ? 0.35 : 1}>
+            <line x1={20} x2={300} y1={y} y2={y} className="stroke-neutral-800" strokeWidth={0.6} />
+            {[0, 1, 2].map((k) => (
+              <g key={k}>
+                <circle cx={38} cy={y + 8 + k * 3.5} r={0.9} className="fill-neutral-400" />
+                <circle cx={41.5} cy={y + 8 + k * 3.5} r={0.9} className="fill-neutral-400" />
+              </g>
+            ))}
+            <text x={54} y={y + 15} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+              {t}
+            </text>
+            <Line x={170} y={y + 12} w={50} light />
+            <Line x={236} y={y + 12} w={46} light />
+          </g>
+        )
+      })}
+      <Pin x={30} y={14} n={1} />
+      {/* bırakılacak yer */}
+      <line x1={20} x2={300} y1={122} y2={122} stroke={ACCENT} strokeWidth={2} />
+      <Pin x={306} y={118} n={2} />
+      {/* sürüklenen kopya */}
+      <g transform="translate(60 128) rotate(-2)">
+        <rect width={150} height={20} rx={4} className="fill-neutral-800" stroke={ACCENT} strokeOpacity={0.6} strokeWidth={0.7} />
+        <text x={12} y={13} fontSize={7} className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
+          Artemis Fowl
+        </text>
+      </g>
+      <path d="M150 150 L150 162 L154 158" fill="none" className="stroke-neutral-400" strokeWidth={1} />
+    </Frame>
+  )
+}
+
 // Arşiv tablosu: mükerrer olabilecek satırların solunda kırmızı nokta; sol altta en üste / en alta düğmeleri.
 export function TabloMukerrerVisual() {
   const rows = ['Başlangıç', 'Dark', 'Dune: Çöl Gezegeni', 'Başlangıç', 'Esaretin Bedeli', 'Dark']
