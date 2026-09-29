@@ -118,10 +118,13 @@ function RowMenu({
   onDuplicate,
   onDelete,
   onShowHistory,
+  duplicate = false,
 }: {
   board: Board
   row: Row
   hasTitle: boolean
+  // Mükerrer olabilir (bkz. Sağlık Kontrolü) — tutamacın yerinde küçük kırmızı nokta.
+  duplicate?: boolean
   refreshing: boolean
   onFetchTmdb: () => void
   onAddRow: () => void
@@ -172,6 +175,16 @@ function RowMenu({
 
   return (
     <div className="relative">
+      {/* Kullanıcı "mükerrer kayıtların soluna, altı noktanın oralara kırmızı küçük bir yuvarlak koy" dedi.
+          Satırın üstüne gelince tutamaç görünsün diye nokta kayboluyor. */}
+      {duplicate && !open && (
+        <span
+          title="Mükerrer olabilir — Sağlık Kontrolü'nden birleştirebilirsin"
+          className="absolute inset-0 flex items-center justify-center group-hover:opacity-0 transition pointer-events-none"
+        >
+          <span className="h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.7)]" />
+        </span>
+      )}
       <button
         ref={buttonRef}
         onClick={handleToggle}
@@ -595,6 +608,8 @@ const BoardTable = forwardRef<
     onSetStatusOption: (key: StatusKey, optionId: string) => void
     // Satır sıklığı: 'siki' (eskisi gibi) ya da 'rahat' (daha yüksek satır, daha büyük poster).
     density?: 'rahat' | 'siki'
+    // Mükerrer olabilecek kayıtlar (sunucudaki mükerrer kontrolü) — altı noktanın yerinde kırmızı nokta.
+    duplicateRowIds?: Set<string>
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -635,6 +650,7 @@ const BoardTable = forwardRef<
     onSetStatusOption,
     onFetchTmdb,
     density = 'siki',
+    duplicateRowIds,
   },
   ref,
 ) {
@@ -1016,6 +1032,7 @@ const BoardTable = forwardRef<
                     board={board}
                     row={row}
                     onShowHistory={onShowRowHistory ? () => onShowRowHistory(row) : undefined}
+                    duplicate={duplicateRowIds?.has(row.id)}
                     hasTitle={hasTitle(row)}
                     refreshing={refreshingRowId === row.id}
                     onFetchTmdb={() => handleRefreshClick(row.id)}

@@ -179,6 +179,7 @@ export const api = {
     request<{ brokenImages: { rowId: string; propertyId: string; propertyName: string; value: string }[]; duplicates: { rowIds: string[] }[] }>(
       profilePath(`/boards/${boardId}/health`),
     ),
+  getDuplicates: (boardId: string) => request<{ duplicates: { rowIds: string[] }[] }>(profilePath(`/boards/${boardId}/duplicates`)),
   mergeRows: (boardId: string, keepId: string, removeIds: string[]) =>
     request<{ ok: true; movedFields: string[] }>(profilePath(`/boards/${boardId}/merge-rows`), { method: 'POST', ...json({ keepId, removeIds }) }),
 

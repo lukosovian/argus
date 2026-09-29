@@ -43,6 +43,7 @@ import {
   AcilisVisual,
   UygulamaAyarVisual,
   MukerrerVisual,
+  TabloMukerrerVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -57,6 +58,23 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11.4',
+    date: '29 Eylül 2026',
+    title: 'Tabloda mükerrer işareti ve en üste/en alta düğmeleri, Ne İzlesem yayınlanmamışları seçmiyor, bildirimler daha uzun kalıyor',
+    visuals: [
+      {
+        caption: '1 mükerrer olabilecek kayıtların solunda kırmızı nokta · 2 sol altta en üste çık / en alta in düğmeleri',
+        Visual: TabloMukerrerVisual,
+      },
+    ],
+    items: [
+      'Arşiv tablosunda mükerrer olabilecek kayıtların solunda (altı noktanın yerinde) küçük kırmızı bir nokta var. Üstüne gelince ne olduğu yazıyor; Sağlık Kontrolü\'nden birleştirebilirsin. Birleştirince ya da "Bunlar farklı" deyince nokta kayboluyor.',
+      'Arşiv sayfasının sol altında "En üste çık" ve "En alta in" düğmeleri var — uzun tabloda tek tıkla başa ya da sona gidiliyor.',
+      'Ne İzlesem? artık vizyon tarihi henüz gelmemiş (daha yayınlanmamış) yapımları seçmiyor; çıktıkları gün yine seçilebilir hale geliyorlar.',
+      'Bildirimler daha uzun kalıyor: en az 7 saniye, uzun mesajlarda okuma süresine göre daha da uzun. Farenle bildirimin üstüne gelince hiç kapanmıyor, çekince birkaç saniye daha duruyor.',
+    ],
+  },
   {
     version: 'v1.11.3',
     date: '29 Eylül 2026',
