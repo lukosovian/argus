@@ -111,6 +111,37 @@ function EyeIcon() {
 // KESİLİYORDU (sadece ilk seçenek görünüyor, geri kalanı görünmüyordu). Portal + `position:
 // fixed` + tutamacın gerçek ekran konumundan hesaplanan koordinat bu kesilmeyi tamamen ortadan
 // kaldırıyor, tablo kaç satır olursa olsun.
+// Satırın TMDB'den güncellendiğini gösteren katman: güncellenirken soldan sağa tekrar tekrar geçen mavi
+// ışık hüzmesi ('beam'), bitince satırın bir an maviye ('done') ya da hata olduysa kırmızıya ('fail')
+// parlayıp sönmesi. Animasyonlar index.css'te (argus-row-beam / argus-row-done).
+function RowActivity({ mode, width }: { mode: 'beam' | 'done' | 'fail'; width: number }) {
+  if (mode === 'beam') {
+    return (
+      <div className="pointer-events-none absolute left-0 top-0 h-full overflow-hidden" style={{ width, background: 'rgba(0,192,250,0.06)' }}>
+        <div
+          className="absolute top-0 h-full"
+          style={{
+            width: '35%',
+            background: 'linear-gradient(90deg, rgba(0,192,250,0) 0%, rgba(0,192,250,0.28) 55%, rgba(125,220,255,0.45) 80%, rgba(0,192,250,0) 100%)',
+            animation: 'argus-row-beam 1.1s ease-in-out infinite',
+          }}
+        />
+        <div className="absolute left-0 bottom-0 h-px w-full" style={{ background: 'rgba(0,192,250,0.6)' }} />
+      </div>
+    )
+  }
+  return (
+    <div
+      className="pointer-events-none absolute left-0 top-0 h-full"
+      style={{
+        width,
+        background: mode === 'done' ? 'rgba(0,192,250,0.18)' : 'rgba(244,63,94,0.18)',
+        animation: 'argus-row-done 1.3s ease-out forwards',
+      }}
+    />
+  )
+}
+
 function RowMenu({
   board,
   row,
@@ -686,12 +717,18 @@ const BoardTable = forwardRef<
   const [dragRowId, setDragRowId] = useState<string | null>(null)
   const [dropRowId, setDropRowId] = useState<string | null>(null)
   const rowIndexById = useMemo(() => new Map(rows.map((r, i) => [r.id, i])), [rows])
-  const [refreshingRowId, setRefreshingRowId] = useState<string | null>(null)
+  // TMDB'den güncellenen satırlar (aynı anda birkaçı olabilir) ve az önce bitenler — satırın üstünde
+  // ışık hüzmesi / bitince kısa bir parlama (bkz. RowActivity).
+  const [refreshingRowIds, setRefreshingRowIds] = useState<Set<string>>(new Set())
+  const [doneRow, setDoneRow] = useState<{ id: string; ok: boolean; n: number } | null>(null)
+  const flashN = useRef(0)
 
   async function handleRefreshClick(rowId: string) {
-    setRefreshingRowId(rowId)
+    setRefreshingRowIds((s) => new Set(s).add(rowId))
+    let ok = false
     try {
       const result = await onFetchTmdb(rowId)
+      ok = Boolean(result)
       if (result) {
         const parts: string[] = []
         if (result.filled.length > 0) parts.push(`dolduruldu: ${result.filled.join(', ')}`)
@@ -702,9 +739,50 @@ const BoardTable = forwardRef<
     } catch (e) {
       notify(e instanceof Error ? e.message : "TMDB'den çekerken bir hata oluştu.", 'danger')
     } finally {
-      setRefreshingRowId(null)
+      setRefreshingRowIds((s) => {
+        const next = new Set(s)
+        next.delete(rowId)
+        return next
+      })
+      const n = ++flashN.current
+      setDoneRow({ id: rowId, ok, n })
+      setTimeout(() => setDoneRow((d) => (d && d.n === n ? null : d)), 1400)
     }
   }
+
+  // Birden fazla satır seçiliyken seçili satırlardan birinde yapılan hücre değişikliği seçili HEPSİNE
+  // uygulanır — kullanıcı "eklediğim birkaç içeriği seçip durumlarını aynı anda İzlendi yapacağım" dedi.
+  // Tek değerli sütunlarda aynı değer yazılır; çoklu değerlerde (Tür, Oyuncular, İzleme Tarihi…) her
+  // kaydın kendi listesine sadece eklenen eklenir, çıkarılan çıkarılır (diğerlerinin kendi değerleri
+  // silinmesin). Başlık (ad) sütunu hariç — her kaydın adı kendine.
+  function updateCellForSelection(rowId: string, propertyId: string, value: PropertyValue) {
+    const many = selectedRowIds.size > 1 && selectedRowIds.has(rowId) && propertyId !== titleProp?.id
+    if (!many) {
+      onUpdateCell(rowId, propertyId, value)
+      return
+    }
+    const before = rows.find((r) => r.id === rowId)?.values[propertyId]
+    const prev: unknown[] = Array.isArray(before) ? before : []
+    const added = Array.isArray(value) ? (value as unknown[]).filter((x) => !prev.includes(x)) : []
+    const removed = Array.isArray(value) ? prev.filter((x) => !(value as unknown[]).includes(x)) : []
+    for (const id of selectedRowIds) {
+      if (id === rowId || !Array.isArray(value)) {
+        onUpdateCell(id, propertyId, value)
+        continue
+      }
+      const theirs = rows.find((r) => r.id === id)?.values[propertyId]
+      const cur: unknown[] = Array.isArray(theirs) ? theirs : []
+      const next = [...cur.filter((x) => !removed.includes(x)), ...added.filter((x) => !cur.includes(x))]
+      onUpdateCell(id, propertyId, next as PropertyValue)
+    }
+    // Çoklu seçim penceresi her tıklamada kaydediyor — bildirim her seferinde tekrar çıkmasın.
+    if (Date.now() - lastBulkNotice.current > 4000) {
+      const name = board.properties.find((p) => p.id === propertyId)?.name ?? 'Değişiklik'
+      notify(`${name} seçili ${selectedRowIds.size} kayda uygulandı.`, 'success')
+    }
+    lastBulkNotice.current = Date.now()
+  }
+  const lastBulkNotice = useRef(0)
 
   // Satır listesi değişince (filtre, arama, silme...) artık listede olmayan id'ler seçimden
   // düşer — aksi halde "N seçili" gerçekte görünmeyen/var olmayan kayıtları sayabilirdi.
@@ -906,7 +984,7 @@ const BoardTable = forwardRef<
       return (
         <td
           key={p.id}
-          onClick={() => onUpdateCell(row.id, p.id, !row.values[p.id])}
+          onClick={() => updateCellForSelection(row.id, p.id, !row.values[p.id])}
           className="px-3 overflow-hidden cursor-pointer border-r border-neutral-800"
         >
           <div className={`${cellH} flex items-center overflow-hidden`}>
@@ -922,7 +1000,7 @@ const BoardTable = forwardRef<
           <InlineValueEditor
             property={p}
             value={row.values[p.id]}
-            onCommit={(v) => onUpdateCell(row.id, p.id, v)}
+            onCommit={(v) => updateCellForSelection(row.id, p.id, v)}
             onDone={() => setEditingCell(null)}
           />
         </td>
@@ -968,6 +1046,7 @@ const BoardTable = forwardRef<
         <div className="sticky top-16 z-20 flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-t-xl px-4 py-2.5">
           <p className="text-sm text-neutral-300">
             <span className="font-medium text-neutral-50">{selectedRowIds.size}</span> kayıt seçili
+            {selectedRowIds.size > 1 && <span className="text-neutral-500"> · seçili birinde bir hücreyi değiştirirsen hepsine uygulanır</span>}
           </p>
           <button
             onClick={() => setSelectedRowIds(new Set())}
@@ -1067,7 +1146,18 @@ const BoardTable = forwardRef<
               }
               className={`group border-t border-neutral-800 hover:bg-neutral-900 ${isSelected ? 'bg-sky-500/5' : ''} ${dragRowId === row.id ? 'opacity-40' : ''} ${dropLine}`}
             >
-              <td className={`px-1.5 ${stickyBg(isSelected)}`} style={STICKY_HANDLE_STYLE}>
+              <td
+                className={`px-1.5 ${stickyBg(isSelected)}`}
+                // Işık hüzmesi bu hücrenin içinden bütün satıra yayılıyor; sabit başlık hücresinin altında kalmasın diye bir kat üstte.
+                style={refreshingRowIds.has(row.id) || doneRow?.id === row.id ? { ...STICKY_HANDLE_STYLE, zIndex: 3 } : STICKY_HANDLE_STYLE}
+              >
+                {(refreshingRowIds.has(row.id) || doneRow?.id === row.id) && (
+                  <RowActivity
+                    key={refreshingRowIds.has(row.id) ? 'beam' : `done-${doneRow?.n}`}
+                    mode={refreshingRowIds.has(row.id) ? 'beam' : doneRow?.ok ? 'done' : 'fail'}
+                    width={scrollContainerRef.current?.clientWidth ?? tableWidth}
+                  />
+                )}
                 <div className={`${cellH} flex items-center gap-1`}>
                   <Checkbox
                     checked={isSelected}
@@ -1097,7 +1187,7 @@ const BoardTable = forwardRef<
                       setDropRowId(null)
                     }}
                     hasTitle={hasTitle(row)}
-                    refreshing={refreshingRowId === row.id}
+                    refreshing={refreshingRowIds.has(row.id)}
                     onFetchTmdb={() => handleRefreshClick(row.id)}
                     onAddRow={() => onAddRowAfter(row.id)}
                     onDuplicate={() => onDuplicateRow(row.id)}
@@ -1239,7 +1329,7 @@ const BoardTable = forwardRef<
           anchorRef={{ current: cellRefs.current[`${editingCell.rowId}:${editingCell.propertyId}`] }}
           property={editingProp}
           value={editingRow.values[editingProp.id]}
-          onCommit={(v) => onUpdateCell(editingCell.rowId, editingCell.propertyId, v)}
+          onCommit={(v) => updateCellForSelection(editingCell.rowId, editingCell.propertyId, v)}
           onClose={() => setEditingCell(null)}
           onAddOption={
             editingProp.type === 'select' || editingProp.type === 'multiselect'
