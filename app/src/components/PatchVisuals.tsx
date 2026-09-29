@@ -1653,3 +1653,55 @@ export function AcilisVisual() {
     </Frame>
   )
 }
+
+// ---- v1.11.2 ---------------------------------------------------------------------------------
+
+export function UygulamaAyarVisual() {
+  const Sw = ({ x, y, on }: { x: number; y: number; on: boolean }) => (
+    <g>
+      <rect x={x} y={y} width={18} height={10} rx={5} fill={on ? ACCENT : undefined} className={on ? undefined : 'fill-neutral-700'} />
+      <circle cx={on ? x + 13 : x + 5} cy={y + 5} r={3.6} fill="#fff" />
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      {/* sol menü */}
+      {['Veritabanı', 'Ana Sayfa Ayarları', 'Uygulama Ayarları', 'Profil Ayarları'].map((t, i) => (
+        <g key={t}>
+          <rect x={8} y={14 + i * 24} width={92} height={20} rx={5} fill={i === 2 ? ACCENT : 'none'} fillOpacity={i === 2 ? 0.12 : 0} stroke={i === 2 ? ACCENT : undefined} strokeOpacity={0.5} strokeWidth={0.7} />
+          <text x={16} y={27 + i * 24} fontSize={6.2} className={i === 2 ? 'fill-neutral-50' : 'fill-neutral-400'} style={{ fontFamily: 'inherit' }}>
+            {t}
+          </text>
+        </g>
+      ))}
+      <NewTag x={70} y={63} />
+      <Pin x={104} y={62} n={1} />
+      {/* sağ panel */}
+      <Box x={112} y={10} w={200} h={160} r={8} strong />
+      <Label x={122} y={26} size={8}>
+        Uygulama Ayarları
+      </Label>
+      {[
+        ['Bilgisayar açılınca ARGUS\'u da aç', true, 44],
+        ['Pencereyi açmadan, tepside başlasın', false, 70],
+        ['Kapatınca tepsiye küçült', true, 110],
+      ].map(([t, on, y]) => (
+        <g key={t as string}>
+          <text x={122} y={(y as number) + 8} fontSize={6.2} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+            {t as string}
+          </text>
+          <Line x={122} y={(y as number) + 14} w={120} light />
+          <Sw x={282} y={(y as number) + 1} on={on as boolean} />
+        </g>
+      ))}
+      <Pin x={302} y={46} n={2} />
+      <Pin x={302} y={112} n={3} />
+      {/* tepsi */}
+      <rect x={236} y={146} width={66} height={16} rx={3} className="fill-neutral-800" />
+      <path d="M244 158 L248 150 L252 158" fill="none" stroke={ACCENT} strokeWidth={1.4} />
+      <text x={258} y={157} fontSize={5.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        tepside
+      </text>
+    </Frame>
+  )
+}

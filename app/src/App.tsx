@@ -42,6 +42,19 @@ function useAutoShowHelpOnce() {
   }, [loading, activeProfile, location.pathname, navigate])
 }
 
+// ARGUS uygulamasının tepsi menüsü / Windows bildirimi "şu sayfayı aç" dediğinde (bkz. desktop/main.cjs openInApp)
+function useAppNavigation() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const go = (e: Event) => {
+      const to = (e as CustomEvent<string>).detail
+      if (typeof to === 'string' && to.startsWith('/')) navigate(to)
+    }
+    window.addEventListener('argus-git', go)
+    return () => window.removeEventListener('argus-git', go)
+  }, [navigate])
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   // Netflix'teki "kim izliyor" ekranı gibi: aktif bir profil seçilmeden (ya da hiç profil
   // yokken ilk kurulumda) uygulamanın geri kalanı açılmaz, bu ekran zorunlu bir kapı olur.
@@ -49,6 +62,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   useAutoShowHelpOnce()
   useUpdateCheck()
   useHistoryLimit()
+  useAppNavigation()
   return (
     <>
       <Navbar />

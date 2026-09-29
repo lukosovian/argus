@@ -26,6 +26,9 @@ if "%~1"=="guncel" goto :update_done
 echo.
 
 :check_node
+REM ARGUS.exe "guncellemeyi simdilik atla" dediyse git komutlari gecersiz bir GIT_DIR ile calisti (hicbir sey
+REM cekilmedi); buradan sonrasi (sunucu, uygulama icindeki "Simdi Guncelle") normal git kullansin.
+set "GIT_DIR="
 REM Bu dosyaya (ya da onu acan eski kisayola) cift tiklandiysa ARGUS.exe'ye devret: logolu acilis penceresi
 REM gosterir, bu dosyayi hic pencere acmadan yeniden calistirir; bu terminal kapanir. ARGUS.exe her acilista
 REM klasoru duzenler (bu dosya gizlenir) ve masaustu kisayolunu kendisine cevirir. ARGUS_TERMINAL: bir sorun

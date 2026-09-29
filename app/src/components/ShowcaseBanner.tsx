@@ -91,11 +91,24 @@ export default function ShowcaseBanner({
     // zorluyordu — width ve height'ı BİRLİKTE büyütünce YouTube'a hâlâ gerçek, bozulmamış
     // bir 16:9 video kutusu vermiş oluyoruz, sadece görünenden büyük; taşan kısım kırpılıyor.
     const ZOOM = 1.12
-    const rect = containerRef.current.getBoundingClientRect()
     // Kutu 16:9dan daha uzunsa (Sinema görünümü, dar ekran) video genişliğe göre kurulunca alt/üstte
     // boşluk kalırdı — bu durumda yüksekliği kaplayacak kadar geniş kuruluyor, yanlardan kırpılıyor.
-    const width = Math.max(1, Math.round(Math.max(rect.width, (rect.height * 16) / 9) * ZOOM))
-    const height = Math.round((width * 9) / 16)
+    const sizeFor = (rect: DOMRect) => {
+      const w = Math.max(1, Math.round(Math.max(rect.width, (rect.height * 16) / 9) * ZOOM))
+      return { width: w, height: Math.round((w * 9) / 16) }
+    }
+    const container = containerRef.current
+    const { width, height } = sizeFor(container.getBoundingClientRect())
+    // Pencere büyüyüp küçülünce (ör. ARGUS penceresi tam ekran yapılınca) video da yeniden boyutlanır —
+    // kullanıcı "fragman oynarken tam ekran yapınca fragman aynı boyutta kalıyor, arkasından yatay görsel
+    // görünüyor" dedi: boyut sadece oynatıcı kurulurken bir kez hesaplanıyordu.
+    const ro = new ResizeObserver(() => {
+      const r = container.getBoundingClientRect()
+      if (!r.width || !playerRef.current) return
+      const next = sizeFor(r)
+      playerRef.current.setSize?.(next.width, next.height)
+    })
+    ro.observe(container)
     let cancelled = false
     loadYouTubeApi().then(() => {
       if (cancelled || !window.YT) return
@@ -142,6 +155,7 @@ export default function ShowcaseBanner({
     })
     return () => {
       cancelled = true
+      ro.disconnect()
       playerRef.current?.destroy?.()
       playerRef.current = null
       mount.remove()
