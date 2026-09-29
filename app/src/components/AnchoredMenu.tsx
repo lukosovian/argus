@@ -93,7 +93,10 @@ export default function AnchoredMenu({
   if (!pos) return null
 
   return createPortal(
-    <div ref={panelRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width, zIndex: 50 }}>
+    // z 80: pencerelerin (z 50–70, ör. Koleksiyon'daki sembol penceresi) içinden açılan listeler onların
+    // arkasında kalıyordu — kullanıcı "hangi rafta alanına basınca seçenekler arkada çıkıyor" dedi.
+    // Bildirimler (z 100) yine en üstte.
+    <div ref={panelRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width, zIndex: 80 }}>
       <ChildPanelsContext.Provider value={childPanels}>{children}</ChildPanelsContext.Provider>
     </div>,
     document.body,

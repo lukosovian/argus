@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
@@ -262,7 +263,10 @@ function TmdbFieldsPopover({
 // altta küçük bir ad etiketi çıkıyor — tarayıcının geç açılan kendi ipucu (title) yerine anında.
 // Kullanıcı "arşivdeki tablonun bir yerine en alta in ve en üste çık butonu eklensin" dedi. Sol altta
 // (sağ alt bildirimlerin yeri), sayfa kaydırılabilecek kadar uzunsa görünüyor.
-function ScrollEndsButtons() {
+// En üstte "Yenile" (kullanıcı "yukarı aşağı okunun üstüne sayfayı yenileme ekle" dedi): arşivi ve kayıtları
+// sunucudan yeniden okur — başka bir pencerede/ARGUS'ta yapılan değişiklikler gelsin; kaldığın yerde kalırsın.
+function ScrollEndsButtons({ onRefresh }: { onRefresh: () => Promise<void> }) {
+  const [refreshing, setRefreshing] = useState(false)
   const [scrollable, setScrollable] = useState(false)
   useEffect(() => {
     const check = () => setScrollable(document.documentElement.scrollHeight > window.innerHeight + 200)
@@ -274,7 +278,6 @@ function ScrollEndsButtons() {
       window.removeEventListener('resize', check)
     }
   }, [])
-  if (!scrollable) return null
   const btn =
     'h-9 w-9 flex items-center justify-center rounded-full bg-neutral-900/90 border border-neutral-700 text-neutral-300 hover:text-[#00c0fa] hover:border-[#00c0fa]/60 shadow-lg shadow-black/40 backdrop-blur-sm transition'
   const arrow = (up: boolean) => (
@@ -284,17 +287,40 @@ function ScrollEndsButtons() {
   )
   return (
     <div className="fixed left-5 bottom-6 z-40 flex flex-col gap-2">
-      <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="En üste çık" aria-label="En üste çık" className={btn}>
-        {arrow(true)}
-      </button>
       <button
-        onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
-        title="En alta in"
-        aria-label="En alta in"
+        onClick={async () => {
+          if (refreshing) return
+          setRefreshing(true)
+          try {
+            await onRefresh()
+          } finally {
+            setRefreshing(false)
+          }
+        }}
+        title="Sayfayı yenile"
+        aria-label="Sayfayı yenile"
         className={btn}
       >
-        {arrow(false)}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}>
+          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+          <path d="M21 3v6h-6" />
+        </svg>
       </button>
+      {scrollable && (
+        <>
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="En üste çık" aria-label="En üste çık" className={btn}>
+            {arrow(true)}
+          </button>
+          <button
+            onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
+            title="En alta in"
+            aria-label="En alta in"
+            className={btn}
+          >
+            {arrow(false)}
+          </button>
+        </>
+      )}
     </div>
   )
 }
@@ -397,9 +423,9 @@ function BoardNameInput({ name, onSave }: { name: string; onSave: (name: string)
 // BoardTable'ı hâlâ senkron olarak (memo'lanmamış bir bileşen olduğu için) tekrar çağırıyordu;
 // gerçek çözüm BoardView'ın kendisinin her tuş vuruşunda hiç re-render olmaması.
 // Tıklanmadan sadece bir büyüteç ikonu olarak durur — ana sayfadaki GlobalSearch ile aynı mantık.
-function TableSearchInput({ onSearch }: { onSearch: (value: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
+function TableSearchInput({ onSearch, initial = '' }: { onSearch: (value: string) => void; initial?: string }) {
+  const [open, setOpen] = useState(Boolean(initial))
+  const [draft, setDraft] = useState(initial)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleChange(value: string) {
@@ -1020,6 +1046,60 @@ export default function BoardView() {
   // hesaplanabiliyor, üçüncü liste (bozuk dosya bağlantıları) modalın kendisi açılınca
   // ayrıca sunucudan çekiliyor (bkz. HealthCheckModal.tsx).
   const [healthOpen, setHealthOpen] = useState(false)
+  // Araç çubuğunun üst menüye taşınması (bkz. toolbarItems): çubuk menünün altında kalınca `docked`;
+  // menüdeki bağlantılara / sağdaki düğmelere değmeden ortaya sığıyorsa `dockFits`.
+  // Çubuğun kendi yeri (state: çubuk ancak arşiv yüklenince çizildiği için izleyici o zaman kurulsun)
+  const [toolsEl, setToolsEl] = useState<HTMLDivElement | null>(null)
+  const dockRef = useRef<HTMLDivElement>(null)
+  const [docked, setDocked] = useState(false)
+  // Bir kez menüye taşındıysa geri dönüşte animasyon oynasın (ilk açılışta değil)
+  const wasDocked = useRef(false)
+  if (docked) wasDocked.current = true
+  // Üstteki (Ne İzlesem'in yanındaki) arama açıkken menüdeki araç çubuğu görünmesin (bkz. GlobalSearch)
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
+  useEffect(() => {
+    const on = (e: Event) => setGlobalSearchOpen(Boolean((e as CustomEvent<{ open: boolean }>).detail?.open))
+    window.addEventListener('argus-global-search', on)
+    return () => window.removeEventListener('argus-global-search', on)
+  }, [])
+  // null: sığmıyor (gizli); sayı: ortadan ne kadar kaydırılacağı (tam ortaya sığmazsa boşluğun ortasına)
+  const [dockShift, setDockShift] = useState<number | null>(null)
+  const navbarSlot = typeof document !== 'undefined' ? document.getElementById('navbar-center-slot') : null
+  useEffect(() => {
+    const el = toolsEl
+    if (!el) return
+    const NAVBAR_H = 64
+    const io = new IntersectionObserver(([e]) => setDocked(!e.isIntersecting && e.boundingClientRect.top < NAVBAR_H), {
+      rootMargin: `-${NAVBAR_H}px 0px 0px 0px`,
+    })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [toolsEl])
+  useLayoutEffect(() => {
+    if (!docked) return
+    function check() {
+      const bar = dockRef.current
+      const links = document.querySelector('[data-navbar-links]') as HTMLElement | null
+      if (!bar || !links) return
+      const linksRight = Math.max(links.getBoundingClientRect().left, ...[...links.children].map((c) => c.getBoundingClientRect().right))
+      const rightEdge = (links.nextElementSibling as HTMLElement | null)?.getBoundingClientRect().left ?? window.innerWidth
+      const w = bar.offsetWidth
+      const mid = window.innerWidth / 2
+      const left = linksRight + 12
+      const right = rightEdge - 12
+      if (mid - w / 2 >= left && mid + w / 2 <= right) setDockShift(0)
+      else if (right - left >= w) setDockShift(Math.round((left + right) / 2 - mid))
+      else setDockShift(null)
+    }
+    check()
+    const ro = new ResizeObserver(check)
+    if (dockRef.current) ro.observe(dockRef.current)
+    window.addEventListener('resize', check)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', check)
+    }
+  }, [docked])
   // Güncelle'de birden fazla TMDB adayı çıkınca açılan "Hangisi?" penceresi (bkz. fetchTmdb).
   const [tmdbChoice, setTmdbChoice] = useState<{ query: string; choices: TmdbChoice[]; resolve: (c: TmdbChoice | null) => void } | null>(null)
   // Mükerrer olabilecek kayıtlar — tabloda altı noktanın yerinde kırmızı nokta. Kayıtlar değişince
@@ -1587,6 +1667,88 @@ export default function BoardView() {
     setBulk(null)
   }
 
+  // Araç çubuğu — sayfa aşağı kaydırılıp çubuk üst menünün altında kalınca menünün ortasına taşınır (kullanıcı
+  // "aşağı kaydırınca göremiyorum, üst tarafa ortalayıp koy; orada çok sekme varsa görünmesin" dedi). Tek bir
+  // yerde çizilir (iki kopya değil), bu yüzden açık arama vb. taşınırken kaybolmaz. Menüdeki sayfa bağlantılarına
+  // ya da sağdaki düğmelere değecekse gösterilmez.
+  const toolbarItems = (
+    <>
+      <TableSearchInput onSearch={setSearch} initial={search} />
+      <FilterPopover board={board} conditions={tableConditions} onChange={setTableConditions} />
+      <SortPopover
+        sortableProps={sortableProps}
+        sortPropertyId={sortPropertyId}
+        sortDirection={sortDirection}
+        onChange={(propertyId, direction) => {
+          setSortPropertyId(propertyId)
+          setSortDirection(direction)
+        }}
+      />
+      <ColumnVisibilityPopover
+        columns={board.properties.filter((p) => p.id !== board.titlePropertyId)}
+        hiddenIds={hiddenColumnIds}
+        onToggle={toggleColumnHidden}
+      />
+      <ToolbarIconButton
+        onClick={toggleDensity}
+        title={density === 'rahat' ? 'Satırlar: Rahat — sıkıya geçmek için tıkla' : 'Satırlar: Sıkı — rahata geçmek için tıkla'}
+        active={density === 'rahat'}
+      >
+        <DensityIcon roomy={density === 'rahat'} />
+      </ToolbarIconButton>
+      <ToolbarDivider />
+      <TmdbFieldsPopover
+        excludedKeys={tmdbExcludeFields}
+        onToggle={toggleTmdbField}
+        onOpenAll={() => saveTmdbExclude(new Set())}
+        board={board}
+        onSetColumn={setFieldColumn}
+        overwriteExisting={tmdbOverwriteExisting}
+        onToggleOverwrite={toggleTmdbOverwrite}
+      />
+      {bulkUpdating ? (
+        <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
+          <BulkRefreshIcon spinning />
+          {bulk ? `${bulk.done}/${bulk.total}` : 'Güncelleniyor...'}
+          <button onClick={() => (bulkCancelRef.current = true)} className="text-rose-400 hover:underline">
+            Durdur
+          </button>
+        </div>
+      ) : bulk && bulk.done < bulk.total ? (
+        <ToolbarIconButton onClick={resumeBulk} title={`Devam et — Genel Güncelleme'nin kalan ${bulk.total - bulk.done} kaydı`} active>
+          <BulkRefreshIcon />
+        </ToolbarIconButton>
+      ) : (
+        <ToolbarIconButton onClick={handleBulkUpdate} title="Genel Güncelleme — eksik kayıtları TMDB'den doldur">
+          <BulkRefreshIcon />
+        </ToolbarIconButton>
+      )}
+
+      <ToolbarDivider />
+      <ToolbarIconButton onClick={() => setHistoryFor({ row: null })} title="Geçmiş — arşivdeki bütün değişiklikler, geri alma">
+        <HistoryIcon />
+      </ToolbarIconButton>
+      <ToolbarIconButton onClick={() => setHealthOpen(true)} title="Sağlık Kontrolü — sorunlu kayıtları listele">
+        <HealthIcon />
+      </ToolbarIconButton>
+      <ToolbarIconButton onClick={() => setDiscoverOpen(true)} title="Keşfet — arşivinde olmayan içerikleri bul">
+        <CompassIcon />
+      </ToolbarIconButton>
+
+      <ToolbarIconButton onClick={() => setGuideOpen(true)} title="Bu tablo nasıl kullanılır?">
+        <InfoIcon />
+      </ToolbarIconButton>
+
+      <button
+        onClick={createRow}
+        style={primaryButtonStyle}
+        className={`ml-1 text-sm px-3 py-1.5 rounded-lg whitespace-nowrap ${PRIMARY_BUTTON}`}
+      >
+        + Yeni Ekle
+      </button>
+    </>
+  )
+
   return (
     <div className="px-4 py-6">
       <section className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-4 sm:px-5 py-4 mb-4">
@@ -1606,83 +1768,32 @@ export default function BoardView() {
             </p>
           </div>
 
-        <div className="flex flex-wrap items-center gap-1">
-          <TableSearchInput onSearch={setSearch} />
-          <FilterPopover board={board} conditions={tableConditions} onChange={setTableConditions} />
-          <SortPopover
-            sortableProps={sortableProps}
-            sortPropertyId={sortPropertyId}
-            sortDirection={sortDirection}
-            onChange={(propertyId, direction) => {
-              setSortPropertyId(propertyId)
-              setSortDirection(direction)
-            }}
-          />
-          <ColumnVisibilityPopover
-            columns={board.properties.filter((p) => p.id !== board.titlePropertyId)}
-            hiddenIds={hiddenColumnIds}
-            onToggle={toggleColumnHidden}
-          />
-          <ToolbarIconButton
-            onClick={toggleDensity}
-            title={density === 'rahat' ? 'Satırlar: Rahat — sıkıya geçmek için tıkla' : 'Satırlar: Sıkı — rahata geçmek için tıkla'}
-            active={density === 'rahat'}
-          >
-            <DensityIcon roomy={density === 'rahat'} />
-          </ToolbarIconButton>
-          <ToolbarDivider />
-          <TmdbFieldsPopover
-            excludedKeys={tmdbExcludeFields}
-            onToggle={toggleTmdbField}
-            onOpenAll={() => saveTmdbExclude(new Set())}
-            board={board}
-            onSetColumn={setFieldColumn}
-            overwriteExisting={tmdbOverwriteExisting}
-            onToggleOverwrite={toggleTmdbOverwrite}
-          />
-          {bulkUpdating ? (
-            <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
-              <BulkRefreshIcon spinning />
-              {bulk ? `${bulk.done}/${bulk.total}` : 'Güncelleniyor...'}
-              <button onClick={() => (bulkCancelRef.current = true)} className="text-rose-400 hover:underline">
-                Durdur
-              </button>
-            </div>
-          ) : bulk && bulk.done < bulk.total ? (
-            <ToolbarIconButton onClick={resumeBulk} title={`Devam et — Genel Güncelleme'nin kalan ${bulk.total - bulk.done} kaydı`} active>
-              <BulkRefreshIcon />
-            </ToolbarIconButton>
-          ) : (
-            <ToolbarIconButton onClick={handleBulkUpdate} title="Genel Güncelleme — eksik kayıtları TMDB'den doldur">
-              <BulkRefreshIcon />
-            </ToolbarIconButton>
-          )}
-
-          <ToolbarDivider />
-          <ToolbarIconButton onClick={() => setHistoryFor({ row: null })} title="Geçmiş — arşivdeki bütün değişiklikler, geri alma">
-            <HistoryIcon />
-          </ToolbarIconButton>
-          <ToolbarIconButton onClick={() => setHealthOpen(true)} title="Sağlık Kontrolü — sorunlu kayıtları listele">
-            <HealthIcon />
-          </ToolbarIconButton>
-          <ToolbarIconButton onClick={() => setDiscoverOpen(true)} title="Keşfet — arşivinde olmayan içerikleri bul">
-            <CompassIcon />
-          </ToolbarIconButton>
-
-          <ToolbarIconButton onClick={() => setGuideOpen(true)} title="Bu tablo nasıl kullanılır?">
-            <InfoIcon />
-          </ToolbarIconButton>
-
-          <button
-            onClick={createRow}
-            style={primaryButtonStyle}
-            className={`ml-1 text-sm px-3 py-1.5 rounded-lg whitespace-nowrap ${PRIMARY_BUTTON}`}
-          >
-            + Yeni Ekle
-          </button>
+        {/* Menüden geri dönünce yumuşakça belirir (kullanıcı "çat diye geçiyor, animasyonla geçsin" dedi) */}
+        <div
+          ref={setToolsEl}
+          className="flex flex-wrap items-center gap-1 min-h-9"
+          style={!docked && wasDocked.current ? { animation: 'argus-dock-back .45s cubic-bezier(.2,.8,.3,1)' } : undefined}
+        >
+          {docked ? null : toolbarItems}
         </div>
         </div>
       </section>
+      {docked &&
+        navbarSlot &&
+        createPortal(
+          <div
+            ref={dockRef}
+            // Menüdeyken düğmeler biraz daha küçük (36 → 32 px); yukarıdan kayarak belirir. Sığmıyorsa ya da üstteki
+            // arama açıksa soluklaşıp kaybolur.
+            style={{ translate: `${dockShift ?? 0}px 0`, animation: 'argus-dock-in .5s cubic-bezier(.2,.8,.3,1)' }}
+            className={`flex items-center gap-0.5 rounded-xl border border-neutral-800 bg-neutral-900/95 backdrop-blur-sm px-1.5 py-1 shadow-lg shadow-black/40 transition-opacity duration-200 [&_button.h-9]:h-8 [&_button.h-9]:w-8 ${
+              dockShift === null || globalSearchOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
+            }`}
+          >
+            {toolbarItems}
+          </div>,
+          navbarSlot,
+        )}
 
       {bulk && (
         <BulkUpdatePanel state={bulk} onStop={() => (bulkCancelRef.current = true)} onResume={resumeBulk} onDiscard={discardBulk} />
@@ -1758,7 +1869,18 @@ export default function BoardView() {
           onMoveRow={moveRow}
         />
       )}
-      {!rowsLoading && <ScrollEndsButtons />}
+      {!rowsLoading && (
+        <ScrollEndsButtons
+          onRefresh={async () => {
+            try {
+              await Promise.all([reloadBoard(), reloadRows()])
+              notify('Arşiv yenilendi.', 'success')
+            } catch {
+              notify('Yenilenemedi — sunucuya ulaşılamadı.', 'danger')
+            }
+          }}
+        />
+      )}
       {tmdbChoice && (
         <TmdbChoiceModal
           query={tmdbChoice.query}

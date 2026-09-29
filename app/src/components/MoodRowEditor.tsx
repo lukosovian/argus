@@ -200,16 +200,8 @@ export default function MoodRowEditor({
             />
           </div>
 
-          <div>
-            <label className="block text-xs text-neutral-400 mb-1">Kaçıncı satırda görünsün (1 = en üstte)</label>
-            <input
-              type="number"
-              min={1}
-              value={settings.position}
-              onChange={(e) => onChange({ ...settings, position: Math.max(1, Number(e.target.value) || 1) })}
-              className="w-24 rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
-            />
-          </div>
+          {/* Satırın ana sayfadaki yeri artık tek listeden: Görünüm › Satırların sırası (bkz. lib/homeRows.ts) */}
+          <p className="text-xs text-neutral-500">Ana sayfada kaçıncı satır olacağını Görünüm sekmesindeki "Satırların sırası"ndan değiştirebilirsin.</p>
 
           <div className="flex items-start justify-between gap-3 mb-2">
             <label className="block text-xs text-neutral-400">

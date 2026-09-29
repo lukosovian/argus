@@ -22,10 +22,15 @@ function load() {
     .catch(() => {})
 }
 
-// Açık kalan ARGUS'ta da anahtar değişikliği (ör. Flashback açıldı) birkaç dakikada görünsün diye ara ara
-// yeniden sorulur (sunucu GitHub'daki güncel değeri okuyor, bkz. server/index.js currentFeatures).
-const REFRESH_MS = 3 * 60 * 1000
+// Açık kalan ARGUS'ta da anahtar değişikliği (ör. Flashback açıldı) yaklaşık bir dakikada görünsün diye ara ara,
+// bir de pencereye dönülünce hemen yeniden sorulur (sunucu GitHub'daki güncel değeri okuyor, bkz.
+// server/index.js currentFeatures). Kullanıcı "5 dakikada bir güncelleme muhabbetini mi bekliyor, beklemesin" dedi.
+const REFRESH_MS = 45 * 1000
 let refreshTimer: ReturnType<typeof setInterval> | null = null
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => load())
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && load())
+}
 
 export function useFeatures(): Features | null {
   const [f, setF] = useState<Features | null>(cache)

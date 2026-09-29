@@ -27,6 +27,7 @@ export default function SymbolEditor({
   shelf,
   onSave,
   onOpenDetail,
+  onDelete,
   onClose,
 }: {
   heading: string
@@ -40,6 +41,8 @@ export default function SymbolEditor({
   shelf?: { value: string; options: { value: string; label: string }[] }
   onSave: (r: { image: string | null | undefined; name?: string; shelf?: string }) => Promise<void>
   onOpenDetail?: () => void
+  // Elle oluşturulan rafı kaldırma (sol altta kırmızı düğme)
+  onDelete?: { label: string; run: () => Promise<void> }
   onClose: () => void
 }) {
   const { notify } = useToast()
@@ -310,6 +313,24 @@ export default function SymbolEditor({
           {onOpenDetail ? (
             <button onClick={onOpenDetail} className="text-sm text-[#00c0fa] hover:underline">
               Detayını aç
+            </button>
+          ) : onDelete ? (
+            <button
+              onClick={async () => {
+                setBusy('delete')
+                try {
+                  await onDelete.run()
+                  onClose()
+                } catch (e) {
+                  notify(e instanceof Error ? e.message : 'Kaldırılamadı.', 'danger')
+                } finally {
+                  setBusy(null)
+                }
+              }}
+              disabled={busy === 'delete'}
+              className="text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
+            >
+              {onDelete.label}
             </button>
           ) : (
             <span />

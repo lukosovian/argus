@@ -30,12 +30,9 @@ export async function publishFile(root, file, message) {
     return { pushed: false, reason: 'Git dalı uzak depoya bağlı değil.' }
   }
   if (ahead > 0) return { pushed: false, reason: 'Henüz gönderilmemiş başka değişiklikler var; önce onların gönderilmesi gerekiyor.' }
-  // Kodda kaydedilmemiş değişiklik varsa da gönderme: ayar gidip onu kullanan kod gitmemiş olabilir
-  // (ör. yeni bir sayfa açılır ama diğer bilgisayarlarda o sayfanın kodu yoktur).
-  const dirty = (await git(root, ['status', '--porcelain', '--', 'app/src', 'app/server', 'app/public', 'app/package.json']).catch(() => ''))
-    .split('\n')
-    .filter((l) => l.trim() && !l.endsWith(rel))
-  if (dirty.length) return { pushed: false, reason: 'Henüz gönderilmemiş kod değişiklikleri var; önce onların gönderilmesi gerekiyor.' }
+  // Üzerinde çalışılan (kaydedilmemiş) kod değişiklikleri artık engel değil — sadece bu dosya commit'lenir,
+  // onlar gitmez. Kullanıcı Flashback'i açtığında bu yüzden hiç gönderilmiyordu. (Anahtarın açtığı
+  // özelliğin kodu diğer bilgisayarlarda zaten olmalı; yeni bir anahtar eklenirken buna dikkat.)
   if (behind > 0) return { pushed: false, reason: 'Uzak depoda bu bilgisayarda olmayan değişiklikler var.' }
   const changed = await git(root, ['status', '--porcelain', '--', rel])
   if (!changed) return { pushed: true, unchanged: true }

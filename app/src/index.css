@@ -100,6 +100,42 @@ body {
   }
 }
 
+/* Arşiv tablosunun araç çubuğu sayfa kaydırılınca üst menüye yukarıdan kayarak gelir, geri dönünce
+   yerinde yumuşakça belirir (bkz. BoardView). */
+/* Kullanıcı ilk hâli için "hâlâ bir animasyon göremiyorum" dedi — daha belirgin: büyükçe kayma, hafif esneme
+   ve gelirken kenarında sönen mavi bir parıltı. */
+@keyframes argus-dock-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-34px) scale(0.85);
+    box-shadow: 0 0 0 0 rgba(0, 192, 250, 0);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.03);
+    box-shadow: 0 0 0 2px rgba(0, 192, 250, 0.75), 0 0 26px rgba(0, 192, 250, 0.45);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    box-shadow: 0 0 0 0 rgba(0, 192, 250, 0), 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  }
+}
+@keyframes argus-dock-back {
+  0% {
+    opacity: 0;
+    transform: translateY(-26px) scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;

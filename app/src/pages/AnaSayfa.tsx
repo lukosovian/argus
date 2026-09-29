@@ -21,6 +21,7 @@ import OnThisDayRow from '../components/OnThisDayRow'
 import { stripFlags } from '../components/OptionDetailModal'
 import AgeRatingChip from '../components/AgeRatingChip'
 import { sortByOrder } from '../components/HomeSectionEditor'
+import { homeRowOrder } from '../lib/homeRows'
 import { PRIMARY_BUTTON, primaryButtonStyle, gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
 
 function ChevronDownIcon() {
@@ -948,53 +949,30 @@ export default function AnaSayfa() {
   // bu ayardan etkilenmez.
   const showAllSection = settings.showAllSection ?? true
   const moodEnabled = Boolean(settings.moodRow?.enabled) && izlenecekPool.length > 0
-  let defaultViewRows: React.ReactNode[] = [...(showAllSection ? [mainContentNode] : []), ...bodyRowNodes]
-  // "Yeni Bölümler", "En İyi 10" ve mod satırı Ayarlar'da seçilen sıraya (1 = en üstte) yerleşiyor —
-  // küçük sıra numarası önce yerleşir, aynı numarada Yeni Bölümler > En İyi 10 > mod satırı.
-  const placed: { position: number; node: React.ReactNode }[] = []
-  if (settings.newEpisodesRow ?? true) {
-    placed.push({
-      position: settings.newEpisodesPosition ?? 1,
-      node: <NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />,
-    })
-  }
-  if (settings.onThisDay?.enabled ?? true) {
-    placed.push({
-      position: settings.onThisDay?.position ?? 1,
-      node: <OnThisDayRow key="on-this-day" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />,
-    })
-  }
-  if (settings.topRated?.enabled) {
-    placed.push({
-      position: settings.topRated.position ?? 2,
-      node: <TopRatedRow key="top-rated" board={board} rows={visibleRows} onOpenDetail={setDetailRow} titleClass={titleClass} />,
-    })
-  }
-  if (moodEnabled && settings.moodRow) {
-    placed.push({
-      position: settings.moodRow.position ?? 1,
-      node: (
-        <MoodRow
-          key="mood-row"
-          title={settings.moodRow.title ?? ''}
-          moods={settings.moodRow.moods}
-          board={board}
-          rows={izlenecekPool}
-          onOpenDetail={setDetailRow}
-          titleClass={titleClass}
-        />
-      ),
-    })
-  }
-  // Aynı sıra numarasını alanlar arka arkaya dizilir (sonraki öncekini aşağı itmesin diye kaydırılır).
-  const tieCount = new Map<number, number>()
-  for (const p of [...placed].sort((a, b) => a.position - b.position)) {
-    const pos = Math.max(Math.round(p.position), 1)
-    const ties = tieCount.get(pos) ?? 0
-    tieCount.set(pos, ties + 1)
-    const at = Math.min(pos - 1 + ties, defaultViewRows.length)
-    defaultViewRows = [...defaultViewRows.slice(0, at), p.node, ...defaultViewRows.slice(at)]
-  }
+  // Satırlar Ana Sayfa Ayarları › Görünüm › "Satırların sırası"ndaki tek listeye göre dizilir (bkz. lib/homeRows.ts).
+  const rowNodes = new Map<string, React.ReactNode>()
+  if (showAllSection) rowNodes.set('all', mainContentNode)
+  bodySections.forEach((s, i) => rowNodes.set(`section:${s.id}`, bodyRowNodes[i]))
+  rowNodes.set('new-episodes', <NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+  rowNodes.set('on-this-day', <OnThisDayRow key="on-this-day" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+  if (settings.topRated?.enabled)
+    rowNodes.set('top-rated', <TopRatedRow key="top-rated" board={board} rows={visibleRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+  if (moodEnabled && settings.moodRow)
+    rowNodes.set(
+      'mood',
+      <MoodRow
+        key="mood-row"
+        title={settings.moodRow.title ?? ''}
+        moods={settings.moodRow.moods}
+        board={board}
+        rows={izlenecekPool}
+        onOpenDetail={setDetailRow}
+        titleClass={titleClass}
+      />,
+    )
+  let defaultViewRows: React.ReactNode[] = homeRowOrder(settings)
+    .map((e) => rowNodes.get(e.key))
+    .filter((n): n is React.ReactNode => n !== undefined)
 
   // "En altta rastgele satırlarla doldur" — her zaman en sonda, mod satırından da sonra, ve
   // bölümlerle aynı sebeple hep yatay kaydırmalı (bkz. bodyRowNodes'daki not).

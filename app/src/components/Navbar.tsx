@@ -106,7 +106,10 @@ export default function Navbar() {
           </Link>
           {/* Sayfa bağlantıları tek satırda kalıyor (telefonda "Ana Sayfa" iki satıra kayıyordu); sığmazsa
               yana kaydırılıyor. */}
-          <nav className="flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {/* Sayfaların menünün ortasına koyabildiği yer — ör. arşiv tablosunun araç çubuğu, sayfa aşağı
+              kaydırılınca buraya gelir (bkz. BoardView). Sığmıyorsa o sayfa kendisi göstermez. */}
+          <div id="navbar-center-slot" className="absolute left-1/2 top-0 h-16 -translate-x-1/2 flex items-center pointer-events-none z-10" />
+          <nav data-navbar-links className="flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar">
             {[{ id: null as string | null, name: 'Ana Sayfa', to: '/' }, ...pinnedSections.map((s) => ({ id: s.id as string | null, name: s.name, to: `/?bolum=${s.id}` }))].map((l) => {
               const active = l.id === null ? isHome : activeSection === l.id
               return (

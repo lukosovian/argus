@@ -1706,6 +1706,62 @@ export function UygulamaAyarVisual() {
   )
 }
 
+// Koleksiyon: "+ Yeni raf", rafın sonundaki "+ Yapım ekle" ve "Görsel oluştur" (PNG).
+export function KoleksiyonRafVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* araç çubuğu */}
+      {[
+        ['+ Yeni raf', 20, true],
+        ['Görsel oluştur', 78, true],
+      ].map(([t, x, hi]) => (
+        <g key={t as string}>
+          <rect x={x as number} y={10} width={t === '+ Yeni raf' ? 52 : 66} height={14} rx={4} fill="none" stroke={hi ? ACCENT : undefined} strokeOpacity={0.8} strokeWidth={0.8} />
+          <text x={(x as number) + 6} y={20} fontSize={6.2} fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
+            {t as string}
+          </text>
+        </g>
+      ))}
+      <Pin x={24} y={6} n={1} />
+      <Pin x={146} y={6} n={3} />
+      {/* raf */}
+      <Box x={14} y={32} w={292} h={78} r={8} />
+      <rect x={22} y={40} width={44} height={44} rx={6} className="fill-neutral-900" />
+      <text x={44} y={69} fontSize={20} textAnchor="middle" className="fill-neutral-700" style={{ fontFamily: 'inherit' }}>
+        G
+      </text>
+      <text x={22} y={96} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        Ghibli
+      </text>
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={78 + i * 44} y={40} width={38} height={38} rx={5} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.6} />
+      ))}
+      <rect x={210} y={40} width={38} height={38} rx={5} fill="none" stroke={ACCENT} strokeOpacity={0.7} strokeDasharray="3 2" strokeWidth={0.9} />
+      <text x={229} y={62} fontSize={12} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        +
+      </text>
+      <text x={229} y={88} fontSize={5.4} textAnchor="middle" fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
+        Yapım ekle
+      </text>
+      <Pin x={254} y={40} n={2} />
+      {/* PNG önizlemesi */}
+      <Box x={40} y={118} w={240} h={56} r={6} strong />
+      <text x={50} y={132} fontSize={5} fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
+        ARGUS
+      </text>
+      <text x={50} y={146} fontSize={11} className="fill-neutral-50" style={{ fontFamily: 'inherit', fontWeight: 900 }}>
+        Koleksiyon
+      </text>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <rect key={i} x={140 + i * 22} y={126} width={18} height={18} rx={3} className="fill-neutral-800" />
+      ))}
+      <text x={236} y={166} fontSize={6} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        ↓ PNG
+      </text>
+    </Frame>
+  )
+}
+
 // "Hangisi?" penceresi: TMDB'de aynı adlı birden fazla yapım — afiş, ad, yıl, Film/Dizi, "adı tutuyor".
 export function HangisiVisual() {
   const items: [string, string, string, boolean][] = [
