@@ -281,6 +281,14 @@ function findDuplicateGroups(profileId, board, rows) {
   return [...groups.values()].filter((ids) => ids.length > 1).map((ids) => ({ rowIds: ids }))
 }
 
+// Tablodaki kırmızı nokta için sadece mükerrer grupları (Sağlık Kontrolü'nün disk taraması olmadan).
+app.get('/api/profiles/:profileId/boards/:id/duplicates', (req, res) => {
+  const board = readJson(profileBoardsFile(req.params.profileId), []).find((b) => b.id === req.params.id)
+  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  const rows = readJson(profileRowsFile(req.params.profileId, board.id), [])
+  res.json({ duplicates: findDuplicateGroups(req.params.profileId, board, rows) })
+})
+
 // Mükerrerleri birleştirme: `keepId` kalır, `removeIds` silinir. Silinenlerde olup kalanda BOŞ olan her
 // alan kalana aktarılır (izleme tarihleri birleştirilir); bölüm işaretleri, TMDB eşleşmesi, sezonlar ve
 // kadro da kalanda yoksa taşınır — "bilgisi az olanı sil" derken hiçbir şey kaybolmasın.

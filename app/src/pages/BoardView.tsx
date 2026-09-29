@@ -259,6 +259,45 @@ function TmdbFieldsPopover({
 // ikon, tıklanınca genişleyen" mantığıyla çalışıyor (bkz. GlobalSearch.tsx'teki aynı desen).
 // Kullanıcı ikonların ne işe yaradığının belli olmadığını söyleyince (26 Eylül 2026) üzerine gelince
 // altta küçük bir ad etiketi çıkıyor — tarayıcının geç açılan kendi ipucu (title) yerine anında.
+// Kullanıcı "arşivdeki tablonun bir yerine en alta in ve en üste çık butonu eklensin" dedi. Sol altta
+// (sağ alt bildirimlerin yeri), sayfa kaydırılabilecek kadar uzunsa görünüyor.
+function ScrollEndsButtons() {
+  const [scrollable, setScrollable] = useState(false)
+  useEffect(() => {
+    const check = () => setScrollable(document.documentElement.scrollHeight > window.innerHeight + 200)
+    check()
+    const id = setInterval(check, 1000)
+    window.addEventListener('resize', check)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('resize', check)
+    }
+  }, [])
+  if (!scrollable) return null
+  const btn =
+    'h-9 w-9 flex items-center justify-center rounded-full bg-neutral-900/90 border border-neutral-700 text-neutral-300 hover:text-[#00c0fa] hover:border-[#00c0fa]/60 shadow-lg shadow-black/40 backdrop-blur-sm transition'
+  const arrow = (up: boolean) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      {up ? <path d="M6 11l6-6 6 6M6 19l6-6 6 6" /> : <path d="M6 5l6 6 6-6M6 13l6 6 6-6" />}
+    </svg>
+  )
+  return (
+    <div className="fixed left-5 bottom-6 z-40 flex flex-col gap-2">
+      <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="En üste çık" aria-label="En üste çık" className={btn}>
+        {arrow(true)}
+      </button>
+      <button
+        onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
+        title="En alta in"
+        aria-label="En alta in"
+        className={btn}
+      >
+        {arrow(false)}
+      </button>
+    </div>
+  )
+}
+
 function ToolbarIconButton({
   onClick,
   title,
@@ -980,6 +1019,23 @@ export default function BoardView() {
   // hesaplanabiliyor, üçüncü liste (bozuk dosya bağlantıları) modalın kendisi açılınca
   // ayrıca sunucudan çekiliyor (bkz. HealthCheckModal.tsx).
   const [healthOpen, setHealthOpen] = useState(false)
+  // Mükerrer olabilecek kayıtlar — tabloda altı noktanın yerinde kırmızı nokta. Kayıtlar değişince
+  // (biraz bekleyip, her tuşta değil) sunucudan yeniden sorulur.
+  const [duplicateRowIds, setDuplicateRowIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!board) return
+    let cancelled = false
+    const t = setTimeout(() => {
+      api
+        .getDuplicates(board.id)
+        .then((r) => !cancelled && setDuplicateRowIds(new Set(r.duplicates.flatMap((g) => g.rowIds))))
+        .catch(() => {})
+    }, 800)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [board?.id, board?.duplicateIgnore, rows]) // eslint-disable-line react-hooks/exhaustive-deps
   const [guideOpen, setGuideOpen] = useState(false)
   const [discoverOpen, setDiscoverOpen] = useState(false)
   const missingImageRows = useMemo(
@@ -1659,8 +1715,10 @@ export default function BoardView() {
           onSetStatusOption={setStatusOption}
           onFetchTmdb={fetchTmdb}
           density={density}
+          duplicateRowIds={duplicateRowIds}
         />
       )}
+      {!rowsLoading && <ScrollEndsButtons />}
 
       {!rowsLoading && filteredRows.length !== rows.length && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-sm text-neutral-500">

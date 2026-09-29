@@ -45,7 +45,13 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 
 // Bilgi mesajı kısa, cevap bekleyen onay kartı daha uzun durur (kullanıcının okuyup
 // karar vermesi gerekiyor); süre dolarsa onay "vazgeçildi" sayılır.
-const NOTIFY_MS = 3500
+// Kullanıcı "bildirimlerin süreleri kısa, okumaya yetişemiyorum" dedi: en az 7 sn, uzun mesajda
+// okuma süresi kadar (karakter başına ~70 ms, en çok 20 sn). Fare üstündeyken hiç kapanmıyor.
+const NOTIFY_MIN_MS = 7000
+const NOTIFY_MAX_MS = 20000
+const notifyMs = (message: string) => Math.min(NOTIFY_MAX_MS, Math.max(NOTIFY_MIN_MS, message.length * 70))
+// Fareyle üstünden çıkınca kalan süre
+const RESUME_MS = 3000
 const CONFIRM_MS = 12000
 // Onay kartı son tıklamanın yanında açılıyor (kullanıcı "silmek istediğine emin misin yazısı taa
 // en sağda çıkıyo, silme butonunun orda sorsun" dedi). Tıklama bundan eskiyse (ör. klavyeyle
@@ -98,9 +104,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const notify = useCallback(
     (message: string, tone: ToastTone = 'info') => {
-      push({ message, tone }, NOTIFY_MS)
+      push({ message, tone }, notifyMs(message))
     },
     [push],
+  )
+
+  // Fare kartın üstündeyken süre durur, çıkınca birkaç saniye daha kalır.
+  const hold = useCallback(
+    (id: string, holding: boolean) => {
+      clearTimeout(timers.current[id])
+      if (holding) delete timers.current[id]
+      else timers.current[id] = setTimeout(() => dismiss(id, false), RESUME_MS)
+    },
+    [dismiss],
   )
 
   const confirm = useCallback(
@@ -127,7 +143,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ notify, confirm }}>
       {children}
-      <ToastHost toasts={toasts} onAnswer={dismiss} />
+      <ToastHost toasts={toasts} onAnswer={dismiss} onHold={hold} />
     </ToastContext.Provider>
   )
 }
@@ -140,7 +156,9 @@ export function useToast() {
 
 // Bildirimler her şeyin (modal'lar z-50) üstünde dursun diye z-[100]; modal açıkken
 // silme onayı sorulduğunda kartın modal'ın arkasında kalmaması için gerekli.
-function ToastHost({ toasts, onAnswer }: { toasts: Toast[]; onAnswer: (id: string, answer: boolean) => void }) {
+type HoldFn = (id: string, holding: boolean) => void
+
+function ToastHost({ toasts, onAnswer, onHold }: { toasts: Toast[]; onAnswer: (id: string, answer: boolean) => void; onHold: HoldFn }) {
   if (toasts.length === 0) return null
   const anchored = toasts.filter((t) => t.at)
   const stacked = toasts.filter((t) => !t.at)
@@ -149,12 +167,12 @@ function ToastHost({ toasts, onAnswer }: { toasts: Toast[]; onAnswer: (id: strin
       {stacked.length > 0 && (
         <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 w-[min(22rem,calc(100vw-3rem))]">
           {stacked.map((t) => (
-            <ToastCard key={t.id} toast={t} onAnswer={onAnswer} />
+            <ToastCard key={t.id} toast={t} onAnswer={onAnswer} onHold={onHold} />
           ))}
         </div>
       )}
       {anchored.map((t) => (
-        <AnchoredToast key={t.id} toast={t} onAnswer={onAnswer} />
+        <AnchoredToast key={t.id} toast={t} onAnswer={onAnswer} onHold={onHold} />
       ))}
     </>
   )
@@ -162,7 +180,7 @@ function ToastHost({ toasts, onAnswer }: { toasts: Toast[]; onAnswer: (id: strin
 
 // Tıklanan noktanın yanına yerleşen onay kartı. Ekranın alt kısmında tıklandıysa kart
 // noktanın ÜSTÜNE açılıyor, sağ kenara yakınsa sola kayıyor — hiçbir zaman ekrandan taşmıyor.
-function AnchoredToast({ toast, onAnswer }: { toast: Toast; onAnswer: (id: string, answer: boolean) => void }) {
+function AnchoredToast({ toast, onAnswer, onHold }: { toast: Toast; onAnswer: (id: string, answer: boolean) => void; onHold: HoldFn }) {
   const { x, y } = toast.at!
   const width = Math.min(352, window.innerWidth - 24)
   const left = Math.min(Math.max(12, x - 24), window.innerWidth - width - 12)
@@ -172,14 +190,17 @@ function AnchoredToast({ toast, onAnswer }: { toast: Toast; onAnswer: (id: strin
     : { left, width, top: Math.max(12, y + 10) }
   return (
     <div className="fixed z-[100]" style={style}>
-      <ToastCard toast={toast} onAnswer={onAnswer} />
+      <ToastCard toast={toast} onAnswer={onAnswer} onHold={onHold} />
     </div>
   )
 }
 
-function ToastCard({ toast: t, onAnswer }: { toast: Toast; onAnswer: (id: string, answer: boolean) => void }) {
+function ToastCard({ toast: t, onAnswer, onHold }: { toast: Toast; onAnswer: (id: string, answer: boolean) => void; onHold: HoldFn }) {
   return (
     <div
+      // Bilgi mesajı fare üstündeyken kapanmasın (onay kartının kendi süresi var, ona dokunulmuyor).
+      onMouseEnter={t.asks ? undefined : () => onHold(t.id, true)}
+      onMouseLeave={t.asks ? undefined : () => onHold(t.id, false)}
       style={{ animation: 'argus-toast-in .18s ease-out' }}
       className={`relative rounded-xl border bg-neutral-900/95 backdrop-blur-sm shadow-xl shadow-black/40 px-4 py-3 ${
         t.tone === 'danger' ? 'border-rose-500/40' : t.tone === 'success' ? 'border-emerald-500/40' : 'border-neutral-700'

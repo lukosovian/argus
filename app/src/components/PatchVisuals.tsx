@@ -1706,6 +1706,43 @@ export function UygulamaAyarVisual() {
   )
 }
 
+// Arşiv tablosu: mükerrer olabilecek satırların solunda kırmızı nokta; sol altta en üste / en alta düğmeleri.
+export function TabloMukerrerVisual() {
+  const rows = ['Başlangıç', 'Dark', 'Dune: Çöl Gezegeni', 'Başlangıç', 'Esaretin Bedeli', 'Dark']
+  const dup = new Set([0, 1, 3, 5])
+  return (
+    <Frame viewBox={VB}>
+      <Box x={40} y={10} w={272} h={160} r={8} strong />
+      <Line x={70} y={24} w={80} />
+      <Line x={180} y={24} w={50} light />
+      <Line x={250} y={24} w={40} light />
+      {rows.map((t, i) => {
+        const y = 36 + i * 21
+        return (
+          <g key={i}>
+            <line x1={40} x2={312} y1={y} y2={y} className="stroke-neutral-800" strokeWidth={0.6} />
+            {dup.has(i) && <circle cx={54} cy={y + 10.5} r={3} fill="#f43f5e" />}
+            <text x={70} y={y + 13} fontSize={6.6} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+              {t}
+            </text>
+            <Line x={180} y={y + 10} w={44} light />
+            <Line x={250} y={y + 10} w={36} light />
+          </g>
+        )
+      })}
+      <Pin x={46} y={40} n={1} />
+      {/* sol alt: en üste / en alta */}
+      {[118, 142].map((cy, i) => (
+        <g key={cy}>
+          <circle cx={20} cy={cy} r={9} className="fill-neutral-900" stroke={ACCENT} strokeOpacity={0.7} strokeWidth={0.8} />
+          <path d={i === 0 ? `M16 ${cy + 1} L20 ${cy - 3} L24 ${cy + 1}` : `M16 ${cy - 1} L20 ${cy + 3} L24 ${cy - 1}`} fill="none" stroke={ACCENT} strokeWidth={1.2} />
+        </g>
+      ))}
+      <Pin x={30} y={160} n={2} />
+    </Frame>
+  )
+}
+
 // Sağlık Kontrolü › Mükerrer kayıtlar: aynı içerik iki kez — en dolu olan "kalır", Birleştir diğerini ona
 // aktarıp siler. Sağda: başlığa İngilizce ad yazılınca TMDB güncellemesi Türkçe adı getiriyor.
 export function MukerrerVisual() {

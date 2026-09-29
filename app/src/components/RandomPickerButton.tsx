@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import type { Board, Row } from '../types'
+import { todayIso } from '../types'
+import { resolveRole } from '../lib/roles'
 import { rowsForFilter, shuffle } from '../lib/rowMeta'
 import { hasActiveFilter } from '../lib/filters'
 import { useHomeSettings } from '../hooks/useHomeSettings'
@@ -206,7 +208,15 @@ export default function RandomPickerButton() {
         const filter = current.randomPickerFilter
         // Hiç filtre ayarlanmadıysa (propertyId yok) arşivin TAMAMI havuz olur — kullanıcının
         // "hiç bi ayar yapılmadıysa default olarak tüm içerikleri gösterebilsin" isteği.
-        const base = filter && hasActiveFilter(filter) ? rowsForFilter(filter, allRows) : allRows
+        // Vizyon tarihi henüz gelmemiş (yayınlanmamış) yapımlar seçilmiyor — kullanıcı "izlenecek ama
+        // çıktıktan sonra izleyebilirim" dedi. Vizyon tarihi boş olanlar havuzda kalıyor.
+        const vizyonProp = resolveRole(b, 'vizyon')
+        const today = todayIso()
+        const released = allRows.filter((r) => {
+          const v = vizyonProp ? r.values[vizyonProp.id] : null
+          return !(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && v.slice(0, 10) > today)
+        })
+        const base = filter && hasActiveFilter(filter) ? rowsForFilter(filter, released) : released
         // Poster olmadan dağılma animasyonu boş kutulara döner — bu yüzden sadece seçili şekilde
         // bir görseli olan kayıtlar havuza giriyor.
         const columns = await classifyImageColumns(b, allRows)
