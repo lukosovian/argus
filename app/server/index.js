@@ -2112,7 +2112,7 @@ app.post('/api/apply-update', (req, res) => {
   res.json({ ok: true })
 
   try {
-    launchDetachedRestart(buildRestartScript({ oldPid, batPath: path.join(ROOT, 'ARGUS.bat'), root: ROOT }), ROOT)
+    launchDetachedRestart(buildRestartScript({ oldPid, batPath: path.join(ROOT, 'ARGUS.bat'), root: ROOT, launcherPath: path.join(ROOT, 'app', 'launcher', 'baslat.ps1'), exePath: path.join(ROOT, 'ARGUS.exe') }), ROOT)
   } catch {}
 })
 
@@ -2141,6 +2141,26 @@ function announceFeatures() {
     }
   }
 }
+
+// Arayüz tercihleri (kapatılan sütunlar, tablo sıklığı, tema, TMDB tercihleri, "bir daha sorma"lar…).
+// Eskiden sadece tarayıcının kendi hafızasındaydı (localStorage); ARGUS kendi uygulamasına (Electron)
+// geçince uygulamanın hafızası tarayıcınınkinden ayrı olduğu için hepsi kaybolacaktı. Artık burada da
+// tutuluyor (bkz. src/lib/uiPrefs.ts): uygulama ve tarayıcı aynı tercihleri görür. migratedAt: tarayıcıdaki
+// eski tercihler bir kez aktarıldı mı (bkz. desktop/main.cjs'teki ilk açılış).
+const UI_PREFS_FILE = path.join(DATA_DIR, 'ui-prefs.json')
+app.get('/api/ui-prefs', (req, res) => {
+  res.json(readJson(UI_PREFS_FILE, { prefs: {} }))
+})
+app.post('/api/ui-prefs', (req, res) => {
+  const data = readJson(UI_PREFS_FILE, { prefs: {} })
+  data.prefs = data.prefs ?? {}
+  const set = req.body?.set && typeof req.body.set === 'object' ? req.body.set : {}
+  for (const [k, v] of Object.entries(set)) if (/^argus_/.test(k) && typeof v === 'string' && v.length < 200000) data.prefs[k] = v
+  for (const k of Array.isArray(req.body?.remove) ? req.body.remove : []) delete data.prefs[k]
+  if (req.body?.migrate) data.migratedAt = Date.now()
+  rawWriteJson(UI_PREFS_FILE, data)
+  res.json({ ok: true })
+})
 
 app.get('/api/features', (req, res) => {
   const f = readJson(FEATURES_FILE, {})

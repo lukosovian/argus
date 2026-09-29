@@ -3,9 +3,27 @@ import { createRoot } from 'react-dom/client'
 import 'flag-icons/css/flag-icons.min.css'
 import './index.css'
 import App from './App.tsx'
+import { initUiPrefs } from './lib/uiPrefs'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Arayüz tercihleri sunucudan yüklenmeden çizilmesin (kapatılan sütunlar vb. doğru gelsin) — bkz. lib/uiPrefs.ts
+initUiPrefs().finally(() => {
+  const root = createRoot(document.getElementById('root')!)
+  // ARGUS uygulamasının ilk açılışında, tarayıcıdaki eski tercihler buradan bir kez aktarılır (bkz. desktop/main.cjs)
+  if (new URLSearchParams(location.search).has('ayar-tasi')) {
+    root.render(
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#e5e5e5', fontFamily: 'inherit', padding: 24, textAlign: 'center' }}>
+        <div>
+          <img src="/logoblue.png" alt="" style={{ width: 64, height: 64, margin: '0 auto 16px' }} />
+          <p style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>ARGUS artık kendi uygulamasında açılıyor</p>
+          <p style={{ marginTop: 8, color: '#a3a3a3' }}>Tarayıcıdaki ayarların (kapattığın sütunlar, tema…) uygulamaya aktarıldı. Bu sekmeyi kapatabilirsin.</p>
+        </div>
+      </div>,
+    )
+    return
+  }
+  root.render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+})

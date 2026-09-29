@@ -623,7 +623,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
       await new Promise((r) => setTimeout(r, 350))
     }
     setBusy(false)
-    notify(`${cards.length} kart indirildi — İndirilenler klasörüne bakabilirsin. (Tarayıcı "birden fazla dosya indirilsin mi" diye sorarsa izin ver.)`)
+    notify(`${cards.length} kart indirildi — İndirilenler klasörüne bakabilirsin.`)
   }
 
   const ready = urls.every(Boolean)

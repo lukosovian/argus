@@ -40,6 +40,7 @@ import {
   KoleksiyonVisual,
   IlerlemeVisual,
   TarihSeciciVisual,
+  AcilisVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -54,6 +55,22 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11.1',
+    date: '29 Eylül 2026',
+    title: 'ARGUS artık kendi uygulaması, terminal yerine açılış penceresi',
+    visuals: [{ caption: '1 masaüstündeki ARGUS simgesine basınca siyah terminal yerine logolu açılış penceresi · 2 o an ne yaptığını yazar, hazır olunca ARGUS kendi penceresinde açılır', Visual: AcilisVisual }],
+    items: [
+      'ARGUS artık tarayıcıda değil, kendi penceresinde açılan bir uygulama (Discord, Spotify gibi): kendi simgesi, sekme ve adres çubuğu yok. Pencereyi kapatınca ARGUS da tamamen kapanıyor. Pencerenin boyutunu ve yerini hatırlıyor.',
+      'Klasörde artık bir ARGUS.exe var; masaüstündeki ARGUS simgesi de onu açıyor. Açarken hiç terminal penceresi görünmüyor; onun yerine logolu küçük bir açılış penceresi çıkıyor ve o an ne yaptığını yazıyor ("Güncellemeler kontrol ediliyor…", "Arayüz hazırlanıyor…"). Hazır olunca ARGUS penceresi açılıyor. "Şimdi Güncelle"den sonra da aynısı.',
+      'ARGUS açıkken simgeye tekrar basarsan ikinci bir pencere açılmıyor, açık olan öne geliyor.',
+      'Fragmanlar uygulamada da oynuyor; YouTube, TMDB gibi dış bağlantılar normal tarayıcında açılıyor. İndirdiğin görseller (Flashback kartları vb.) doğrudan İndirilenler klasörüne kaydediliyor. Kısayollar: F5 yenile, Ctrl + / Ctrl − yakınlaştır, Alt+← geri.',
+      'Kapattığın sütunlar, tablo sıklığı, tema gibi tercihler artık ARGUS\'ta da saklanıyor; uygulamanın ilk açılışında tarayıcıdaki tercihlerin bir kez aktarılıyor (bu sırada tarayıcında kısa bir "ayarların aktarıldı" sekmesi açılır, kapatabilirsin).',
+      'ARGUS klasörü sadeleşti: "ARGUS Durdur" kalktı (pencereyi kapatmak ARGUS\'u kapatıyor), güncelleme ve kurulumu arkada yapan dosyalar gizlendi — klasörde ARGUS.exe ile kendi dosyaların duruyor.',
+      'Uygulama motoru bu güncellemeden sonraki ilk açılışta bir kereye mahsus indiriliyor (~100 MB), o açılış biraz uzun sürer. O ilk açılışta terminal de son bir kez görünür; masaüstündeki ARGUS kısayolu kendiliğinden ARGUS.exe\'ye geçer.',
+      'Bir sorun olursa (ör. ilk kurulumda internet kesilirse) okuyabilmen için terminal eskisi gibi görünür hale geliyor.',
+    ],
+  },
   {
     version: 'v1.11',
     date: '29 Eylül 2026',

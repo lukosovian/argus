@@ -1612,3 +1612,44 @@ export function TarihSeciciVisual() {
     </Frame>
   )
 }
+
+// ---- v1.11.1 ---------------------------------------------------------------------------------
+
+export function AcilisVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {/* eski: terminal */}
+      <rect x={10} y={30} width={120} height={80} rx={4} fill="#0c0c0c" className="stroke-neutral-700" strokeWidth={0.8} />
+      <rect x={10} y={30} width={120} height={9} rx={4} className="fill-neutral-800" />
+      {[0, 1, 2, 3].map((i) => (
+        <rect key={i} x={16} y={46 + i * 9} width={[70, 90, 55, 80][i]} height={3} rx={1.5} className="fill-neutral-600" />
+      ))}
+      <line x1={14} y1={34} x2={126} y2={106} stroke="#f87171" strokeWidth={2} />
+      <line x1={126} y1={34} x2={14} y2={106} stroke="#f87171" strokeWidth={2} />
+      <text x={70} y={124} fontSize={7} textAnchor="middle" className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        eskiden
+      </text>
+      <text x={150} y={74} fontSize={14} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        →
+      </text>
+      {/* yeni: açılış penceresi */}
+      <rect x={172} y={22} width={138} height={100} rx={10} fill="#0b0b0e" className="stroke-neutral-700" strokeWidth={0.8} />
+      <path d="M241 36 L250 56 L246 56 L241 45 L236 56 L232 56 Z" fill={ACCENT} />
+      <path d="M229 62 Q241 54 253 62" fill="none" stroke={ACCENT} strokeWidth={2.2} />
+      <circle cx={241} cy={63} r={1.8} fill={ACCENT} />
+      <text x={241} y={80} fontSize={9} fontWeight={800} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
+        ARGUS
+      </text>
+      <text x={241} y={93} fontSize={5.5} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        Arayüz hazırlanıyor…
+      </text>
+      <rect x={211} y={102} width={60} height={2} rx={1} className="fill-neutral-700" />
+      <rect x={226} y={102} width={18} height={2} rx={1} fill={ACCENT} />
+      <text x={241} y={138} fontSize={7} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        şimdi
+      </text>
+      <Pin x={306} y={26} n={1} />
+      <Pin x={280} y={92} n={2} />
+    </Frame>
+  )
+}
