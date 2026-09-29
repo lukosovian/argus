@@ -11,7 +11,12 @@ import { isBusy } from '../lib/busy'
 // (bkz. server/index.js'teki /api/apply-update) — kullanıcı "onun yanına şimdi güncelle gibi
 // bi şey eklenemez mi" dedi. Reddederse (ya da hiç cevap vermezse) bir sonraki ARGUS.bat
 // açılışında zaten kendiliğinden gelir, eski davranış hâlâ geçerli.
-const CHECK_INTERVAL_MS = 30 * 60 * 1000
+// Kullanıcı "arkadaş uygulamayı kullanırken ona güncelle bildirimi gitmedi" dedi: kontrol 30 dakikada
+// birdi ve soru 12 sn'de kendiliğinden kapanıp oturum boyunca bir daha sorulmuyordu (ekrana bakmıyorsa
+// ya da ARGUS tepsideyse hiç görmüyordu). Artık 5 dakikada bir bakılıyor, soru cevaplanana kadar
+// ekranda kalıyor; "Sonra" denirse 2 saat sonra yine soruluyor.
+const CHECK_INTERVAL_MS = 5 * 60 * 1000
+const ASK_AGAIN_MS = 2 * 60 * 60 * 1000
 const BUSY_RETRY_MS = 30 * 1000
 // Güncellemeden sonra sayfayı ne zaman yenileyeceğimiz: eskiden sabit 7 saniye bekleniyordu —
 // yeni ARGUS o sürede ayağa kalkmadıysa (ör. yeni bir paket kurulması gerektiyse) sayfa
@@ -37,27 +42,34 @@ async function waitForServer(): Promise<void> {
 
 export function useUpdateCheck() {
   const { notify, confirm } = useToast()
-  const notifiedRef = useRef(false)
+  // Soru ekrandayken yenisi açılmasın; "Sonra" denince bir süre sorulmasın.
+  const askingRef = useRef(false)
+  const snoozedUntilRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
 
     async function check() {
       try {
+        if (askingRef.current || Date.now() < snoozedUntilRef.current) return
         const result = await api.checkUpdate()
-        if (cancelled || !result.updateAvailable || notifiedRef.current) return
+        if (cancelled || !result.updateAvailable || askingRef.current) return
         // Genel Güncelleme gibi uzun bir iş sürüyorsa şimdi sorma — iş bitince (aşağıdaki kısa
         // aralıklı kontrolde) sorulur.
         if (isBusy()) {
           setTimeout(check, BUSY_RETRY_MS)
           return
         }
-        notifiedRef.current = true
+        askingRef.current = true
         const wantsUpdate = await confirm({
           message: 'Yeni bir ARGUS güncellemesi hazır. Şimdi güncellensin mi? (Az sonra kısa bir an bağlantı kesilip sayfa kendiliğinden yenilenecek.)',
           confirmLabel: 'Şimdi Güncelle',
           cancelLabel: 'Sonra',
+          tone: 'info',
+          persist: true,
         })
+        askingRef.current = false
+        if (!wantsUpdate) snoozedUntilRef.current = Date.now() + ASK_AGAIN_MS
         if (cancelled || !wantsUpdate) return
         try {
           await api.applyUpdate()

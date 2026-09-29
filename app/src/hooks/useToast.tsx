@@ -22,6 +22,8 @@ type ConfirmOptions = {
   confirmLabel?: string
   cancelLabel?: string
   tone?: ToastTone
+  // Cevap verilene kadar ekranda kalsın (süre dolunca "vazgeçildi" sayılmasın) — ör. güncelleme sorusu.
+  persist?: boolean
 }
 
 type Toast = {
@@ -96,7 +98,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (toast: Omit<Toast, 'id'>, ms: number) => {
       const id = Math.random().toString(36).slice(2)
       setToasts((list) => [...list, { ...toast, id }])
-      timers.current[id] = setTimeout(() => dismiss(id, false), ms)
+      // Infinity: süresiz (setTimeout Infinity'yi 0 sayar, o yüzden hiç kurulmuyor)
+      if (Number.isFinite(ms)) timers.current[id] = setTimeout(() => dismiss(id, false), ms)
       return id
     },
     [dismiss],
@@ -123,7 +126,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (options: ConfirmOptions) =>
       new Promise<boolean>((resolve) => {
         const p = lastPointer.current
-        const at = p && Date.now() - p.t < POINTER_FRESH_MS ? { x: p.x, y: p.y } : undefined
+        // Süresiz sorular (güncelleme gibi) kullanıcının tıklamasıyla açılmıyor — köşede dursun.
+        const at = !options.persist && p && Date.now() - p.t < POINTER_FRESH_MS ? { x: p.x, y: p.y } : undefined
         const id = push(
           {
             message: options.message,
@@ -133,7 +137,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             asks: true,
             at,
           },
-          CONFIRM_MS,
+          options.persist ? Infinity : CONFIRM_MS,
         )
         resolvers.current[id] = resolve
       }),
