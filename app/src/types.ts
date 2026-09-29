@@ -164,6 +164,8 @@ export interface Board {
   statusOptions?: Partial<Record<StatusKey, string>>
   // Sağlık Kontrolü'nde "bu kayıtta bu alan yok, bir daha sorma" denenler: rowId → sütun id'leri.
   healthIgnore?: Record<string, string[]>
+  // Sağlık Kontrolü'nde "Bunlar farklı" denen mükerrer adayları: "idA|idB" (küçük id önce).
+  duplicateIgnore?: string[]
   createdAt: number
   updatedAt: number
 }

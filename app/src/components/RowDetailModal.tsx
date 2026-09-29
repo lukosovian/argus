@@ -270,7 +270,8 @@ export default function RowDetailModal({
   const castByOptionId = new Map((cast[row.id] ?? []).map((c) => [c.optionId, c]))
   const seasons = episodes[row.id]
   const rowWatched = watched[row.id] ?? {}
-  const hasTitle = title.trim().length > 0
+  const origForSearch = resolveRole(board, 'orjinalAdi')
+  const hasTitle = title.trim().length > 0 || (origForSearch ? String(row.values[origForSearch.id] ?? '').trim().length > 0 : false)
 
   // BoardTable.tsx'in kendi handleRefreshClick'iyle aynı mantık — `row` prop'u BoardView'da
   // zaten `rows.find(...)`e bağlı olduğundan (bkz. çağıran yer) board/row alanları PATCH sonrası

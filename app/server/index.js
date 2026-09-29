@@ -202,7 +202,139 @@ app.get('/api/profiles/:profileId/boards/:id/health', (req, res) => {
       }
     }
   }
-  res.json({ brokenImages })
+  res.json({ brokenImages, duplicates: findDuplicateGroups(req.params.profileId, board, rows) })
+})
+
+// Mükerrer kayıtlar (Sağlık Kontrolü). Kullanıcı "şimdiye kadar mükerrerleri sen bakıp söyledin, sağlık
+// kontrolünde toplu görebileyim" dedi. İki kayıt aynı içerik sayılır: aynı TMDB içeriğine bağlılarsa ya
+// da adları tutuyorsa (Türkçe adı / orijinal adı, çapraz da: birinin Türkçe adına İngilizcesi yazılmış
+// olabilir). Ad eşleşmesinde yeniden çekimler (Dune 1984 / 2021) ve aynı adlı film/dizi (Fargo) karışmasın
+// diye TMDB kimlikleri, vizyon yılları ya da Kategori'leri ikisinde de dolu ve farklıysa sayılmaz.
+// "Bunlar farklı" denen çiftler board.duplicateIgnore'da ("a|b", küçük id önce).
+function findDuplicateGroups(profileId, board, rows) {
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const origProp = resolveRole(board, 'orjinalAdi')
+  const vizyonProp = resolveRole(board, 'vizyon')
+  const kategoriProp = resolveRole(board, 'kategori')
+  const ignored = new Set(board.duplicateIgnore ?? [])
+  const info = rows.map((row) => {
+    const names = new Set()
+    for (const p of [titleProp, origProp]) {
+      const v = p ? row.values[p.id] : null
+      if (typeof v === 'string' && normalizeText(v)) names.add(normalizeText(v))
+    }
+    const ref = refs[row.id]
+    const y = vizyonProp ? row.values[vizyonProp.id] : null
+    return {
+      row,
+      names,
+      key: ref ? tmdbKey(ref.mediaType, ref.id) : null,
+      year: typeof y === 'string' && /^d{4}/.test(y) ? y.slice(0, 4) : null,
+      kategori: kategoriProp ? row.values[kategoriProp.id] || null : null,
+    }
+  })
+  const parent = new Map(rows.map((r) => [r.id, r.id]))
+  const find = (id) => (parent.get(id) === id ? id : find(parent.get(id)))
+  const reasons = new Map()
+  const link = (a, b, reason) => {
+    const pair = a.row.id < b.row.id ? `${a.row.id}|${b.row.id}` : `${b.row.id}|${a.row.id}`
+    if (ignored.has(pair)) return
+    const ra = find(a.row.id)
+    const rb = find(b.row.id)
+    if (ra !== rb) parent.set(ra, rb)
+    reasons.set(a.row.id, reasons.get(a.row.id) === 'tmdb' ? 'tmdb' : reason)
+    reasons.set(b.row.id, reasons.get(b.row.id) === 'tmdb' ? 'tmdb' : reason)
+  }
+  const byKey = new Map()
+  const byName = new Map()
+  for (const x of info) {
+    if (x.key) {
+      if (!byKey.has(x.key)) byKey.set(x.key, [])
+      byKey.get(x.key).push(x)
+    }
+    for (const n of x.names) {
+      if (!byName.has(n)) byName.set(n, [])
+      byName.get(n).push(x)
+    }
+  }
+  for (const list of byKey.values()) for (let i = 1; i < list.length; i++) link(list[0], list[i], 'tmdb')
+  for (const list of byName.values()) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i]
+        const b = list[j]
+        if (a.key && b.key && a.key !== b.key) continue
+        if (a.year && b.year && a.year !== b.year) continue
+        if (a.kategori && b.kategori && a.kategori !== b.kategori) continue
+        link(a, b, 'ad')
+      }
+    }
+  }
+  const groups = new Map()
+  for (const r of rows) {
+    if (!reasons.has(r.id)) continue
+    const root = find(r.id)
+    if (!groups.has(root)) groups.set(root, [])
+    groups.get(root).push(r.id)
+  }
+  return [...groups.values()].filter((ids) => ids.length > 1).map((ids) => ({ rowIds: ids }))
+}
+
+// Mükerrerleri birleştirme: `keepId` kalır, `removeIds` silinir. Silinenlerde olup kalanda BOŞ olan her
+// alan kalana aktarılır (izleme tarihleri birleştirilir); bölüm işaretleri, TMDB eşleşmesi, sezonlar ve
+// kadro da kalanda yoksa taşınır — "bilgisi az olanı sil" derken hiçbir şey kaybolmasın.
+app.post('/api/profiles/:profileId/boards/:id/merge-rows', (req, res) => {
+  const { profileId, id: boardId } = req.params
+  const { keepId, removeIds } = req.body ?? {}
+  if (!keepId || !Array.isArray(removeIds) || removeIds.length === 0 || removeIds.includes(keepId)) {
+    return res.status(400).json({ error: 'Geçersiz birleştirme' })
+  }
+  const board = readJson(profileBoardsFile(profileId), []).find((b) => b.id === boardId)
+  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  const rowsFile = profileRowsFile(profileId, boardId)
+  const rows = readJson(rowsFile, [])
+  const keep = rows.find((r) => r.id === keepId)
+  const removed = removeIds.map((rid) => rows.find((r) => r.id === rid)).filter(Boolean)
+  if (!keep || removed.length === 0) return res.status(404).json({ error: 'Kayıt bulunamadı' })
+  const empty = (v) =>
+    v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0)
+  const dateProp = resolveRole(board, 'izlemeTarihi')
+  const moved = new Set()
+  for (const r of removed) {
+    for (const [pid, v] of Object.entries(r.values ?? {})) {
+      if (empty(v)) continue
+      const cur = keep.values[pid]
+      if (empty(cur)) {
+        keep.values[pid] = v
+        moved.add(pid)
+      } else if (dateProp && pid === dateProp.id && Array.isArray(cur) && Array.isArray(v)) {
+        const all = [...new Set([...cur, ...v])]
+        if (all.length > cur.length) {
+          keep.values[pid] = all.sort()
+          moved.add(pid)
+        }
+      }
+    }
+  }
+  keep.updatedAt = Date.now()
+  for (const file of [profileTmdbFile(profileId), profileEpisodesFile(profileId), profileCastFile(profileId), profileWatchedFile(profileId)]) {
+    const map = readJson(file, {})
+    let changed = false
+    for (const r of removed) {
+      if (map[r.id] === undefined) continue
+      if (map[keepId] === undefined) map[keepId] = map[r.id]
+      delete map[r.id]
+      changed = true
+    }
+    if (changed) writeJson(file, map)
+  }
+  const gone = new Set(removed.map((r) => r.id))
+  writeJson(
+    rowsFile,
+    rows.filter((r) => !gone.has(r.id)),
+  )
+  res.json({ ok: true, row: keep, movedFields: board.properties.filter((p) => moved.has(p.id)).map((p) => p.name) })
 })
 
 app.post('/api/profiles/:profileId/boards/:id/rows', (req, res) => {
@@ -624,14 +756,30 @@ async function downloadTmdbImage(url, destPath) {
   return true
 }
 
+// Adı birebir tutan en bilinen sonuç: Türkçe sonuçlar + aynı aramanın İngilizcesi birlikte bakılıyor, çünkü
+// kullanıcı çoğu zaman İngilizce adı yazıyor ve Türkçe sonuçlarda o ad görünmüyor. "Parasite" → ilk sonuç
+// "Parasite Dolls" ya da adı gerçekten "Parasite" olan az bilinen bir film çıkıyordu; doğrusu "Parazit"
+// (İngilizce adı Parasite, en çok oy alan). Birebir tutan yoksa null (çağıran ilk sonuca düşer).
+async function bestExact(endpoint, params, trResults, query, apiKey) {
+  const q = normalizeText(query)
+  const same = (r) => [r.title, r.name, r.original_title, r.original_name].some((t) => t && normalizeText(t) === q)
+  const en = await tmdbGet(endpoint, { ...params, query, language: 'en-US' }, apiKey)
+  const cands = [...(trResults ?? []), ...(en?.results ?? [])].filter((r) => (r.media_type ? r.media_type === 'movie' || r.media_type === 'tv' : true) && same(r))
+  if (!cands.length) return null
+  const best = cands.reduce((a, b) => ((b.vote_count ?? 0) > (a.vote_count ?? 0) ? b : a))
+  // Türkçe sonuçtaki karşılığı tercih edilir (aynı kimlik), yoksa İngilizcesi — kimlik aynı, sonra Türkçe detay çekiliyor.
+  return (trResults ?? []).find((r) => r.id === best.id && (r.media_type ?? '') === (best.media_type ?? '')) ?? best
+}
+
 async function searchTv(query, year, apiKey) {
   if (!query) return null
   const params = { query, language: 'tr-TR' }
   if (year) params.first_air_date_year = year
   const withYear = year ? await tmdbGet('/search/tv', params, apiKey) : null
-  if (withYear?.results?.[0]) return withYear.results[0]
+  if (withYear?.results?.[0]) return (await bestExact('/search/tv', { first_air_date_year: year }, withYear.results, query, apiKey)) ?? withYear.results[0]
   const noYear = await tmdbGet('/search/tv', { query, language: 'tr-TR' }, apiKey)
-  return noYear?.results?.[0] ?? null
+  if (!noYear?.results?.length) return null
+  return (await bestExact('/search/tv', {}, noYear.results, query, apiKey)) ?? noYear.results[0]
 }
 
 // Önce İLK vizyon yılıyla (primary_release_year) aranır — sadece 'year' ile arayınca o yıl yeniden
@@ -650,7 +798,8 @@ async function searchMovie(query, year, apiKey) {
     if (withYear?.results?.length) return pickByTitle(withYear.results, query)
   }
   const noYear = await tmdbGet('/search/movie', { query, language: 'tr-TR' }, apiKey)
-  return noYear?.results?.length ? pickByTitle(noYear.results, query) : null
+  if (!noYear?.results?.length) return null
+  return (await bestExact('/search/movie', {}, noYear.results, query, apiKey)) ?? noYear.results[0]
 }
 
 async function searchMulti(query, year, apiKey) {
@@ -662,7 +811,7 @@ async function searchMulti(query, year, apiKey) {
     const match = results.find((r) => (r.release_date || r.first_air_date || '').startsWith(year))
     if (match) return match
   }
-  return results[0]
+  return (await bestExact('/search/multi', {}, results, query, apiKey)) ?? results[0]
 }
 
 function findProp(board, name, type) {
@@ -881,6 +1030,30 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
       row.values[kategoriProp.id] = opt.id
       filled.push('Kategori')
+    }
+
+    // Başlık: kullanıcı "Türkçe adına İngilizcesini yazıyorum, öyle kalıyor; Türkçe adını bulursa
+    // güncellesin" dedi. Başlık boşsa (sadece Orjinal Adı yazılıp aranmışsa) ya da başlıkta orijinal/
+    // İngilizce ad yazıyorsa TMDB'nin Türkçe adı yazılır. Kullanıcının kendi verdiği başka bir ad korunur.
+    if (titleProp && titleProp.type === 'text') {
+      const trTitle = ((mediaType === 'tv' ? details.name : details.title) || '').replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim() // TMDB bazen görünmez yön işaretleri koyuyor
+      const cur = typeof titleTr === 'string' ? titleTr.trim() : ''
+      if (trTitle && normalizeText(cur) !== normalizeText(trTitle)) {
+        let replace = !cur
+        if (!replace) {
+          const orig = (mediaType === 'tv' ? details.original_name : details.original_title) || ''
+          replace = normalizeText(cur) === normalizeText(orig)
+          if (!replace) {
+            const en = await tmdbGet(`/${mediaType}/${result.id}`, { language: 'en-US' }, apiKey)
+            const enTitle = (mediaType === 'tv' ? en?.name : en?.title) || ''
+            replace = Boolean(enTitle) && normalizeText(cur) === normalizeText(enTitle)
+          }
+        }
+        if (replace) {
+          row.values[titleProp.id] = trTitle
+          filled.push(titleProp.name)
+        }
+      }
     }
 
     if (origProp && (overwrite || !titleOrig) && !exclude.has('orjinalAdi')) {
@@ -1115,7 +1288,11 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     writeJson(boardsFile, boards)
     writeJson(rowsFilePath, rows)
 
-    return { status: 200, data: { ok: true, mediaType, filled, newEpisodes, newActors } }
+    // Mükerrer uyarısı: aynı TMDB içeriği bu arşivde başka bir kayıtta da varsa arayüz haber verir.
+    const dupRow = rows.find((x) => x.id !== row.id && refs[x.id]?.id === result.id && refs[x.id]?.mediaType === mediaType)
+    const duplicateOf = dupRow ? { rowId: dupRow.id, title: (titleProp && dupRow.values[titleProp.id]) || 'İsimsiz' } : null
+
+    return { status: 200, data: { ok: true, mediaType, filled, newEpisodes, newActors, duplicateOf } }
   } catch (e) {
     console.error('fetch-tmdb hata:', e)
     return { status: 500, data: { error: 'Çekme sırasında hata oluştu' } }

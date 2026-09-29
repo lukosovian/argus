@@ -1705,3 +1705,69 @@ export function UygulamaAyarVisual() {
     </Frame>
   )
 }
+
+// Sağlık Kontrolü › Mükerrer kayıtlar: aynı içerik iki kez — en dolu olan "kalır", Birleştir diğerini ona
+// aktarıp siler. Sağda: başlığa İngilizce ad yazılınca TMDB güncellemesi Türkçe adı getiriyor.
+export function MukerrerVisual() {
+  const row = (y: number, t: string, sub: string, keep: boolean) => (
+    <g>
+      <text x={22} y={y} fontSize={6.6} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        {t}
+      </text>
+      <text x={22} y={y + 9} fontSize={5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {sub}
+      </text>
+      <rect x={keep ? 150 : 142} y={y - 7} width={keep ? 20 : 28} height={11} rx={2} fill={keep ? '#10b981' : 'none'} fillOpacity={keep ? 0.15 : 0} className={keep ? undefined : 'stroke-neutral-600'} stroke={keep ? '#10b981' : undefined} strokeWidth={0.6} />
+      <text x={keep ? 160 : 156} y={y + 0.6} fontSize={5} textAnchor="middle" fill={keep ? '#34d399' : undefined} className={keep ? undefined : 'fill-neutral-400'} style={{ fontFamily: 'inherit' }}>
+        {keep ? 'kalır' : 'Bu kalsın'}
+      </text>
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={10} w={172} h={160} r={8} strong />
+      <Label x={18} y={26} size={8}>
+        Mükerrer kayıtlar
+      </Label>
+      <NewTag x={100} y={19} />
+      <Box x={14} y={36} w={160} h={78} r={5} />
+      {row(50, 'Dune: Çöl Gezegeni', 'Film · 2021 · İzlendi · puanlı · 18 alan dolu', true)}
+      {row(72, 'Dune: Çöl Gezegeni', 'Film · 2021 · 14 alan dolu', false)}
+      <rect x={82} y={96} width={42} height={12} rx={6} className="stroke-neutral-600" fill="none" strokeWidth={0.6} />
+      <text x={103} y={104} fontSize={5.2} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        Bunlar farklı
+      </text>
+      <rect x={128} y={96} width={40} height={12} rx={6} fill="none" stroke={ACCENT} strokeWidth={0.8} />
+      <text x={148} y={104} fontSize={5.2} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        Birleştir
+      </text>
+      <Pin x={176} y={100} n={1} />
+      <Line x={18} y={126} w={120} light />
+      <Line x={18} y={136} w={96} light />
+      <Line x={18} y={146} w={110} light />
+      {/* sağ: İngilizce ad → Türkçe ad */}
+      <Box x={192} y={34} w={120} h={24} r={5} />
+      <text x={200} y={49} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Parasite
+      </text>
+      <path d="M252 62 L252 82" stroke={ACCENT} strokeWidth={1.2} />
+      <path d="M248 78 L252 84 L256 78" fill="none" stroke={ACCENT} strokeWidth={1.2} />
+      <text x={258} y={75} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        Güncelle
+      </text>
+      <Box x={192} y={88} w={120} h={34} r={5} strong />
+      <text x={200} y={103} fontSize={7.5} className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
+        Parazit
+      </text>
+      <text x={200} y={114} fontSize={5.2} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        Orjinal Adı: Parasite
+      </text>
+      <Pin x={306} y={92} n={2} />
+      <rect x={192} y={132} width={120} height={22} rx={5} fill="#f43f5e" fillOpacity={0.1} stroke="#f43f5e" strokeOpacity={0.5} strokeWidth={0.7} />
+      <text x={200} y={146} fontSize={5.4} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        Bu içerik arşivde zaten var
+      </text>
+      <Pin x={306} y={136} n={3} />
+    </Frame>
+  )
+}

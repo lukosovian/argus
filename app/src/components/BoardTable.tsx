@@ -769,10 +769,15 @@ const BoardTable = forwardRef<
   // Başlığı dolu olan her kayıtta TMDB butonu gösterilir — yeni eklenmiş, başka hiçbir
   // alanı doldurulmamış bir kayıtta bile ilk çekimi bu tetikleyebilsin diye (film/dizi
   // ayrımını TMDB'nin kendisi, gerekirse karışık aramayla, buluyor).
+  // Başlık boşsa Orjinal Adı da yeter — kullanıcı "orijinal adı kısmına yazınca da arama yapabilsin" dedi.
+  const origPropForSearch = resolveRole(board, 'orjinalAdi')
   function hasTitle(row: Row) {
-    if (!titleProp) return false
-    const v = row.values[titleProp.id]
-    return typeof v === 'string' ? v.trim().length > 0 : Boolean(v)
+    for (const p of [titleProp, origPropForSearch]) {
+      if (!p) continue
+      const v = row.values[p.id]
+      if (typeof v === 'string' ? v.trim().length > 0 : Boolean(v)) return true
+    }
+    return false
   }
   const menuProp = board.properties.find((p) => p.id === menuFor)
   const editingProp = editingCell ? board.properties.find((p) => p.id === editingCell.propertyId) : null

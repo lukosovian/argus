@@ -42,6 +42,7 @@ import {
   TarihSeciciVisual,
   AcilisVisual,
   UygulamaAyarVisual,
+  MukerrerVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -56,6 +57,26 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11.3',
+    date: '29 Eylül 2026',
+    title: 'Mükerrer kayıtlar Sağlık Kontrolü\'nde, İngilizce ad yazınca Türkçe adı gelmesi',
+    visuals: [
+      {
+        caption: '1 aynı içerik iki kez eklenmişse Sağlık Kontrolü\'nde gruplanır, en dolu olan kalır · 2 başlığa İngilizce ad yazıp Güncelle\'ye basınca Türkçe adı gelir · 3 zaten arşivde olan bir içeriği eklersen uyarır',
+        Visual: MukerrerVisual,
+      },
+    ],
+    items: [
+      'Yeni: Sağlık Kontrolü\'nde "Mükerrer kayıtlar" bölümü — aynı içerik birden fazla kez eklenmişse (aynı TMDB yapımına bağlı ya da Türkçe/orijinal adları aynı) gruplar halinde listeleniyor. Her kaydın yanında türü, yılı, durumu, izleme sayısı, puanı ve kaç alanının dolu olduğu yazıyor; en dolu olan "kalır" diye işaretli.',
+      '"Birleştir" ile bilgisi az olan kayıt siliniyor ama hiçbir şey kaybolmuyor: onda olup kalan kayıtta boş olan her şey (puan, izleme tarihleri, bölüm işaretleri, notlar...) kalan kayda aktarılıyor. Başka bir kaydın kalmasını istersen yanındaki "Bu kalsın". "Hepsini birleştir" tüm grupları tek seferde birleştiriyor.',
+      'Aynı adlı ama gerçekten farklı yapımlar (ör. aynı adlı film ile dizi, eski ve yeni çekim) yılı ya da Film/Dizi bilgisi farklıysa mükerrer sayılmıyor; yine de yanlışlıkla gelen olursa "Bunlar farklı" ile bir daha gösterilmiyor.',
+      'Mükerrer uyarısı güçlendi: Güncelle\'ye basınca bulunan yapım arşivde başka bir kayıtta zaten varsa "Bu içerik arşivde zaten var" uyarısı çıkıyor. Tabloda ad yazarken de artık Orjinal Adı sütunu da karşılaştırılıyor (birine Türkçe, diğerine İngilizce ad yazılmış olsa da yakalanıyor).',
+      'Türkçe Adı\'na İngilizce ya da orijinal adı yazıp Güncelle\'ye basınca artık TMDB\'deki Türkçe adı geliyor (ör. "The Shawshank Redemption" → "Esaretin Bedeli"), orijinal adı da Orjinal Adı\'na yazılıyor. Kendi verdiğin farklı bir ad varsa dokunulmuyor.',
+      'Sadece Orjinal Adı\'nı yazıp da arama yapabiliyorsun: Türkçe Adı boşken de Güncelle çıkıyor, Türkçe adı kendisi dolduruyor.',
+      'TMDB araması daha isabetli: İngilizce adla aranınca adı birebir tutan en bilinen yapım seçiliyor (ör. "Parasite" artık yanlışlıkla başka bir yapımı değil "Parazit"i buluyor).',
+    ],
+  },
   {
     version: 'v1.11.2',
     date: '29 Eylül 2026',

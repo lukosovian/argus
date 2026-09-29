@@ -1231,12 +1231,20 @@ export default function BoardView() {
     saveRow({ values: { ...row.values, [propertyId]: value }, createdAt: row.createdAt, updatedAt: Date.now() }, rowId)
     // Başlık sütununa yazınca, aynı isimde başka bir kayıt zaten varsa bilgilendir — yanlışlıkla
     // aynı içeriği iki kez eklemenin önüne geçmek için (kaydı engellemiyor, sadece uyarıyor).
-    if (board && propertyId === board.titlePropertyId && typeof value === 'string' && value.trim()) {
+    // Orjinal Adı'na yazınca da, ve başlık ↔ orijinal ad çapraz karşılaştırılıyor (birinin Türkçe adına
+    // İngilizcesi yazılmış olabilir). Daha kesin kontrol TMDB güncellemesinde (aynı TMDB yapımı) ve
+    // Sağlık Kontrolü'ndeki "Mükerrer kayıtlar"da.
+    const origProp = board ? resolveRole(board, 'orjinalAdi') : undefined
+    const nameProps = [board?.titlePropertyId, origProp?.id].filter((x): x is string => Boolean(x))
+    if (board && nameProps.includes(propertyId) && typeof value === 'string' && value.trim()) {
       const norm = value.trim().toLocaleLowerCase('tr')
       const dup = rows.find(
-        (r) => r.id !== rowId && typeof r.values[propertyId] === 'string' && (r.values[propertyId] as string).trim().toLocaleLowerCase('tr') === norm,
+        (r) => r.id !== rowId && nameProps.some((pid) => typeof r.values[pid] === 'string' && (r.values[pid] as string).trim().toLocaleLowerCase('tr') === norm),
       )
-      if (dup) notify(`"${value.trim()}" adında zaten bir kayıt var — yine de aynı isimde ikinci bir kayıt eklendi.`)
+      if (dup) {
+        const t = board.titlePropertyId ? String(dup.values[board.titlePropertyId] ?? '').trim() : ''
+        notify(`"${value.trim()}" arşivde zaten var${t && t.toLocaleLowerCase('tr') !== norm ? ` ("${t}")` : ''} — mükerrer olabilir, Sağlık Kontrolü'nden birleştirebilirsin.`)
+      }
     }
   }
 
@@ -1303,6 +1311,9 @@ export default function BoardView() {
     if (!board) return
     const result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields], tmdbOverwriteExisting)
     await Promise.all([reloadBoard(), reloadRows()])
+    if (result.duplicateOf) {
+      notify(`Bu içerik arşivde zaten var: "${result.duplicateOf.title}" — mükerrer olabilir, Sağlık Kontrolü'nden birleştirebilirsin.`, 'danger')
+    }
     return result
   }
 
@@ -1732,6 +1743,26 @@ export default function BoardView() {
           onOpenRow={(row) => {
             setHealthOpen(false)
             setDetailRow(row)
+          }}
+          onMerge={async (keepId, removeIds) => {
+            try {
+              const res = await api.mergeRows(board.id, keepId, removeIds)
+              await reloadRows()
+              notify(
+                res.movedFields.length > 0
+                  ? `${removeIds.length} mükerrer kayıt birleştirildi, aktarılan: ${res.movedFields.join(', ')}`
+                  : `${removeIds.length} mükerrer kayıt silindi (aktarılacak ek bilgi yoktu).`,
+                'success',
+              )
+            } catch {
+              notify('Birleştirilemedi.', 'danger')
+            }
+          }}
+          onIgnoreDuplicate={(rowIds) => {
+            const pairs = new Set(board.duplicateIgnore ?? [])
+            for (const a of rowIds) for (const b of rowIds) if (a < b) pairs.add(`${a}|${b}`)
+            saveBoard({ duplicateIgnore: [...pairs] })
+            notify('Bu kayıtlar bir daha mükerrer diye gösterilmeyecek.')
           }}
           onClose={() => setHealthOpen(false)}
         />
