@@ -545,7 +545,7 @@ function ColumnVisibilityPopover({
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-11 z-40 w-64 bg-neutral-900 border border-neutral-800 rounded-xl p-2 shadow-lg">
             <p className="text-[11px] text-neutral-500 px-2 pb-1.5">
-              Kapattığın sütunlar bu tarayıcıda kalıcı olarak gizlenir, veriler silinmez.
+              Kapattığın sütunlar kalıcı olarak gizlenir, veriler silinmez.
             </p>
             <div className="max-h-64 overflow-y-auto space-y-0.5">
               {columns.map((p) => (

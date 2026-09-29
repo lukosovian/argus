@@ -13,13 +13,13 @@ Kod `app/` klasöründe.
 
 ## Çalıştırmak
 
-En kolayı: bu klasördeki **`ARGUS.bat`** dosyasına (ya da masaüstündeki ARGUS kısayoluna) çift tıkla. Hem siteyi
-hem de verileri/medyayı yöneten yardımcı sunucuyu birlikte başlatır ve tarayıcıda `http://localhost:5173`
-adresini açar. Sunucu tamamen görünmez çalışır — ne ekranda ne görev çubuğunda bir terminal/pencere kalır,
-sadece arka planda çalışmaya devam eder.
+Bu klasördeki **`ARGUS.exe`**'ye (ya da masaüstündeki ARGUS kısayoluna) çift tıkla. Logolu bir açılış penceresi
+güncellemeleri kontrol eder, gerekenleri kurar ve ARGUS kendi penceresinde (Electron masaüstü uygulaması) açılır.
+Pencereyi kapatınca ARGUS da tamamen kapanır. Hiç terminal penceresi görünmez; bir sorun olursa mesajı
+okuyabilmen için görünür bir terminal açılır.
 
-Kapatmak istersen: **`ARGUS Durdur.bat`**'a çift tıkla (görünür bir pencere olmadığı için bilgisayarı kapatana
-kadar ARGUS zaten kendiliğinden arka planda çalışmaya devam eder — istersen hiç kapatmana gerek yok).
+(`ARGUS.bat` hâlâ duruyor ama gizli: güncelleme / kurulum adımlarını o yapıyor, ARGUS.exe onu görünmez çalıştırıyor.
+`ARGUS.exe`, `app/launcher/ARGUS.cs`'ten `app/launcher/derle.cmd` ile derlenir.)
 
 Elle çalıştırmak istersen:
 
@@ -31,7 +31,7 @@ npm run dev
 
 ## Güncellemeler
 
-Bu klasör bir git deposu — `ARGUS.bat` her açılışta otomatik olarak en son sürümü çeker (`git pull`),
+Bu klasör bir git deposu — ARGUS her açılışta (`ARGUS.exe` → gizli `ARGUS.bat`) otomatik olarak en son sürümü çeker,
 sen hiçbir şey yapmana gerek yok. Uygulama açıkken de arka planda periyodik olarak kontrol eder, yeni bir
 güncelleme çıkarsa uygulama içinde bir bildirim gösterir — o güncelleme uygulamayı kapatıp yeniden açtığında
 devreye girer (çalışırken kendi kendini değiştirmez). **Kendi verin (`data/`, `medya/`) bu güncellemelerden hiç

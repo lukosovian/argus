@@ -1,0 +1,6 @@
+{
+  "name": "argus",
+  "productName": "ARGUS",
+  "private": true,
+  "main": "main.cjs"
+}

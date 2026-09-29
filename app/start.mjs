@@ -12,10 +12,20 @@ import { fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const devMachine = fs.existsSync(path.join(here, '..', '.gelistirici'))
 const run = (cmd, env = {}) => spawn(cmd, { cwd: here, stdio: 'inherit', shell: true, env: { ...process.env, ...env } })
+// Açılış penceresine (launcher/baslat.ps1) o an ne yapıldığını bildir
+const durum = (kod) => {
+  try {
+    if (process.env.ARGUS_STATUS_FILE) fs.writeFileSync(process.env.ARGUS_STATUS_FILE, kod)
+  } catch {
+    /* pencere yoksa önemsiz */
+  }
+}
 
 console.log('Arayüz hazırlanıyor...')
+durum('build')
 const build = spawnSync('npx vite build --logLevel warn', { cwd: here, stdio: 'inherit', shell: true })
 
+durum('server')
 if (build.status === 0) {
   run('node server/index.js', { ARGUS_SERVE_UI: '1' })
   if (devMachine) run('npx vite build --watch --logLevel warn')

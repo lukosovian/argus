@@ -13,7 +13,9 @@ import { spawn } from 'node:child_process'
 // ARGUS_NO_BROWSER: güncellemede açık sekme zaten kendini yeniliyor, ARGUS.bat ikinci bir sekme
 // açmasın diye.
 
-export function buildRestartScript({ oldPid, batPath, root }) {
+// Yeni ARGUS, varsa ARGUS.exe --guncelleme ile (logolu açılış penceresi, hiç terminal yok), o yoksa açılış
+// pencereli PowerShell başlatıcıyla (launcher/baslat.ps1 -Guncelleme), o da yoksa eskisi gibi ARGUS.bat ile açılır.
+export function buildRestartScript({ oldPid, batPath, root, launcherPath, exePath }) {
   const q = (s) => `'${String(s).replace(/'/g, "''")}'`
   const lines = ['Start-Sleep -Milliseconds 800']
   if (oldPid && /^\d+$/.test(oldPid)) {
@@ -21,7 +23,12 @@ export function buildRestartScript({ oldPid, batPath, root }) {
     lines.push('Start-Sleep -Milliseconds 700')
   }
   lines.push("$env:ARGUS_NO_BROWSER = '1'")
-  lines.push(`Start-Process -FilePath ${q(batPath)} -WorkingDirectory ${q(root)}`)
+  if (exePath) lines.push(`if (Test-Path ${q(exePath)}) { Start-Process -FilePath ${q(exePath)} -ArgumentList '--guncelleme' -WorkingDirectory ${q(root)}; exit }`)
+  if (launcherPath)
+    lines.push(
+      `if (Test-Path ${q(launcherPath)}) { Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -WorkingDirectory ${q(root)} -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',${q('"' + launcherPath + '"')},'-Guncelleme' } else { Start-Process -FilePath ${q(batPath)} -WorkingDirectory ${q(root)} }`,
+    )
+  else lines.push(`Start-Process -FilePath ${q(batPath)} -WorkingDirectory ${q(root)}`)
   return lines.join('\n')
 }
 
