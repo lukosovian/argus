@@ -925,7 +925,86 @@ async function searchTmdbForRow(board, row, apiKey) {
 // Benzerler/Keşfet'ten yeni içerik ekleme bunu kullanıyor. `forced` verilirse (TMDB id + tür
 // zaten biliniyorsa, ör. Keşfet'ten seçilen içerik) isimle arama hiç yapılmaz. Sonuç her zaman
 // { status, data } — çağıran taraf HTTP yanıtına çeviriyor.
-async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList = [], overwrite: overwriteFlag = false, forced = null } = {}) {
+// Güncelle'de TMDB'de birden fazla aday varsa kullanıcıya seçtirmek için (kullanıcı "birden fazla sonuç
+// bulursa kendi birini mi seçiyor, ekrana getirsin ben seçeyim" dedi). Türkçe ve orijinal adla, Türkçe ve
+// İngilizce aranır; adı birebir tutanlar "kesin" sayılır. Kendisi seçtiği durumlar: kesin eşleşme tek
+// (Kategori Film/Dizi ya da vizyon yılı doluysa ona göre daraltılmış) ya da bu kaydın zaten bağlı olduğu
+// yapım kesinler arasında. Diğer her durumda (birden fazla kesin, ya da hiç kesin yok ama birden fazla
+// sonuç) { choose: [...] } döner. Hiç sonuç yoksa {} — normal arama devam eder, bulamazsa hata verir.
+async function pickTmdbCandidate(profileId, board, row, apiKey) {
+  const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const origProp = resolveRole(board, 'orjinalAdi')
+  const vizyonProp = resolveRole(board, 'vizyon')
+  const kategoriProp = resolveRole(board, 'kategori')
+  const names = [origProp && row.values[origProp.id], titleProp && row.values[titleProp.id]].filter((v) => typeof v === 'string' && v.trim()).map((v) => v.trim())
+  const queries = [...new Set(names)]
+  if (!queries.length) return {}
+  const fold = (s) => normalizeText(String(s ?? '').toLocaleLowerCase('tr')).replace(/ı/g, 'i')
+  const wanted = new Set(queries.map(fold))
+  const byKey = new Map()
+  const exactKeys = new Set()
+  for (const q of queries) {
+    for (const language of ['tr-TR', 'en-US']) {
+      const data = await tmdbGet('/search/multi', { query: q, language }, apiKey)
+      for (const r of data?.results ?? []) {
+        if (r.media_type !== 'movie' && r.media_type !== 'tv') continue
+        const key = tmdbKey(r.media_type, r.id)
+        const prev = byKey.get(key)
+        // Türkçe sonuç önce geliyor; İngilizce adı ayrıca saklanıyor (listede gösterilir).
+        if (!prev) byKey.set(key, { tr: language === 'tr-TR' ? r : null, en: language === 'en-US' ? r : null, order: byKey.size })
+        else if (language === 'tr-TR' && !prev.tr) prev.tr = r
+        else if (language === 'en-US' && !prev.en) prev.en = r
+        if ([r.title, r.name, r.original_title, r.original_name].some((t) => t && wanted.has(fold(t)))) exactKeys.add(key)
+      }
+    }
+  }
+  if (byKey.size === 0) return {}
+  const entries = [...byKey.entries()].map(([key, v]) => {
+    const r = v.tr ?? v.en
+    return { key, r, en: v.en, order: v.order, votes: r.vote_count ?? 0 }
+  })
+  const toForced = (e) => ({ tmdbId: e.r.id, mediaType: e.r.media_type })
+  let exact = entries.filter((e) => exactKeys.has(e.key))
+  // Bu kayıt zaten bir yapıma bağlıysa ve o yapım adı tutanlar arasındaysa onu kullan.
+  const ref = readJson(profileTmdbFile(profileId), {})[row.id]
+  const current = ref && exact.find((e) => e.key === tmdbKey(ref.mediaType, ref.id))
+  if (current) return { forced: toForced(current) }
+  const kategoriLabel = (kategoriProp?.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '').toLocaleLowerCase('tr')
+  if (kategoriLabel) {
+    const tvHint = ['dizi', 'mini dizi', 'reality show', 'yarışma'].includes(kategoriLabel) || kategoriLabel.includes('gösteri')
+    const narrowed = exact.filter((e) => e.r.media_type === (tvHint ? 'tv' : 'movie'))
+    if (narrowed.length) exact = narrowed
+  }
+  const rawYear = vizyonProp ? row.values[vizyonProp.id] : null
+  const year = typeof rawYear === 'string' && /^\d{4}/.test(rawYear) ? rawYear.slice(0, 4) : null
+  if (year) {
+    const narrowed = exact.filter((e) => (e.r.release_date || e.r.first_air_date || '').startsWith(year))
+    if (narrowed.length) exact = narrowed
+  }
+  if (exact.length === 1) return { forced: toForced(exact[0]) }
+  if (exact.length === 0 && entries.length === 1) return { forced: toForced(entries[0]) }
+  // Liste: adı tutanlar önce (en bilinen önce), sonra diğerleri TMDB'nin sırasıyla.
+  const exactSet = new Set(exact.map((e) => e.key))
+  const list = [
+    ...exact.sort((a, b) => b.votes - a.votes),
+    ...entries.filter((e) => !exactSet.has(e.key)).sort((a, b) => a.order - b.order),
+  ].slice(0, 12)
+  return {
+    choose: list.map((e) => ({
+      tmdbId: e.r.id,
+      mediaType: e.r.media_type,
+      title: (e.r.title || e.r.name || '').replace(/[‎‏‪-‮]/g, '').trim(),
+      originalTitle: e.r.original_title || e.r.original_name || '',
+      englishTitle: (e.en && (e.en.title || e.en.name)) || '',
+      year: (e.r.release_date || e.r.first_air_date || '').slice(0, 4),
+      poster: e.r.poster_path ? `${TMDB_IMG_BASE}/w185${e.r.poster_path}` : null,
+      overview: (e.r.overview || e.en?.overview || '').slice(0, 220),
+      exact: exactSet.has(e.key),
+    })),
+  }
+}
+
+async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList = [], overwrite: overwriteFlag = false, forced = null, ask = false } = {}) {
   try {
     const apiKey = readProfileApiKey(profileId)
     if (!apiKey) {
@@ -987,6 +1066,13 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     }
 
     const kategoriId = kategoriProp ? row.values[kategoriProp.id] : null
+    // Tek satırdaki Güncelle (`ask`): kesin tek bir eşleşme yoksa kendisi seçmek yerine adayları
+    // döndürür, arayüz listeyi gösterip kullanıcıya seçtirir (sonra `forced` ile yeniden çağrılır).
+    if (!forced && ask) {
+      const pick = await pickTmdbCandidate(profileId, board, row, apiKey)
+      if (pick.choose) return { status: 200, data: { choose: pick.choose } }
+      if (pick.forced) forced = pick.forced
+    }
     let mediaType = null
     let result = null
     if (forced) {
@@ -1315,7 +1401,9 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
 
 app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res) => {
   const { profileId, boardId, rowId } = req.params
-  const out = await fillRowFromTmdb(profileId, boardId, rowId, { exclude: req.body?.exclude, overwrite: req.body?.overwrite })
+  const f = req.body?.forced
+  const forced = f && (f.mediaType === 'movie' || f.mediaType === 'tv') && Number.isFinite(Number(f.tmdbId)) ? { tmdbId: Number(f.tmdbId), mediaType: f.mediaType } : null
+  const out = await fillRowFromTmdb(profileId, boardId, rowId, { exclude: req.body?.exclude, overwrite: req.body?.overwrite, ask: Boolean(req.body?.ask), forced })
   res.status(out.status).json(out.data)
 })
 

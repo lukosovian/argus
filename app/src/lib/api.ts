@@ -47,6 +47,20 @@ export interface BackupInfo {
   targetExists: boolean
 }
 
+// Güncelle'de birden fazla TMDB adayı çıkınca kullanıcıya gösterilen seçenek (bkz. TmdbChoiceModal).
+export interface TmdbChoice {
+  tmdbId: number
+  mediaType: 'movie' | 'tv'
+  title: string
+  originalTitle: string
+  englishTitle: string
+  year: string
+  poster: string | null
+  overview: string
+  // Adı yazdığınla birebir tutuyor
+  exact: boolean
+}
+
 export interface TmdbCard {
   tmdbId: number
   mediaType: 'movie' | 'tv'
@@ -228,11 +242,18 @@ export const api = {
     request<{ ok: true }>(profilePath('/notifications/read'), { method: 'POST', ...json(ids ? { ids } : {}) }),
   clearNotifications: () => request<{ ok: true }>(profilePath('/notifications'), { method: 'DELETE' }),
   getShowStatus: () => request<Record<string, ShowInfo>>(profilePath('/show-status')),
-  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false) =>
-    request<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number; duplicateOf?: { rowId: string; title: string } | null }>(
-      profilePath(`/fetch-tmdb/${boardId}/${rowId}`),
-      { method: 'POST', ...json({ exclude, overwrite }) },
-    ),
+  // `ask`: kesin tek eşleşme yoksa doldurmak yerine `choose` (adaylar) döner — sadece tek satır Güncelle'de.
+  // `forced`: kullanıcının listeden seçtiği yapım (arama yapılmaz).
+  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false, opts: { ask?: boolean; forced?: { tmdbId: number; mediaType: 'movie' | 'tv' } } = {}) =>
+    request<{
+      ok: true
+      mediaType: 'movie' | 'tv'
+      filled: string[]
+      newEpisodes: number
+      newActors: number
+      duplicateOf?: { rowId: string; title: string } | null
+      choose?: TmdbChoice[]
+    }>(profilePath(`/fetch-tmdb/${boardId}/${rowId}`), { method: 'POST', ...json({ exclude, overwrite, ...opts }) }),
 
   // ---- TMDB keşif özellikleri (bkz. server/index.js'teki "TMDB tabanlı keşif" bölümü) ----
   getTmdbExtras: (boardId: string, rowId: string) =>
