@@ -20,7 +20,10 @@ const ACTIONS_COLUMN_WIDTH = 44
 // Artık çoklu-seçim kutucuğu + altı-noktalı menü tutamacı + "Detayı Gör" göz ikonunu bir arada
 // barındırıyor (bkz. aşağıdaki RowMenu ve seçim çubuğu notları) — önceden sadece tutamaç vardı,
 // 40px yetiyordu, sonra kutucuk eklenince 64'e çıktı, göz ikonu için bir tık daha genişletildi.
-const HANDLE_COLUMN_WIDTH = 92
+// Sol altta sabit duran "en üste / en alta" düğmeleri (BoardView › ScrollEndsButtons) bu kontrollerin
+// üstüne biniyordu; kullanıcı "biraz sağa alırsan düzelir" dedi — solda 44px boşluk (HANDLE_PAD_LEFT).
+const HANDLE_PAD_LEFT = 44
+const HANDLE_COLUMN_WIDTH = 92 + HANDLE_PAD_LEFT - 6
 const INLINE_TYPES = new Set<PropertyType>(['text', 'number', 'date', 'url', 'longtext'])
 
 function RefreshIcon({ spinning }: { spinning?: boolean }) {
@@ -119,6 +122,8 @@ function RowMenu({
   onDelete,
   onShowHistory,
   duplicate = false,
+  onDragRow,
+  onDragRowEnd,
 }: {
   board: Board
   row: Row
@@ -132,6 +137,9 @@ function RowMenu({
   onDelete: () => void
   // "Tüm geçmişi" — arşiv geçmişi penceresini bu kayda süzülmüş açar.
   onShowHistory?: () => void
+  // Altı noktadan tutup sürükleyerek satırı taşıma (tıklayınca yine menü açılır).
+  onDragRow?: (e: React.DragEvent<HTMLButtonElement>) => void
+  onDragRowEnd?: () => void
 }) {
   const [open, setOpen] = useState(false)
   // Menünün altında: ne zaman eklendi, en son ne zaman değişti ve son değişiklikler (arşiv geçmişinden).
@@ -188,8 +196,11 @@ function RowMenu({
       <button
         ref={buttonRef}
         onClick={handleToggle}
-        title="Satır ayarları"
-        className={`h-7 w-7 flex items-center justify-center rounded-md text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition ${
+        draggable={Boolean(onDragRow)}
+        onDragStart={onDragRow}
+        onDragEnd={onDragRowEnd}
+        title={onDragRow ? 'Satır ayarları için tıkla, taşımak için sürükle' : 'Satır ayarları'}
+        className={`h-7 w-7 flex items-center justify-center rounded-md text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition ${onDragRow ? 'cursor-grab active:cursor-grabbing' : ''} ${
           open ? 'opacity-100 bg-neutral-800 text-neutral-200' : 'opacity-0 group-hover:opacity-100'
         }`}
       >
@@ -610,6 +621,8 @@ const BoardTable = forwardRef<
     density?: 'rahat' | 'siki'
     // Mükerrer olabilecek kayıtlar (sunucudaki mükerrer kontrolü) — altı noktanın yerinde kırmızı nokta.
     duplicateRowIds?: Set<string>
+    // Altı noktadan tutup sürükleyip başka bir satırın üstüne bırakınca: satırı oraya taşı.
+    onMoveRow?: (rowId: string, targetRowId: string) => void
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -651,6 +664,7 @@ const BoardTable = forwardRef<
     onFetchTmdb,
     density = 'siki',
     duplicateRowIds,
+    onMoveRow,
   },
   ref,
 ) {
@@ -667,6 +681,11 @@ const BoardTable = forwardRef<
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [draggedId, setDraggedId] = useState<string | null>(null)
+  // Satır sürükleme (sütun sürüklemeden ayrı): sürüklenen satır ve üstünde bulunulan satır — hedefin
+  // üstünde/altında mavi çizgi çıkıyor (aşağı taşınıyorsa altına, yukarı taşınıyorsa üstüne düşer).
+  const [dragRowId, setDragRowId] = useState<string | null>(null)
+  const [dropRowId, setDropRowId] = useState<string | null>(null)
+  const rowIndexById = useMemo(() => new Map(rows.map((r, i) => [r.id, i])), [rows])
   const [refreshingRowId, setRefreshingRowId] = useState<string | null>(null)
 
   async function handleRefreshClick(rowId: string) {
@@ -831,7 +850,7 @@ const BoardTable = forwardRef<
   // Solda sabit kalan sütunlar (seçim/tutamaç + başlık): sağa kaydırınca hangi satırda olduğun kaybolmasın
   // diye yerinde duruyorlar. Arka planları dolu olmalı ki altından kayan hücreler görünmesin.
   const STICKY_TITLE_STYLE = { position: 'sticky' as const, left: HANDLE_COLUMN_WIDTH, zIndex: 2 }
-  const STICKY_HANDLE_STYLE = { position: 'sticky' as const, left: 0, zIndex: 2 }
+  const STICKY_HANDLE_STYLE = { position: 'sticky' as const, left: 0, zIndex: 2, paddingLeft: HANDLE_PAD_LEFT }
 
   function headerCell(p: PropertyDef, fallback: number, reorderable: boolean, sticky = false) {
     return (
@@ -1018,8 +1037,36 @@ const BoardTable = forwardRef<
           )}
           {visibleRows.map((row) => {
             const isSelected = selectedRowIds.has(row.id)
+            // Sürüklenirken bu satırın üstündeysek: aşağı taşınıyorsa altına, yukarı taşınıyorsa üstüne mavi çizgi.
+            let dropLine = ''
+            if (dragRowId && dropRowId === row.id && dragRowId !== row.id) {
+              const down = rowIndexById.get(dragRowId)! < rowIndexById.get(row.id)!
+              dropLine = down ? '[&>td]:shadow-[inset_0_-2px_0_#00c0fa]' : '[&>td]:shadow-[inset_0_2px_0_#00c0fa]'
+            }
             return (
-            <tr key={row.id} className={`group border-t border-neutral-800 hover:bg-neutral-900 ${isSelected ? 'bg-sky-500/5' : ''}`}>
+            <tr
+              key={row.id}
+              onDragOver={
+                dragRowId
+                  ? (e) => {
+                      e.preventDefault()
+                      if (dropRowId !== row.id) setDropRowId(row.id)
+                    }
+                  : undefined
+              }
+              onDrop={
+                dragRowId
+                  ? (e) => {
+                      e.preventDefault()
+                      const from = dragRowId
+                      setDragRowId(null)
+                      setDropRowId(null)
+                      onMoveRow?.(from, row.id)
+                    }
+                  : undefined
+              }
+              className={`group border-t border-neutral-800 hover:bg-neutral-900 ${isSelected ? 'bg-sky-500/5' : ''} ${dragRowId === row.id ? 'opacity-40' : ''} ${dropLine}`}
+            >
               <td className={`px-1.5 ${stickyBg(isSelected)}`} style={STICKY_HANDLE_STYLE}>
                 <div className={`${cellH} flex items-center gap-1`}>
                   <Checkbox
@@ -1033,6 +1080,22 @@ const BoardTable = forwardRef<
                     row={row}
                     onShowHistory={onShowRowHistory ? () => onShowRowHistory(row) : undefined}
                     duplicate={duplicateRowIds?.has(row.id)}
+                    onDragRow={
+                      onMoveRow
+                        ? (e) => {
+                            e.dataTransfer.effectAllowed = 'move'
+                            e.dataTransfer.setData('text/plain', row.id)
+                            const tr = e.currentTarget.closest('tr')
+                            if (tr) e.dataTransfer.setDragImage(tr, 60, 18)
+                            // Sürükleme başladıktan sonra (dragstart içinde DOM değişirse Chrome sürüklemeyi iptal edebiliyor)
+                            setTimeout(() => setDragRowId(row.id), 0)
+                          }
+                        : undefined
+                    }
+                    onDragRowEnd={() => {
+                      setDragRowId(null)
+                      setDropRowId(null)
+                    }}
                     hasTitle={hasTitle(row)}
                     refreshing={refreshingRowId === row.id}
                     onFetchTmdb={() => handleRefreshClick(row.id)}
@@ -1098,7 +1161,7 @@ const BoardTable = forwardRef<
             </tr>
           )}
           <tr className="border-t border-neutral-800 hover:bg-neutral-900/60 cursor-pointer" onClick={onCreateRow}>
-            <td colSpan={otherProps.length + 3} className="px-3">
+            <td colSpan={otherProps.length + 3} className="px-3" style={{ paddingLeft: HANDLE_PAD_LEFT + 6 }}>
               <div className="h-9 flex items-center text-neutral-500">+ Yeni Ekle</div>
             </td>
           </tr>

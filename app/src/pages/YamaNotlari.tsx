@@ -44,6 +44,7 @@ import {
   UygulamaAyarVisual,
   MukerrerVisual,
   TabloMukerrerVisual,
+  SatirTasiVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -58,6 +59,17 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11.5',
+    date: '29 Eylül 2026',
+    title: 'Satırları sürükleyerek taşıma, satır düğmeleri en üste/en alta düğmelerinin altında kalmıyor',
+    visuals: [{ caption: '1 altı noktadan tutup sürükle · 2 mavi çizginin olduğu yere bırakınca satır oraya taşınır', Visual: SatirTasiVisual }],
+    items: [
+      'Yeni: Arşiv tablosunda bir satırı altı noktadan tutup sürükleyerek yerini değiştirebiliyorsun. Sürüklerken bırakacağın yerde mavi bir çizgi çıkıyor; aşağı taşırken bıraktığın satırın altına, yukarı taşırken üstüne yerleşiyor. Altı noktaya tıklayınca menü eskisi gibi açılıyor.',
+      'Taşımak, kaydın "Eklendi" tarihini değiştirmiyor. Sıralama ya da arama açıkken satır taşınamıyor (o sırada tablo başka bir düzende gösteriliyor), önce onları kapatman gerekiyor.',
+      'Düzeltme: Sol alttaki en üste / en alta düğmeleri satırların seçim kutusunu, altı noktayı ve göz düğmesini kapatıyordu. Bu düğmeler ve "+ Yeni Ekle" biraz sağa alındı.',
+    ],
+  },
   {
     version: 'v1.11.4',
     date: '29 Eylül 2026',

@@ -32,7 +32,7 @@ import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
-import { OPTION_COLORS } from '../types'
+import { OPTION_COLORS, rowOrder } from '../types'
 import { entryEnd } from '../lib/dateRange'
 import {
   BulkRefreshIcon,
@@ -1325,11 +1325,33 @@ export default function BoardView() {
       if (row) setPendingScrollRowId(row.id)
       return
     }
-    const current = rows[idx].createdAt
-    const next = rows[idx + 1]?.createdAt
-    const createdAt = next !== undefined && next > current ? (current + next) / 2 : current + 1
-    const row = await saveRow({ ...base, createdAt })
+    // Sıra anahtarı (sortKey) araya yazılıyor; createdAt gerçek eklenme zamanı kalıyor.
+    const current = rowOrder(rows[idx])
+    const next = rows[idx + 1] ? rowOrder(rows[idx + 1]) : undefined
+    const sortKey = next !== undefined && next > current ? (current + next) / 2 : current + 1
+    const row = await saveRow({ ...base, sortKey })
     if (row) setPendingScrollRowId(row.id)
+  }
+
+  // Altı noktadan tutup sürükleyerek satırın yerini değiştirme (kullanıcı isteği). Aşağı taşınınca
+  // bırakılan satırın altına, yukarı taşınınca üstüne yerleşir; sadece sortKey değişir.
+  function moveRow(dragId: string, targetId: string) {
+    if (dragId === targetId) return
+    if (sortProperty || search.trim()) {
+      notify('Sıralama ya da arama açıkken satırlar taşınamaz — önce onları kapat.', 'danger')
+      return
+    }
+    const row = rows.find((r) => r.id === dragId)
+    const from = rows.findIndex((r) => r.id === dragId)
+    const to = rows.findIndex((r) => r.id === targetId)
+    if (!row || from === -1 || to === -1) return
+    const rest = rows.filter((r) => r.id !== dragId)
+    const t = rest.findIndex((r) => r.id === targetId)
+    const [prev, next] = from < to ? [rest[t], rest[t + 1]] : [rest[t - 1], rest[t]]
+    const a = prev ? rowOrder(prev) : undefined
+    const b = next ? rowOrder(next) : undefined
+    const sortKey = a === undefined ? b! - 1000 : b === undefined ? a + 1000 : (a + b) / 2
+    saveRow({ values: row.values, createdAt: row.createdAt, updatedAt: row.updatedAt, sortKey }, row.id)
   }
 
   function createRowAfter(afterRowId: string) {
@@ -1716,6 +1738,7 @@ export default function BoardView() {
           onFetchTmdb={fetchTmdb}
           density={density}
           duplicateRowIds={duplicateRowIds}
+          onMoveRow={moveRow}
         />
       )}
       {!rowsLoading && <ScrollEndsButtons />}

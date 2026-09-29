@@ -175,6 +175,9 @@ export interface Row {
   values: Record<string, PropertyValue>
   createdAt: number
   updatedAt: number
+  // Tablodaki sırası — altı noktadan tutup sürükleyince yazılıyor (yoksa createdAt'a göre). createdAt'ın
+  // kendisi değiştirilmiyor ki "Eklendi" tarihi doğru kalsın. Bkz. rowOrder.
+  sortKey?: number
 }
 
 // Bir "şablon" — sadece sütun yapısı (Board ile aynı alanlar, ama satır/verisi yok). Ayarlar →
@@ -234,6 +237,11 @@ export type WatchedMap = Record<string, Record<string, string[]>>
 
 export function episodeKey(seasonNumber: number, episodeNumber: number): string {
   return `${seasonNumber}-${episodeNumber}`
+}
+
+// Bir kaydın tablodaki sıra anahtarı: sürüklenip taşındıysa sortKey, değilse eklenme zamanı.
+export function rowOrder(row: Pick<Row, 'createdAt' | 'sortKey'>): number {
+  return row.sortKey ?? row.createdAt
 }
 
 export function todayIso(): string {

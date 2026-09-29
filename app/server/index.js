@@ -361,6 +361,9 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   const idx = rows.findIndex((r) => r.id === req.params.rowId)
   const saved = { ...req.body, id: req.params.rowId, updatedAt: Date.now() }
   const before = idx === -1 ? null : rows[idx]
+  // Tablodaki sürükleyerek verilen sıra (sortKey): kaydı bilmeden kaydeden yerler (hücre düzenleme,
+  // detay penceresi…) onu göndermiyor — silinmesin, korunuyor.
+  if (before && before.sortKey !== undefined && !('sortKey' in req.body)) saved.sortKey = before.sortKey
   if (idx === -1) rows.unshift(saved)
   else rows[idx] = saved
   writeJson(rowsFile, rows)
