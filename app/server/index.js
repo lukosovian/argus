@@ -1049,8 +1049,11 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     if (titleProp && titleProp.type === 'text') {
       const trTitle = ((mediaType === 'tv' ? details.name : details.title) || '').replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim() // TMDB bazen görünmez yön işaretleri koyuyor
       const cur = typeof titleTr === 'string' ? titleTr.trim() : ''
-      if (trTitle && normalizeText(cur) !== normalizeText(trTitle)) {
-        let replace = !cur
+      // Aynı ad ama yazımı farklıysa da (kullanıcı "hepsini küçük harfle yazdım, filmi buldu ama yazımı
+      // düzeltmedi" dedi — büyük/küçük harf, ı/i, ş/s gibi harfler) TMDB'deki yazım yazılır.
+      if (trTitle && cur !== trTitle) {
+        const fold = (s) => normalizeText(s.toLocaleLowerCase('tr')).replace(/ı/g, 'i') // "dunya varmis" = "Dünya Varmış"
+        let replace = !cur || fold(cur) === fold(trTitle)
         if (!replace) {
           const orig = (mediaType === 'tv' ? details.original_name : details.original_title) || ''
           replace = normalizeText(cur) === normalizeText(orig)

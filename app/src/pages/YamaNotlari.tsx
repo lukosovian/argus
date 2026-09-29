@@ -45,6 +45,7 @@ import {
   MukerrerVisual,
   TabloMukerrerVisual,
   SatirTasiVisual,
+  SatirGuncelleVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -59,6 +60,17 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.11.6',
+    date: '29 Eylül 2026',
+    title: 'Seçili satırların hepsini birden değiştirme, güncellenen satırda ışık hüzmesi, Güncelle adın yazımını düzeltiyor',
+    visuals: [{ caption: '1 Güncelle\'ye basınca o satırın üstünden mavi bir ışık hüzmesi geçiyor · 2 bitince satır bir an maviye parlıyor', Visual: SatirGuncelleVisual }],
+    items: [
+      'Yeni: Tabloda birden fazla satır seçiliyken seçili satırlardan birinde bir hücreyi değiştirirsen değişiklik seçili hepsine uygulanıyor — ör. birkaç içeriği seçip birinin Durum\'unu İzlendi yapınca hepsi İzlendi oluyor. Tür, Oyuncular, İzleme Tarihi gibi çoklu değerlerde her kayda sadece eklediğin eklenip çıkardığın çıkarılıyor, diğer değerleri silinmiyor. Ad sütunu hariç. Seçim çubuğunda da bu yazıyor.',
+      'Tabloda altı noktadan Güncelle\'ye basınca artık o satırda işlem yapıldığı görünüyor: TMDB\'den bilgiler gelene kadar satırın üstünden soldan sağa mavi bir ışık hüzmesi geçiyor, bitince satır bir an maviye parlayıp sönüyor (bir hata olduysa kırmızıya). Birkaç satırı aynı anda güncelleyebilirsin, her biri ayrı ayrı gösteriliyor.',
+      'Düzeltme: Türkçe Adı\'na adı küçük harflerle (ya da Türkçe harf kullanmadan) yazıp Güncelle\'ye basınca film bulunuyordu ama ad öyle kalıyordu. Artık TMDB\'deki doğru yazımı geliyor: "esaretin bedeli" → "Esaretin Bedeli", "dunya varmis" → "Dünya Varmış". Kendi verdiğin farklı bir ad varsa yine dokunulmuyor.',
+    ],
+  },
   {
     version: 'v1.11.5',
     date: '29 Eylül 2026',

@@ -80,6 +80,26 @@ body {
   }
 }
 
+/* Tabloda bir satır TMDB'den güncellenirken üstünden soldan sağa geçen mavi ışık hüzmesi (bkz.
+   BoardTable › RowActivity); kullanıcı "güncelleye basınca bir şey görmüyorum, o satırda işlem yapıldığını
+   bileyim" dedi. Bitince satır bir an maviye parlayıp söner. */
+@keyframes argus-row-beam {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
+}
+@keyframes argus-row-done {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;

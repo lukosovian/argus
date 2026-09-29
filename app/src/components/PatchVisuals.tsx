@@ -1706,6 +1706,48 @@ export function UygulamaAyarVisual() {
   )
 }
 
+// Tabloda Güncelle'ye basılan satırın üstünden geçen mavi ışık hüzmesi; altta bitmiş, parlayan satır.
+export function SatirGuncelleVisual() {
+  const rows = ['Artemis Fowl', 'Düşler Fabrikası', 'Snowpiercer', 'Narnia Günlükleri', 'Hayaller Diyarı']
+  return (
+    <Frame viewBox={VB}>
+      <defs>
+        <linearGradient id="sg-beam" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor={ACCENT} stopOpacity={0} />
+          <stop offset="0.6" stopColor={ACCENT} stopOpacity={0.35} />
+          <stop offset="0.85" stopColor="#7fdcff" stopOpacity={0.55} />
+          <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <Box x={20} y={12} w={280} h={140} r={8} strong />
+      {rows.map((t, i) => {
+        const y = 22 + i * 25
+        return (
+          <g key={t}>
+            <line x1={20} x2={300} y1={y} y2={y} className="stroke-neutral-800" strokeWidth={0.6} />
+            {i === 1 && (
+              <g>
+                <rect x={20} y={y} width={280} height={25} fill={ACCENT} fillOpacity={0.06} />
+                <rect x={60} y={y} width={100} height={25} fill="url(#sg-beam)" />
+                <line x1={20} x2={300} y1={y + 25} y2={y + 25} stroke={ACCENT} strokeOpacity={0.7} strokeWidth={0.6} />
+              </g>
+            )}
+            {i === 3 && <rect x={20} y={y} width={280} height={25} fill={ACCENT} fillOpacity={0.16} />}
+            <text x={40} y={y + 15} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+              {t}
+            </text>
+            <Line x={170} y={y + 12} w={50} light />
+            <Line x={236} y={y + 12} w={46} light />
+          </g>
+        )
+      })}
+      <path d="M168 59.5 L182 59.5 M178 56 L182 59.5 L178 63" fill="none" stroke={ACCENT} strokeWidth={1} />
+      <Pin x={306} y={52} n={1} />
+      <Pin x={306} y={102} n={2} />
+    </Frame>
+  )
+}
+
 // Satırı altı noktadan tutup sürükleyerek taşıma: sürüklenen satır soluk, bırakılacak yerde mavi çizgi.
 export function SatirTasiVisual() {
   const rows = ['Artemis Fowl', 'Düşler Fabrikası', 'Snowpiercer', 'Narnia Günlükleri', 'Hayaller Diyarı']
