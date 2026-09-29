@@ -9,8 +9,10 @@ import {
   type HomeSection,
   type MoodRowSettings,
   type RandomPickerTmdbSettings,
+  type HomeSettings,
 } from '../../types'
 import { api } from '../../lib/api'
+import { homeRowOrder, withOrder } from '../../lib/homeRows'
 import HomeSectionEditor from '../HomeSectionEditor'
 import MoodRowEditor from '../MoodRowEditor'
 import MultiFilterEditor from '../MultiFilterEditor'
@@ -313,6 +315,90 @@ function ClampedNumberInput({
   )
 }
 
+// Listede olup ana sayfada her zaman görünmeyen satırlar
+const ROW_HINTS: Record<string, string> = {
+  'on-this-day': 'o gün için bir şey yoksa görünmez',
+  'new-episodes': 'yeni bölüm yoksa görünmez',
+  'top-rated': "puanlı içerik 3'ten azsa görünmez",
+}
+
+// "Satırların sırası": açık olan bütün satırlar tek listede (bkz. lib/homeRows.ts). ↑ ↓ ya da sürükle-bırak.
+function RowOrderList({ settings, onSave }: { settings: HomeSettings; onSave: (s: HomeSettings) => void }) {
+  const list = homeRowOrder(settings)
+  const [drag, setDrag] = useState<number | null>(null)
+  const [over, setOver] = useState<number | null>(null)
+  function commit(keys: string[]) {
+    onSave({ ...settings, homeRowOrder: withOrder(settings, keys) })
+  }
+  function move(from: number, to: number) {
+    if (from === to || to < 0 || to >= list.length) return
+    const keys = list.map((e) => e.key)
+    const [k] = keys.splice(from, 1)
+    keys.splice(to, 0, k)
+    commit(keys)
+  }
+  if (!list.length) return <p className="text-xs text-neutral-500">Açık bir satır yok.</p>
+  return (
+    <ol className="space-y-1.5">
+      {list.map((e, i) => (
+        <li
+          key={e.key}
+          draggable
+          onDragStart={(ev) => {
+            ev.dataTransfer.effectAllowed = 'move'
+            ev.dataTransfer.setData('text/plain', e.key)
+            setTimeout(() => setDrag(i), 0)
+          }}
+          onDragEnd={() => {
+            setDrag(null)
+            setOver(null)
+          }}
+          onDragOver={(ev) => {
+            if (drag === null) return
+            ev.preventDefault()
+            if (over !== i) setOver(i)
+          }}
+          onDrop={(ev) => {
+            ev.preventDefault()
+            if (drag !== null) move(drag, i)
+            setDrag(null)
+            setOver(null)
+          }}
+          className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-grab active:cursor-grabbing transition ${
+            drag === i ? 'opacity-40' : ''
+          } ${over === i && drag !== null && drag !== i ? 'border-[#00c0fa]' : 'border-neutral-800 bg-neutral-900/60'}`}
+        >
+          <span className="w-5 text-right text-xs font-semibold tabular-nums text-neutral-500">{i + 1}</span>
+          <span className="flex-1 min-w-0 truncate text-sm text-neutral-200">
+            {e.label}
+            {ROW_HINTS[e.key] && <span className="ml-2 text-[11px] text-neutral-600">{ROW_HINTS[e.key]}</span>}
+          </span>
+          <span className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => move(i, i - 1)}
+              disabled={i === 0}
+              aria-label="Yukarı"
+              className="h-7 w-7 rounded-md border border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500 disabled:opacity-30 disabled:hover:text-neutral-400 transition"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => move(i, i + 1)}
+              disabled={i === list.length - 1}
+              aria-label="Aşağı"
+              className="h-7 w-7 rounded-md border border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500 disabled:opacity-30 disabled:hover:text-neutral-400 transition"
+            >
+              ↓
+            </button>
+          </span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 function moveInArray<T>(arr: T[], index: number, dir: -1 | 1): T[] {
   const next = index + dir
   if (index < 0 || next < 0 || next >= arr.length) return arr
@@ -547,19 +633,6 @@ export default function HomeSettingsPanel() {
                   label="Yeni Bölümler satırını göster"
                 />
               </div>
-              {(settings.newEpisodesRow ?? true) && (
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-neutral-400 shrink-0">Kaçıncı satırda görünsün</label>
-                  <ClampedNumberInput
-                    value={settings.newEpisodesPosition ?? 1}
-                    min={1}
-                    max={30}
-                    onCommit={(n) => saveSettings({ ...settings, newEpisodesPosition: n })}
-                    className="w-16 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
-                  />
-                  <span className="text-xs text-neutral-600">(1 = en üstte)</span>
-                </div>
-              )}
             </div>
 
             <div className="space-y-3">
@@ -576,19 +649,6 @@ export default function HomeSettingsPanel() {
                   label="Geçmiş yıllarda bugün satırını göster"
                 />
               </div>
-              {(settings.onThisDay?.enabled ?? true) && (
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-neutral-400 shrink-0">Kaçıncı satırda görünsün</label>
-                  <ClampedNumberInput
-                    value={settings.onThisDay?.position ?? 1}
-                    min={1}
-                    max={30}
-                    onCommit={(n) => saveSettings({ ...settings, onThisDay: { enabled: true, position: n } })}
-                    className="w-16 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
-                  />
-                  <span className="text-xs text-neutral-600">(1 = en üstte)</span>
-                </div>
-              )}
             </div>
 
             <div className="space-y-3">
@@ -688,20 +748,14 @@ export default function HomeSettingsPanel() {
                   label="En İyi 10 satırını göster"
                 />
               </div>
-              {settings.topRated?.enabled && (
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-neutral-400 shrink-0">Kaçıncı satırda görünsün</label>
-                  <ClampedNumberInput
-                    value={settings.topRated?.position ?? 2}
-                    min={1}
-                    max={30}
-                    onCommit={(n) => saveSettings({ ...settings, topRated: { enabled: true, position: n } })}
-                    className="w-16 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
-                  />
-                  <span className="text-xs text-neutral-600">(1 = en üstte)</span>
-                </div>
-              )}
             </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Satırların sırası"
+            description="Vitrinin altındaki satırlar yukarıdan aşağı bu sırayla çıkar. Oklarla ya da tutup sürükleyerek yerini değiştir. Rastgele doldurulan satırlar her zaman en altta."
+          >
+            <RowOrderList settings={settings} onSave={saveSettings} />
           </SettingsSection>
         </div>
       )}
@@ -755,7 +809,13 @@ export default function HomeSettingsPanel() {
               const bodyIds = (settings.sections ?? []).filter((s) => s.showInBody !== false).map((s) => s.id)
               const order = normalizeOrder(settings.bodyOrder ?? [], bodyIds)
               const idx = order.indexOf(id)
-              saveSettings({ ...settings, bodyOrder: moveInArray(order, idx, dir) })
+              const nextBody = moveInArray(order, idx, dir)
+              // Satırların tek sırasında da bu sayfa, bir önceki / sonraki sayfayla yer değiştirir
+              const keys = homeRowOrder(settings).map((e) => e.key)
+              const me = keys.indexOf(`section:${id}`)
+              const other = nextBody[idx] === id ? -1 : keys.indexOf(`section:${nextBody[idx]}`)
+              if (me !== -1 && other !== -1) [keys[me], keys[other]] = [keys[other], keys[me]]
+              saveSettings({ ...settings, bodyOrder: nextBody, homeRowOrder: withOrder(settings, keys) })
             }}
           />
         </div>

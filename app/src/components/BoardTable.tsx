@@ -432,7 +432,9 @@ function Cell({
   property: PropertyDef
   value: PropertyValue
   optionMaps: OptionMaps
-  // "Rahat" satır sıklığında görseller biraz daha büyük.
+  // "Rahat" satır sıklığında görseller biraz daha büyük; çoklu değerler "+N" yerine alta sarılarak hepsi,
+  // yazılar kesilmeden görünür (kullanıcı "rahat görünümde +2 olmasın, satırı alta doğru genişleterek tüm
+  // bilgileri göstersin" dedi). Satır yüksekliği içeriğe göre büyür (bkz. useVirtualRows).
   roomy?: boolean
 }) {
   if (property.type === 'rating') {
@@ -456,6 +458,17 @@ function Cell({
     const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort((a, b) => (entryEnd(a) < entryEnd(b) ? 1 : -1))
     const formatted = dates.map((d) => formatEntry(d, (x) => formatDateShort(x) ?? x)).filter((d): d is string => Boolean(d))
     if (formatted.length === 0) return null
+    if (roomy)
+      return (
+        <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 min-w-0 w-full">
+          {formatted.map((d, i) => (
+            <span key={`${d}-${i}`} className="text-neutral-300 whitespace-nowrap">
+              {d}
+              {i < formatted.length - 1 ? ',' : ''}
+            </span>
+          ))}
+        </div>
+      )
     return (
       <FitRow
         title={formatted.join(', ')}
@@ -466,7 +479,7 @@ function Cell({
 
   if (property.type === 'select') {
     const opt = optionMaps.get(property.id)?.get(value as string)
-    return opt ? <OptionBadge label={opt.label} colorIndex={opt.colorIndex} image={opt.image} /> : null
+    return opt ? <OptionBadge label={opt.label} colorIndex={opt.colorIndex} image={opt.image} wrap={roomy} /> : null
   }
 
   if (property.type === 'multiselect') {
@@ -474,6 +487,14 @@ function Cell({
     const propMap = optionMaps.get(property.id)
     const opts = ids.map((id) => propMap?.get(id)).filter(Boolean)
     if (opts.length === 0) return null
+    if (roomy)
+      return (
+        <div className="flex flex-wrap gap-1 min-w-0 w-full">
+          {opts.map((o) => (
+            <OptionBadge key={o!.id} label={o!.label} colorIndex={o!.colorIndex} image={o!.image} wrap />
+          ))}
+        </div>
+      )
     return (
       <FitRow
         title={opts.map((o) => o!.label).join(', ')}
@@ -500,6 +521,8 @@ function Cell({
     )
   }
 
+  // Rahatta yazı kesilmez, alta geçer (uzun metin — ör. Sinopsis — en fazla 4 satır)
+  if (roomy) return <span className={`block break-words text-neutral-300 ${property.type === 'longtext' ? 'line-clamp-4' : ''}`}>{String(value)}</span>
   return <span className="block truncate text-neutral-300">{String(value)}</span>
 }
 
@@ -552,7 +575,21 @@ const ROW_HEIGHT = 37
 const ROW_HEIGHT_ROOMY = 57
 const OVERSCAN = 10
 
-function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, rowCount: number, rowHeight: number) {
+// offsets[i] = i. satırın tablodaki üst kenarı (offsets[n] = toplam yükseklik). "Sıkı"da her satır aynı
+// yükseklikte; "Rahat"ta satırlar içeriğe göre büyüdüğü için ölçülen gerçek yükseklikler kullanılıyor.
+function lowerBound(arr: number[], v: number) {
+  let lo = 0
+  let hi = arr.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (arr[mid] < v) lo = mid + 1
+    else hi = mid
+  }
+  return lo
+}
+
+function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, offsets: number[]) {
+  const rowCount = offsets.length - 1
   const [range, setRange] = useState({ start: 0, end: Math.min(rowCount, 60) })
 
   useEffect(() => {
@@ -562,8 +599,8 @@ function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, ro
       const rect = el.getBoundingClientRect()
       const visibleTop = Math.max(0, -rect.top)
       const visibleBottom = visibleTop + window.innerHeight
-      const start = Math.max(0, Math.floor(visibleTop / rowHeight) - OVERSCAN)
-      const end = Math.min(rowCount, Math.ceil(visibleBottom / rowHeight) + OVERSCAN)
+      const start = Math.max(0, lowerBound(offsets, visibleTop + 1) - 1 - OVERSCAN)
+      const end = Math.min(rowCount, lowerBound(offsets, visibleBottom) + OVERSCAN)
       setRange((prev) => (prev.start === start && prev.end === end ? prev : { start, end }))
     }
     update()
@@ -573,7 +610,7 @@ function useVirtualRows(containerRef: React.RefObject<HTMLDivElement | null>, ro
       window.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
     }
-  }, [containerRef, rowCount, rowHeight])
+  }, [containerRef, offsets, rowCount])
 
   return range
 }
@@ -701,7 +738,8 @@ const BoardTable = forwardRef<
 ) {
   const roomy = density === 'rahat'
   const rowH = roomy ? ROW_HEIGHT_ROOMY : ROW_HEIGHT
-  const cellH = roomy ? 'h-14' : 'h-9'
+  // Rahat: en az h-14, içerik sığmazsa satır büyür
+  const cellH = roomy ? 'min-h-14 py-1' : 'h-9'
   const { confirm, notify } = useToast()
   const [showAddCol, setShowAddCol] = useState(false)
   const [menuFor, setMenuFor] = useState<string | null>(null)
@@ -853,7 +891,51 @@ const BoardTable = forwardRef<
 
   const { liveWidth, startResize } = useColumnResize(onResizeProperty)
   const optionMaps = useMemo(() => buildOptionMaps(board.properties), [board.properties])
-  const { start: visibleStart, end: visibleEnd } = useVirtualRows(scrollContainerRef, rows.length, rowH)
+  // Rahat görünümde satır yükseklikleri ölçülüyor (ResizeObserver) — ölçülmemiş satırlar için tahmini yükseklik
+  const measured = useRef(new Map<string, number>())
+  const [measureVersion, setMeasureVersion] = useState(0)
+  const observerRef = useRef<ResizeObserver | null>(null)
+  const observedEls = useRef(new Map<string, Element>())
+  useEffect(() => {
+    if (!roomy) return
+    const ro = new ResizeObserver((entries) => {
+      let changed = false
+      for (const e of entries) {
+        const id = (e.target as HTMLElement).dataset.rowId
+        if (!id) continue
+        const h = Math.round((e.target as HTMLElement).getBoundingClientRect().height)
+        if (h > 0 && measured.current.get(id) !== h) {
+          measured.current.set(id, h)
+          changed = true
+        }
+      }
+      if (changed) setMeasureVersion((v) => v + 1)
+    })
+    observerRef.current = ro
+    for (const el of observedEls.current.values()) ro.observe(el)
+    return () => {
+      ro.disconnect()
+      observerRef.current = null
+    }
+  }, [roomy])
+  function observeRow(id: string, el: HTMLTableRowElement | null) {
+    const prev = observedEls.current.get(id)
+    if (prev === el) return
+    if (prev) observerRef.current?.unobserve(prev)
+    if (el) {
+      observedEls.current.set(id, el)
+      observerRef.current?.observe(el)
+    } else observedEls.current.delete(id)
+  }
+  const offsets = useMemo(() => {
+    const cum = new Array<number>(rows.length + 1)
+    cum[0] = 0
+    for (let i = 0; i < rows.length; i++) cum[i + 1] = cum[i] + (roomy ? (measured.current.get(rows[i].id) ?? rowH) : rowH)
+    return cum
+    // measureVersion: ölçümler değişince yeniden hesapla
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, roomy, rowH, measureVersion])
+  const { start: visibleStart, end: visibleEnd } = useVirtualRows(scrollContainerRef, offsets)
   const visibleRows = rows.slice(visibleStart, visibleEnd)
 
   useImperativeHandle(
@@ -863,7 +945,7 @@ const BoardTable = forwardRef<
         const index = rows.findIndex((r) => r.id === rowId)
         if (index === -1 || !scrollContainerRef.current) return
         const rect = scrollContainerRef.current.getBoundingClientRect()
-        const rowTop = rect.top + window.scrollY + index * rowH
+        const rowTop = rect.top + window.scrollY + offsets[index]
         // Sticky navbar (64px) + tablonun kendi sticky başlığı (37px) satırın üstünü
         // kapatmasın diye biraz pay bırakılıyor. `behavior: 'smooth'` bazı ortamlarda
         // (ör. otomatik/uzaktan kontrollü tarayıcılarda) sessizce hiç kaydırmıyor —
@@ -871,7 +953,7 @@ const BoardTable = forwardRef<
         window.scrollTo(0, Math.max(0, rowTop - 64 - rowH - 16))
       },
     }),
-    [rows, rowH],
+    [rows, rowH, offsets],
   )
 
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
@@ -1111,7 +1193,7 @@ const BoardTable = forwardRef<
           {renderColgroup()}
           <tbody>
           {visibleStart > 0 && (
-            <tr aria-hidden style={{ height: visibleStart * rowH }}>
+            <tr aria-hidden style={{ height: offsets[visibleStart] }}>
               <td colSpan={totalColumns} />
             </tr>
           )}
@@ -1126,6 +1208,8 @@ const BoardTable = forwardRef<
             return (
             <tr
               key={row.id}
+              data-row-id={row.id}
+              ref={roomy ? (el) => observeRow(row.id, el) : undefined}
               onDragOver={
                 dragRowId
                   ? (e) => {
@@ -1236,7 +1320,7 @@ const BoardTable = forwardRef<
                             ) : null}
                           </span>
                         )}
-                        <span className="block truncate">{titleText(titleProp, row.values[titleProp.id])}</span>
+                        <span className={roomy ? 'block break-words' : 'block truncate'}>{titleText(titleProp, row.values[titleProp.id])}</span>
                       </div>
                     </td>
                   )
@@ -1247,7 +1331,7 @@ const BoardTable = forwardRef<
             )
           })}
           {visibleEnd < rows.length && (
-            <tr aria-hidden style={{ height: (rows.length - visibleEnd) * rowH }}>
+            <tr aria-hidden style={{ height: offsets[rows.length] - offsets[visibleEnd] }}>
               <td colSpan={totalColumns} />
             </tr>
           )}

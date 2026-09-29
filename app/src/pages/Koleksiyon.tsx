@@ -11,13 +11,22 @@ import { titleText, type Row } from '../types'
 import RowDetailModal from '../components/RowDetailModal'
 import SymbolEditor from '../components/SymbolEditor'
 import BackgroundProgress from '../components/BackgroundProgress'
-import { autoShelf, commonTitle, shelfKey } from '../lib/shelves'
+import ShelfPicker from '../components/ShelfPicker'
+import KoleksiyonImage, { type ImageItem, type ImageShelf } from '../components/KoleksiyonImage'
+import { autoShelf, commonTitle } from '../lib/shelves'
+import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 
 // Koleksiyon — kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) bir yerde
 // sergileyeyim" dedi. İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım kendiliğinden gelir (sembolü yoksa
 // logosuyla); aynı seriden olanlar bir rafta toplanır (filmler TMDB serisiyle, diğerleri adının ":"
 // öncesiyle). Bir yapıma ya da rafa kendi sembolünü koyabilir, rafların adını ve bir yapımın rafını
 // değiştirebilirsin (koleksiyon.json). Bazı raflara ARGUS'la gelen hazır semboller kendiliğinden konur.
+// Kullanıcı sonra "kendim raf ekleyebilmeliyim, serinin içine kendim film ekleyebilmeliyim" dedi: "+ Yeni raf"
+// ile boş bir raf açılır (koleksiyon.json'da manual), her rafın sonundaki "+ Yapım ekle" ile yapımlar seçilir.
+// Elle açılan raf "ek" raftır: kullanıcı "eklediğim raftaki içerik kendi rafında da dursun, oraya ekleyince
+// oradan kalkmasın" dedi — içindekiler (shelves[].rows) kendi serilerinin rafında / tek başına olanlarda da
+// görünür. Kendiliğinden oluşan serilerde "Yapım ekle" ise taşır (bir film tek bir seriye ait).
+// "Görsel oluştur" koleksiyonun PNG görselini çizer (bkz. KoleksiyonImage).
 
 // ARGUS'la gelen, bazı raflara kendiliğinden konan semboller (değiştirilebilir)
 const DEFAULT_SHELF_SYMBOLS: Record<string, string> = {
@@ -41,6 +50,8 @@ interface Item {
   key: string // bulunduğu raf ('' = rafsız)
   autoKey: string
   autoName: string
+  // Ayrıca içinde durduğu, elle açılmış raflar (bkz. KoleksiyonData.shelves[].rows)
+  extra: string[]
 }
 
 type Editing = { kind: 'item'; item: Item } | { kind: 'shelf'; key: string; name: string; symbol: string | null; fallback: string | null }
@@ -59,6 +70,10 @@ export default function Koleksiyon() {
   const [kind, setKind] = useState<'hepsi' | 'film' | 'dizi'>('hepsi')
   const [onlySymbols, setOnlySymbols] = useState(false)
   const [q, setQ] = useState('')
+  // "+ Yapım ekle" penceresi, "+ Yeni raf" adı, koleksiyon görseli (açılınca o anki raflar donduruluyor)
+  const [picking, setPicking] = useState<{ key: string; name: string } | null>(null)
+  const [newShelf, setNewShelf] = useState<string | null>(null)
+  const [image, setImage] = useState<{ shelves: ImageShelf[]; loose: ImageItem[]; stats: string; filtered: boolean } | null>(null)
   // Sunucuya ulaşılamazsa sonsuza kadar "Yükleniyor" demesin (ör. ARGUS güncellendi ama sunucusu eski)
   const [error, setError] = useState<string | null>(null)
 
@@ -96,6 +111,7 @@ export default function Koleksiyon() {
     const vizyon = resolveRole(board, 'vizyon')
     const dateProp = resolveRole(board, 'izlemeTarihi')
     const str = (r: Row, id?: string) => (id && typeof r.values[id] === 'string' ? (r.values[id] as string) : '')
+    const manual = Object.entries(info.data.shelves).filter(([, v]) => v.manual)
     return rows
       .filter((r) => durum && r.values[durum.id] && r.values[durum.id] !== later)
       .map((r) => {
@@ -107,6 +123,9 @@ export default function Koleksiyon() {
         const auto = autoShelf(source, isSeries, Boolean(col))
         const autoKey = auto.key
         const override = info.data.items[r.id]?.shelf
+        // Elle açılmış bir rafa "taşınmış" eski kayıtlar da (v1.12) ek raf sayılır, kendi raflarında kalır
+        const overrideManual = Boolean(override && info.data.shelves[override]?.manual)
+        const extra = manual.filter(([k, v]) => v.rows?.includes(r.id) || (overrideManual && override === k)).map(([k]) => k)
         const dates = dateProp ? toEntries(r.values[dateProp.id]).map(entryEnd).sort() : []
         return {
           row: r,
@@ -117,9 +136,10 @@ export default function Koleksiyon() {
           isSeries,
           lastWatched: dates[dates.length - 1] ?? '',
           symbol: info.data.items[r.id]?.image ?? null,
-          key: override !== undefined ? override : autoKey,
+          key: override !== undefined && !overrideManual ? override : autoKey,
           autoKey,
           autoName: auto.name,
+          extra,
         }
       })
   }, [board, rows, info])
@@ -143,23 +163,34 @@ export default function Koleksiyon() {
         // "Yüzüklerin Efendisi: İki Kule" … → "Yüzüklerin Efendisi"); yoksa serinin (İngilizce) adı.
         const series = [...names.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? g[0].autoName
         const auto = commonTitle(g.map((it) => it.title)) ?? series
-        const symbol = data?.shelves[key]?.image ?? DEFAULT_SHELF_SYMBOLS[key] ?? null
+        const symbol: string | null = data?.shelves[key]?.image ?? DEFAULT_SHELF_SYMBOLS[key] ?? null
         return {
           key,
           name: data?.shelves[key]?.name || auto,
           autoName: auto,
           seriesName: series,
-          symbol,
+          symbol: symbol as string | null,
           custom: Boolean(data?.shelves[key]?.image),
+          manual: Boolean(data?.shelves[key]?.manual),
           items: [...g].sort((a, b) => (a.year || '9999').localeCompare(b.year || '9999')),
         }
       })
+    // Elle açılmış raflar: içindekiler ayrıca kendi yerlerinde de duruyor. Boşken de görünür (içine
+    // "+ Yapım ekle" ile yapım koyulsun).
+    for (const [key, v] of Object.entries(data?.shelves ?? {})) {
+      if (!v.manual || groups.has(key)) continue
+      const name = v.name || 'Yeni raf'
+      const members = items.filter((it) => it.extra.includes(key)).sort((a, b) => (a.year || '9999').localeCompare(b.year || '9999'))
+      list.push({ key, name, autoName: name, seriesName: name, symbol: v.image ?? null, custom: Boolean(v.image), manual: true, items: members })
+    }
+    list
       .sort((a, b) => Number(Boolean(b.symbol)) - Number(Boolean(a.symbol)) || b.items.length - a.items.length || a.name.localeCompare(b.name, 'tr'))
     // Aynı adı alan raflar (ör. Avatar filmleri ve "Avatar: The Last Airbender" dizileri) serinin kendi adıyla ayrılsın
     const seen = new Map<string, number>()
     for (const sh of list) seen.set(sh.name, (seen.get(sh.name) ?? 0) + 1)
     for (const sh of list) if ((seen.get(sh.name) ?? 0) > 1 && !data?.shelves[sh.key]?.name && sh.seriesName !== sh.name) sh.name = sh.autoName = sh.seriesName
-    const onShelf = new Set(list.flatMap((s) => s.items.map((it) => it.row.id)))
+    // Elle açılan raflardakiler kendi yerlerinden (tek başına olanlar dahil) kalkmıyor
+    const onShelf = new Set(list.filter((s) => !s.manual).flatMap((s) => s.items.map((it) => it.row.id)))
     const rest = items.filter((it) => !onShelf.has(it.row.id)).sort((a, b) => b.lastWatched.localeCompare(a.lastWatched))
     return { shelves: list, loose: rest }
   }, [items, info])
@@ -168,11 +199,54 @@ export default function Koleksiyon() {
     (kind === 'hepsi' || (kind === 'dizi') === it.isSeries) &&
     (!onlySymbols || Boolean(it.symbol)) &&
     (!q.trim() || it.title.toLocaleLowerCase('tr').includes(q.trim().toLocaleLowerCase('tr')))
+  const noFilter = kind === 'hepsi' && !onlySymbols && !q.trim()
   const filteredShelves = shelves
     .map((s) => ({ ...s, shown: s.items.filter(match) }))
-    .filter((s) => s.shown.length > 0 || (onlySymbols && s.custom && !q.trim()))
+    .filter((s) => s.shown.length > 0 || (onlySymbols && s.custom && !q.trim()) || (noFilter && s.items.length === 0))
   const filteredLoose = loose.filter(match)
   const symbolCount = items.filter((it) => it.symbol).length
+
+  // "+ Yapım ekle" penceresinde işaretlenenler bu rafa; işareti kaldırılanlar raftan çıkar (kendiliğinden
+  // bulunan rafı buysa "rafsız" olur, değilse kendi rafına döner).
+  async function saveShelfItems(key: string, selected: Set<string>) {
+    const patch: KoleksiyonPatch = { items: {} }
+    if (info?.data.shelves[key]?.manual) {
+      // Ek raf: sadece listesi değişir; eski usul (v1.12) buraya "taşınmış" kayıtlar kendi raflarına döner
+      patch.shelves = { [key]: { rows: [...selected] } }
+      for (const [id, v] of Object.entries(info.data.items)) if (v.shelf === key) patch.items![id] = { shelf: null }
+      await save(patch)
+      notify('Raf güncellendi.')
+      return
+    }
+    for (const it of items) {
+      const was = it.key === key
+      const now = selected.has(it.row.id)
+      if (was === now) continue
+      patch.items![it.row.id] = { shelf: now ? key : it.autoKey === key ? '' : null }
+    }
+    await save(patch)
+    notify('Raf güncellendi.')
+  }
+
+  async function createShelf(name: string) {
+    const key = `el-${Date.now().toString(36)}`
+    await save({ shelves: { [key]: { name, manual: true } } })
+    setNewShelf(null)
+    // Açılır açılmaz içine yapım seçilsin
+    setPicking({ key, name })
+  }
+
+  const pickingManual = Boolean(picking && info?.data.shelves[picking.key]?.manual)
+
+  function openImage() {
+    const toImg = (it: Item): ImageItem => ({ title: it.title, year: it.year, isSeries: it.isSeries, symbol: it.symbol, logo: it.logo })
+    setImage({
+      shelves: filteredShelves.filter((s) => s.shown.length).map((s) => ({ name: s.name, symbol: s.symbol, items: s.shown.map(toImg) })),
+      loose: filteredLoose.map(toImg),
+      stats: [`${items.length} yapım`, `${shelves.filter((s) => s.items.length).length} raf`, symbolCount ? `${symbolCount} sembol` : ''].filter(Boolean).join(' · '),
+      filtered: !noFilter,
+    })
+  }
 
   async function save(patch: KoleksiyonPatch) {
     try {
@@ -228,7 +302,7 @@ export default function Koleksiyon() {
   const shelfOptions = [
     { value: '__auto', label: 'Kendiliğinden bulunan raf' },
     { value: '', label: 'Rafsız' },
-    ...shelves.map((s) => ({ value: s.key, label: s.name })),
+    ...shelves.filter((s) => !s.manual).map((s) => ({ value: s.key, label: s.name })),
   ]
 
   return (
@@ -270,6 +344,12 @@ export default function Koleksiyon() {
         >
           Sadece sembolü olanlar
         </button>
+        <button onClick={() => setNewShelf('')} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+          + Yeni raf
+        </button>
+        <button onClick={openImage} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+          Görsel oluştur
+        </button>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -304,6 +384,16 @@ export default function Koleksiyon() {
               {s.shown.map((it) => (
                 <Exhibit key={it.row.id} it={it} big />
               ))}
+              <button
+                onClick={() => setPicking({ key: s.key, name: s.name })}
+                className="shrink-0 w-36 sm:w-40 text-left group"
+                title="Bu rafa yapım ekle ya da çıkar"
+              >
+                <div className="aspect-square rounded-2xl border-2 border-dashed border-neutral-800 group-hover:border-[#00c0fa]/60 flex flex-col items-center justify-center text-neutral-500 group-hover:text-[#7fdcff] transition">
+                  <span className="text-3xl leading-none">＋</span>
+                  <span className="text-xs mt-1.5">Yapım ekle</span>
+                </div>
+              </button>
             </div>
             {/* cam raf */}
             <div className="h-1.5 rounded-full bg-gradient-to-r from-transparent via-white/15 to-transparent shadow-[0_6px_14px_rgba(0,0,0,0.6)]" />
@@ -331,7 +421,14 @@ export default function Koleksiyon() {
           subheading="Koleksiyondaki sembolü"
           current={editing.item.symbol}
           fallback={editing.item.logo || null}
-          shelf={{ value: info.data.items[editing.item.row.id]?.shelf ?? '__auto', options: shelfOptions }}
+          shelf={{
+            // Eski usul ek rafa "taşınmış" kayıtlarda asıl raf kendiliğinden bulunan
+            value: (() => {
+              const o = info.data.items[editing.item.row.id]?.shelf
+              return o === undefined || info.data.shelves[o]?.manual ? '__auto' : o
+            })(),
+            options: shelfOptions,
+          }}
           onOpenDetail={() => {
             setDetail(editing.item.row)
             setEditing(null)
@@ -345,10 +442,9 @@ export default function Koleksiyon() {
               if (shelf === '__auto') patch.items![id]!.shelf = null
               else if (shelfOptions.some((o) => o.value === shelf)) patch.items![id]!.shelf = shelf
               else {
-                // Yeni raf: adıyla anahtar oluşturulur, yazıldığı gibi görünsün diye adı da kaydedilir
-                const key = shelfKey(shelf) || `raf-${Date.now().toString(36)}`
-                patch.items![id]!.shelf = key
-                patch.shelves = { [key]: { name: shelf } }
+                // Yeni raf: elle açılan ek raf olur, yapım kendi rafında da kalır
+                const key = `el-${Date.now().toString(36)}`
+                patch.shelves = { [key]: { name: shelf, manual: true, rows: [id] } }
               }
             }
             await save(patch)
@@ -364,6 +460,20 @@ export default function Koleksiyon() {
           fallback={editing.fallback}
           name={{ value: info.data.shelves[editing.key]?.name ?? '', placeholder: shelves.find((s) => s.key === editing.key)?.autoName ?? editing.name }}
           onClose={() => setEditing(null)}
+          onDelete={
+            info.data.shelves[editing.key]?.manual
+              ? {
+                  label: 'Rafı kaldır',
+                  run: async () => {
+                    const key = editing.key
+                    const patch: KoleksiyonPatch = { shelves: { [key]: null }, items: {} }
+                    for (const [id, v] of Object.entries(info.data.items)) if (v.shelf === key) patch.items![id] = { shelf: null }
+                    await save(patch)
+                    notify('Raf kaldırıldı; içindekiler kendi raflarına döndü.')
+                  },
+                }
+              : undefined
+          }
           onSave={async ({ image, name }) => {
             const patch: KoleksiyonPatch = { shelves: { [editing.key]: {} } }
             if (image !== undefined) patch.shelves![editing.key]!.image = image
@@ -373,6 +483,55 @@ export default function Koleksiyon() {
           }}
         />
       )}
+      {picking && (
+        <ShelfPicker
+          shelfName={picking.name}
+          items={items.map((it) => ({
+            id: it.row.id,
+            title: it.title,
+            year: it.year,
+            isSeries: it.isSeries,
+            thumb: it.symbol || it.logo || it.poster,
+            shelfName: shelves.find((s) => s.key === it.key)?.name ?? '',
+            inShelf: pickingManual ? it.extra.includes(picking.key) : it.key === picking.key,
+          }))}
+          additive={pickingManual}
+          onSave={(sel) => saveShelfItems(picking.key, sel)}
+          onClose={() => setPicking(null)}
+        />
+      )}
+      {newShelf !== null && (
+        <div className="fixed inset-0 z-[70] bg-black/80 flex items-start justify-center px-4 py-24" onClick={() => setNewShelf(null)}>
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (newShelf.trim()) createShelf(newShelf.trim()).catch(() => {})
+            }}
+            className="w-full max-w-md bg-neutral-900 rounded-2xl border border-neutral-800 p-5"
+          >
+            <h2 className="text-lg font-bold text-neutral-50">Yeni raf</h2>
+            <p className="text-sm text-neutral-500 mt-0.5">Bir seri ya da kendi grubun (ör. Marvel, Ghibli, Noel filmleri). Sonra içine yapımları seçeceksin.</p>
+            <input
+              autoFocus
+              value={newShelf}
+              onChange={(e) => setNewShelf(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setNewShelf(null)}
+              placeholder="Rafın adı"
+              className="mt-4 w-full rounded-xl bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button type="button" onClick={() => setNewShelf(null)} className="text-sm rounded-lg px-4 py-2 text-neutral-300 hover:bg-neutral-800">
+                Vazgeç
+              </button>
+              <button type="submit" disabled={!newShelf.trim()} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}>
+                Oluştur ve yapım seç
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {image && <KoleksiyonImage shelves={image.shelves} loose={image.loose} stats={image.stats} filtered={image.filtered} onClose={() => setImage(null)} />}
       {detail && <RowDetailModal board={board} row={detail} onClose={() => setDetail(null)} />}
     </div>
   )

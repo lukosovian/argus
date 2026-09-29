@@ -26,7 +26,9 @@ export interface PersonInfo {
 // items[rowId].shelf: kaydın elle seçilen rafı ('' = rafsız); yoksa raf kendiliğinden bulunur.
 export interface KoleksiyonData {
   items: Record<string, { image?: string; shelf?: string }>
-  shelves: Record<string, { image?: string; name?: string }>
+  // manual: kullanıcının "+ Yeni raf" ile oluşturduğu raf (içi boş da olsa görünür, silinebilir); rows: içindeki
+  // yapımlar — bunlar kendi raflarında da durur (elle açılan raf "ek" raf, taşımaz)
+  shelves: Record<string, { image?: string; name?: string; manual?: boolean; rows?: string[] }>
 }
 export interface KoleksiyonInfo {
   collections: Record<string, { id: number; name: string }>
@@ -36,7 +38,7 @@ export interface KoleksiyonInfo {
 }
 export type KoleksiyonPatch = {
   items?: Record<string, { image?: string | null; shelf?: string | null } | null>
-  shelves?: Record<string, { image?: string | null; name?: string | null } | null>
+  shelves?: Record<string, { image?: string | null; name?: string | null; manual?: boolean | null; rows?: string[] | null } | null>
 }
 
 export interface BackupInfo {

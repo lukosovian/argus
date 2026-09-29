@@ -2440,7 +2440,7 @@ app.post('/api/ui-prefs', (req, res) => {
   res.json({ ok: true })
 })
 
-// Diğer bilgisayarlarda anahtarlar GitHub'daki güncel features.json'dan okunur (dakikada en çok bir kez
+// Diğer bilgisayarlarda anahtarlar GitHub'daki güncel features.json'dan okunur (20 sn'de en çok bir kez
 // bakılır), kod güncellemesi beklenmez. Kullanıcı "Flashback'i açtım ama arkadaşa güncelle bildirimi
 // gitmedi" dedi: anahtar sadece bir açma/kapama, özelliğin kodu zaten orada — açınca birkaç dakikada
 // kendiliğinden görünsün. İnternet yoksa yerel dosyaya düşülür.
@@ -2453,7 +2453,7 @@ function gitOut(args, timeout) {
 async function currentFeatures() {
   const local = readJson(FEATURES_FILE, {})
   if (isDevMachine()) return local
-  if (Date.now() - remoteFeatures.at > 60_000 && !remoteFeatures.pending) {
+  if (Date.now() - remoteFeatures.at > 20_000 && !remoteFeatures.pending) {
     remoteFeatures.pending = (async () => {
       try {
         await gitOut(['fetch', '--quiet', 'origin'], 15000)

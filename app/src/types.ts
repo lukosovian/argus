@@ -461,6 +461,11 @@ export interface HomeSettings {
   // "Arşivindeki En İyi 10" satırı — en yüksek puan verilen 10 kayıt, büyük sıra numaralarıyla.
   // Eski kayıtlarda yok, yoksa kapalı.
   topRated?: { enabled: boolean; position: number }
+  // Vitrinin altındaki satırların TEK sırası (bkz. lib/homeRows.ts): 'new-episodes', 'on-this-day',
+  // 'top-rated', 'mood', 'all', 'section:<id>'. Kullanıcı "1. sıraya bir şey eklediysem başka şeyi birinci
+  // sıraya ekleyemiyorum, önceliği hangisine veriyor bilemiyorum" dedi — ayrı ayrı "kaçıncı satır" numaraları
+  // yerine tek liste. Yoksa eski numaralardan (position alanları + bodyOrder) hesaplanır.
+  homeRowOrder?: string[]
   // Vitrin görünümü (bkz. ShowcaseStyle). Eski kayıtlarda yok, yoksa 'klasik'.
   showcaseStyle?: ShowcaseStyle
   // Satır başlıklarının ("Tümü", bölümler, mod satırı…) büyüklüğü. Eski kayıtlarda yok, yoksa 'orta'

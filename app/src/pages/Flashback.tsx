@@ -202,8 +202,8 @@ export default function Flashback() {
       if (d.pushed)
         notify(
           v
-            ? 'Flashback diğer kullanıcılara açıldı ve gönderildi. ARGUS\'u açtıklarında ya da "Şimdi Güncelle"ye bastıklarında menülerinde çıkacak, bildirim de gelecek.'
-            : 'Flashback diğer kullanıcılara kapatıldı ve gönderildi. Güncellediklerinde menülerinden kalkacak.',
+            ? 'Flashback diğer kullanıcılara açıldı ve gönderildi. ARGUS\'ları açıksa yaklaşık bir dakika içinde menülerinde çıkacak, bildirim de gelecek (güncelleme gerekmez).'
+            : 'Flashback diğer kullanıcılara kapatıldı ve gönderildi. Yaklaşık bir dakika içinde menülerinden kalkacak.',
         )
       else notify(`Ayar bu bilgisayarda kaydedildi ama gönderilemedi: ${d.reason ?? 'bilinmeyen bir sorun'}`, 'danger')
     } catch (e) {
@@ -580,8 +580,8 @@ export default function Flashback() {
               {publishing
                 ? 'Gönderiliyor…'
                 : features.wrappedForAll
-                  ? 'Diğer kullanıcılarda açık. Kapatırsan hemen gönderilir; güncellediklerinde menülerinden kalkar.'
-                  : "Şu an sadece sen görüyorsun. Açarsan hemen gönderilir; diğerleri ARGUS'u açınca menülerinde çıkar ve bildirim gelir."}
+                  ? 'Diğer kullanıcılarda açık. Kapatırsan hemen gönderilir; yaklaşık bir dakika içinde menülerinden kalkar.'
+                  : 'Şu an sadece sen görüyorsun. Açarsan hemen gönderilir; diğerlerinde güncelleme gerekmeden, yaklaşık bir dakika içinde menüde çıkar ve bildirim gelir.'}
             </p>
           </div>
           <div className="grid grid-cols-2 rounded-xl bg-neutral-950/60 border border-neutral-800 p-1 text-sm">

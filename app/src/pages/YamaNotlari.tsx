@@ -47,6 +47,7 @@ import {
   SatirTasiVisual,
   SatirGuncelleVisual,
   HangisiVisual,
+  KoleksiyonRafVisual,
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
@@ -61,6 +62,28 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.12',
+    date: '30 Eylül 2026',
+    title: 'Koleksiyon: kendi rafların, rafa yapım ekleme, koleksiyonun PNG görseli; ana sayfa satırlarının tek sırası; tabloda rahat görünümde bütün bilgiler',
+    visuals: [
+      {
+        caption: '1 "+ Yeni raf" ile kendi rafını (serini) aç · 2 her rafın sonundaki "Yapım ekle" ile içine istediğin yapımları koy · 3 "Görsel oluştur" ile koleksiyonunu PNG olarak indir',
+        Visual: KoleksiyonRafVisual,
+      },
+    ],
+    items: [
+      'Yeni: Koleksiyon\'da "+ Yeni raf" ile kendi rafını açabilirsin — bir seri ya da kendi grubun (Marvel, Ghibli, Noel filmleri…). Açınca hemen içine koyacağın yapımları seçiyorsun.',
+      'Her rafın sonunda "Yapım ekle" var: koleksiyondaki bütün yapımlar aranabilir bir listede çıkıyor. Kendi açtığın raflara eklediklerin kendi yerlerinde de durmaya devam ediyor — ör. Narnia filmlerini "Çocukluğum" rafına koyarsan Narnia rafında da görünürler. Kendiliğinden oluşan seri raflarında ise işaretlediğin o seriye taşınıyor — ARGUS\'un bir seriye koymadığı bir filmi elle ekleyebilirsin. İşaretini kaldırdığın o raftan çıkıyor.',
+      'Kendi açtığın bir rafı, rafın büyük sembolüne tıklayıp "Rafı kaldır" ile silebilirsin; içindekiler kendi raflarına döner.',
+      'Yeni: "Görsel oluştur" koleksiyonunun PNG görselini hazırlıyor — rafların sembolleri, adları ve yapımlarıyla, Koleksiyon sayfası gibi koyu bir vitrin; istersen tek başına olanlar da ekleniyor. Sayfada Film/Dizi, "Sadece sembolü olanlar" ya da arama seçiliyse görsel de ona göre çıkıyor.',
+      'Ana Sayfa Ayarları › Görünüm\'de yeni "Satırların sırası" listesi: vitrinin altındaki bütün satırlar (Tümü, sayfaların, Yeni Bölümler, Geçmiş yıllarda bugün, En İyi 10, mod satırı) tek listede, yukarıdan aşağı ana sayfadaki sırayla. Oklarla ya da tutup sürükleyerek istediğini birinci sıraya alabilirsin. Önceden her satırın ayrı bir "kaçıncı satırda" numarası vardı; iki satıra aynı numara verilince hangisinin önce geleceği belli değildi — o numaralar kalktı. Şu anki sıran aynen korunuyor.',
+      'Arşiv tablosunun "Rahat" görünümünde artık "+2" gibi kısaltmalar yok: Tür, Oyuncular, İzleme Tarihi gibi çoklu değerlerin hepsi görünüyor, uzun adlar ve yazılar kesilmeden alt satıra geçiyor; satır içeriği kadar uzuyor (uzun metinler — ör. Sinopsis — en fazla 4 satır). "Sıkı" görünüm eskisi gibi tek satır.',
+      'Arşiv tablosunda aşağı kaydırınca araç çubuğu (ara, filtrele, sırala, Genel Güncelleme, Sağlık Kontrolü, Yeni Ekle…) kaybolmuyor: en üstteki menünün ortasına yukarıdan kayarak geliyor, yukarı çıkınca yumuşakça yerine dönüyor. Açık arama da onunla gidiyor. Üstteki (Ne İzlesem\'in yanındaki) arama açıkken ve menüde çok sayfa bağlantısı olduğu ya da pencere dar olduğu için sığmıyorsa orada görünmüyor.',
+      'Arşiv sayfasının sol altındaki en üste / en alta düğmelerinin üstünde "Sayfayı yenile" düğmesi var — arşivi baştan yükler (ör. başka bir yerde yaptığın değişiklikler gelsin), kaldığın yerde kalırsın.',
+      'Takvim\'in yıl görünümünde yılın yazdığı yere tıklayıp elle yıl yazabilirsin (ör. 2019 yazıp Enter) — tek tek oklarla gitmene gerek yok.',
+      'Düzeltme: Bir yapımın sembol penceresinde "Hangi rafta?" listesi açılınca seçenekler pencerenin arkasında kalıyordu; artık önde açılıyor (başka pencerelerdeki açılır listeler de).',    ],
+  },
   {
     version: 'v1.11.8',
     date: '29 Eylül 2026',

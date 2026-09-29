@@ -8,6 +8,7 @@ export default function OptionBadge({
   onClick,
   selected,
   dim = true,
+  wrap = false,
 }: {
   label: string
   colorIndex: number
@@ -19,13 +20,15 @@ export default function OptionBadge({
   // penceresindeki Tür/Ülke rozetleri) hep soluk durup kafa karıştırıyordu — o kullanım
   // yerleri bunu false geçerek normal/canlı görünümde kalsın diye bu prop eklendi.
   dim?: boolean
+  // Dar yerde (tablonun "Rahat" görünümü) uzun etiket kesilmesin, alt satıra geçsin
+  wrap?: boolean
 }) {
   const c = OPTION_COLORS[colorIndex % OPTION_COLORS.length]
   const { flagCode, rest } = splitFlagEmoji(label)
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] leading-none px-1.5 py-1 rounded-full border ${c.bg} ${c.text} ${c.border} ${
+      className={`inline-flex items-center gap-1 text-[11px] leading-none px-1.5 py-1 border ${wrap ? 'max-w-full whitespace-normal break-words rounded-lg' : 'whitespace-nowrap rounded-full'} ${c.bg} ${c.text} ${c.border} ${
         onClick ? 'cursor-pointer' : ''
       } ${onClick && dim && !selected ? 'opacity-40 hover:opacity-100' : ''} transition`}
     >

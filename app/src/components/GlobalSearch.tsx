@@ -173,6 +173,12 @@ export default function GlobalSearch() {
     }
   }, [resultsOpen])
 
+  // Arama açılıp kapanınca haber ver — arşiv tablosunun menüye taşınan araç çubuğu arama açıkken gizlenir
+  // (bkz. BoardView; kullanıcı "arama yaparken görünmesin" dedi).
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('argus-global-search', { detail: { open } }))
+  }, [open])
+
   // Klavyeden "/" ile aramayı aç (bir yazı kutusunun içindeyken değil).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

@@ -168,6 +168,39 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
 
 const KIND_ORDER: Record<EventKind, number> = { watch: 0, episodes: 1, upcoming: 2, release: 3 }
 
+// Yıl görünümünde yılın yazdığı yer — kullanıcı "elle yıl yazabileyim" dedi. Tıklayıp yazıp Enter'a basınca
+// (ya da dışarı tıklayınca) o yıla gider; geçersiz bir şey yazılırsa eski yıla döner, Esc vazgeçer.
+function YearInput({ year, onYear }: { year: number; onYear: (y: number) => void }) {
+  const [draft, setDraft] = useState(String(year))
+  useEffect(() => setDraft(String(year)), [year])
+  function commit() {
+    const y = Number(draft.trim())
+    if (Number.isInteger(y) && y >= 1900 && y <= 2100) {
+      if (y !== year) onYear(y)
+    } else setDraft(String(year))
+  }
+  return (
+    <input
+      value={draft}
+      inputMode="numeric"
+      maxLength={4}
+      aria-label="Yıl"
+      title="Yılı yazıp Enter'a bas"
+      onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
+      onFocus={(e) => e.target.select()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+        if (e.key === 'Escape') {
+          setDraft(String(year))
+          ;(e.target as HTMLInputElement).blur()
+        }
+      }}
+      className="w-24 text-2xl font-semibold text-neutral-50 text-center tabular-nums bg-transparent rounded-lg border border-transparent hover:border-neutral-700 focus:border-[#00c0fa] focus:bg-neutral-900 outline-none py-0.5 transition cursor-text"
+    />
+  )
+}
+
 export default function Takvim() {
   const { settings, loading: settingsLoading } = useHomeSettings()
   const { boards, loading: boardsLoading } = useBoards()
@@ -796,7 +829,7 @@ function YearView({
           <button onClick={() => onYear(year - 1)} className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 transition">
             ‹
           </button>
-          <h2 className="text-2xl font-semibold text-neutral-50 w-20 text-center tabular-nums">{year}</h2>
+          <YearInput year={year} onYear={onYear} />
           <button onClick={() => onYear(year + 1)} className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 transition">
             ›
           </button>
