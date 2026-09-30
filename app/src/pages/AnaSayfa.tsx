@@ -4,6 +4,7 @@ import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
+import { useProfiles } from '../hooks/useProfiles'
 import { titleText, ratingAverage, resolveBuiltinMoods, AUTO_FILL_MAX_OPTIONS, type AutoFillSettings, type Board, type Row } from '../types'
 import { splitFlagEmoji } from '../lib/flagEmoji'
 import { conditionsKey, filterConditions, hasActiveFilter } from '../lib/filters'
@@ -616,6 +617,7 @@ function TopRatedRow({
 }
 
 export default function AnaSayfa() {
+  const { activeProfileId } = useProfiles()
   const { settings, loading: settingsLoading, saveSettings } = useHomeSettings()
   const { boards, loading: boardsLoading } = useBoards()
   const { board, loading: boardLoading } = useBoard(settings.boardId ?? undefined)
@@ -832,6 +834,8 @@ export default function AnaSayfa() {
     }
   }
 
+  // Profil seçilmeden ("Kim izliyor?" ekranı açıkken) arkada bitmeyen bir "Yükleniyor..." görünmesin
+  if (!activeProfileId) return null
   if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
 
   if (!settings.boardId) {

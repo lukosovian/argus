@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { useEscape } from '../hooks/useEscape'
 
 // Koleksiyon'da bir rafa yapım ekleme / çıkarma — kullanıcı "serinin içine kendim film ekleyebilmeliyim" dedi.
 // Koleksiyondaki bütün yapımlar aranabilir bir listede; işaretliler bu rafta. Başka raftaysa adı yazıyor
@@ -34,11 +35,8 @@ export default function ShelfPicker({
   const [selected, setSelected] = useState(() => new Set(items.filter((i) => i.inShelf).map((i) => i.id)))
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  useEscape(true, onClose)
 
   // İşaretliler üstte, sonra aramaya uyanlar (adı aramayla başlayanlar önce)
   const shown = useMemo(() => {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useToast } from '../hooks/useToast'
 import { whiteLogo } from '../lib/whiteLogo'
+import { withLocative } from '../lib/turkce'
 
 // Yıllık Özet'teki "izleme sıran" duvarı — kullanıcı "izleme sırama göre izlediğim şeylerin dikey
 // posterlerini veren bir görsel oluştursun, istersem indirebileyim" dedi. Sayfada küçük önizleme var;
@@ -178,7 +179,7 @@ export default function YearPosterWall({ items, year, onOpen, onStory }: { items
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <p className="text-lg font-bold text-neutral-50">İzleme sıran</p>
-          <p className="text-xs text-neutral-500">{year}'te izlediğin {items.length} yapım, ilk izlediğinden sonuncusuna</p>
+          <p className="text-xs text-neutral-500">{withLocative(year)} izlediğin {items.length} yapım, ilk izlediğinden sonuncusuna</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {onStory && (

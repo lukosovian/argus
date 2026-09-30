@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { TmdbChoice } from '../lib/api'
+import { useEscape } from '../hooks/useEscape'
 
 // Güncelle'ye basınca TMDB'de birden fazla yapım çıkarsa hangisi olduğunu kullanıcıya seçtiren pencere —
 // kullanıcı "birden fazla sonuç bulursa kendi birini mi seçiyor, ekrana getirsin ben seçeyim" dedi.
@@ -16,11 +16,8 @@ export default function TmdbChoiceModal({
   onPick: (c: TmdbChoice) => void
   onCancel: () => void
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancel()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+  // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  useEscape(true, onCancel)
 
   return createPortal(
     <div className="fixed inset-0 z-[70] bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onCancel}>

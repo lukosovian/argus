@@ -6,7 +6,7 @@
 // (v1.6 → v1.6.1 → v1.6.2). `version` alanı lib/version.ts'teki
 // APP_VERSION ile elle senkron tutulur (kullanıcı "versiyon numarası ekleyelim güncellendiği
 // anlaşılmıyo" dedi).
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { APP_VERSION } from '../lib/version'
 import { BRAND_GRADIENT, BRAND_TEXT } from '../lib/theme'
 import {
@@ -51,6 +51,7 @@ import {
   YedekVisual,
   SeriKisiVisual,
 } from '../components/PatchVisuals'
+import { useEscape } from '../hooks/useEscape'
 interface PatchEntry {
   version: string
   date: string
@@ -62,6 +63,31 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.12.1',
+    date: '30 Eylül 2026',
+    title: 'Notion\'dan (ve başka yerlerden) içe aktarma çok daha akıllı; TMDB eşleşmeleri daha doğru; başlığı Türkçe adla değiştirme artık bir seçenek',
+    items: [
+      'İçe aktarmada tarihler tanınıyor: Notion\'un "March 12, 2023", "12 Mart 2023", "12/03/2023" gibi biçimleri ve "… → …" aralıkları gerçek tarih oluyor; Takvim, İstatistikler ve Flashback bunları görüyor. Sadece yıl yazılmışsa ("1994") TMDB güncellemesinde gerçek çıkış tarihiyle tamamlanıyor.',
+      'Puanlar aktarılıyor: ⭐⭐⭐⭐ gibi yıldızlar, "8/10", "4/5" ya da 5 üzerinden sayılar 10 üzerinden puana çevriliyor (önceden Puan alanına hiç gelmiyordu).',
+      'Durumların ne anlama geldiği soruluyor: Notion\'daki "Bitti", "Listemde", "İzliyorum", "Bıraktım" gibi değerlerin karşısında İzlendi / İzlenecek / İzleniyor / Yarım seçilebiliyor (tahminle hazır geliyor). Böylece İstatistikler, Ne İzlesem ve Koleksiyon neyi izlediğini doğru biliyor.',
+      'Sütunlar hem adına hem içeriğine bakılarak eşleniyor: türler (Dram, Aksiyon…) "Tür"e, Film / Dizi gibi değerler "Kategori"ye gidiyor; yanlış yere eşlenirse uyarı çıkıyor. Her alanın yanında ne işe yaradığı ve her sütunun altında örnek değerleri yazıyor. "Oluşturulma zamanı" gibi gereksiz sütunlar kendiliğinden aktarılmıyor; Evet/Hayır (Yes/No) sütunları onay kutusu oluyor.',
+      '"Medya Arşivi şablonuyla eşleştir" artık baştan açık ve şablonun bütün sütunlarını (Poster, Banner, Sinopsis…) gerçekten oluşturuyor — Genel Güncelleme ilk seferde bütün kayıtları dolduruyor, ana sayfa kartlarının görseli de hazır geliyor. Arşiv adındaki Notion\'un karmaşık eki ("… 3f2a9c1e") siliniyor.',
+      'Bir sütunun tipini değiştirince (ör. Metin → Tarih) içindeki değerler de yeni tipe çevriliyor; önceden yazı olarak kalıp boş görünüyordu. Adı izleme tarihine benzeyen bir sütun tarihe çevrilince Takvim onu kendiliğinden kullanıyor, Takvim\'in uyarısı da ne yapılacağını doğru söylüyor.',
+      'TMDB: Kategori\'si "Anime", "Belgesel" gibi film de dizi de olabilen kayıtlar yanlışlıkla sadece filmlerde aranıyordu (ör. bir anime dizisi aynı adlı bir müzikal filmle eşleşiyordu) — artık ikisine de bakılıyor, yılı da kullanılıyor. "Hangisi?" penceresinde başka bir yapım seçince eski (yanlış) yapımdan kalan afiş, yönetmen, tarih ve oyuncular da yenisiyle değişiyor.',
+      'Güncelle\'nin başlığa yazılan İngilizce / orijinal adı Türkçe adla değiştirmesi artık bir seçenek: tablodaki dişli (TMDB\'den neler gelsin) menüsünde "Başlığı Türkçe adla değiştir". Kapatırsan "Pulp Fiction" gibi bilerek yazdığın adlar olduğu gibi kalır.',
+      'Genel Güncelleme, TMDB API anahtarı yoksa bunu baştan bir kez söylüyor (önceden her kayıt için ayrı hata veriyordu). API sayfasında TMDB\'nin anahtar isterken doldurttuğu kısa formun nasıl doldurulacağı da yazıyor.',
+      'Düzeltme: İzlendi olan ama izleme tarihi ve bölüm işareti olmayan diziler (ör. başka yerden aktarılmış), yıllar önce yayınlanmış son bölümleri "yeni bölüm" sanılıp kendiliğinden İzleniyor\'a alınıyordu. Artık sadece izlediğin tarihten (o da yoksa arşive eklediğin günden) sonra çıkan bölümler yeni sayılıyor.',
+      'Güncelle\'nin başlığı Türkçe adla değiştirmesi yeni arşivlerde kapalı başlıyor (açmak istersen dişli menüsünde). Aynı anda birden çok bildirim gelirse sağ altta tek bir özet kart çıkıyor, kartlar üst üste yığılmıyor.',
+      'Tablonun "Rahat" görünümünde her hücre en fazla 3 satır gösteriyor; sığmayan etiketler "+N" oluyor (üzerine gelince hepsi yazar), uzun yazılar (ör. Sinopsis) 3 satırda kesiliyor — bir satır bütün ekranı kaplamıyor.',
+      'Tablodan açılan detay penceresinde durum düğmeleri (İzlendi / İzlenecek / Yarım / İzleniyor), "Puan ver" ve "Bugün izledim" (daha önce izlediysen tekrar izleme olarak ekler) var. Tek bir puanla aktarılmış ya da Keşfet\'ten "İzledim" diye eklenmiş kayıtlarda puan artık 5 kritere yazılmış gibi gösterilmiyor, "tek puan" olarak görünüyor.',
+      'Esc artık neredeyse bütün pencereleri ve açılır menüleri kapatıyor (sütun menüsü, TMDB alanları, Bildirimler, Sırala, Filtrele, tablo rehberi, detay penceresi…); üst üste açıksa sadece en üstteki kapanıyor. Hücre düzenlerken Esc "vazgeç" demek.',
+      'Keşfet\'te "En yüksek puanlı" artık az oylu yeni yapımları değil, gerçekten çok beğenilenleri getiriyor (henüz çıkmamışlar da gelmiyor). Tabloda sıralamada boş değerler (puansız, tarihsiz) hep en altta. Yaş sınırları tek biçimde yazılıyor (13+, 18+, Genel İzleyici…). Üst menüde bulunduğun sayfanın adı (Arşiv Tablosu, Takvim…) görünüyor. Oyuncu / yönetmen sayfasından eklediğin yapım hemen "Arşivinde" listesine geçiyor. "2026\'te" yerine "2026\'da" gibi ekler doğru yazılıyor.',
+      'Takvim\'in yıl görünümünde de "Bugün" düğmesi var (başka bir yıldayken bu yıla döndürür). Alttaki açıklama her işaretin ne anlama geldiğini doğru anlatıyor: "Başladın / Bitirdin" hem filmde hem dizide var — bir şeyi birkaç günde izleyip izleme tarihine "başladım → bitirdim" aralığı girdiysen başladığın ve bitirdiğin günü gösterir.',
+      'Tarihlerde yıl artık tam yazıyor: "23.09.94" yerine "23.09.1994" — tabloda, detay penceresinde, bölüm listesinde, Takvim\'de ve İstatistikler\'in aylık grafiğinde.',
+      'Profil menüsünde "Arşiv Tablosu" var — tabloya artık Ayarlar › Veritabanı › Arşivler yolundan gitmen gerekmiyor. Kapak görseli seçilmemiş arşivlerde TMDB\'nin getirdiği Banner kendiliğinden kapak oluyor, detay penceresinde görsel dosya yolları yazı olarak görünmüyor.',
+    ],
+  },
   {
     version: 'v1.12',
     date: '30 Eylül 2026',
@@ -630,13 +656,7 @@ function StatTile({ label, value, accent = false }: { label: string; value: stri
 }
 
 function VisualZoom({ visual, onClose }: { visual: Visual; onClose: () => void }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  useEscape(true, onClose)
   const { Visual: V, caption } = visual
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>

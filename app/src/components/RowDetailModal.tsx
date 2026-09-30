@@ -6,7 +6,8 @@ import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../ty
 import { titleText, episodeKey, todayIso, ratingAverage } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { formatRuntime } from '../lib/rowMeta'
-import { resolveRole } from '../lib/roles'
+import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { notifyDataChanged } from '../lib/dataEvents'
 import { normalizeAgeRating } from '../lib/ageRating'
 import { BRAND_TEXT } from '../lib/theme'
 import { useCast } from '../hooks/useCast'
@@ -24,13 +25,14 @@ import { showLabel, useShowInfo } from '../lib/showStatus'
 import PersonModal from './PersonModal'
 import CollectionSection from './CollectionSection'
 import { entryEnd, formatEntry } from '../lib/dateRange'
+import { useEscape } from '../hooks/useEscape'
 
 const CAST_PREVIEW = 12
 
 function formatDate(v: string) {
   const [y, m, d] = v.split('-')
   if (!y || !m || !d) return v
-  return `${d}.${m}.${y.slice(2)}`
+  return `${d}.${m}.${y}`
 }
 
 function RefreshIcon({ spinning }: { spinning?: boolean }) {
@@ -134,6 +136,7 @@ export default function RowDetailModal({
     rowId: string,
   ) => Promise<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number } | undefined>
 }) {
+  useEscape(true, onClose)
   const navigate = useNavigate()
   const location = useLocation()
   const cast = useCast()
@@ -263,7 +266,8 @@ export default function RowDetailModal({
   // Seçim/tarih tipindeki değerler ("Dizi", "2026" gibi) üstte kompakt bir satırda
   // özetlenir; geri kalanı (çoklu seçim, metin vb.) aşağıdaki ızgarada listelenir.
   const gridProps = board.properties.filter(
-    (p) => !usedIds.has(p.id) && p.type !== 'select' && p.type !== 'date' && p.type !== 'rating',
+    // Görseller yazı olarak ("/medya/…jpg") listelenmesin — kapak işaretlenmemiş arşivlerde Banner yolu görünüyordu
+    (p) => !usedIds.has(p.id) && p.type !== 'select' && p.type !== 'date' && p.type !== 'rating' && p.type !== 'image',
   )
 
   const actorIds = oyuncularProp && Array.isArray(row.values[oyuncularProp.id]) ? (row.values[oyuncularProp.id] as string[]) : []
@@ -338,6 +342,36 @@ export default function RowDetailModal({
   // ---- 26 Eylül 2026 yenilemesi: üstte etiketler, puan ve izleme kartları, bölüm başlıkları, hızlı geçiş ----
   const puanProp = resolveRole(board, 'puan')
   const tarihProp = resolveRole(board, 'izlemeTarihi')
+
+  // Tablodan açılan detayda hızlı düzenleme: durum, puan ver, "bugün izledim" (tekrar izleme dahil). Yeni kullanıcı
+  // denemesinde bunlar sadece tablodaki hücrelerden yapılabiliyordu, detayda düğmesi yoktu.
+  const durumProp = resolveRole(board, 'durum')
+  const izlendiOpt = resolveStatusOption(board, 'izlendi')
+  const [quickBusy, setQuickBusy] = useState(false)
+  async function quickSave(patch: Record<string, PropertyValue>, message: string) {
+    setQuickBusy(true)
+    try {
+      await api.updateRow(board.id, row.id, { values: { ...row.values, ...patch }, createdAt: row.createdAt, updatedAt: Date.now() })
+      notifyDataChanged(board.id)
+      notify(message, 'success')
+    } catch {
+      notify('Kaydedilemedi.', 'danger')
+    } finally {
+      setQuickBusy(false)
+    }
+  }
+  function watchedToday() {
+    if (!tarihProp) return
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const cur = row.values[tarihProp.id]
+    const list = Array.isArray(cur) ? (cur as string[]) : typeof cur === 'string' && cur ? [cur] : []
+    const again = list.length > 0
+    const nextDates = tarihProp.type === 'multidate' ? [...list, today] : today
+    const patch: Record<string, PropertyValue> = { [tarihProp.id]: nextDates }
+    if (durumProp && izlendiOpt) patch[durumProp.id] = izlendiOpt
+    quickSave(patch, again ? 'Bugün tekrar izledin olarak eklendi.' : 'Bugün izledin olarak eklendi.')
+  }
   const scores =
     puanProp && row.values[puanProp.id] && typeof row.values[puanProp.id] === 'object' && !Array.isArray(row.values[puanProp.id])
       ? (row.values[puanProp.id] as Record<string, number>)
@@ -469,6 +503,41 @@ export default function RowDetailModal({
                   </span>
                 )}
               </div>
+              {editable && (durumProp || tarihProp || puanProp) && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {durumProp?.options?.map((o) => {
+                    const on = row.values[durumProp.id] === o.id
+                    return (
+                      <button
+                        key={o.id}
+                        disabled={quickBusy || on}
+                        onClick={() => quickSave({ [durumProp.id]: o.id }, `Durum: ${o.label}`)}
+                        className={`text-xs rounded-full px-3 py-1.5 border transition ${on ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/15' : 'border-neutral-600 text-neutral-300 bg-black/20 hover:border-neutral-400 hover:text-neutral-50'} disabled:cursor-default`}
+                      >
+                        {o.label}
+                      </button>
+                    )
+                  })}
+                  {puanProp && (
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent('argus-ask-rating', { detail: { boardId: board.id, rowId: row.id, force: true } }))}
+                      className="text-xs rounded-full px-3 py-1.5 border border-amber-500/50 text-amber-300 bg-black/20 hover:bg-amber-500/10 transition"
+                    >
+                      ★ {avgScore !== null ? 'Puanı değiştir' : 'Puan ver'}
+                    </button>
+                  )}
+                  {tarihProp && (
+                    <button
+                      onClick={watchedToday}
+                      disabled={quickBusy}
+                      title="İzleme tarihine bugünü ekler (daha önce izlediysen tekrar izleme olarak) ve durumu İzlendi yapar"
+                      className="text-xs rounded-full px-3 py-1.5 border border-emerald-500/50 text-emerald-300 bg-black/20 hover:bg-emerald-500/10 transition disabled:opacity-50"
+                    >
+                      ✓ Bugün izledim
+                    </button>
+                  )}
+                </div>
+              )}
               {editable && onFetchTmdb && hasTitle && (
                 <button
                   onClick={handleFetchTmdb}
@@ -560,7 +629,7 @@ export default function RowDetailModal({
 
           {/* Sağ: bilgi sütunu */}
           <aside className="space-y-4 lg:sticky lg:top-6 self-start">
-            {scoredCriteria.length > 0 && avgScore !== null && (
+            {avgScore !== null && (
               <div className={sideCard}>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="h-12 w-12 shrink-0 rounded-xl bg-amber-400/15 text-amber-300 flex items-center justify-center text-lg font-bold tabular-nums">
@@ -568,10 +637,12 @@ export default function RowDetailModal({
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-neutral-100">Puanın</p>
-                    <p className="text-xs text-neutral-500">{scoredCriteria.length} kritere göre, 10 üzerinden</p>
+                    <p className="text-xs text-neutral-500">
+                      {scoredCriteria.length > 0 ? `${scoredCriteria.length} kritere göre, 10 üzerinden` : 'Tek puan, 10 üzerinden — kriter kriter puanlamadın'}
+                    </p>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className={scoredCriteria.length ? 'space-y-2' : 'hidden'}>
                   {scoredCriteria.map((c) => (
                     <div key={c.id}>
                       <div className="flex justify-between text-xs mb-1">

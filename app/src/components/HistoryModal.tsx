@@ -5,6 +5,7 @@ import { formatDayKey, formatStamp, formatValue, propName, type HistoryDay, type
 import { useToast } from '../hooks/useToast'
 import { BRAND_GRADIENT } from '../lib/theme'
 import { HistoryIcon } from './toolbarIcons'
+import { useEscape } from '../hooks/useEscape'
 
 // Arşiv geçmişi penceresi — kullanıcı Notion'daki sayfa geçmişi gibi bir şey istedi. Solda gün gün ne
 // değiştiği (eklenen / değişen / silinen sayısı), sağda o günün değişiklikleri; her biri tek tek geri
@@ -79,11 +80,8 @@ export default function HistoryModal({
       .catch(() => setEntries([]))
   }, [board.id, day, onlyRow, reload])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  useEscape(true, onClose)
 
   async function undo(e: HistoryEntry) {
     setBusy(e.id)

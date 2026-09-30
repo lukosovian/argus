@@ -4,6 +4,7 @@ import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { fmtDuration, TR_DAYS, TR_DAYS_SHORT, TR_MONTHS } from '../lib/flashback'
 import { whiteLogo } from '../lib/whiteLogo'
+import { useEscape } from '../hooks/useEscape'
 
 // Flashback'in hikâye kartları — kullanıcı önce "en çarpıcı istatistikleri tek bir dikey (9:16) kart
 // olarak" istedi, sonra "bir tane değil, Spotify / YouTube gibi farklı konularda birden fazla" dedi.
@@ -597,13 +598,14 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowRight') go(1)
+      if (e.key === 'ArrowRight') go(1)
       else if (e.key === 'ArrowLeft') go(-1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, go])
+
+  useEscape(true, onClose)
 
   function save(k: number) {
     const u = urls[k]

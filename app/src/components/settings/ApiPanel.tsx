@@ -113,6 +113,10 @@ export default function ApiPanel() {
               adresinde ücretsiz bir hesap aç.
             </>,
             <>Hesap Ayarları › API sekmesine git, "API Anahtarı İste"ye bas (kişisel kullanım seçilebilir).</>,
+            <>
+              TMDB kısa bir başvuru formu doldurtur: uygulama adına "ARGUS", kullanım amacına "kişisel film/dizi arşivi" yazabilirsin, web sitesi
+              istenirse "localhost" yeterli. Başvuru genelde hemen onaylanır.
+            </>,
             <>Sana verilen "API Anahtarı (v3 auth)" değerini kopyalayıp yukarıdaki kutuya yapıştır ve Kaydet'e bas.</>,
           ].map((t, i) => (
             <li key={i} className="flex gap-3 text-sm text-neutral-400">

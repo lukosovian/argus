@@ -12,6 +12,7 @@ import {
   SearchIcon,
   SortIcon,
 } from './toolbarIcons'
+import { useEscape } from '../hooks/useEscape'
 
 // Arşiv tablosunun sağ üstündeki "i" butonuyla açılan kullanım rehberi — kullanıcı "burası
 // nedir nasıl kullanılır wireframelerle bi infografik hazırla... oyuncu ekleme, sütun tipini
@@ -317,6 +318,7 @@ const SECTIONS = [
 ]
 
 export default function TableGuideModal({ onClose }: { onClose: () => void }) {
+  useEscape(true, onClose)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   function jump(id: string) {

@@ -5,7 +5,7 @@ import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { makeId, mediaTemplateProperties, titleText, PROPERTY_TYPE_LABELS, type PropertyDef, type PropertyType, type PropertyValue, type Row } from '../types'
-import { buildProperty, inferColumnType, mergeOptionsFromValues, parseCellValue } from '../lib/csvImport'
+import { buildProperty, inferColumnType, isFiveScale, mergeOptionsFromValues, parseCellValue } from '../lib/csvImport'
 import { api } from '../lib/api'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import HelpHint from '../components/HelpHint'
@@ -176,24 +176,110 @@ interface ColumnPlan {
   mapTo: string
 }
 
-const TYPES: PropertyType[] = ['text', 'number', 'select', 'multiselect', 'checkbox', 'date', 'url', 'image']
+const TYPES: PropertyType[] = ['text', 'number', 'select', 'multiselect', 'checkbox', 'date', 'multidate', 'url', 'image']
 
 type TemplateBase = ReturnType<typeof mediaTemplateProperties>
 
-// CSV başlığını şablonun sütun adlarından biriyle otomatik eşleştirmeye çalışır — kullanıcının
-// kendi arşivinden (ya da aynı kalıpta bir arkadaş export'undan) gelen CSV'lerde sütun adları
-// zaten büyük ölçüde birebir aynı olduğu için (Türkçe Adı, Durum, Tür, Ülke...) bu çoğu zaman
-// hiç elle düzeltme gerektirmeden doğru eşleşiyor; tahmin tutmazsa kullanıcı dropdown'dan değiştirir.
-function guessMapTo(header: string, template: TemplateBase): string {
+// Film / Dizi gibi "ne tür yapım" değerleri (ARGUS'ta Kategori) — türlerden (Dram, Aksiyon… → Tür) ayırmak için
+const KIND_WORDS = new Set(['film', 'dizi', 'mini dizi', 'anime', 'belgesel', 'kısa film', 'yarışma', 'gösteri', 'reality show', 'movie', 'series', 'tv series', 'tv show', 'show', 'documentary', 'miniseries', 'mini series', 'short', 'short film', 'animasyon film', 'program'])
+function looksLikeKinds(values: string[]) {
+  const nonEmpty = values.map((v) => v.trim().toLocaleLowerCase('tr')).filter(Boolean)
+  if (!nonEmpty.length || nonEmpty.some((v) => v.includes(','))) return false
+  return nonEmpty.filter((v) => KIND_WORDS.has(v)).length / nonEmpty.length >= 0.7
+}
+function commaShare(values: string[]) {
+  const nonEmpty = values.map((v) => v.trim()).filter(Boolean)
+  return nonEmpty.length ? nonEmpty.filter((v) => v.includes(',')).length / nonEmpty.length : 0
+}
+
+// CSV sütununu şablonun alanlarından birine eşlemeye çalışır — önce adına (Türkçe/İngilizce, Notion'da sık
+// kullanılan adlar), belirsizse içeriğine bakarak. Yeni bir kullanıcının Notion listesiyle yapılan denemede
+// "Kategoriler" (Dram, Bilim Kurgu…) sütunu ARGUS'un "Kategori"sine (Film/Dizi) gidiyor, "Yıl" kayboluyor,
+// "Oluşturulma Zamanı" gereksiz yere aktarılıyordu. Tahmin tutmazsa kullanıcı listeden değiştirir.
+function guessMapTo(header: string, values: string[], template: TemplateBase): string {
   const h = header.trim().toLocaleLowerCase('tr')
   const all = [template.title, ...template.rest]
+  const byName = (n: string) => all.find((p) => p.name === n)?.id
   const exact = all.find((p) => p.name.trim().toLocaleLowerCase('tr') === h)
-  if (exact) return exact.id
+  const kinds = looksLikeKinds(values)
+  if (exact) {
+    // "Kategori" adlı sütunda türler yazıyorsa Tür'e, "Tür" adlı sütunda Film/Dizi yazıyorsa Kategori'ye
+    if (exact.name === 'Kategori' && !kinds && commaShare(values) > 0) return byName('Tür') ?? exact.id
+    if (exact.name === 'Tür' && kinds) return byName('Kategori') ?? exact.id
+    return exact.id
+  }
+  const rules: [RegExp, string | (() => string | undefined)][] = [
+    [/oluşturul|olusturul|created|last edited|düzenlenme|son düzenleme/, () => ''],
+    [/orijinal|orjinal|original/, 'Orjinal Adı'],
+    [/^(başlık|baslik|ad|adı|isim|name|title|film adı|dizi adı|yapım adı|türkçe ad)/, 'Türkçe Adı'],
+    [/durum|status/, 'Durum'],
+    [/puan|rating|score|yıldız|yildiz|değerlendirme/, 'Puan'],
+    [/izledi|izleme tarihi|izlenme|watched|watch date/, 'İzleme Tarihi'],
+    [/vizyon|^yıl$|^yil$|year|çıkış|cikis|release/, 'Vizyon Tarihi'],
+    [/yönetmen|yonetmen|director|yaratıcı/, 'Yönetmen'],
+    [/oyuncu|cast|actor|başrol/, 'Oyuncular'],
+    [/ülke|ulke|country/, 'Ülke'],
+    [/süre|sure|runtime|duration|dakika/, 'Süre'],
+    [/özet|ozet|sinopsis|synopsis|overview|konu/, 'Sinopsis'],
+    [/fragman|trailer|video/, 'Video'],
+    [/tür|genre|kategoriler|categories/, () => byName(kinds ? 'Kategori' : 'Tür')],
+    [/^tip$|^type$|kategori|category|film\s*\/\s*dizi|biçim/,() => byName(kinds || commaShare(values) === 0 ? 'Kategori' : 'Tür')],
+  ]
+  for (const [re, target] of rules) {
+    if (!re.test(h)) continue
+    const id = typeof target === 'string' ? byName(target) : target()
+    if (id !== undefined) return id
+  }
   const partial = all.find((p) => {
     const n = p.name.trim().toLocaleLowerCase('tr')
     return n.length > 2 && (h.includes(n) || n.includes(h))
   })
   return partial?.id ?? '__new__'
+}
+
+// Aynı şablon alanına iki sütun eşlenmesin — ilki kalır, sonrakiler yeni sütun olur
+function dedupePlans(plans: ColumnPlan[]): ColumnPlan[] {
+  const used = new Set<string>()
+  return plans.map((p) => {
+    if (!p.mapTo || p.mapTo === '__new__') return p
+    if (used.has(p.mapTo)) return { ...p, mapTo: '__new__' }
+    used.add(p.mapTo)
+    return p
+  })
+}
+
+// Şablon alanlarının yanında ne işe yaradıkları (eşleştirme listesinde)
+const FIELD_HINTS: Record<string, string> = {
+  'Türkçe Adı': 'kaydın adı',
+  'Orjinal Adı': 'TMDB aramasında kullanılır',
+  Durum: 'İzlendi / İzlenecek / İzleniyor / Yarım',
+  Kategori: 'Film / Dizi / Mini Dizi…',
+  Tür: 'Dram, Aksiyon, Komedi…',
+  Puan: "10 üzerinden — ⭐ yıldızlar, 8/10 çevrilir",
+  'Vizyon Tarihi': 'çıkış tarihi ya da yılı',
+  'İzleme Tarihi': 'ne zaman izlediğin (aralık olabilir)',
+  Ülke: 'yapım ülkesi',
+  Süre: 'dakika',
+}
+
+// Notion'daki durum adlarını ARGUS'un durumlarına çevirme tahmini
+const STATUS_TARGETS = ['İzlendi', 'İzleniyor', 'Yarım', 'İzlenecek'] as const
+function guessStatus(value: string): string {
+  const v = value.toLocaleLowerCase('tr')
+  if (/bitti|izlendi|izledim|watched|done|complete|tamam|seen|finished/.test(v)) return 'İzlendi'
+  if (/izliyorum|izleniyor|watching|devam|in progress|ongoing|current/.test(v)) return 'İzleniyor'
+  if (/bıraktım|biraktim|yarım|yarim|dropped|hold|beklemede|abandon|yarıda/.test(v)) return 'Yarım'
+  if (/listemde|izlenecek|izleyeceğim|plan|to watch|want|istek|sırada|sirada|watchlist|not started|başlanmadı/.test(v)) return 'İzlenecek'
+  return '__keep__'
+}
+
+// Notion dosya adlarının sonundaki kimlik ("Film ve Dizilerim 3f2a9c1e…", "…_all")
+function cleanBoardName(name: string) {
+  return name
+    .replace(/\.csv$/i, '')
+    .replace(/_all$/i, '')
+    .replace(/\s+[0-9a-f]{8,32}$/i, '')
+    .trim()
 }
 
 export default function Import() {
@@ -215,7 +301,11 @@ export default function Import() {
   // "Medya Arşivi" şablonuyla içe aktar — ARGUS'un kullandığı TÜM sütunlarla (Banner/Poster/
   // KAPAK ADI/Puan/Oyuncular vb.) hazır bir arşiv oluşturur, CSV sütunlarını bunlarla eşleştirirsin.
   // `templateBase` sabit id'ler üretsin diye sadece bir kere (şablon ilk açıldığında) kuruluyor.
-  const [useTemplate, setUseTemplate] = useState(false)
+  // Varsayılan açık: kapalıyken vitrin, istatistik, takvim, TMDB gibi özellikler sütunları tanımıyor (yeni kullanıcı
+  // denemesinde anahtarın kapalı gelmesi en çok sorun çıkaran şeylerdendi).
+  const [useTemplate, setUseTemplate] = useState(true)
+  // Durum sütunundaki her değerin ARGUS'taki karşılığı ('__keep__' = kendi adıyla kalsın)
+  const [statusMap, setStatusMap] = useState<Record<string, string>>({})
   const [templateBase, setTemplateBase] = useState<TemplateBase | null>(null)
 
   function ensureTemplate(): TemplateBase {
@@ -229,7 +319,7 @@ export default function Import() {
     setUseTemplate(next)
     if (!next) return
     const t = ensureTemplate()
-    setPlans((prev) => prev.map((p) => (p.mapTo ? p : { ...p, mapTo: guessMapTo(p.header, t) })))
+    setPlans((prev) => dedupePlans(prev.map((p) => (p.mapTo ? p : { ...p, mapTo: guessMapTo(p.header, rawRows.map((r) => r[p.header] ?? ''), t) }))))
   }
 
   function handleCsv(file: File) {
@@ -241,17 +331,19 @@ export default function Import() {
         const data = result.data
         setRawRows(data)
         const t = useTemplate ? ensureTemplate() : templateBase
-        const inferredPlans: ColumnPlan[] = hs.map((h) => ({
-          header: h,
-          include: true,
-          type: inferColumnType(h, data.map((r) => r[h] ?? '')),
-          mapTo: t ? guessMapTo(h, t) : '',
-        }))
+        const inferredPlans: ColumnPlan[] = dedupePlans(
+          hs.map((h) => {
+            const vals = data.map((r) => r[h] ?? '')
+            const mapTo = t ? guessMapTo(h, vals, t) : ''
+            return { header: h, include: mapTo !== '', type: inferColumnType(h, vals), mapTo }
+          }),
+        )
         setPlans(inferredPlans)
+        setStatusMap({})
         const guessTitle =
           hs.find((h) => /ad[ıi]|isim|^name$|başlık/i.test(h)) ?? hs.find((_h, i) => inferredPlans[i].type === 'text') ?? hs[0]
         setTitleHeader(guessTitle ?? '')
-        setBoardName(file.name.replace(/\.csv$/i, '') || 'İçe Aktarım')
+        setBoardName(cleanBoardName(file.name) || 'İçe Aktarım')
       },
     })
   }
@@ -272,6 +364,17 @@ export default function Import() {
     : plans.some((p) => p.include && p.type === 'image')
   const imagesReady = !hasImageColumn || imageFiles.size > 0 || skipImages
 
+  // Durum alanına eşlenen sütunun farklı değerleri ve (tahminle doldurulmuş) karşılıkları
+  const statusProp = templateBase?.rest.find((p) => p.name === 'Durum')
+  const statusPlan = useTemplate && statusProp ? plans.find((p) => p.include && p.mapTo === statusProp.id) : undefined
+  const statusValues = statusPlan
+    ? [...new Map(rawRows.map((r) => (r[statusPlan.header] ?? '').trim()).filter(Boolean).map((v) => [v, 0])).keys()].map((v) => ({
+        value: v,
+        count: rawRows.filter((r) => (r[statusPlan.header] ?? '').trim() === v).length,
+        target: statusMap[v] ?? (STATUS_TARGETS.includes(v as (typeof STATUS_TARGETS)[number]) ? v : guessStatus(v)),
+      }))
+    : []
+
   const templateTitleMapped = useTemplate && templateBase ? plans.some((p) => p.include && p.mapTo === templateBase.title.id) : true
   const canImport = useTemplate ? templateTitleMapped : Boolean(titleHeader)
 
@@ -291,6 +394,9 @@ export default function Import() {
       // Hangi property id'sinin değerini hangi CSV başlığından okuyacağımız — iki modda da
       // (şablonlu/şablonsuz) aynı satır-ekleme döngüsü bunu kullanıyor.
       const columnForProperty = new Map<string, string>()
+      const parseCtx = new Map<string, Parameters<typeof parseCellValue>[2]>()
+      // Durum değerlerinin karşılıkları ("Bitti" → "İzlendi"); "kendi adıyla kalsın" olanlar olduğu gibi
+      const statusRename = new Map(statusValues.filter((s) => s.target !== '__keep__').map((s) => [s.value, s.target]))
 
       if (useTemplate && templateBase) {
         const titlePlan = included.find((p) => p.mapTo === templateBase.title.id)
@@ -298,16 +404,25 @@ export default function Import() {
         titleProperty = templateBase.title
         columnForProperty.set(titleProperty.id, titlePlan.header)
 
+        // Şablonun BÜTÜN alanları oluşturulur (eşlenmeyenler boş) — "tam sütun seti" açıklaması böyle; Poster,
+        // Banner, Sinopsis… baştan olunca Genel Güncelleme ilk seferde bütün kayıtları doldurur, ana sayfa
+        // kartlarının görseli (Banner) de hazır olur.
         restProperties = []
-        const usedTemplateIds = new Set<string>()
-        for (const p of included) {
-          if (p.mapTo === titleProperty.id || p.mapTo === '__new__' || !p.mapTo) continue
-          const templateProp = templateBase.rest.find((tp) => tp.id === p.mapTo)
-          if (!templateProp || usedTemplateIds.has(templateProp.id)) continue
-          usedTemplateIds.add(templateProp.id)
-          const merged = mergeOptionsFromValues(templateProp, columnValues(p.header))
+        for (const templateProp of templateBase.rest) {
+          const p = included.find((x) => x.mapTo === templateProp.id)
+          if (!p) {
+            restProperties.push(templateProp)
+            continue
+          }
+          const rename = templateProp.id === statusProp?.id ? statusRename : undefined
+          const merged = mergeOptionsFromValues(templateProp, columnValues(p.header), rename)
           restProperties.push(merged)
           columnForProperty.set(merged.id, p.header)
+          parseCtx.set(merged.id, {
+            rename,
+            fiveScale: merged.type === 'rating' ? isFiveScale(columnValues(p.header)) : false,
+            yearOnly: merged.name === 'Vizyon Tarihi',
+          })
         }
         for (const p of included) {
           if (p.mapTo !== '__new__') continue
@@ -380,7 +495,7 @@ export default function Import() {
               values[prop.id] = ''
             }
           } else {
-            values[prop.id] = parseCellValue(prop, raw[header] ?? '')
+            values[prop.id] = parseCellValue(prop, raw[header] ?? '', parseCtx.get(prop.id))
           }
         }
         rowsToInsert.push({ values, createdAt: Date.now() + i, updatedAt: Date.now() })
@@ -557,27 +672,72 @@ export default function Import() {
                   </span>
                 </p>
                 <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-                  {plans.map((p) => (
-                    <div key={p.header} className="flex items-center gap-2 bg-neutral-800/60 rounded-lg px-2 py-1.5">
-                      <input
-                        type="checkbox"
-                        checked={p.include}
-                        onChange={(e) => updatePlan(p.header, { include: e.target.checked })}
-                      />
-                      <span className="text-sm text-neutral-200 flex-1 truncate">{p.header}</span>
-                      <Select
-                        value={p.mapTo}
-                        onChange={(v) => updatePlan(p.header, { mapTo: v })}
-                        className="w-[45%] shrink-0"
-                        options={[
-                          { value: '', label: '— Aktarma —' },
-                          { value: '__new__', label: '+ Yeni sütun olarak ekle' },
-                          ...templateOptions.map((tp) => ({ value: tp.id, label: tp.name })),
-                        ]}
-                      />
-                    </div>
-                  ))}
+                  {plans.map((p) => {
+                    const target = templateOptions.find((tp) => tp.id === p.mapTo)
+                    const vals = rawRows.map((r) => r[p.header] ?? '')
+                    const sample = vals.map((v) => v.trim()).filter(Boolean).slice(0, 2).join(' · ')
+                    const warn =
+                      p.include && target?.name === 'Kategori' && commaShare(vals) > 0
+                        ? 'Bu sütunda virgüllü değerler (türler?) var — Kategori sadece Film / Dizi gibi yapım türü içindir, türler "Tür" alanına gitmeli.'
+                        : p.include && target?.name === 'Tür' && looksLikeKinds(vals)
+                          ? 'Bu sütunda Film / Dizi gibi değerler var — bunlar "Kategori" alanına gitmeli.'
+                          : ''
+                    return (
+                      <div key={p.header} className="bg-neutral-800/60 rounded-lg px-2 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={p.include}
+                            onChange={(e) => updatePlan(p.header, { include: e.target.checked, mapTo: e.target.checked && !p.mapTo ? '__new__' : p.mapTo })}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm text-neutral-200 truncate">{p.header}</span>
+                            {sample && <span className="block text-[11px] text-neutral-500 truncate">ör. {sample}</span>}
+                          </span>
+                          <Select
+                            value={p.include ? p.mapTo : ''}
+                            onChange={(v) => updatePlan(p.header, { mapTo: v, include: v !== '' })}
+                            className="w-[48%] shrink-0"
+                            options={[
+                              { value: '', label: '— Aktarma —' },
+                              { value: '__new__', label: '+ Yeni sütun olarak ekle' },
+                              ...templateOptions.map((tp) => ({ value: tp.id, label: FIELD_HINTS[tp.name] ? `${tp.name} (${FIELD_HINTS[tp.name]})` : tp.name })),
+                            ]}
+                          />
+                        </div>
+                        {warn && <p className="text-[11px] text-amber-400 mt-1 pl-6">{warn}</p>}
+                      </div>
+                    )
+                  })}
                 </div>
+                {statusValues.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-neutral-800 p-3">
+                    <p className="text-sm text-neutral-200">"{statusPlan?.header}" değerleri ARGUS'ta ne anlama geliyor?</p>
+                    <p className="text-xs text-neutral-500 mt-0.5 mb-2">
+                      İstatistikler, Ne İzlesem, Takvim ve Koleksiyon bir yapımı izleyip izlemediğini bu durumlara bakarak anlar. "Kendi adıyla
+                      kalsın" dersen etiket olarak durur ama izlendi / izlenecek sayılmaz.
+                    </p>
+                    <div className="space-y-1.5">
+                      {statusValues.map((sv) => (
+                        <div key={sv.value} className="flex items-center gap-2">
+                          <span className="flex-1 min-w-0 truncate text-sm text-neutral-300">
+                            {sv.value} <span className="text-neutral-600 text-xs">({sv.count})</span>
+                          </span>
+                          <span className="text-neutral-600 text-xs">→</span>
+                          <Select
+                            value={sv.target}
+                            onChange={(v) => setStatusMap((m) => ({ ...m, [sv.value]: v }))}
+                            className="w-[48%] shrink-0"
+                            options={[
+                              ...STATUS_TARGETS.map((t) => ({ value: t, label: t })),
+                              { value: '__keep__', label: `Kendi adıyla kalsın ("${sv.value}")` },
+                            ]}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>

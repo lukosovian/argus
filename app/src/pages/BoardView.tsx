@@ -34,7 +34,8 @@ import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
-import { OPTION_COLORS, rowOrder } from '../types'
+import { OPTION_COLORS, PROPERTY_TYPE_LABELS, rowOrder } from '../types'
+import { parseDateEntries, parseDateLoose } from '../lib/csvImport'
 import { entryEnd } from '../lib/dateRange'
 import {
   BulkRefreshIcon,
@@ -48,6 +49,7 @@ import {
   SearchIcon,
   SortIcon,
 } from '../components/toolbarIcons'
+import { useEscape } from '../hooks/useEscape'
 
 function CloseIcon() {
   return (
@@ -131,7 +133,12 @@ const FETCHABLE_FIELDS: { key: string; label: string }[] = [
   { key: 'video', label: 'Fragman' },
   { key: 'sezonlar', label: 'Sezon/Bölüm listesi (dizi)' },
   { key: 'kadro', label: 'Oyuncular/Kadro' },
+  // Sütun değil, davranış: kullanıcı "başlık konusu herkes için bir seçenek olsun" dedi (yeni kullanıcı
+  // denemesinde "Pulp Fiction" gibi bilerek İngilizce yazılan adlar "Ucuz Roman" oluyordu).
+  { key: 'turkceAdi', label: 'Başlığı Türkçe adla değiştir (varsayılan kapalı)' },
 ]
+// Bir sütuna yazmayan alanlar (sütun seçimi yok)
+const NO_COLUMN_FIELDS = new Set(['sezonlar', 'turkceAdi'])
 
 // "API eşitle" (tek satır 🔄 ve toplu "Genel Güncelleme") hangi alanları doldursun — kullanıcı
 // kimi sütunu TMDB'nin hiç ellememesini isteyebilir (ör. elle özenle yazdığı bir Sinopsis'in
@@ -154,6 +161,7 @@ const FIELD_HINTS: Record<string, string> = {
   video: 'Vitrinde ve detayda oynayan fragman',
   sezonlar: 'Bölümler, bölüm işaretleme, Yeni Bölümler satırı',
   kadro: 'Oyuncu fotoğrafları, oyuncuya göre filtre',
+  turkceAdi: 'Adı İngilizce ya da orijinal diliyle yazdıysan TMDB\'deki Türkçe adı gelir (Pulp Fiction → Ucuz Roman)',
 }
 
 // "API'den hangi alanlar çekilsin" (dişli). Kullanıcı "daha anlaşılır olsun, kullanıcıda olmayan
@@ -178,8 +186,9 @@ function TmdbFieldsPopover({
   onToggleOverwrite: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const closedCount = FETCHABLE_FIELDS.filter((f) => excludedKeys.has(f.key)).length
-  const unmapped = FETCHABLE_FIELDS.filter((f) => f.key !== 'sezonlar' && !fieldColumn(board, f.key))
+  useEscape(open, () => setOpen(false))
+  const closedCount = FETCHABLE_FIELDS.filter((f) => f.key !== 'turkceAdi' && excludedKeys.has(f.key)).length
+  const unmapped = FETCHABLE_FIELDS.filter((f) => !NO_COLUMN_FIELDS.has(f.key) && !fieldColumn(board, f.key))
 
   return (
     <div className="relative">
@@ -215,8 +224,8 @@ function TmdbFieldsPopover({
             <div className="max-h-[22rem] overflow-y-auto p-1.5 space-y-0.5">
               {FETCHABLE_FIELDS.map((f) => {
                 const on = !excludedKeys.has(f.key)
-                const col = f.key === 'sezonlar' ? undefined : fieldColumn(board, f.key)
-                const cands = f.key === 'sezonlar' ? [] : fieldCandidates(board, f.key)
+                const col = NO_COLUMN_FIELDS.has(f.key) ? undefined : fieldColumn(board, f.key)
+                const cands = NO_COLUMN_FIELDS.has(f.key) ? [] : fieldCandidates(board, f.key)
                 return (
                   <div key={f.key} className="px-2 py-2 rounded-md hover:bg-neutral-800/70">
                     <div className="flex items-center gap-2">
@@ -226,7 +235,7 @@ function TmdbFieldsPopover({
                       </div>
                       <ToggleSwitch checked={on} onChange={() => onToggle(f.key)} label={f.label} />
                     </div>
-                    {on && f.key !== 'sezonlar' && (
+                    {on && !NO_COLUMN_FIELDS.has(f.key) && (
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[11px] text-neutral-500 shrink-0">→ Yazdığı sütun</span>
                         <Select
@@ -489,6 +498,7 @@ function FilterPopover({
   onChange: (c: FilterCondition[]) => void
 }) {
   const [open, setOpen] = useState(false)
+  useEscape(open, () => setOpen(false))
   return (
     <div className="relative">
       <ToolbarIconButton onClick={() => setOpen((v) => !v)} title="Filtrele" active={conditions.length > 0}>
@@ -526,6 +536,7 @@ function SortPopover({
   onChange: (propertyId: string | null, direction: 'asc' | 'desc') => void
 }) {
   const [open, setOpen] = useState(false)
+  useEscape(open, () => setOpen(false))
   if (sortableProps.length === 0) return null
 
   return (
@@ -599,6 +610,7 @@ function ColumnVisibilityPopover({
   onToggle: (propertyId: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  useEscape(open, () => setOpen(false))
   if (columns.length === 0) return null
 
   return (
@@ -746,7 +758,19 @@ export default function BoardView() {
     }
   }, [tmdbExcludeKey])
 
+  // "Başlığı Türkçe adla değiştir" arşivin kendi ayarı (board.titleTr, yoksa kapalı); diğer alanlar tarayıcıda
+  const tmdbExclude = useMemo(() => {
+    const s = new Set(tmdbExcludeFields)
+    s.delete('turkceAdi')
+    if (!board?.titleTr) s.add('turkceAdi')
+    return s
+  }, [tmdbExcludeFields, board?.titleTr])
+
   function toggleTmdbField(key: string) {
+    if (key === 'turkceAdi') {
+      saveBoard({ titleTr: !board?.titleTr })
+      return
+    }
     if (!tmdbExcludeKey) return
     setTmdbExcludeFields((prev) => {
       const next = new Set(prev)
@@ -987,6 +1011,9 @@ export default function BoardView() {
       result.sort((a, b) => {
         const av = sortValue(a, sortProperty)
         const bv = sortValue(b, sortProperty)
+        // Boş değerler (puansız, tarihsiz…) yön ne olursa olsun en sonda — artan sıralamada en üste çıkıyorlardı
+        const empty = (x: string | number | boolean) => x === '' || x === -Infinity
+        if (empty(av) !== empty(bv)) return empty(av) ? 1 : -1
         let cmp: number
         if (typeof av === 'number' && typeof bv === 'number') cmp = av - bv
         else if (typeof av === 'boolean' && typeof bv === 'boolean') cmp = Number(av) - Number(bv)
@@ -1030,8 +1057,14 @@ export default function BoardView() {
     return typeof titleValue === 'string' ? titleValue.trim().length > 0 : Boolean(titleValue)
   }
 
+  // Temel alanlardan birinin sütunu hiç yoksa (ör. şablonsuz içe aktarılmış arşiv) doldurma o sütunu açacağı için
+  // her kayıt eksik sayılır — yoksa Genel Güncelleme ilk seferde sadece birkaç kaydı dolduruyordu (yeni kullanıcı denemesi).
+  const coreColumnMissing = (['poster', 'sinopsis', 'video', 'ulke', 'yonetmen'] as RoleKey[]).some(
+    (r) => !resolveRole(board, r) && board?.roles?.[r] !== null && !tmdbExcludeFields.has(r === 'video' ? 'video' : r),
+  )
   function isIncomplete(row: Row): boolean {
     if (!hasTitleFilled(row)) return false
+    if (coreColumnMissing) return true
     // Sağlık Kontrolü'nde "bir daha sorma" denen alanlar eksik sayılmıyor — Genel Güncelleme de
     // sırf onlar için bu kayda tekrar TMDB isteği atmasın.
     const ignored = new Set(board?.healthIgnore?.[row.id] ?? [])
@@ -1223,20 +1256,83 @@ export default function BoardView() {
     saveBoard({ statusOptions: next })
   }
 
+  // Sütun tipi değişince kayıtlardaki değerler de yeni tipe çevrilir — eskiden olduğu gibi kalıyordu; yeni kullanıcı
+  // denemesinde Metin'deki "March 12, 2023" tarihleri Tarih tipine geçince hepsi boş görünmüştü. Çevrilemeyen değer
+  // (ör. tarihe benzemeyen bir yazı) olduğu gibi bırakılır, tip geri alınınca yine görünür.
   function changePropertyType(propertyId: string, type: PropertyType) {
     if (!board) return
-    setProperties(
-      board.properties.map((p) => {
-        if (p.id !== propertyId) return p
-        const needsOptions = type === 'select' || type === 'multiselect'
-        const next = { ...p, type }
-        if (needsOptions) next.options = p.options ?? []
-        else delete next.options
-        if (type === 'rating') next.criteria = p.criteria ?? []
-        else delete next.criteria
-        return next
-      }),
-    )
+    const old = board.properties.find((p) => p.id === propertyId)
+    if (!old || old.type === type) return
+    const label = (v: unknown) => (typeof v === 'string' ? (old.options?.find((o) => o.id === v)?.label ?? v) : String(v ?? ''))
+    // Önce her değerin yazı hali (seçimlerde etiketi, tarih listelerinde virgülle)
+    const asText = (v: unknown): string =>
+      Array.isArray(v) ? v.map(label).join(', ') : typeof v === 'boolean' ? (v ? 'Evet' : '') : v === null || v === undefined ? '' : label(v)
+    const next: PropertyDef = { ...old, type }
+    if (type === 'select' || type === 'multiselect') {
+      // Seçenekler: var olanlar + değerlerden yenileri
+      const opts = [...(old.options ?? [])]
+      const add = (l: string) => {
+        const t = l.trim()
+        if (t && !opts.some((o) => o.label === t)) opts.push({ id: makeId(), label: t, colorIndex: opts.length % OPTION_COLORS.length })
+      }
+      for (const r of rows) {
+        const t = asText(r.values[propertyId])
+        if (type === 'multiselect') t.split(',').forEach(add)
+        else add(t)
+      }
+      next.options = opts
+    } else delete next.options
+    if (type === 'rating') next.criteria = old.criteria ?? []
+    else delete next.criteria
+    const nextProps = board.properties.map((p) => (p.id === propertyId ? next : p))
+    // Adı izleme tarihine benzeyen sütun tarihe çevrildiyse ve arşivde henüz izleme tarihi sütunu yoksa Takvim,
+    // İstatistik ve Flashback bunu kullansın (görev ataması)
+    if ((type === 'multidate' || type === 'date') && !resolveRole(board, 'izlemeTarihi') && /izle|watched/i.test(old.name)) {
+      saveBoard({ properties: nextProps, roles: assignRole({ ...board, properties: nextProps }, propertyId, 'izlemeTarihi') })
+    } else setProperties(nextProps)
+
+    const convert = (v: PropertyValue): PropertyValue | undefined => {
+      if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) return undefined
+      const t = asText(v)
+      switch (type) {
+        case 'date': {
+          const d = parseDateLoose((Array.isArray(v) ? String(v[0]) : t).split(/→|->|\//)[0], true)
+          return d || undefined
+        }
+        case 'multidate': {
+          if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return [v]
+          const e = parseDateEntries(t)
+          return e.length ? e : undefined
+        }
+        case 'number': {
+          const n = Number(t.replace(',', '.'))
+          return Number.isFinite(n) ? n : undefined
+        }
+        case 'checkbox':
+          return /^(evet|yes|true|1|✓|x|var)$/i.test(t.trim())
+        case 'select':
+          return next.options?.find((o) => o.label === t.trim())?.id
+        case 'multiselect':
+          return t
+            .split(',')
+            .map((x) => next.options?.find((o) => o.label === x.trim())?.id)
+            .filter((x): x is string => Boolean(x))
+        case 'text':
+        case 'longtext':
+        case 'url':
+          return t
+        default:
+          return undefined
+      }
+    }
+    let changed = 0
+    for (const r of rows) {
+      const nv = convert(r.values[propertyId])
+      if (nv === undefined || JSON.stringify(nv) === JSON.stringify(r.values[propertyId])) continue
+      changed++
+      saveRow({ values: { ...r.values, [propertyId]: nv }, createdAt: r.createdAt, updatedAt: r.updatedAt }, r.id)
+    }
+    if (changed) notify(`${changed} kaydın "${old.name}" değeri yeni tipe (${PROPERTY_TYPE_LABELS[type]}) çevrildi.`)
   }
 
   function addOptionToProperty(propertyId: string, label: string): string {
@@ -1470,7 +1566,7 @@ export default function BoardView() {
   // buradaki state'i tazeler.
   async function fetchTmdb(rowId: string) {
     if (!board) return
-    let result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields], tmdbOverwriteExisting, { ask: true })
+    let result = await api.fetchTmdb(board.id, rowId, [...tmdbExclude], tmdbOverwriteExisting, { ask: true })
     // TMDB'de kesin tek eşleşme yoksa aday listesi geldi: kullanıcı seçene kadar bekle (satırdaki ışık
     // hüzmesi bu sırada sürüyor), vazgeçerse hiçbir şey değişmez.
     if (result.choose) {
@@ -1481,7 +1577,7 @@ export default function BoardView() {
       const picked = await new Promise<TmdbChoice | null>((resolve) => setTmdbChoice({ query, choices, resolve }))
       setTmdbChoice(null)
       if (!picked) return undefined
-      result = await api.fetchTmdb(board.id, rowId, [...tmdbExcludeFields], tmdbOverwriteExisting, {
+      result = await api.fetchTmdb(board.id, rowId, [...tmdbExclude], tmdbOverwriteExisting, {
         forced: { tmdbId: picked.tmdbId, mediaType: picked.mediaType },
       })
     }
@@ -1498,13 +1594,23 @@ export default function BoardView() {
   // eksik olsun olmasın, zaten dolu alanların üzerine de TMDB'nin güncel verisi yazılır.
   async function handleBulkUpdate() {
     if (!board || bulkUpdating) return
+    // Anahtar yoksa baştan bir kez söyle (eskiden onay penceresinden sonra her kayıt tek tek hata veriyordu)
+    try {
+      const { tmdbApiKey } = await api.getApiKey()
+      if (!tmdbApiKey?.trim()) {
+        notify("TMDB'den bilgi getirmek için önce bir TMDB API anahtarı girmelisin: Ayarlar → Veritabanı → API sekmesi (orada nasıl alınacağı adım adım yazıyor).", 'danger')
+        return
+      }
+    } catch {
+      // kontrol edilemediyse eskisi gibi devam
+    }
     const targets = tmdbOverwriteExisting ? rows.filter(hasTitleFilled) : rows.filter(isIncomplete)
     if (targets.length === 0) {
       notify(tmdbOverwriteExisting ? 'Başlığı dolu bir kayıt yok.' : 'Eksik görünen bir kayıt yok, hepsi dolu görünüyor.')
       return
     }
     // Eksik sütun ya da kapatılmış alan varsa önce bilgilendirme penceresi (onay yerine geçer).
-    let exclude = tmdbExcludeFields
+    let exclude = tmdbExclude
     let muted = false
     try {
       muted = Boolean(adviceMuteKey && localStorage.getItem(adviceMuteKey))
@@ -1512,9 +1618,9 @@ export default function BoardView() {
       // yoksa sorulur
     }
     const missing = missingFillColumns(board)
-      .filter((f) => !tmdbExcludeFields.has(f.key))
+      .filter((f) => !tmdbExclude.has(f.key))
       .map((f) => ({ ...f, candidates: fieldCandidates(board, f.key).map((p) => ({ id: p.id, name: p.name })) }))
-    const closed = FETCHABLE_FIELDS.filter((f) => tmdbExcludeFields.has(f.key))
+    const closed = FETCHABLE_FIELDS.filter((f) => !NO_COLUMN_FIELDS.has(f.key) && tmdbExclude.has(f.key))
     if (!muted && (missing.length > 0 || closed.length > 0)) {
       const answer = await new Promise<{ skip: string[]; mute: boolean; columns: Record<string, string> } | null>((resolve) =>
         setFillAdvice({ count: targets.length, missing, closed, resolve }),
@@ -1541,7 +1647,7 @@ export default function BoardView() {
       }
       // Pencerede verilen karar kalıcı: açılanlar açık, "gelmesin" denenler dişli menüsünde kapalı kalır.
       const asked = new Set([...missing, ...closed].map((f) => f.key))
-      exclude = new Set([...[...tmdbExcludeFields].filter((k) => !asked.has(k)), ...answer.skip])
+      exclude = new Set([...[...tmdbExclude].filter((k) => !asked.has(k)), ...answer.skip])
       saveTmdbExclude(exclude)
     } else if (
       !(await confirm({
@@ -1698,7 +1804,7 @@ export default function BoardView() {
       </ToolbarIconButton>
       <ToolbarDivider />
       <TmdbFieldsPopover
-        excludedKeys={tmdbExcludeFields}
+        excludedKeys={tmdbExclude}
         onToggle={toggleTmdbField}
         onOpenAll={() => saveTmdbExclude(new Set())}
         board={board}
@@ -1938,7 +2044,7 @@ export default function BoardView() {
         />
       )}
 
-      {discoverOpen && <DiscoverModal boardId={board.id} exclude={[...tmdbExcludeFields]} onClose={() => setDiscoverOpen(false)} />}
+      {discoverOpen && <DiscoverModal boardId={board.id} exclude={[...tmdbExclude]} onClose={() => setDiscoverOpen(false)} />}
 
       {healthOpen && (
         <HealthCheckModal

@@ -16,7 +16,7 @@ function formatAirDate(v: string) {
 function formatShort(v: string) {
   const [y, m, d] = v.split('-')
   if (!y || !m || !d) return v
-  return `${d}.${m}.${y.slice(2)}`
+  return `${d}.${m}.${y}`
 }
 
 function PlusIcon() {

@@ -357,7 +357,8 @@ function buildOptionMaps(properties: PropertyDef[]): OptionMaps {
 function formatDateShort(iso: string): string | null {
   const [y, m, d] = iso.split('-')
   if (!y || !m || !d) return null
-  return `${d}.${m}.${y.slice(2)}`
+  // Yıl tam yazılır (kullanıcı "yılları tam yaz" dedi — "23.09.94" hangi yüzyıl belli değildi)
+  return `${d}.${m}.${y}`
 }
 
 // Bir hücreye sığmayan etiketleri/tarihleri kesmek yerine sığanları gösterip kalanı için "+N" yazar
@@ -365,6 +366,52 @@ function formatDateShort(iso: string): string | null {
 // genişliği ilk çizimde ölçülüp saklanıyor; sütun genişliği değişince bu ölçülerle yeniden hesaplanıyor.
 // Üzerine gelince hepsi (title) görünüyor.
 const MORE_BADGE_WIDTH = 30
+
+// "Rahat" görünümde çoklu değerler alta sarılır ama en fazla ROOMY_MAX_LINES satır; sığmayanlar "+N" olur
+// (kullanıcı önce "+2 olmasın, hepsini göster" dedi, sonra 20 oyunculu bir satır bütün ekranı kaplayınca
+// "birkaç satır + N olsun" dedi). Önce hepsi çizilip satırlara bakılıyor, sonra sığan kadarı + rozet bırakılıyor.
+const ROOMY_MAX_LINES = 3
+function WrapClamp({ items, title, gap }: { items: { key: string; node: React.ReactNode }[]; title: string; gap: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useState(items.length)
+  const [width, setWidth] = useState(0)
+  const sig = items.map((i) => i.key).join('|')
+  // Değerler ya da genişlik değişince yeniden hepsiyle başla
+  useLayoutEffect(() => setShown(items.length), [sig, width, items.length])
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const kids = [...el.children] as HTMLElement[]
+    if (!kids.length) return
+    const tops = [...new Set(kids.map((k) => k.offsetTop))].sort((a, b) => a - b)
+    if (tops.length <= ROOMY_MAX_LINES) return
+    const limit = tops[ROOMY_MAX_LINES] // bu satırdan başlayan öğeler sığmıyor
+    const hasBadge = shown < items.length
+    const itemKids = hasBadge ? kids.slice(0, -1) : kids
+    const fit = itemKids.filter((k) => k.offsetTop < limit).length
+    // Rozete yer açmak için bir öğe daha bırak
+    const next = Math.max(1, Math.min(shown, fit) - 1)
+    if (next < shown) setShown(next)
+  })
+  const rest = items.length - shown
+  return (
+    <div ref={ref} title={rest > 0 ? title : undefined} className={`flex flex-wrap ${gap} min-w-0 w-full`}>
+      {items.slice(0, shown).map((i) => (
+        <span key={i.key} className="max-w-full">
+          {i.node}
+        </span>
+      ))}
+      {rest > 0 && <span className="text-[11px] text-neutral-400 bg-neutral-800 border border-neutral-700 rounded-full px-1.5 py-0.5 leading-none self-center">+{rest}</span>}
+    </div>
+  )
+}
 function FitRow({ items, title }: { items: { key: string; node: React.ReactNode }[]; title: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const widths = useRef<number[]>([])
@@ -460,14 +507,19 @@ function Cell({
     if (formatted.length === 0) return null
     if (roomy)
       return (
-        <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 min-w-0 w-full">
-          {formatted.map((d, i) => (
-            <span key={`${d}-${i}`} className="text-neutral-300 whitespace-nowrap">
-              {d}
-              {i < formatted.length - 1 ? ',' : ''}
-            </span>
-          ))}
-        </div>
+        <WrapClamp
+          title={formatted.join(', ')}
+          gap="gap-x-1.5 gap-y-0.5"
+          items={formatted.map((d, i) => ({
+            key: `${d}-${i}`,
+            node: (
+              <span className="text-neutral-300 whitespace-nowrap">
+                {d}
+                {i < formatted.length - 1 ? ',' : ''}
+              </span>
+            ),
+          }))}
+        />
       )
     return (
       <FitRow
@@ -489,11 +541,11 @@ function Cell({
     if (opts.length === 0) return null
     if (roomy)
       return (
-        <div className="flex flex-wrap gap-1 min-w-0 w-full">
-          {opts.map((o) => (
-            <OptionBadge key={o!.id} label={o!.label} colorIndex={o!.colorIndex} image={o!.image} wrap />
-          ))}
-        </div>
+        <WrapClamp
+          title={opts.map((o) => o!.label).join(', ')}
+          gap="gap-1"
+          items={opts.map((o) => ({ key: o!.id, node: <OptionBadge label={o!.label} colorIndex={o!.colorIndex} image={o!.image} wrap /> }))}
+        />
       )
     return (
       <FitRow
@@ -522,7 +574,8 @@ function Cell({
   }
 
   // Rahatta yazı kesilmez, alta geçer (uzun metin — ör. Sinopsis — en fazla 4 satır)
-  if (roomy) return <span className={`block break-words text-neutral-300 ${property.type === 'longtext' ? 'line-clamp-4' : ''}`}>{String(value)}</span>
+  // Rahatta yazı alta geçer ama en fazla 3 satır (fazlası … — üzerine gelince tamamı)
+  if (roomy) return <span title={String(value)} className="break-words line-clamp-3 text-neutral-300">{String(value)}</span>
   return <span className="block truncate text-neutral-300">{String(value)}</span>
 }
 
@@ -1320,7 +1373,7 @@ const BoardTable = forwardRef<
                             ) : null}
                           </span>
                         )}
-                        <span className={roomy ? 'block break-words' : 'block truncate'}>{titleText(titleProp, row.values[titleProp.id])}</span>
+                        <span className={roomy ? 'break-words line-clamp-2' : 'block truncate'}>{titleText(titleProp, row.values[titleProp.id])}</span>
                       </div>
                     </td>
                   )

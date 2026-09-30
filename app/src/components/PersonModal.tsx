@@ -5,6 +5,7 @@ import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import TmdbPreviewModal from './TmdbPreviewModal'
+import { useEscape } from '../hooks/useEscape'
 
 // Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,
 // tek tıkla ekleyeyim" dedi. TMDB'den kişinin bilgileri ve filmografisi: arşivinde olanlar (izlediklerin
@@ -57,11 +58,11 @@ export default function PersonModal({
     }
   }, [boardId, name, role])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !preview && !paused && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, preview, paused])
+  // Üstünde önizleme ya da başka bir pencere açıkken Esc onları kapatır, bu sayfayı değil
+  useEscape(true, () => {
+    if (preview) setPreview(null)
+    else if (!paused) onClose()
+  })
 
   async function addWatchlist(c: ArchiveCard) {
     const k = `${c.mediaType}:${c.tmdbId}`
@@ -70,6 +71,16 @@ export default function PersonModal({
       const res = await api.addFromTmdb(boardId, { tmdbId: c.tmdbId, mediaType: c.mediaType, status: 'izlenecek' })
       notifyDataChanged(boardId)
       setAdded((s) => new Set(s).add(k))
+      // Üstteki "Arşivinde N" sayısı ve liste de güncellensin (eskiden eklenen yapım "olmayanlar"da kalıyordu)
+      setData((d) =>
+        d
+          ? {
+              ...d,
+              inArchive: [...d.inArchive, { ...c, rowId: res.rowId, status: 'İzlenecek', watched: false }],
+              notInArchive: d.notInArchive.filter((x) => !(x.tmdbId === c.tmdbId && x.mediaType === c.mediaType)),
+            }
+          : d,
+      )
       notify(`"${res.title}" izlenecekler listene eklendi.`)
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
