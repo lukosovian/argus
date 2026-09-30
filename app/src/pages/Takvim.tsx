@@ -16,6 +16,8 @@ import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '
 import Select from '../components/Select'
 import MultiFilterEditor from '../components/MultiFilterEditor'
 import RowDetailModal from '../components/RowDetailModal'
+import { useEscape } from '../hooks/useEscape'
+import { withLocative } from '../lib/turkce'
 
 // Takvim — kullanıcı "Notion'daki gibi takvim; günlerde ne izlemişsin görelim, ay ay" dedi ve şu
 // özellikleri onayladı: dizilerde bölüm bölüm kayıt, ileriye bakma (çıkacak bölümler ve vizyonlar),
@@ -37,7 +39,7 @@ function parseYmd(s: string): Date {
 // "2025-03-12" → "12.03.25"
 function shortDate(s: string): string {
   const [y, m, d] = s.split('-')
-  return `${d}.${m}.${(y ?? '').slice(2)}`
+  return `${d}.${m}.${y ?? ''}`
 }
 function dayLabel(s: string): string {
   const d = parseYmd(s)
@@ -331,6 +333,8 @@ export default function Takvim() {
   if (boardLoading || rowsLoading || !board) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
 
   const hasDateProp = Boolean(resolveRole(board, 'izlemeTarihi'))
+  // Adı izleme tarihine benzeyen ama tarih tipinde olmayan sütun (ör. içe aktarılmış, Metin kalmış 'İzlediğim Gün')
+  const textDateProp = hasDateProp || !board ? undefined : board.properties.find((p) => p.type !== 'date' && p.type !== 'multidate' && /izle|watched|tarih/i.test(p.name))
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-5">
@@ -394,8 +398,18 @@ export default function Takvim() {
 
       {!hasDateProp && (
         <p className="text-sm text-amber-400 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-          Bu arşivde "İzleme Tarihi" görevinde bir sütun yok — takvimde sadece bölüm işaretlerin ve ileriye dönük tarihler görünür. Tablodaki
-          sütun menüsünden bir tarih sütununa "İzleme Tarihi" görevini verebilirsin.
+          {textDateProp ? (
+            <>
+              Takvim, izleme tarihlerini "{textDateProp.name}" sütunundan okuyabilir ama bu sütun şu an tarih değil, yazı olarak duruyor. Arşiv
+              tablosunda sütun başlığına tıklayıp tipini <strong>Çoklu Tarih</strong> yap — içindeki tarihler (aralıklar dahil) tarihe çevrilir,
+              takvimde görünür.
+            </>
+          ) : (
+            <>
+              Bu arşivde izleme tarihlerinin tutulduğu bir sütun yok — takvimde sadece bölüm işaretlerin ve ileriye dönük tarihler görünür. Arşiv
+              tablosuna tipi <strong>Çoklu Tarih</strong> olan bir "İzleme Tarihi" sütunu ekleyebilirsin.
+            </>
+          )}
         </p>
       )}
 
@@ -418,6 +432,7 @@ export default function Takvim() {
           today={today}
           byDay={byDay}
           onYear={(y) => go({ ay: `${y}-${String(month + 1).padStart(2, '0')}` })}
+          onToday={() => go({ ay: today.slice(0, 7) })}
           onPickDay={(d) => {
             go({ ay: d.slice(0, 7), gorunum: 'ay' })
             setOpenDay(d)
@@ -750,12 +765,24 @@ function MonthView({
         ))}
       </div>
 
-      <p className="text-xs text-neutral-600 flex flex-wrap gap-x-4 gap-y-1">
-        <span>Kesik çizgili: yaklaşan (yeni bölüm / vizyon)</span>
-        <span className="text-amber-500/80">↻ tekrar izleme</span>
-        <span className="text-emerald-500/80">bitirdin: o gün diziyi bitirdin</span>
-        <span>Bir güne eklemek için günün numarasına tıkla.</span>
-      </p>
+      {/* Kullanıcı "bitirdin sadece dizide mi, filmde de varsa onu da yaz" dedi — işaretlerin hepsi film ve dizide ortak */}
+      <div className="text-xs text-neutral-500 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3 grid gap-1.5 sm:grid-cols-2">
+        <span>
+          <span className="text-neutral-300">Başladın</span> / <span className="text-emerald-400">Bitirdin</span>: bir filmi ya da diziyi birkaç günde
+          izlediysen (izleme tarihi "başladım → bitirdim" aralığıysa) başladığın ve bitirdiğin gün.
+        </span>
+        <span>
+          <span className="text-emerald-400">· bitirdin</span> (bölümlerin yanında): o gün son bölümleri izleyip diziyi bitirdin.
+        </span>
+        <span>
+          <span className="text-amber-400">↻ Tekrar izledin</span>: daha önce izlediğin bir filmi yeniden izlediğin gün.
+        </span>
+        <span>
+          <span className="inline-block h-2.5 w-5 align-middle rounded border border-dashed border-neutral-600 mr-1" />
+          Kesik çizgili: yaklaşan — yeni bölüm ya da vizyon tarihi.
+        </span>
+        <span className="sm:col-span-2 text-neutral-600">Bir güne izlediğin bir şeyi eklemek için günün numarasına tıkla.</span>
+      </div>
     </div>
   )
 }
@@ -776,12 +803,15 @@ function YearView({
   byDay,
   onYear,
   onPickDay,
+  onToday,
 }: {
   year: number
   today: string
   byDay: Map<string, CalEvent[]>
   onYear: (y: number) => void
   onPickDay: (d: string) => void
+  // Bu yıla (bugünün ayına) dön — ay görünümündeki "Bugün" gibi (kullanıcı "yıl görünümünde yok" dedi)
+  onToday: () => void
 }) {
   // Günün yoğunluğu: izlenen içerik + bölüm sayısı (yaklaşanlar sayılmaz).
   const weight = (d: string) =>
@@ -833,13 +863,18 @@ function YearView({
           <button onClick={() => onYear(year + 1)} className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 transition">
             ›
           </button>
+          {!today.startsWith(String(year)) && (
+            <button onClick={onToday} className="ml-1 text-sm text-[#00c0fa] hover:underline">
+              Bugün
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <YearTile label="İzleme yaptığın gün" value={String(active.length)} />
         <YearTile label="Toplam izleme" value={String(total)} sub="içerik + bölüm" />
-        <YearTile label="En uzun seri" value={best ? `${best} gün` : '—'} sub={best > 1 ? `${dayLabel(bestEnd).split(',')[0]}'de bitti` : undefined} />
+        <YearTile label="En uzun seri" value={best ? `${best} gün` : '—'} sub={best > 1 ? `${withLocative(dayLabel(bestEnd).split(',')[0])} bitti` : undefined} />
         <YearTile label="Şu anki seri" value={current ? `${current} gün` : '—'} sub={current ? 'devam ediyor 🔥' : 'bugün bir şey izle'} />
         <YearTile
           label="En yoğun"
@@ -959,15 +994,10 @@ function DayPanel({
   const results = q.trim() ? rows.filter((r) => norm(look.title(r)).includes(norm(q.trim()))).slice(0, 8) : []
   const seasonsOf = (r: Row) => (episodes[r.id] ?? []).filter((s) => s.seasonNumber > 0 && s.episodes.length > 0)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (picked) setPicked(null)
-      else onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, picked])
+  useEscape(true, () => {
+    if (picked) setPicked(null)
+    else onClose()
+  })
 
   async function run(fn: () => Promise<void>) {
     setBusy(true)

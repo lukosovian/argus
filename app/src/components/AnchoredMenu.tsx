@@ -86,8 +86,21 @@ export default function AnchoredMenu({
       for (const child of childPanels) if (child.contains(target)) return
       onClose()
     }
+    // Esc de kapatsın (yeni kullanıcı denemesinde sütun menüsü gibi açılır pencereler Esc'e tepki vermiyordu).
+    // İçindeki bir şey Esc'i kendisi işlediyse (preventDefault — ör. hücre düzenleyicinin "vazgeç"i) dokunma.
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        // İşaretle ki altındaki pencere (useEscape) de kapanmasın
+        e.preventDefault()
+        onClose()
+      }
+    }
     document.addEventListener('mousedown', handlePointerDown)
-    return () => document.removeEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKey)
+    }
   }, [anchorRef, onClose, childPanels])
 
   if (!pos) return null

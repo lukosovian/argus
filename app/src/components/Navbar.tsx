@@ -41,6 +41,7 @@ const ICONS = {
   ayarlar:
     'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z',
   istatistik: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  tablo: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
   takvim: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
   koleksiyon: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3',
   ozet: 'M3 12a9 9 0 1 0 2.64-6.36L3 8.3M3 3v5.3h5.3M12 7v5l3.5 2',
@@ -69,6 +70,18 @@ export default function Navbar() {
   const [searchParams] = useSearchParams()
   const activeSection = location.pathname === '/' ? searchParams.get('bolum') : null
   const isHome = location.pathname === '/' && !activeSection
+  const currentPage = (
+    [
+      ['/board/', 'Arşiv Tablosu'],
+      ['/takvim', 'Takvim'],
+      ['/istatistikler', 'İstatistikler'],
+      ['/koleksiyon', 'Koleksiyon'],
+      ['/flashback', 'Flashback'],
+      ['/arsivlerim', 'Ayarlar'],
+      ['/yardim', 'Yardım Merkezi'],
+      ['/yama-notlari', 'Yama Notları'],
+    ] as const
+  ).find(([p]) => location.pathname.startsWith(p))?.[1]
   const pinnedSections = sortByOrder((settings.sections ?? []).filter((s) => s.pinnedToNav), settings.navOrder ?? [])
   const [menuOpen, setMenuOpen] = useState(false)
   const otherProfiles = profiles.filter((p) => p.id !== activeProfileId)
@@ -125,6 +138,13 @@ export default function Navbar() {
                 </Link>
               )
             })}
+            {/* Menüde bağlantısı olmayan bir sayfadaysan (Arşiv Tablosu, Takvim…) adı seçili olarak görünür —
+                yeni kullanıcı denemesinde her sayfada sadece "Ana Sayfa" yazdığı için nerede olduğu belli değildi. */}
+            {currentPage && (
+              <span style={gradientBorderStyle()} className="shrink-0 whitespace-nowrap text-sm sm:text-base font-medium rounded-lg px-2.5 sm:px-3 py-1.5 border-[1.5px] text-white">
+                {currentPage}
+              </span>
+            )}
           </nav>
 
           <GlobalSearch />
@@ -193,6 +213,8 @@ export default function Navbar() {
                   )}
 
                   <div className="pt-1.5">
+                    {/* Yeni kullanıcı denemesinde arşiv tablosuna her seferinde Ayarlar › Veritabanı › Arşivler yolundan gidiliyordu */}
+                    {settings.boardId && <MenuLink to={`/board/${settings.boardId}`} icon="tablo" label="Arşiv Tablosu" onClick={() => setMenuOpen(false)} />}
                     <MenuLink to="/arsivlerim" icon="ayarlar" label="Ayarlar" onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/istatistikler" icon="istatistik" label="İstatistikler" onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/takvim" icon="takvim" label="Takvim" onClick={() => setMenuOpen(false)} />

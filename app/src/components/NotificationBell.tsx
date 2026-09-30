@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import type { AppNotification } from '../lib/notifications'
 import { useProfiles } from '../hooks/useProfiles'
 import { useToast } from '../hooks/useToast'
+import { useEscape } from '../hooks/useEscape'
 
 // Üst menüdeki zil — kullanıcı "bildirimler için bir yer olsun" dedi. Dizi kendiliğinden İzlendi olunca,
 // bitmiş bir diziye yeni bölüm gelince ya da yeni sezon tarihi açıklanınca burada birikir. Okunmamış
@@ -44,6 +45,7 @@ export default function NotificationBell() {
   const navigate = useNavigate()
   const [items, setItems] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)
+  useEscape(open, () => setOpen(false))
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const knownIds = useRef<Set<string> | null>(null)
@@ -54,8 +56,13 @@ export default function NotificationBell() {
       .then(() => api.getNotifications())
       .then((r) => {
         // Uygulama açıkken yeni gelen okunmamış bildirim kısa bir kart olarak da gösterilsin.
+        // Aynı anda birden çok geldiyse (ör. Genel Güncelleme'den sonra) tek bir özet kart — yeni kullanıcı
+        // denemesinde 8 kart üst üste yığılıp ekranın sağ altını kapatıyordu.
         if (knownIds.current) {
-          for (const n of r.items) if (!n.read && !knownIds.current.has(n.id)) notify(`${n.title}: ${n.text}`, 'success')
+          const fresh = r.items.filter((n) => !n.read && !knownIds.current!.has(n.id))
+          if (fresh.length === 1) notify(`${fresh[0].title}: ${fresh[0].text}`, 'success')
+          else if (fresh.length > 1)
+            notify(`${fresh.length} yeni bildirim (${fresh.slice(0, 3).map((n) => n.title).join(', ')}${fresh.length > 3 ? '…' : ''}) — zil simgesinden bakabilirsin.`, 'success')
         }
         knownIds.current = new Set(r.items.map((n) => n.id))
         setItems(r.items)

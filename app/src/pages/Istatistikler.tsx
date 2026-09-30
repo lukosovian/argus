@@ -11,6 +11,7 @@ import HelpHint from '../components/HelpHint'
 import { ROLE_DEFS, resolveRole, resolveStatusOption, type RoleKey } from '../lib/roles'
 import Select from '../components/Select'
 import { entryEnd } from '../lib/dateRange'
+import { withLocative } from '../lib/turkce'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -559,7 +560,7 @@ export default function Istatistikler() {
         />
         <StatTile label="İzlenecek" value={stats.hasDurum ? String(stats.izlenecekCount) : '—'} sub="listende bekliyor" />
         <StatTile
-          label={`${year}'te izlediğin`}
+          label={`${withLocative(year)} izlediğin`}
           value={stats.hasDates ? String(stats.thisYearRows) : '—'}
           sub="izleme tarihine göre"
           hint={stats.hasDates ? undefined : 'Bu sayı için kayıtlarda İzleme Tarihi dolu olmalı.'}
@@ -588,7 +589,7 @@ export default function Istatistikler() {
             onPick={(key) => navigate(`/takvim?ay=${key}`)}
             data={stats.months.map((m) => ({
               key: m.key,
-              label: m.month === 0 ? `'${String(m.year).slice(2)}` : TR_MONTHS_SHORT[m.month],
+              label: m.month === 0 ? String(m.year) : TR_MONTHS_SHORT[m.month],
               strong: m.month === 0,
               tipTitle: `${TR_MONTHS[m.month]} ${m.year}`,
               count: m.count,

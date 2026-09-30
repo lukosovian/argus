@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import type { SelectOption } from '../types'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { useEscape } from '../hooks/useEscape'
 
 // Bayrak emojisi (iki "regional indicator" harfi) Windows'ta "us" gibi harf olarak görünüyor — ayıkla.
 export function stripFlags(s: string): string {
@@ -20,6 +21,7 @@ export default function OptionDetailModal({
   onClose: () => void
   onShowContents: () => void
 }) {
+  useEscape(true, onClose)
   // document.body'ye çiziliyor: detay penceresinin arka planındaki bulanıklık efekti (backdrop-blur)
   // içindeki "tam ekran" pencereleri kendi kaydırılan içeriğine hapsediyordu — kullanıcı aşağıdayken
   // oyuncuya tıklayınca pencere sayfanın en üstünde açılıyor, görünmüyordu.

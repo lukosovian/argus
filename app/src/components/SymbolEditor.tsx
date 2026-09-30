@@ -5,6 +5,7 @@ import { cleanupSymbol, hasFlatBackground, loadImage } from '../lib/imageCleanup
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from './Select'
+import { useEscape } from '../hooks/useEscape'
 
 // Koleksiyon'da bir yapımın ya da rafın sembolünü değiştirme penceresi. Sembol: bilgisayardan dosya
 // (sürükle-bırak da olur), panodan yapıştırma (Ctrl+V), internetteki bir görselin adresi ya da
@@ -61,8 +62,10 @@ export default function SymbolEditor({
   const previewSrc = source ? (source.kind === 'file' ? source.preview : source.path) : removed ? null : current
   const shown = previewSrc ?? fallback
 
+  // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  useEscape(true, onClose)
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     const onPaste = (e: ClipboardEvent) => {
       const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
       if (file) {
@@ -77,10 +80,8 @@ export default function SymbolEditor({
         fetchUrl(text)
       }
     }
-    window.addEventListener('keydown', onKey)
     window.addEventListener('paste', onPaste)
     return () => {
-      window.removeEventListener('keydown', onKey)
       window.removeEventListener('paste', onPaste)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

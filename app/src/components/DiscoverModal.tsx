@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast'
 import { BRAND_GRADIENT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { CompassIcon } from './toolbarIcons'
 import GenreTriPicker from './GenreTriPicker'
+import { useEscape } from '../hooks/useEscape'
 
 // Arşiv tablosunun araç çubuğundaki pusula — "Keşfet". Kullanıcının fikri: "sayısını
 // belirliycez dizi mi film mi... türünü belirliycez... bizde olmayan tablomuzda olmayan
@@ -127,6 +128,7 @@ export function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string 
 }
 
 export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: string; exclude: string[]; onClose: () => void }) {
+  useEscape(true, onClose)
   const { notify } = useToast()
   const [type, setType] = useState<MediaType>('movie')
   const [genres, setGenres] = useState<{ id: number; name: string }[]>([])

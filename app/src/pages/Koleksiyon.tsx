@@ -311,7 +311,7 @@ export default function Koleksiyon() {
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">ARGUS</p>
         <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">Koleksiyon</h1>
         <p className="text-neutral-300 mt-2 max-w-2xl">
-          İzlediğin <span className="font-bold text-neutral-50">{items.length}</span> yapım, <span className="font-bold text-neutral-50">{shelves.length}</span> rafta ve tek başına sergileniyor
+          İzlediğin, izlemekte olduğun ya da yarım bıraktığın <span className="font-bold text-neutral-50">{items.length}</span> yapım, <span className="font-bold text-neutral-50">{shelves.length}</span> rafta ve tek başına sergileniyor
           {symbolCount ? (
             <>
               ; <span className="font-bold text-neutral-50">{symbolCount}</span> tanesinin kendi sembolü var

@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { PropertyDef, PropertyValue } from '../types'
 import AnchoredMenu from './AnchoredMenu'
 import PropertyValueInput from './PropertyValueInput'
@@ -31,12 +31,30 @@ export default function CellEditor({
     onClose()
   }
 
+  // Esc her zaman "vazgeç" (odak düzenleyicinin içinde olmasa da); yakalama aşamasında işlenip işaretleniyor ki
+  // AnchoredMenu'nün Esc'i (dışarı tıklama gibi kaydedip kapatır) çalışmasın.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      onCloseRef.current()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+
   return (
     <AnchoredMenu anchorRef={anchorRef} align="left" width={property.type === 'rating' ? 320 : 260} onClose={handleClose}>
       <div
         className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl p-3 normal-case"
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
+          if (e.key === 'Escape') {
+            // Vazgeç (kaydetmeden kapat) — AnchoredMenu'nün kendi Esc'i (kaydedip kapatır) çalışmasın
+            e.preventDefault()
+            onClose()
+          }
           if (e.key === 'Enter' && SINGLE_STEP_TYPES.has(property.type)) handleClose()
         }}
       >

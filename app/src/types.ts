@@ -95,12 +95,18 @@ export function defaultPropertyValue(type: PropertyType): PropertyValue {
 
 // 'rating' alanının gösterilecek tek puanı: tanımlı kriterlerden değeri girilmiş
 // olanların ortalaması. Hiçbiri girilmemişse null (henüz puanlanmamış demektir).
+// Kriterli puan alanında kriter olmadan verilmiş tek puanın anahtarı. Eskiden tek puan bütün kriterlere yazılıyordu,
+// detayda "5 kritere göre" sahte bir döküm gibi görünüyordu (yeni kullanıcı denemesi). Kriterler puanlanınca
+// ortalama onlardan hesaplanır, bu değer yok sayılır.
+export const RATING_OVERALL = '_genel'
+
 export function ratingAverage(value: PropertyValue, property: PropertyDef): number | null {
   if (property.type !== 'rating') return null
   const scores = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, number>) : {}
   const ids = (property.criteria ?? []).map((c) => c.id)
   const scored = ids.map((id) => scores[id]).filter((n): n is number => typeof n === 'number')
-  if (scored.length === 0) return null
+  // Kriter kriter verilmemiş, tek bir genel puan (içe aktarımdan ya da Keşfet'teki "İzledim"den) — RATING_OVERALL
+  if (scored.length === 0) return typeof scores[RATING_OVERALL] === 'number' ? scores[RATING_OVERALL] : null
   return scored.reduce((a, b) => a + b, 0) / scored.length
 }
 
@@ -166,6 +172,9 @@ export interface Board {
   healthIgnore?: Record<string, string[]>
   // Sağlık Kontrolü'nde "Bunlar farklı" denen mükerrer adayları: "idA|idB" (küçük id önce).
   duplicateIgnore?: string[]
+  // TMDB Güncelle, başlığa yazılmış İngilizce / orijinal adı Türkçe adla değiştirsin mi (dişli › "Başlığı Türkçe
+  // adla değiştir"). Yoksa kapalı — yeni kullanıcılar bilerek yazdıkları adların değişmesini beklemiyor.
+  titleTr?: boolean
   createdAt: number
   updatedAt: number
 }
@@ -575,7 +584,10 @@ export function mediaTemplateProperties(): {
     { id: makeId(), name: 'Vizyon Tarihi', type: 'date' },
     { id: makeId(), name: 'Yönetmen', type: 'text' },
     { id: makeId(), name: 'Ülke', type: 'multiselect', options: [] },
-    { id: makeId(), name: 'İzleme Tarihi', type: 'text' },
+    // Çoklu tarih (tekrar izlemeler, "başladım → bitirdim" aralıkları). Eskiden 'text'ti — Takvim, İstatistik
+    // ve Flashback tarih olmayan sütunu "İzleme Tarihi" olarak tanımadığı için şablonla açılan arşivlerde
+    // hiçbiri çalışmıyordu.
+    { id: makeId(), name: 'İzleme Tarihi', type: 'multidate' },
     { id: makeId(), name: 'Video', type: 'url' },
     { id: makeId(), name: 'Sinopsis', type: 'longtext' },
     kapakAdi,

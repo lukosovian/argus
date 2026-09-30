@@ -13,19 +13,20 @@ import PropertyValueInput from './PropertyValueInput'
 const MUTE_KEY = 'argus_rate_prompt_off'
 
 export default function RatePrompt() {
-  const [queue, setQueue] = useState<{ boardId: string; rowId: string }[]>([])
+  const [queue, setQueue] = useState<{ boardId: string; rowId: string; force?: boolean }[]>([])
   const [ctx, setCtx] = useState<{ board: Board; row: Row } | null>(null)
   const [scores, setScores] = useState<PropertyValue>({})
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     const onAsk = (e: Event) => {
+      const d = (e as CustomEvent<{ boardId: string; rowId: string; force?: boolean }>).detail
+      // force: kullanıcı kendisi "Puan ver" dedi (detay penceresi) — hatırlatma kapatılmış olsa da açılır
       try {
-        if (localStorage.getItem(MUTE_KEY)) return
+        if (!d?.force && localStorage.getItem(MUTE_KEY)) return
       } catch {
         // yoksa sorulur
       }
-      const d = (e as CustomEvent<{ boardId: string; rowId: string }>).detail
       if (!d?.boardId || !d?.rowId) return
       setQueue((q) => (q.some((x) => x.rowId === d.rowId) ? q : [...q, d]))
     }
@@ -48,7 +49,9 @@ export default function RatePrompt() {
           setQueue((q) => q.slice(1))
           return
         }
-        setScores({})
+        // Önceden verilmiş puan varsa onunla açılsın (yeniden puanlama)
+        const cur = row.values[puan.id]
+        setScores(cur && typeof cur === 'object' && !Array.isArray(cur) ? cur : {})
         setCtx({ board, row })
       })
       .catch(() => setQueue((q) => q.slice(1)))

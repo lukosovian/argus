@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { whiteLogo } from '../lib/whiteLogo'
+import { useEscape } from '../hooks/useEscape'
 
 // Koleksiyon'un paylaşılabilir görseli — kullanıcı "koleksiyonun görsel tablosunu oluşturma ekle, Flashback'teki
 // gibi PNG görselini alacağım" dedi. Raflar (sembolü, adı ve yapımlarıyla) ve istenirse tek başına olanlar,
@@ -326,11 +327,8 @@ export default function KoleksiyonImage({
     }
   }, [shelves, loose, stats, withLoose])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  useEscape(true, onClose)
 
   function download() {
     if (!url) return

@@ -6,6 +6,7 @@ import { BRAND_GRADIENT } from '../lib/theme'
 import { HealthIcon } from './toolbarIcons'
 import { resolveRole } from '../lib/roles'
 import { useToast } from '../hooks/useToast'
+import { useEscape } from '../hooks/useEscape'
 
 const MAX_SHOWN = 40
 
@@ -52,6 +53,7 @@ export default function HealthCheckModal({
   onIgnoreDuplicate: (rowIds: string[]) => void
   onClose: () => void
 }) {
+  useEscape(true, onClose)
   const [brokenLoading, setBrokenLoading] = useState(true)
   const [brokenImages, setBrokenImages] = useState<{ rowId: string; propertyName: string; value: string }[]>([])
   const [duplicates, setDuplicates] = useState<string[][]>([])

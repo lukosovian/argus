@@ -868,6 +868,17 @@ function pickLogo(images) {
   return logos.find((l) => l.iso_639_1 === 'tr') ?? logos.find((l) => l.iso_639_1 === 'en') ?? logos[0]
 }
 
+// Yaş sınırı hep aynı Türkçe biçimde yazılsın — TMDB bazen Türkiye'nin ("13+", "Genel İzleyici Kitlesi"), bazen
+// ABD'nin ("R", "PG-13", "TV-MA") sınıflandırmasını veriyor, sütunda karışık duruyordu (bkz. src/lib/ageRating.ts).
+const AGE_TIERS = {
+  'genel izleyici kitlesi': 'Genel İzleyici', 'genel izleyici': 'Genel İzleyici', g: 'Genel İzleyici', 'tv-y': 'Genel İzleyici', 'tv-g': 'Genel İzleyici',
+  '6+': '6+', '6a': '6+', '7+': '7+', '7a': '7+', pg: '7+', 'tv-y7': '7+', '10+': '10+', '10a': '10+', 'tv-pg': '10+',
+  '13+': '13+', '13a': '13+', 'pg-13': '13+', 'tv-14': '13+', '15+': '16+', '16+': '16+', r: '16+', '18+': '18+', 'nc-17': '18+', 'tv-ma': '18+',
+}
+function normalizeCert(raw) {
+  return raw ? (AGE_TIERS[String(raw).trim().toLocaleLowerCase('tr')] ?? raw) : raw
+}
+
 async function getMovieCertification(tmdbId, apiKey) {
   const data = await tmdbGet(`/movie/${tmdbId}/release_dates`, {}, apiKey)
   const byCountry = new Map((data?.results ?? []).map((c) => [c.iso_3166_1, c.release_dates]))
@@ -875,7 +886,7 @@ async function getMovieCertification(tmdbId, apiKey) {
     const entries = byCountry.get(cc)
     if (!entries) continue
     const cert = entries.map((e) => e.certification).find((c) => c)
-    if (cert) return cert
+    if (cert) return normalizeCert(cert)
   }
   return null
 }
@@ -884,13 +895,21 @@ async function getTvCertification(tmdbId, apiKey) {
   const data = await tmdbGet(`/tv/${tmdbId}/content_ratings`, {}, apiKey)
   const byCountry = new Map((data?.results ?? []).map((c) => [c.iso_3166_1, c.rating]))
   for (const cc of ['TR', 'US']) {
-    if (byCountry.get(cc)) return byCountry.get(cc)
+    if (byCountry.get(cc)) return normalizeCert(byCountry.get(cc))
   }
   return null
 }
 
 // Bir kaydın TMDB'deki karşılığını başlığına/orijinal adına, yılına ve Kategori'sine (Film mi
 // Dizi mi) bakarak arar. Sadece arar, kaydı değiştirmez — { result, mediaType } ya da null.
+// Kategori etiketinden film mi dizi mi olduğu (bilinmiyorsa ikisi de false)
+function isTvKind(label) {
+  return ['dizi', 'mini dizi', 'reality show', 'yarışma', 'series', 'tv series', 'tv show', 'miniseries', 'mini series', 'show'].includes(label) || label.includes('gösteri')
+}
+function isMovieKind(label) {
+  return ['film', 'kısa film', 'movie', 'short', 'short film', 'sinema filmi'].includes(label)
+}
+
 async function searchTmdbForRow(board, row, apiKey) {
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const origProp = resolveRole(board, 'orjinalAdi')
@@ -907,8 +926,10 @@ async function searchTmdbForRow(board, row, apiKey) {
   const kategoriId = kategoriProp ? row.values[kategoriProp.id] : null
   const kategoriLabel = kategoriProp?.options?.find((o) => o.id === kategoriId)?.label ?? ''
   const kategoriLower = kategoriLabel.toLocaleLowerCase('tr')
-  const tvHint = ['dizi', 'mini dizi', 'reality show', 'yarışma'].includes(kategoriLower) || kategoriLower.includes('gösteri')
-  const movieHint = kategoriLabel && !tvHint
+  const tvHint = isTvKind(kategoriLower)
+  // Sadece film olduğu belli olanlarda filmlerde aranır; Anime, Belgesel, Animasyon gibi ikisi de olabilenlerde
+  // karışık arama (eskiden 'Dizi' değilse film sayılıyordu — 'Anime' yazan Attack on Titan müzikal filmini buluyordu)
+  const movieHint = isMovieKind(kategoriLower)
 
   if (tvHint) {
     const r = (await searchTv(titleOrig, year, apiKey)) ?? (await searchTv(titleTr, year, apiKey))
@@ -971,8 +992,8 @@ async function pickTmdbCandidate(profileId, board, row, apiKey) {
   if (current) return { forced: toForced(current) }
   const kategoriLabel = (kategoriProp?.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '').toLocaleLowerCase('tr')
   if (kategoriLabel) {
-    const tvHint = ['dizi', 'mini dizi', 'reality show', 'yarışma'].includes(kategoriLabel) || kategoriLabel.includes('gösteri')
-    const narrowed = exact.filter((e) => e.r.media_type === (tvHint ? 'tv' : 'movie'))
+    const want = isTvKind(kategoriLabel) ? 'tv' : isMovieKind(kategoriLabel) ? 'movie' : null
+    const narrowed = want ? exact.filter((e) => e.r.media_type === want) : []
     if (narrowed.length) exact = narrowed
   }
   const rawYear = vizyonProp ? row.values[vizyonProp.id] : null
@@ -1038,6 +1059,8 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     const kategoriProp = ens('kategori', 'kategori', { options: [] })
     const vizyonProp = ens('vizyonTarihi', 'vizyon')
     const bannerProp = ens('banner', 'banner')
+    // Kapak görseli seçilmemiş arşivde (ör. şablonsuz içe aktarım) ana sayfa kartları boş kalıyordu — Banner kapak olsun
+    if (bannerProp && !board.coverPropertyId) board.coverPropertyId = bannerProp.id
     const posterProp = ens('poster', 'poster')
     // Başlık logosu: arşivde "Vitrin Başlık Görseli" olarak işaretli sütun; hiç yoksa oluşturulup
     // o şekilde işaretleniyor (eskiden "Kapak Adı" adıyla aranıyordu).
@@ -1112,6 +1135,13 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     // Bu kaydın TMDB kimliği saklanıyor — Nerede İzlenir, Benzerler, yeni bölüm kontrolü ve
     // Keşfet'in "zaten arşivde var" ayıklaması bunu kullanıyor (bkz. tmdb.json).
     const refs = readJson(profileTmdbFile(profileId), {})
+    // "Hangisi?" penceresinde kayıt BAŞKA bir yapımla eşleştirildiyse (önceki eşleşme yanlıştı) eski yapımdan
+    // kalan afiş, yönetmen, yıl, oyuncular… da yenisiyle değiştirilir — yeni kullanıcı denemesinde "Attack on
+    // Titan" müzikaliyle eşleşmiş, doğrusu seçilince müzikalin afişi ve yönetmeni kalmıştı. Kategori ve başlık
+    // (kullanıcının kendi yazdıkları) bu yüzden değişmez.
+    const prevRef = refs[row.id]
+    const rematch = Boolean(forced && prevRef && (prevRef.id !== result.id || prevRef.mediaType !== mediaType))
+    const ow = overwrite || rematch
     refs[row.id] = { id: result.id, mediaType, ...(mediaType === 'tv' ? { show: showInfoFromDetails(details) } : {}) }
     writeJson(profileTmdbFile(profileId), refs)
 
@@ -1140,7 +1170,9 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       if (trTitle && cur !== trTitle) {
         const fold = (s) => normalizeText(s.toLocaleLowerCase('tr')).replace(/ı/g, 'i') // "dunya varmis" = "Dünya Varmış"
         let replace = !cur || fold(cur) === fold(trTitle)
-        if (!replace) {
+        // İngilizce / orijinal ad yazılmışsa Türkçesiyle değiştirmek bir seçenek (dişli › "Başlığı Türkçe adla değiştir";
+        // arşivin titleTr ayarı, yoksa kapalı)
+        if (!replace && !exclude.has('turkceAdi') && board.titleTr) {
           const orig = (mediaType === 'tv' ? details.original_name : details.original_title) || ''
           replace = normalizeText(cur) === normalizeText(orig)
           if (!replace) {
@@ -1156,7 +1188,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (origProp && (overwrite || !titleOrig) && !exclude.has('orjinalAdi')) {
+    if (origProp && (ow || !titleOrig) && !exclude.has('orjinalAdi')) {
       const orig = mediaType === 'tv' ? details.original_name : details.original_title
       if (orig) {
         row.values[origProp.id] = orig
@@ -1164,39 +1196,43 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (vizyonProp && (overwrite || !row.values[vizyonProp.id]) && !exclude.has('vizyonTarihi')) {
-      const date = mediaType === 'tv' ? details.first_air_date : details.release_date
+    // İçe aktarımda sadece yıl yazılmışsa ("1994" → 1994-01-01) aynı yıldaki gerçek tarihle tamamlanır
+    const vizyonNow = vizyonProp ? row.values[vizyonProp.id] : ''
+    const tmdbDate = mediaType === 'tv' ? details.first_air_date : details.release_date
+    const yearOnly = typeof vizyonNow === 'string' && /^\d{4}-01-01$/.test(vizyonNow) && tmdbDate?.startsWith(vizyonNow.slice(0, 4)) && tmdbDate !== vizyonNow
+    if (vizyonProp && (ow || !vizyonNow || yearOnly) && !exclude.has('vizyonTarihi')) {
+      const date = tmdbDate
       if (date) {
         row.values[vizyonProp.id] = date
         filled.push('Vizyon Tarihi')
       }
     }
 
-    if (sinopsisProp && (overwrite || !row.values[sinopsisProp.id]) && details.overview && !exclude.has('sinopsis')) {
+    if (sinopsisProp && (ow || !row.values[sinopsisProp.id]) && details.overview && !exclude.has('sinopsis')) {
       row.values[sinopsisProp.id] = details.overview
       filled.push('Sinopsis')
     }
 
-    if (posterProp && (overwrite || !row.values[posterProp.id]) && details.poster_path && !exclude.has('poster')) {
-      const filename = `tmdb_poster_${row.id}.jpg`
+    if (posterProp && (ow || !row.values[posterProp.id]) && details.poster_path && !exclude.has('poster')) {
+      const filename = `tmdb_poster_${row.id}_${result.id}.jpg`
       if (await downloadTmdbImage(`${TMDB_IMG_BASE}/w500${details.poster_path}`, path.join(MEDYA_DIR, filename))) {
         row.values[posterProp.id] = `/medya/${filename}`
         filled.push('Poster')
       }
     }
 
-    if (bannerProp && (overwrite || !row.values[bannerProp.id]) && details.backdrop_path && !exclude.has('banner')) {
-      const filename = `tmdb_backdrop_${row.id}.jpg`
+    if (bannerProp && (ow || !row.values[bannerProp.id]) && details.backdrop_path && !exclude.has('banner')) {
+      const filename = `tmdb_backdrop_${row.id}_${result.id}.jpg`
       if (await downloadTmdbImage(`${TMDB_IMG_BASE}/w1280${details.backdrop_path}`, path.join(MEDYA_DIR, filename))) {
         row.values[bannerProp.id] = `/medya/${filename}`
         filled.push('Banner')
       }
     }
 
-    if (kapakAdiProp && (overwrite || !row.values[kapakAdiProp.id]) && !exclude.has('kapakAdi')) {
+    if (kapakAdiProp && (ow || !row.values[kapakAdiProp.id]) && !exclude.has('kapakAdi')) {
       const logo = pickLogo(details.images)
       if (logo) {
-        const filename = `tmdb_logo_${row.id}.png`
+        const filename = `tmdb_logo_${row.id}_${result.id}.png`
         if (await downloadTmdbImage(`${TMDB_IMG_BASE}/w500${logo.file_path}`, path.join(MEDYA_DIR, filename))) {
           row.values[kapakAdiProp.id] = `/medya/${filename}`
           filled.push('Kapak Adı')
@@ -1206,7 +1242,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
 
     if (
       turProp &&
-      (overwrite || !Array.isArray(row.values[turProp.id]) || row.values[turProp.id].length === 0) &&
+      (ow || !Array.isArray(row.values[turProp.id]) || row.values[turProp.id].length === 0) &&
       !exclude.has('tur')
     ) {
       const genres = details.genres ?? []
@@ -1230,7 +1266,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
 
     if (
       ulkeProp &&
-      (overwrite || !Array.isArray(row.values[ulkeProp.id]) || row.values[ulkeProp.id].length === 0) &&
+      (ow || !Array.isArray(row.values[ulkeProp.id]) || row.values[ulkeProp.id].length === 0) &&
       !exclude.has('ulke')
     ) {
       const countries = details.production_countries ?? []
@@ -1253,7 +1289,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (yonetmenProp && (overwrite || !(row.values[yonetmenProp.id] ?? '').trim()) && !exclude.has('yonetmen')) {
+    if (yonetmenProp && (ow || !(row.values[yonetmenProp.id] ?? '').trim()) && !exclude.has('yonetmen')) {
       let directors = []
       if (mediaType === 'movie') {
         directors = (details.credits?.crew ?? []).filter((c) => c.job === 'Director').map((c) => c.name)
@@ -1266,12 +1302,12 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (mediaType === 'movie' && sureProp && (overwrite || !row.values[sureProp.id]) && details.runtime && !exclude.has('sure')) {
+    if (mediaType === 'movie' && sureProp && (ow || !row.values[sureProp.id]) && details.runtime && !exclude.has('sure')) {
       row.values[sureProp.id] = details.runtime
       filled.push('Süre')
     }
 
-    if (yasProp && (overwrite || !(row.values[yasProp.id] ?? '').trim()) && !exclude.has('yasSiniri')) {
+    if (yasProp && (ow || !(row.values[yasProp.id] ?? '').trim()) && !exclude.has('yasSiniri')) {
       const cert = mediaType === 'movie' ? await getMovieCertification(result.id, apiKey) : await getTvCertification(result.id, apiKey)
       if (cert) {
         row.values[yasProp.id] = cert
@@ -1279,7 +1315,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (videoProp && (overwrite || !(row.values[videoProp.id] ?? '').trim()) && !exclude.has('video')) {
+    if (videoProp && (ow || !(row.values[videoProp.id] ?? '').trim()) && !exclude.has('video')) {
       const trailerUrl = await getTrailerUrl(mediaType, result.id, apiKey)
       if (trailerUrl) {
         row.values[videoProp.id] = trailerUrl
@@ -1380,7 +1416,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
         castMap[row.id] = freshCast
         writeJson(castFile, castMap)
 
-        const existingIds = Array.isArray(row.values[oyuncularProp.id]) ? row.values[oyuncularProp.id] : []
+        const existingIds = !rematch && Array.isArray(row.values[oyuncularProp.id]) ? row.values[oyuncularProp.id] : []
         row.values[oyuncularProp.id] = [...new Set([...existingIds, ...freshCast.map((c) => c.optionId)])]
       }
     }
@@ -1973,8 +2009,8 @@ app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
         if (puanProp) {
           // Kriterli puanda tek bir genel puan girildi — tüm kriterlere aynı değer yazılıyor
           // (ortalaması zaten o puan olur); hiç kriter yoksa "Genel" diye bir tane açılıyor.
-          if (!puanProp.criteria || puanProp.criteria.length === 0) puanProp.criteria = [{ id: makeId(), name: 'Genel' }]
-          values[puanProp.id] = Object.fromEntries(puanProp.criteria.map((c) => [c.id, rating]))
+          // Tek (genel) puan — kriterlere dağıtılmaz (bkz. src/types.ts RATING_OVERALL)
+          values[puanProp.id] = { _genel: rating }
         }
       }
     }
@@ -2017,7 +2053,13 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
     const count = Math.max(1, Math.min(40, Number(req.body?.count) || 10))
     const sort = ['popular', 'top', 'new'].includes(req.body?.sort) ? req.body.sort : 'popular'
 
-    const params = { language: 'tr-TR', include_adult: 'false', 'vote_count.gte': sort === 'top' ? 300 : 50 }
+    // "En yüksek puanlı": az oylu yeni yapımlar (ör. 400 oyla 9.2) klasiklerin önüne geçmesin — yeni kullanıcı
+    // denemesinde Baba 7. sıradaydı. Daha yüksek oy sınırı + henüz çıkmamışlar hariç.
+    const params = { language: 'tr-TR', include_adult: 'false', 'vote_count.gte': sort === 'top' ? (type === 'tv' ? 500 : 2000) : 50 }
+    if (sort === 'top') {
+      const today = new Date().toISOString().slice(0, 10)
+      params[type === 'tv' ? 'first_air_date.lte' : 'primary_release_date.lte'] = today
+    }
     if (genreIds.length) params.with_genres = genreIds.join(',')
     if (excludeGenreIds.length) params.without_genres = excludeGenreIds.join(',')
     params.sort_by = sort === 'top' ? 'vote_average.desc' : sort === 'new' ? (type === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc') : 'popularity.desc'
@@ -2188,7 +2230,12 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
     const seen = watched[row.id] ?? {}
     const dv = dateProp ? row.values[dateProp.id] : null
     const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : []).map((x) => String(x).split('/').pop())].filter(Boolean).sort()
-    const lastWatch = dates[dates.length - 1] ?? ''
+    // Ne izleme tarihi ne bölüm işareti varsa (ör. Notion'dan "Bitti" diye aktarılmış dizi) ölçü, kaydın ARGUS'a
+    // eklendiği gün — yoksa yıllar önce çıkmış son bölüm "yeni" sayılıp dizi İzleniyor'a alınıyordu (yeni kullanıcı
+    // denemesinde Game of Thrones, Sherlock… hepsi böyle oldu).
+    const added = row.createdAt ? new Date(row.createdAt) : null
+    const addedDay = added ? `${added.getFullYear()}-${String(added.getMonth() + 1).padStart(2, '0')}-${String(added.getDate()).padStart(2, '0')}` : ''
+    const lastWatch = dates[dates.length - 1] ?? addedDay
     const lastKey = st.last ? `${st.last.season}-${st.last.episode}` : ''
     const newAired = st.last && st.last.airDate && st.last.airDate <= today && !(seen[lastKey]?.length > 0) && (!lastWatch || st.last.airDate > lastWatch)
     if (newAired) {
