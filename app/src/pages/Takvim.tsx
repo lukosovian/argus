@@ -339,7 +339,9 @@ export default function Takvim() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-5">
       {/* Işık efekti kendi kırpılan katmanında — kutunun kendisi kırpmıyor ki Filtre paneli dışarı taşıp açılabilsin. */}
-      <section className="relative z-20 rounded-3xl border border-neutral-800 bg-neutral-900/60 px-5 py-6 md:px-8">
+      {/* z-10: Filtre menüsü takvimin üstünde açılsın ama kaydırınca üst menünün (z-20) üstüne çıkmasın — z-20'yken
+          sayfada sonra geldiği için menünün üstünde kalıp tıklamayı engelliyordu. */}
+      <section className="relative z-10 rounded-3xl border border-neutral-800 bg-neutral-900/60 px-5 py-6 md:px-8">
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
           <div className="absolute -top-28 -right-20 h-64 w-[36rem] max-w-[140%] rounded-full blur-3xl opacity-20" style={{ background: BRAND_GRADIENT }} />
         </div>

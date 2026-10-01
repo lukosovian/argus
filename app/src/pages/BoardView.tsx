@@ -266,6 +266,118 @@ function TmdbFieldsPopover({
   )
 }
 
+type BulkMode = 'fill' | 'bolum'
+type BulkScope = 'all' | 'visible' | 'selected'
+
+// Genel Güncelleme düğmesinin menüsü: ne yapılsın (eksikleri doldur / sadece bölümleri yenile) ve hangi
+// kayıtlara (bütün arşiv / filtreyle-aramayla görünenler / tabloda seçilenler).
+function BulkUpdatePopover({
+  total,
+  visible,
+  selected,
+  overwrite,
+  onStart,
+}: {
+  total: number
+  // Filtre ya da arama yoksa null (görünenler = bütün arşiv)
+  visible: number | null
+  selected: number
+  overwrite: boolean
+  onStart: (mode: BulkMode, scope: BulkScope) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<BulkMode>('fill')
+  const [scope, setScope] = useState<BulkScope>('all')
+  useEscape(open, () => setOpen(false))
+  function toggle() {
+    if (!open) setScope(selected > 0 ? 'selected' : visible !== null ? 'visible' : 'all')
+    setOpen((v) => !v)
+  }
+  const choice = (active: boolean) =>
+    `w-full text-left rounded-lg border px-3 py-2 transition ${
+      active ? 'border-[#00c0fa]/60 bg-[#00c0fa]/10' : 'border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/60'
+    }`
+  const dot = (active: boolean) => (
+    <span className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ${active ? 'border-[#00c0fa] bg-[#00c0fa]/40' : 'border-neutral-600'}`} />
+  )
+  const scopes: { key: BulkScope; label: string; count: number }[] = [
+    { key: 'all', label: 'Bütün arşiv', count: total },
+    ...(visible !== null ? [{ key: 'visible' as const, label: 'Görünen kayıtlar (filtre/arama)', count: visible }] : []),
+    ...(selected > 0 ? [{ key: 'selected' as const, label: 'Seçili kayıtlar', count: selected }] : []),
+  ]
+
+  return (
+    <div className="relative">
+      <ToolbarIconButton onClick={toggle} title="Genel Güncelleme — TMDB'den toplu doldur ya da bölümleri yenile" active={open}>
+        <BulkRefreshIcon />
+      </ToolbarIconButton>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-11 z-40 w-[20rem] max-w-[calc(100vw-2rem)] bg-neutral-900 border border-neutral-800 rounded-xl shadow-lg p-3 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-neutral-100">Genel Güncelleme</p>
+              <p className="text-xs text-neutral-500 mt-0.5">TMDB'den ne gelsin, hangi kayıtlara?</p>
+            </div>
+            <div className="space-y-1.5">
+              <button onClick={() => setMode('fill')} className={choice(mode === 'fill')}>
+                <span className="flex gap-2.5">
+                  {dot(mode === 'fill')}
+                  <span>
+                    <span className="block text-sm text-neutral-200">{overwrite ? 'Bütün bilgileri güncelle' : 'Eksik bilgileri doldur'}</span>
+                    <span className="block text-[11px] text-neutral-500 leading-snug">
+                      {overwrite
+                        ? '"Dolu alanları da güncelle" açık: dolu alanların üzerine de TMDB\'nin güncel bilgisi yazılır'
+                        : 'Poster, sinopsis, ülke… boş olanlar dolar (dişli menüsünde açık alanlar)'}
+                    </span>
+                  </span>
+                </span>
+              </button>
+              <button onClick={() => setMode('bolum')} className={choice(mode === 'bolum')}>
+                <span className="flex gap-2.5">
+                  {dot(mode === 'bolum')}
+                  <span>
+                    <span className="block text-sm text-neutral-200">Sadece bölümleri yenile</span>
+                    <span className="block text-[11px] text-neutral-500 leading-snug">
+                      Dizilerin sezon/bölüm listesi yenilenir, yeni çıkan bölümler gelir. Başka hiçbir şey değişmez; filmler atlanır.
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </div>
+            {scopes.length > 1 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-neutral-500 mb-1.5">Hangi kayıtlar?</p>
+                <div className="space-y-1">
+                  {scopes.map((s) => (
+                    <button key={s.key} onClick={() => setScope(s.key)} className={choice(scope === s.key)}>
+                      <span className="flex items-center gap-2.5">
+                        {dot(scope === s.key)}
+                        <span className="flex-1 text-sm text-neutral-200">{s.label}</span>
+                        <span className="text-xs text-neutral-500 tabular-nums">{s.count}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                setOpen(false)
+                onStart(mode, scopes.some((s) => s.key === scope) ? scope : 'all')
+              }}
+              style={primaryButtonStyle}
+              className={`w-full text-sm px-3 py-2 rounded-lg ${PRIMARY_BUTTON}`}
+            >
+              Başlat
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Toolbar ikon butonları (arama/filtre/sırala) için ortak görünüm — ikisi de "kapalıyken
 // ikon, tıklanınca genişleyen" mantığıyla çalışıyor (bkz. GlobalSearch.tsx'teki aynı desen).
 // Kullanıcı ikonların ne işe yaradığının belli olmadığını söyleyince (26 Eylül 2026) üzerine gelince
@@ -819,6 +931,8 @@ export default function BoardView() {
   // Python scriptlerindeki `time.sleep` mantığıyla aynı sebep) — bu yüzden uzun sürebilir,
   // istediği an durdurabilsin diye bulkCancelRef ile iptal edilebiliyor.
   const [bulkUpdating, setBulkUpdating] = useState(false)
+  // Tabloda seçili satırlar (BoardTable bildiriyor) — Genel Güncelleme menüsündeki "Seçili kayıtlar" için.
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([])
   // Arşiv geçmişi penceresi (row verilirse sadece o kaydın geçmişi).
   const [historyFor, setHistoryFor] = useState<{ row: Row | null } | null>(null)
   const bulkCancelRef = useRef(false)
@@ -826,7 +940,7 @@ export default function BoardView() {
   // tarayıcıda saklanıyor — durdurunca, sayfa yenilenince ya da ARGUS kapanıp açılınca da devam edilebilsin.
   const [bulk, setBulk] = useState<BulkState | null>(null)
   const bulkResumeKey = id ? `argus_bulk_resume_${id}` : null
-  type BulkSaved = { ids: string[]; done: number; total: number; updated: number; failed: number; exclude: string[]; overwrite: boolean }
+  type BulkSaved = { ids: string[]; done: number; total: number; updated: number; failed: number; exclude: string[]; overwrite: boolean; label?: string }
   function readBulkSaved(): BulkSaved | null {
     try {
       const raw = bulkResumeKey ? localStorage.getItem(bulkResumeKey) : null
@@ -849,7 +963,7 @@ export default function BoardView() {
     const saved = readBulkSaved()
     setBulk(
       saved
-        ? { running: false, done: saved.done, total: saved.total, updated: saved.updated, failed: saved.failed, current: null, startedAt: Date.now(), sessionDone: 0, log: [] }
+        ? { running: false, done: saved.done, total: saved.total, updated: saved.updated, failed: saved.failed, current: null, startedAt: Date.now(), sessionDone: 0, log: [], label: saved.label }
         : null,
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1592,8 +1706,16 @@ export default function BoardView() {
   // ülke/yönetmen/fragmanından biri boş) her kaydı sırayla TMDB'den doldurur. "Dolu alanları da
   // güncelle" açıksa (tmdbOverwriteExisting) bunun yerine başlığı olan HER kayıt hedef olur —
   // eksik olsun olmasın, zaten dolu alanların üzerine de TMDB'nin güncel verisi yazılır.
-  async function handleBulkUpdate() {
+  // Kullanıcı "seçtiklerime / filtredekilere güncelleme, sadece bölüm yenileme var mı" dedi: `mode` 'bolum' ise
+  // sadece dizilerin sezon/bölüm listesi yenilenir (başka hiçbir alana dokunulmaz); `scope` hangi kayıtlar —
+  // bütün arşiv, şu an görünenler (filtre/arama) ya da tabloda seçilenler (`ids`).
+  async function handleBulkUpdate({ mode = 'fill', scope = 'all', ids }: { mode?: BulkMode; scope?: BulkScope; ids?: string[] } = {}) {
     if (!board || bulkUpdating) return
+    const pool = scope === 'selected' && ids ? rows.filter((r) => ids.includes(r.id)) : scope === 'visible' ? filteredRows : rows
+    if (mode === 'bolum') {
+      await startEpisodeRefresh(pool, scope)
+      return
+    }
     // Anahtar yoksa baştan bir kez söyle (eskiden onay penceresinden sonra her kayıt tek tek hata veriyordu)
     try {
       const { tmdbApiKey } = await api.getApiKey()
@@ -1604,9 +1726,17 @@ export default function BoardView() {
     } catch {
       // kontrol edilemediyse eskisi gibi devam
     }
-    const targets = tmdbOverwriteExisting ? rows.filter(hasTitleFilled) : rows.filter(isIncomplete)
+    // Seçilenlerde eksik olup olmadığına bakılmıyor — kullanıcı onları bilerek seçti (boş alanlar dolar,
+    // dizilerin bölümleri ve oyuncular yenilenir).
+    const picked = scope === 'selected'
+    const where = scope === 'visible' ? 'görünen ' : scope === 'selected' ? 'seçili ' : ''
+    const targets = tmdbOverwriteExisting || picked ? pool.filter(hasTitleFilled) : pool.filter(isIncomplete)
     if (targets.length === 0) {
-      notify(tmdbOverwriteExisting ? 'Başlığı dolu bir kayıt yok.' : 'Eksik görünen bir kayıt yok, hepsi dolu görünüyor.')
+      notify(
+        tmdbOverwriteExisting || picked
+          ? `${scope === 'selected' ? 'Seçili kayıtlarda' : scope === 'visible' ? 'Görünen kayıtlarda' : 'Arşivde'} başlığı dolu bir kayıt yok.`
+          : `${scope === 'visible' ? 'Görünen kayıtlarda' : 'Arşivde'} eksik görünen bir kayıt yok, hepsi dolu görünüyor.`,
+      )
       return
     }
     // Eksik sütun ya da kapatılmış alan varsa önce bilgilendirme penceresi (onay yerine geçer).
@@ -1652,9 +1782,11 @@ export default function BoardView() {
     } else if (
       !(await confirm({
       message: tmdbOverwriteExisting
-        ? `"Dolu alanları da güncelle" açık — ${targets.length} kaydın TÜMÜ (eksik olsun olmasın) TMDB'nin güncel verisiyle güncellenecek. Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`
-        : `${targets.length} kayıt eksik görünüyor (poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş). TMDB'den doldurulsun mu? Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`,
-      confirmLabel: 'Doldur',
+        ? `"Dolu alanları da güncelle" açık — ${where}${targets.length} kaydın TÜMÜ (eksik olsun olmasın) TMDB'nin güncel verisiyle güncellenecek. Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`
+        : picked
+          ? `Seçili ${targets.length} kayıt TMDB'den güncellensin mi? Boş alanlar doldurulur, yazdıkların ezilmez; dizilerin bölümleri de yenilenir.`
+          : `${scope === 'visible' ? 'Görünen kayıtlardan ' : ''}${targets.length} kayıt eksik görünüyor (poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş). TMDB'den doldurulsun mu? Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`,
+      confirmLabel: picked ? 'Güncelle' : 'Doldur',
       tone: tmdbOverwriteExisting ? 'danger' : 'info',
     }))
     )
@@ -1668,6 +1800,50 @@ export default function BoardView() {
       failed: 0,
       exclude: [...exclude],
       overwrite: tmdbOverwriteExisting,
+    })
+  }
+
+  // "Sadece bölümleri yenile": dizilerin sezon/bölüm listesi TMDB'den yeniden çekilir — yeni çıkan bölümler gelir.
+  // Dişli menüsündeki ayarlar hiç değişmeden, diğer bütün alanlar bu sefer için kapalı gönderiliyor.
+  async function startEpisodeRefresh(pool: Row[], scope: BulkScope) {
+    if (!board) return
+    let media: Record<string, 'movie' | 'tv'> = {}
+    try {
+      media = await api.getTmdbMediaTypes()
+    } catch {
+      // okunamazsa sadece Kategori'ye bakılır
+    }
+    // Dizi mi: TMDB eşleşmesi varsa ona, yoksa Kategori'ye ("Dizi", "Anime" dizisi…) bakılır.
+    const kategoriProp = resolveRole(board, 'kategori')
+    const isSeries = (r: Row) => {
+      if (media[r.id]) return media[r.id] === 'tv'
+      const v = kategoriProp ? r.values[kategoriProp.id] : undefined
+      const label = kategoriProp?.options?.find((o) => o.id === v)?.label ?? ''
+      return /dizi|anime/i.test(label)
+    }
+    const targets = pool.filter((r) => hasTitleFilled(r) && isSeries(r))
+    const where = scope === 'visible' ? 'Görünen kayıtlarda' : scope === 'selected' ? 'Seçili kayıtlarda' : 'Arşivde'
+    if (targets.length === 0) {
+      notify(`${where} dizi bulunamadı. (Dizi olduğu, TMDB eşleşmesinden ya da Kategori sütunundan anlaşılıyor.)`)
+      return
+    }
+    if (
+      !(await confirm({
+        message: `${scope === 'visible' ? 'Görünen ' : scope === 'selected' ? 'Seçili ' : ''}${targets.length} dizinin sezon/bölüm listesi TMDB'den yenilensin mi? Yeni çıkan bölümler gelir, başka hiçbir bilgi değişmez. İstediğin an "Durdur"a basabilirsin.`,
+        confirmLabel: 'Yenile',
+        tone: 'info',
+      }))
+    )
+      return
+    await runBulk({
+      ids: targets.map((r) => r.id),
+      done: 0,
+      total: targets.length,
+      updated: 0,
+      failed: 0,
+      exclude: FETCHABLE_FIELDS.map((f) => f.key).filter((k) => k !== 'sezonlar'),
+      overwrite: false,
+      label: 'Bölüm yenileme',
     })
   }
 
@@ -1696,6 +1872,7 @@ export default function BoardView() {
         startedAt,
         sessionDone,
         log: [...log],
+        label: state.label,
       })
     writeBulkSaved(state)
     push(null)
@@ -1754,6 +1931,7 @@ export default function BoardView() {
       startedAt,
       sessionDone,
       log: [...log],
+      label: state.label,
     })
     notify(
       `${stoppedEarly ? 'Durduruldu — ' : 'Tamamlandı — '}${state.updated} kayıt güncellendi${
@@ -1821,13 +1999,17 @@ export default function BoardView() {
           </button>
         </div>
       ) : bulk && bulk.done < bulk.total ? (
-        <ToolbarIconButton onClick={resumeBulk} title={`Devam et — Genel Güncelleme'nin kalan ${bulk.total - bulk.done} kaydı`} active>
+        <ToolbarIconButton onClick={resumeBulk} title={`Devam et — ${bulk.label ?? 'Genel Güncelleme'}: kalan ${bulk.total - bulk.done} kayıt`} active>
           <BulkRefreshIcon />
         </ToolbarIconButton>
       ) : (
-        <ToolbarIconButton onClick={handleBulkUpdate} title="Genel Güncelleme — eksik kayıtları TMDB'den doldur">
-          <BulkRefreshIcon />
-        </ToolbarIconButton>
+        <BulkUpdatePopover
+          total={rows.length}
+          visible={tableConditions.length > 0 || search.trim() ? filteredRows.length : null}
+          selected={selectedRowIds.length}
+          overwrite={tmdbOverwriteExisting}
+          onStart={(mode, scope) => handleBulkUpdate({ mode, scope, ids: selectedRowIds })}
+        />
       )}
 
       <ToolbarDivider />
@@ -1964,6 +2146,9 @@ export default function BoardView() {
           onShowRowHistory={(row) => setHistoryFor({ row })}
           onOpenDetail={setDetailRow}
           onBulkDeleteRows={bulkDeleteRows}
+          onSelectionChange={setSelectedRowIds}
+          onBulkUpdateRows={(ids, mode) => handleBulkUpdate({ mode, scope: 'selected', ids })}
+          bulkUpdating={bulkUpdating}
           onReorderProperties={reorderProperties}
           onSetCoverProperty={setCoverProperty}
           onSetTitleImageProperty={setTitleImageProperty}

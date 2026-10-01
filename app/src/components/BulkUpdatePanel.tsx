@@ -18,6 +18,8 @@ export interface BulkState {
   // Bu oturumda işlenen kayıt sayısı (kalan süre tahmini için; devam edilince sıfırdan sayılır).
   sessionDone: number
   log: BulkLogEntry[]
+  // Başlıktaki iş adı (ör. "Bölüm yenileme"); yoksa "Genel Güncelleme".
+  label?: string
 }
 
 function formatEta(ms: number): string {
@@ -49,7 +51,7 @@ export default function BulkUpdatePanel({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex-1 min-w-[14rem]">
           <p className="text-sm font-semibold text-neutral-100">
-            {state.running ? 'Genel Güncelleme sürüyor' : left > 0 ? 'Genel Güncelleme durduruldu' : 'Genel Güncelleme bitti'}
+            {state.label ?? 'Genel Güncelleme'} {state.running ? 'sürüyor' : left > 0 ? 'durduruldu' : 'bitti'}
             <span className="ml-2 font-normal text-neutral-400 tabular-nums">
               {state.done}/{state.total} · %{pct}
             </span>

@@ -1994,3 +1994,59 @@ export function MukerrerVisual() {
     </Frame>
   )
 }
+
+// ---- v1.13 ---------------------------------------------------------------------------------
+
+export function SecimliGuncellemeVisual() {
+  const radio = (x: number, y: number, on: boolean) => (
+    <circle cx={x} cy={y} r={3} fill={on ? ACCENT : 'none'} fillOpacity={on ? 0.4 : 1} stroke={on ? ACCENT : '#525252'} strokeWidth={1.2} />
+  )
+  return (
+    <Frame viewBox={VB}>
+      {/* tablo: seçim çubuğu + satırlar */}
+      <Box x={8} y={8} w={146} h={164} r={7} />
+      <rect x={8} y={8} width={146} height={34} rx={7} className="fill-neutral-800" />
+      <Label x={14} y={19} size={6.5}>2 kayıt seçili</Label>
+      <MiniButton x={12} y={25} w={70} text="Seçilenleri Güncelle" accent />
+      <MiniButton x={85} y={25} w={65} text="Bölümlerini Yenile" />
+      <Pin x={146} y={52} n={1} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={14} y={53 + i * 24} width={8} height={8} rx={2} fill={i < 2 ? ACCENT : 'none'} className={i < 2 ? '' : 'stroke-neutral-600'} strokeWidth={0.8} />
+          <Poster x={27} y={50 + i * 24} w={11} />
+          <Line x={44} y={54 + i * 24} w={60} />
+          <Line x={44} y={61 + i * 24} w={36} light />
+        </g>
+      ))}
+      {/* Genel Güncelleme menüsü */}
+      <Box x={162} y={8} w={150} h={164} r={7} strong />
+      <Label x={170} y={21} size={8}>Genel Güncelleme</Label>
+      <rect x={168} y={27} width={138} height={18} rx={4} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.7} />
+      {radio(176, 36, false)}
+      <Label x={183} y={38.5} size={6.5}>Eksik bilgileri doldur</Label>
+      <rect x={168} y={48} width={138} height={18} rx={4} fill={ACCENT} fillOpacity={0.1} stroke={ACCENT} strokeOpacity={0.6} strokeWidth={0.7} />
+      {radio(176, 57, true)}
+      <Label x={183} y={59.5} size={6.5}>Sadece bölümleri yenile</Label>
+      <NewTag x={262} y={51} />
+      <Pin x={300} y={76} n={2} />
+      <Label x={170} y={82} size={6} muted>HANGİ KAYITLAR?</Label>
+      {[
+        ['Bütün arşiv', '812'],
+        ['Görünen (filtre/arama)', '6'],
+        ['Seçili kayıtlar', '2'],
+      ].map(([t, n], i) => (
+        <g key={t}>
+          <rect x={168} y={87 + i * 17} width={138} height={14} rx={4} className={i === 1 ? '' : 'fill-neutral-900 stroke-neutral-700'} fill={i === 1 ? ACCENT : undefined} fillOpacity={i === 1 ? 0.1 : undefined} stroke={i === 1 ? ACCENT : undefined} strokeOpacity={i === 1 ? 0.6 : undefined} strokeWidth={0.7} />
+          {radio(176, 94 + i * 17, i === 1)}
+          <Label x={183} y={96.5 + i * 17} size={6.5}>{t}</Label>
+          <Label x={300} y={96.5 + i * 17} size={6} muted anchor="end">{n}</Label>
+        </g>
+      ))}
+      <Pin x={156} y={112} n={3} />
+      <rect x={168} y={143} width={138} height={18} rx={5} fill={ACCENT} />
+      <text x={237} y={155} fontSize={7.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        Başlat
+      </text>
+    </Frame>
+  )
+}

@@ -311,6 +311,7 @@ export const api = {
     request<{ runtimes: Record<string, number>; hours: number[]; timed: number; pending: { done: number; total: number } | null }>(
       profilePath(`/flashback/${boardId}?year=${year}`),
     ),
+  getTmdbMediaTypes: () => request<Record<string, 'movie' | 'tv'>>(profilePath('/tmdb-media')),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),
   saveKoleksiyon: (patch: KoleksiyonPatch) => request<KoleksiyonData>(profilePath('/koleksiyon'), { method: 'POST', ...json(patch) }),
   // İnternetteki bir görseli medya klasörüne indirir (Koleksiyon'da adres yapıştırarak sembol ekleme)

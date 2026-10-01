@@ -733,6 +733,11 @@ const BoardTable = forwardRef<
     // Toplu silme — seçim çubuğu tek bir onay soruyor (bkz. handleBulkDelete), bu yüzden
     // burası (tek satır silmenin aksine) kendi başına ayrıca sormuyor.
     onBulkDeleteRows: (rowIds: string[]) => Promise<void>
+    // Seçim değişince (Genel Güncelleme menüsündeki "Seçili kayıtlar" için) ve seçim çubuğundaki
+    // "Seçilenleri Güncelle" / "Bölümlerini Yenile" — onayı BoardView soruyor.
+    onSelectionChange?: (rowIds: string[]) => void
+    onBulkUpdateRows?: (rowIds: string[], mode: 'fill' | 'bolum') => void
+    bulkUpdating?: boolean
     onReorderProperties: (orderedPropertyIds: string[]) => void
     onSetCoverProperty: (propertyId: string | null) => void
     onSetTitleImageProperty: (propertyId: string | null) => void
@@ -777,6 +782,9 @@ const BoardTable = forwardRef<
     onOpenDetail,
     onShowRowHistory,
     onBulkDeleteRows,
+    onSelectionChange,
+    onBulkUpdateRows,
+    bulkUpdating,
     onReorderProperties,
     onSetCoverProperty,
     onSetTitleImageProperty,
@@ -885,6 +893,11 @@ const BoardTable = forwardRef<
       return next.size === prev.size ? prev : next
     })
   }, [rows])
+
+  useEffect(() => {
+    onSelectionChange?.([...selectedRowIds])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRowIds])
 
   function toggleSelectRow(rowId: string) {
     setSelectedRowIds((prev) => {
@@ -1190,6 +1203,27 @@ const BoardTable = forwardRef<
           >
             Seçimi Temizle
           </button>
+          {onBulkUpdateRows && (
+            <>
+              <button
+                onClick={() => onBulkUpdateRows([...selectedRowIds], 'fill')}
+                disabled={bulkUpdating}
+                title="Seçili kayıtları TMDB'den güncelle (boş alanlar dolar, dizilerin bölümleri yenilenir)"
+                className="flex items-center gap-1.5 text-sm text-[#00c0fa] hover:bg-[#00c0fa]/10 rounded-lg px-3 py-1.5 transition disabled:opacity-50"
+              >
+                <RefreshIcon />
+                Seçilenleri Güncelle
+              </button>
+              <button
+                onClick={() => onBulkUpdateRows([...selectedRowIds], 'bolum')}
+                disabled={bulkUpdating}
+                title="Seçili dizilerin sadece sezon/bölüm listesini yenile"
+                className="text-sm text-neutral-300 hover:text-[#00c0fa] hover:bg-neutral-800 rounded-lg px-3 py-1.5 transition disabled:opacity-50"
+              >
+                Bölümlerini Yenile
+              </button>
+            </>
+          )}
           <button
             onClick={handleBulkDelete}
             disabled={bulkDeleting}
