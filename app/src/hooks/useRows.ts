@@ -10,11 +10,20 @@ function byCreatedAtAsc(a: Row, b: Row) {
   return rowOrder(a) - rowOrder(b)
 }
 
+function changedKeys(before: Row['values'], after: Row['values']): string[] {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)])
+  return [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+}
+
 export function useRows(boardId: string | undefined) {
   const { activeProfileId } = useProfiles()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const loadedKey = useRef<string | null>(null)
+  const rowsRef = useRef(rows)
+  useEffect(() => {
+    rowsRef.current = rows
+  }, [rows])
 
   const reload = useCallback(() => {
     // bkz. useBoard.ts'teki aynı düzeltme — boardId yokken loading sonsuza dek true kalmasın.
@@ -54,7 +63,11 @@ export function useRows(boardId: string | undefined) {
 
   async function saveRow(row: Omit<Row, 'id'>, id?: string) {
     if (!boardId) return undefined
-    const saved = id ? await api.updateRow(boardId, id, row) : await api.createRow(boardId, row)
+    // Elimizdeki kopyaya göre sadece değişen sütunlar gönderiliyor; arada sunucuda (ör. Genel Güncelleme)
+    // dolan diğer alanlar ezilmesin.
+    const prev = id ? rowsRef.current.find((r) => r.id === id) : undefined
+    const changed = prev ? changedKeys(prev.values, row.values) : undefined
+    const saved = id ? await api.updateRow(boardId, id, row, changed) : await api.createRow(boardId, row)
     setRows((prev) => {
       const next = id ? prev.map((r) => (r.id === id ? saved : r)) : [saved, ...prev]
       return [...next].sort(byCreatedAtAsc)

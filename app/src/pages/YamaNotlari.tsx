@@ -51,6 +51,8 @@ import {
   YedekVisual,
   SeriKisiVisual,
   SecimliGuncellemeVisual,
+  TarihBilinmiyorVisual,
+  SaglikTarihVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 interface PatchEntry {
@@ -64,6 +66,23 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.13.1',
+    date: '1 Ekim 2026',
+    title: 'Tarihini hatırlamadığın izlemeler, Sağlık Kontrolü\'nde durum/tarih uyumsuzlukları ve önemli düzeltmeler',
+    items: [
+      'İzleme Tarihi seçicisinde "Sadece yıl" var: gününü hatırlamıyorsan sadece yılını yaz (ör. 2019). Tabloda "2019 yılında" diye görünür; İstatistikler\'de ve Flashback\'te o yılın sayılarına girer, Takvim\'de ise bir güne konmaz. Sonradan günü hatırlarsan kutucuğa tıklayıp güne tıklaman yeterli.',
+      'Yılını da hatırlamıyorsan "Hatırlamıyorum": kayıt İzlendi olarak kalır, tabloda "Tarih bilinmiyor" yazar, bir daha "tarihi yok" diye sorulmaz. Takvim\'e ve yıllık sayımlara girmez.',
+      'Sağlık Kontrolü\'nde iki yeni bölüm: "İzlendi ama izleme tarihi yok" (bunlar Takvim, İstatistikler ve Flashback\'te görünmüyordu — kayda tıklayıp tarih ya da yıl yazabilir, ya da tek tıkla "Hatırlamıyorum" diyebilirsin) ve "İzlenecek ama izleme tarihi var" (tek tıkla ya da hepsini birden İzlendi yap).',
+      'Düzeltme: Gece 00:00 ile 03:00 arası "Bugün izledim" / "Bugün" dünün tarihini yazıyordu (bölüm işaretlerinde, detay penceresinde, Ne İzlesem\'de, Keşfet\'te). Artık bilgisayarının saatine göre doğru gün yazılıyor.',
+      'Düzeltme: Genel Güncelleme sürerken tabloda bir hücreyi değiştirince, o satıra TMDB\'den az önce gelen bilgiler (afiş, oyuncular, süre…) silinebiliyordu. Artık sadece değiştirdiğin hücre kaydediliyor, gerisine dokunulmuyor.',
+      'Verilerin daha güvende: bir dosya o an okunamazsa (ör. başka bir program kilitlediyse) ARGUS onu boş sanıp üstüne yazmıyor, "kaydedilmedi" diyor — arşivin silinmesi gibi bir şey olamıyor. ARGUS\'a da artık sadece bu bilgisayardaki ARGUS ulaşabiliyor (tarayıcıda açık başka siteler ya da ağdaki başka cihazlar değil).',
+    ],
+    visuals: [
+      { caption: '1 tarih seçicide Sadece yıl / Hatırlamıyorum · 2 yılı yazıp Ekle · 3 tabloda "2019 yılında" ve "Tarih bilinmiyor"', Visual: TarihBilinmiyorVisual },
+      { caption: 'Sağlık Kontrolü: 1 İzlendi ama tarihi yok — tek tek ya da hepsine Hatırlamıyorum · 2 İzlenecek ama tarihi var — İzlendi yap', Visual: SaglikTarihVisual },
+    ],
+  },
   {
     version: 'v1.13',
     date: '1 Ekim 2026',

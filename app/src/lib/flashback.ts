@@ -131,9 +131,12 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
   const episodeDates = new Map<string, string[]>()
 
   const touch = (row: Row, date: string) => {
-    days.add(date)
-    months[Number(date.slice(5, 7)) - 1]++
-    dayTitle.add(`${date}|${row.id}`)
+    // "Sadece yıl" (2019) izlemeler yılın sayımına girer ama gün/ay istatistiklerine girmez.
+    if (date.length >= 10) {
+      days.add(date)
+      months[Number(date.slice(5, 7)) - 1]++
+      dayTitle.add(`${date}|${row.id}`)
+    }
     let t = info.get(row.id)
     if (!t) {
       const rel = vizyonProp ? String(row.values[vizyonProp.id] ?? '').slice(0, 4) : ''
@@ -163,7 +166,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
       if (!end.startsWith(year)) return
       touch(row, end)
       const start = parseEntry(e).start
-      if (start.startsWith(year)) days.add(start)
+      if (start.startsWith(year) && start.length >= 10) days.add(start)
       if (series) seriesFinished++
       else {
         films++

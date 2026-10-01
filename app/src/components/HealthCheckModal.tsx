@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { Board, PropertyDef, Row } from '../types'
+import type { Board, PropertyDef, PropertyValue, Row } from '../types'
 import { titleText } from '../types'
 import { api } from '../lib/api'
 import { BRAND_GRADIENT } from '../lib/theme'
 import { HealthIcon } from './toolbarIcons'
-import { resolveRole } from '../lib/roles'
+import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { toEntries, UNKNOWN_DATE } from '../lib/dateRange'
 import { useToast } from '../hooks/useToast'
 import { useEscape } from '../hooks/useEscape'
 
@@ -29,6 +30,7 @@ export default function HealthCheckModal({
   onOpenRow,
   onMerge,
   onIgnoreDuplicate,
+  onSetValues,
   onClose,
 }: {
   board: Board
@@ -51,6 +53,8 @@ export default function HealthCheckModal({
   onMerge: (keepId: string, removeIds: string[]) => Promise<void>
   // "Bunlar farklı" — bu grup bir daha mükerrer diye gösterilmez (board.duplicateIgnore).
   onIgnoreDuplicate: (rowIds: string[]) => void
+  // Kayıtlara toplu değer yazma (durum/izleme tarihi uyumsuzluklarını düzeltmek için)
+  onSetValues: (changes: { rowId: string; values: Record<string, PropertyValue> }[]) => Promise<void>
   onClose: () => void
 }) {
   useEscape(true, onClose)
@@ -190,6 +194,29 @@ export default function HealthCheckModal({
     }
   }
 
+  // Durum ile izleme tarihi uyuşmayanlar: "İzlendi" ama hiç tarihi yok (takvim/istatistik/Flashback'te
+  // görünmüyor) ve "İzlenecek" ama izleme tarihi girilmiş (muhtemelen izlenmiş).
+  const durumProp = resolveRole(board, 'durum')
+  const dateProp = resolveRole(board, 'izlemeTarihi')
+  const izlendiId = resolveStatusOption(board, 'izlendi')
+  const izlenecekId = resolveStatusOption(board, 'izlenecek')
+  const izlendiLabel = durumProp?.options?.find((o) => o.id === izlendiId)?.label ?? 'İzlendi'
+  const izlenecekLabel = durumProp?.options?.find((o) => o.id === izlenecekId)?.label ?? 'İzlenecek'
+  const hasDates = (r: Row) => (dateProp ? toEntries(r.values[dateProp.id]).length > 0 : false)
+  const watchedNoDate = durumProp && dateProp && izlendiId ? rows.filter((r) => r.values[durumProp.id] === izlendiId && !hasDates(r)) : []
+  const todoWithDate = durumProp && dateProp && izlenecekId ? rows.filter((r) => r.values[durumProp.id] === izlenecekId && hasDates(r)) : []
+  const [fixing, setFixing] = useState(false)
+  async function fix(changes: { rowId: string; values: Record<string, PropertyValue> }[]) {
+    setFixing(true)
+    try {
+      await onSetValues(changes)
+    } finally {
+      setFixing(false)
+    }
+  }
+  const unknownDate = (r: Row) => ({ rowId: r.id, values: { [dateProp!.id]: dateProp!.type === 'multidate' ? [UNKNOWN_DATE] : UNKNOWN_DATE } })
+  const markWatched = (r: Row) => ({ rowId: r.id, values: { [durumProp!.id]: izlendiId! } })
+
   const ignoredByRow = new Map<string, { row: Row; props: PropertyDef[] }>()
   for (const x of shownIgnored) {
     const e = ignoredByRow.get(x.row.id)
@@ -220,7 +247,9 @@ export default function HealthCheckModal({
         </p>
         {(() => {
           // Özet: en az bir sorunu olan kayıt sayısı (aynı kayıt iki listede olsa da bir kez sayılır).
-          const problem = new Set([...missingImageRows, ...incompleteRows, ...dupGroups.flatMap((g) => g.slice(1))].map((r) => r.id)).size
+          const problem = new Set(
+            [...missingImageRows, ...incompleteRows, ...dupGroups.flatMap((g) => g.slice(1)), ...watchedNoDate, ...todoWithDate].map((r) => r.id),
+          ).size
           const healthy = rows.length ? Math.round(((rows.length - problem) / rows.length) * 100) : 100
           return (
             <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 mb-5">
@@ -252,6 +281,62 @@ export default function HealthCheckModal({
               setDuplicates((prev) => prev.filter((ids) => !ids.includes(g[0].id)))
             }}
           />
+          {durumProp && dateProp && (
+            <>
+              <HealthSection
+                title={`${izlendiLabel} ama izleme tarihi yok`}
+                hint={`Bunlar Takvim'de, İstatistikler'de ve Flashback'te görünmüyor. Kayda tıklayıp tarihi ya da "Sadece yıl" ile yılını yazabilirsin; hiç hatırlamıyorsan "Hatırlamıyorum".`}
+                count={watchedNoDate.length}
+                filters={
+                  watchedNoDate.length > 1 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      <button
+                        disabled={fixing}
+                        onClick={() => fix(watchedNoDate.map(unknownDate))}
+                        className="text-xs rounded-full px-2.5 py-1 border border-dashed border-neutral-600 text-neutral-300 hover:text-neutral-50 hover:border-neutral-400 transition disabled:opacity-50"
+                      >
+                        Hiçbirini hatırlamıyorum ({watchedNoDate.length} kayıt)
+                      </button>
+                    </div>
+                  )
+                }
+                items={watchedNoDate.map((row) => ({
+                  key: row.id,
+                  row,
+                  label: rowTitle(row),
+                  tags: [],
+                  action: { label: 'Hatırlamıyorum', title: 'Tarih bilinmiyor olarak işaretle, bir daha sorulmaz', disabled: fixing, onClick: () => fix([unknownDate(row)]) },
+                }))}
+                onOpenRow={onOpenRow}
+              />
+              <HealthSection
+                title={`${izlenecekLabel} ama izleme tarihi var`}
+                hint={`İzleme tarihi girilmiş ama durumu hâlâ ${izlenecekLabel}. Büyük ihtimalle izlemişsin.`}
+                count={todoWithDate.length}
+                filters={
+                  todoWithDate.length > 1 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      <button
+                        disabled={fixing}
+                        onClick={() => fix(todoWithDate.map(markWatched))}
+                        className="text-xs rounded-full px-2.5 py-1 border border-dashed border-neutral-600 text-neutral-300 hover:text-neutral-50 hover:border-neutral-400 transition disabled:opacity-50"
+                      >
+                        Hepsini {izlendiLabel} yap ({todoWithDate.length} kayıt)
+                      </button>
+                    </div>
+                  )
+                }
+                items={todoWithDate.map((row) => ({
+                  key: row.id,
+                  row,
+                  label: rowTitle(row),
+                  tags: [],
+                  action: { label: `${izlendiLabel} yap`, disabled: fixing, onClick: () => fix([markWatched(row)]) },
+                }))}
+                onOpenRow={onOpenRow}
+              />
+            </>
+          )}
           <HealthSection
             title="Hiç görseli olmayan kayıtlar"
             hint="Hiçbir görsel sütununda (Poster, Banner, Kapak Adı...) değeri yok."
@@ -500,7 +585,14 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 }
 
 type HealthTag = { label: string; dismissTitle?: string; onDismiss?: () => void; undo?: boolean }
-type HealthItem = { key: string; row: Row; label: string; tags: HealthTag[] }
+type HealthItem = {
+  key: string
+  row: Row
+  label: string
+  tags: HealthTag[]
+  // Satırın sağında tek tıkla düzeltme düğmesi (ör. "İzlendi yap")
+  action?: { label: string; title?: string; disabled?: boolean; onClick: () => void }
+}
 
 // Her bölüm kapalı gelir (başlık + sayı), tıklayınca açılır — üç uzun liste alt alta tek
 // seferde dökülünce panel okunmaz oluyordu. Açıkken ilk MAX_SHOWN kayıt görünür, kalanlar
@@ -582,6 +674,16 @@ function HealthSection({
                       </span>
                     ))}
                   </span>
+                )}
+                {item.action && (
+                  <button
+                    onClick={item.action.onClick}
+                    disabled={item.action.disabled}
+                    title={item.action.title}
+                    className="shrink-0 text-[11px] text-[#7fdcff] border border-[#00c0fa]/50 hover:bg-[#00c0fa]/10 rounded px-1.5 py-0.5 transition disabled:opacity-50"
+                  >
+                    {item.action.label}
+                  </button>
                 )}
               </li>
             ))}

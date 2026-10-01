@@ -11,7 +11,7 @@ import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { rowMatchesConditions, type FilterCondition } from '../lib/filters'
 import { episodeKey, titleText, type Board, type EpisodesMap, type Row, type WatchedMap } from '../types'
-import { entryEnd, entryTouches, makeEntry, parseEntry, toEntries } from '../lib/dateRange'
+import { entryEnd, entryTouches, isFullDate, makeEntry, parseEntry, toEntries } from '../lib/dateRange'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from '../components/Select'
 import MultiFilterEditor from '../components/MultiFilterEditor'
@@ -90,7 +90,8 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
     // 1) İzleme tarihleri (tekrar izlemeler işaretli)
     if (dateProp) {
       const v = row.values[dateProp.id]
-      const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean).slice().sort()
+      // Günü bilinmeyenler ("2019", "?") takvimde gösterilmez (bkz. lib/dateRange.ts).
+      const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(isFullDate).slice().sort()
       // Dizilerde birden fazla tarih genelde başlama/bitirme ya da sezonlar — tekrar izleme sayılmıyor.
       const series = (episodes[row.id]?.length ?? 0) > 0 || /dizi/i.test(kategoriProp?.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '')
       dates.forEach((entry, i) => {
@@ -1058,10 +1059,13 @@ function DayPanel({
       return `Dizi · en son S${sn}B${en} (${shortDate(last.d)})`
     }
     const v = dateProp ? r.values[dateProp.id] : undefined
-    const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean).map(entryEnd).sort()
-    if (dates.length === 0) return 'Henüz izlemedin'
+    const all = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean)
+    const dates = all.filter(isFullDate).map(entryEnd).sort()
+    if (all.length === 0) return 'Henüz izlemedin'
     const onDay = toEntries(v).some((x) => entryTouches(x, date)) ? ' · bu gün zaten ekli' : ''
-    return `${dates.length === 1 ? 'İzledin' : `${dates.length} kez izledin`}, en son ${shortDate(dates[dates.length - 1])}${onDay}`
+    const times = all.length === 1 ? 'İzledin' : `${all.length} kez izledin`
+    if (dates.length === 0) return `${times} (tarihi bilinmiyor)${onDay}`
+    return `${times}, en son ${shortDate(dates[dates.length - 1])}${onDay}`
   }
 
   function rowButton(r: Row) {

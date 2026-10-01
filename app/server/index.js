@@ -22,23 +22,51 @@ for (const dir of [DATA_DIR, PROFILES_DIR, MEDYA_DIR]) fs.mkdirSync(dir, { recur
 
 const PROFILE_FILE = path.join(DATA_DIR, 'profile.json')
 
+// Var olduğu halde okunamayan dosyalar (bozuk ya da o an antivirüs/başka program kilitlemiş). Böyle bir
+// dosya "boş" sayılıp okunduysa, o boş hali dosyanın üstüne YAZILMIYOR — yoksa bütün arşiv silinebilirdi.
+// Dosya tekrar sağlıklı okununca yasak kalkıyor.
+const unreadableFiles = new Set()
+
 function readJson(file, fallback) {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf-8'))
-  } catch {
-    return fallback
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const data = JSON.parse(fs.readFileSync(file, 'utf-8'))
+      unreadableFiles.delete(file)
+      return data
+    } catch (e) {
+      if (e && e.code === 'ENOENT') {
+        unreadableFiles.delete(file)
+        return fallback
+      }
+      // Kısa süreli kilitler için birkaç kez kısa aralıkla yeniden dene.
+      if (attempt < 4) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 40)
+        continue
+      }
+      unreadableFiles.add(file)
+      console.error(`Dosya okunamadı (üzerine yazılmayacak): ${file} — ${e && e.message}`)
+      return fallback
+    }
+  }
+}
+
+function assertWritable(file) {
+  if (unreadableFiles.has(file)) {
+    throw new Error(`${path.basename(file)} okunamadığı için kaydedilmedi — verin korunuyor. ARGUS'u yeniden başlatıp tekrar dene.`)
   }
 }
 
 // Önce geçici dosyaya yazıp sonra yerine koyuyoruz: yazma sırasında ARGUS kapanırsa (ör.
 // "Şimdi Güncelle" ile yeniden başlarken) asıl dosya yarım kalmasın, eski hali sağlam dursun.
 function writeJson(file, data) {
+  assertWritable(file)
   // Arşiv geçmişi: kayıt/şema dosyasıysa eski haliyle karşılaştırıp değişiklikleri kaydeder (bkz. history.js).
   beforeWrite(file, data)
   rawWriteJson(file, data)
 }
 
 function rawWriteJson(file, data) {
+  assertWritable(file)
   const text = JSON.stringify(data, null, 2)
   const tmp = `${file}.${process.pid}.tmp`
   try {
@@ -51,6 +79,12 @@ function rawWriteJson(file, data) {
     } catch {}
     fs.writeFileSync(file, text, 'utf-8')
   }
+}
+
+// Bilgisayarın kendi saatine göre bugünün tarihi ("YYYY-MM-DD"). toISOString dünya saatini (UTC) verir:
+// Türkiye'de gece 00:00–03:00 arası bir önceki günü gösteriyordu.
+function localDay(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function makeId() {
@@ -130,8 +164,23 @@ function migrateFlatDataToFirstProfile() {
 }
 migrateFlatDataToFirstProfile()
 
+// Beklenmedik bir hata (ör. yukarıdaki "okunamadı, kaydedilmedi") sunucuyu kapatmasın.
+process.on('unhandledRejection', (e) => console.error('Hata:', e))
+
 const app = express()
-app.use(cors())
+// Sadece ARGUS'un kendi arayüzü (bu bilgisayardaki localhost) erişebilsin. Eskiden herkese açıktı:
+// ARGUS açıkken tarayıcıda açılan herhangi bir site arka planda kayıt silebilirdi; ağdaki başka bir
+// cihaz da ulaşabilirdi.
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (!LOCAL_HOST.test(req.headers.host || '') || (origin && !LOCAL_ORIGIN.test(origin))) {
+    return res.status(403).json({ error: "Bu adresten ARGUS'a erişilemez." })
+  }
+  next()
+})
+app.use(cors({ origin: LOCAL_ORIGIN }))
 app.use(express.json({ limit: '15mb' }))
 app.use('/medya', express.static(MEDYA_DIR))
 
@@ -359,8 +408,25 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   const rowsFile = profileRowsFile(req.params.profileId, req.params.id)
   const rows = readJson(rowsFile, [])
   const idx = rows.findIndex((r) => r.id === req.params.rowId)
-  const saved = { ...req.body, id: req.params.rowId, updatedAt: Date.now() }
   const before = idx === -1 ? null : rows[idx]
+  let saved
+  if (before && Array.isArray(req.body?._changed)) {
+    // Arayüz sadece değiştirdiği sütunları bildiriyor (_changed): onları dosyadaki EN GÜNCEL halin üstüne
+    // işliyoruz. Eskiden arayüzdeki (belki eski) kopyanın tamamı yazılıyordu — Genel Güncelleme sürerken
+    // tabloda bir hücre değiştirilince o satıra TMDB'den az önce gelen afiş/oyuncu vb. siliniyordu.
+    const values = { ...before.values }
+    const incoming = req.body.values ?? {}
+    for (const k of req.body._changed) {
+      if (k in incoming) values[k] = incoming[k]
+      else delete values[k]
+    }
+    const { _changed, ...rest } = before
+    saved = { ...rest, values, id: req.params.rowId, updatedAt: req.body.updatedAt ?? Date.now() }
+    if ('sortKey' in req.body) saved.sortKey = req.body.sortKey
+  } else {
+    const { _changed, ...body } = req.body ?? {}
+    saved = { ...body, id: req.params.rowId, updatedAt: Date.now() }
+  }
   // Tablodaki sürükleyerek verilen sıra (sortKey): kaydı bilmeden kaydeden yerler (hücre düzenleme,
   // detay penceresi…) onu göndermiyor — silinmesin, korunuyor.
   if (before && before.sortKey !== undefined && !('sortKey' in req.body)) saved.sortKey = before.sortKey
@@ -615,8 +681,7 @@ function autoUnmarkSeriesWatched(profileId, rowId, before, after) {
 }
 
 function localToday() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return localDay()
 }
 
 // Kullanıcı "dizinin çıkmış bölümlerinin hepsine izleme tarihi girdim, durumu İzlendi'ye çeksin"
@@ -1597,7 +1662,7 @@ app.get('/api/profiles/:profileId/collection/:boardId/:rowId', async (req, res) 
     const loaded = loadBoardAndRows(profileId, boardId)
     if (!loaded) return res.json({ collection: null })
     const look = archiveLookup(profileId, loaded.board, loaded.rows)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     const parts = (col.data.parts ?? [])
       .filter((p) => p.release_date || p.id === ref.id)
       .sort((a, b) => (a.release_date || '9999').localeCompare(b.release_date || '9999'))
@@ -2065,7 +2130,7 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
     // denemesinde Baba 7. sıradaydı. Daha yüksek oy sınırı + henüz çıkmamışlar hariç.
     const params = { language: 'tr-TR', include_adult: 'false', 'vote_count.gte': sort === 'top' ? (type === 'tv' ? 500 : 2000) : 50 }
     if (sort === 'top') {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       params[type === 'tv' ? 'first_air_date.lte' : 'primary_release_date.lte'] = today
     }
     if (genreIds.length) params.with_genres = genreIds.join(',')
@@ -2073,8 +2138,8 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
     params.sort_by = sort === 'top' ? 'vote_average.desc' : sort === 'new' ? (type === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc') : 'popularity.desc'
     if (sort === 'new') {
       // "Yeni" = son iki yılda çıkmış ve bugüne kadar yayınlanmış (henüz çıkmamışlar değil).
-      const today = new Date().toISOString().slice(0, 10)
-      const twoYearsAgo = new Date(Date.now() - 2 * 365 * 864e5).toISOString().slice(0, 10)
+      const today = localDay()
+      const twoYearsAgo = localDay(new Date(Date.now() - 2 * 365 * 864e5))
       if (type === 'tv') {
         params['first_air_date.gte'] = twoYearsAgo
         params['first_air_date.lte'] = today
@@ -2237,7 +2302,11 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
     // En son ne zaman izledin: bölüm işaretleri ya da izleme tarihi
     const seen = watched[row.id] ?? {}
     const dv = dateProp ? row.values[dateProp.id] : null
-    const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : []).map((x) => String(x).split('/').pop())].filter(Boolean).sort()
+    const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : [])
+        .map((x) => String(x).split('/').pop())
+        // "Sadece yıl" (2019) yılın sonu sayılır; "Hatırlamıyorum" (?) hesaba katılmaz.
+        .map((d) => (/^\d{4}$/.test(d) ? `${d}-12-31` : d))
+        .filter((d) => /^\d{4}-/.test(d))].filter(Boolean).sort()
     // Ne izleme tarihi ne bölüm işareti varsa (ör. Notion'dan "Bitti" diye aktarılmış dizi) ölçü, kaydın ARGUS'a
     // eklendiği gün — yoksa yıllar önce çıkmış son bölüm "yeni" sayılıp dizi İzleniyor'a alınıyordu (yeni kullanıcı
     // denemesinde Game of Thrones, Sherlock… hepsi böyle oldu).
@@ -2320,7 +2389,7 @@ app.get('/api/profiles/:profileId/new-episodes/:boardId', async (req, res) => {
       const tracking = Object.values(seen).some((d) => d?.length > 0)
       const latestKey = `${st.last.season}-${st.last.episode}`
       const latestWatched = seen[latestKey]?.length > 0
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localDay()
       const daysFrom = (iso) => (iso ? Math.round((Date.parse(iso) - Date.parse(today)) / 864e5) : null)
       const sinceLatest = daysFrom(st.last.airDate)
       const untilNext = st.next ? daysFrom(st.next.airDate) : null
@@ -2561,6 +2630,12 @@ if (process.env.ARGUS_SERVE_UI) {
   const UI_PORT = Number(process.env.UI_PORT) || 5173
   app.listen(UI_PORT, () => console.log(`ARGUS arayüzü: http://localhost:${UI_PORT}`))
 }
+
+// Bir istekte hata çıkarsa (ör. "okunamadı, kaydedilmedi") arayüze anlaşılır mesajla dönsün.
+app.use((err, req, res, _next) => {
+  console.error('Hata:', err)
+  if (!res.headersSent) res.status(500).json({ error: err?.message || 'Sunucuda hata oluştu.' })
+})
 
 const PORT = Number(process.env.PORT) || 4000
 app.listen(PORT, () => {

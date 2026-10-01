@@ -253,8 +253,11 @@ export function rowOrder(row: Pick<Row, 'createdAt' | 'sortKey'>): number {
   return row.sortKey ?? row.createdAt
 }
 
+// Bilgisayarın kendi saatine göre bugün. Eskiden toISOString (dünya saati, UTC) kullanılıyordu:
+// gece 00:00–03:00 arası "bugün izledim" bir önceki günü yazıyordu.
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  const t = new Date()
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
 }
 
 export interface Profile {

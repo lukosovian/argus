@@ -351,7 +351,7 @@ export default function RowDetailModal({
   async function quickSave(patch: Record<string, PropertyValue>, message: string) {
     setQuickBusy(true)
     try {
-      await api.updateRow(board.id, row.id, { values: { ...row.values, ...patch }, createdAt: row.createdAt, updatedAt: Date.now() })
+      await api.updateRow(board.id, row.id, { values: { ...row.values, ...patch }, createdAt: row.createdAt, updatedAt: Date.now() }, Object.keys(patch))
       notifyDataChanged(board.id)
       notify(message, 'success')
     } catch {
