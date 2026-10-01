@@ -7,6 +7,20 @@ export interface DateEntry {
   end: string | null
 }
 
+// Günü bilinmeyen izlemeler: kullanıcı "tarihi hatırlamıyorum, belki yılı" dedi. Öğe sadece yıl ("2019")
+// ya da hiç bilinmiyorsa "?" olabilir. Günlere bakan yerler (Takvim, Geçmiş yıllarda bugün…) bunları
+// atlar; yıla bakanlar (İstatistikler, Flashback) yıllıları sayar.
+export const UNKNOWN_DATE = '?'
+export function isUnknownDate(s: string): boolean {
+  return s === UNKNOWN_DATE
+}
+export function isYearOnly(s: string): boolean {
+  return /^\d{4}$/.test(s)
+}
+export function isFullDate(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}/.test(s)
+}
+
 export function parseEntry(s: string): DateEntry {
   const [a, b] = String(s).split('/')
   if (b && b !== a) return a < b ? { start: a, end: b } : { start: b, end: a }
@@ -20,6 +34,7 @@ export function makeEntry(start: string, end?: string | null): string {
 
 // Bitiş (yoksa başlangıç) — "ne zaman izledin / bitirdin" sorularında kullanılan tarih.
 export function entryEnd(s: string): string {
+  if (isUnknownDate(s)) return ''
   const e = parseEntry(s)
   return e.end ?? e.start
 }
@@ -41,6 +56,8 @@ export function toEntries(v: unknown): string[] {
 
 // "12.08.24" ya da "09.08.24 → 12.08.24"; `fmt` tek günü biçimlendirir.
 export function formatEntry(s: string, fmt: (iso: string) => string): string {
+  if (isUnknownDate(s)) return 'Tarih bilinmiyor'
+  if (isYearOnly(s)) return `${s} yılında`
   const e = parseEntry(s)
   return e.end ? `${fmt(e.start)} → ${fmt(e.end)}` : fmt(e.start)
 }

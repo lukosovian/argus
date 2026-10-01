@@ -180,8 +180,12 @@ export const api = {
   getRows: (boardId: string) => request<Row[]>(profilePath(`/boards/${boardId}/rows`)),
   createRow: (boardId: string, data: Omit<Row, 'id'>) =>
     request<Row>(profilePath(`/boards/${boardId}/rows`), { method: 'POST', ...json(data) }),
-  updateRow: (boardId: string, id: string, data: Omit<Row, 'id'>) =>
-    request<Row>(profilePath(`/boards/${boardId}/rows/${id}`), { method: 'PUT', ...json(data) }),
+  // `changed`: sadece bu sütunlar kaydedilir, gerisi sunucudaki en güncel halinden kalır (bkz. server PUT).
+  updateRow: (boardId: string, id: string, data: Omit<Row, 'id'>, changed?: string[]) =>
+    request<Row>(profilePath(`/boards/${boardId}/rows/${id}`), {
+      method: 'PUT',
+      ...json(changed ? { ...data, _changed: changed } : data),
+    }),
   deleteRow: (boardId: string, id: string) =>
     request<{ ok: true }>(profilePath(`/boards/${boardId}/rows/${id}`), { method: 'DELETE' }),
   bulkAddRows: (boardId: string, items: Omit<Row, 'id'>[]) =>

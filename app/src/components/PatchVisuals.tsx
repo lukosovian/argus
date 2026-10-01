@@ -2050,3 +2050,94 @@ export function SecimliGuncellemeVisual() {
     </Frame>
   )
 }
+
+// ---- v1.13.1 -------------------------------------------------------------------------------
+
+// İzleme Tarihi seçicisinde "Sadece yıl" ve "Hatırlamıyorum"; tabloda nasıl göründükleri.
+export function TarihBilinmiyorVisual() {
+  const chip = (x: number, w: number, t: string) => (
+    <g>
+      <rect x={x} y={18} width={w} height={13} rx={6.5} className="fill-neutral-800" />
+      <text x={x + 6} y={27} fontSize={6} fontStyle="italic" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {t}
+      </text>
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={180} h={164} r={8} strong />
+      {chip(16, 56, '2019 yılında')}
+      {chip(76, 66, 'Tarih bilinmiyor')}
+      {/* küçük takvim (sade) */}
+      <Box x={16} y={38} w={164} h={62} r={5} />
+      {[0, 1, 2, 3].map((r) => (
+        <Line key={r} x={26} y={50 + r * 13} w={144} light />
+      ))}
+      <MiniButton x={16} y={108} w={30} text="Bugün" />
+      <MiniButton x={49} y={108} w={22} text="Dün" />
+      <MiniButton x={74} y={108} w={44} text="Sadece yıl" accent />
+      <MiniButton x={121} y={108} w={56} text="Hatırlamıyorum" accent />
+      <Pin x={180} y={104} n={1} />
+      <rect x={16} y={128} width={40} height={14} rx={3} className="fill-neutral-900 stroke-neutral-600" strokeWidth={0.7} />
+      <text x={22} y={138} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        2019
+      </text>
+      <rect x={60} y={128} width={26} height={14} rx={3} fill={ACCENT} />
+      <text x={73} y={138} fontSize={6.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        Ekle
+      </text>
+      <Label x={92} y={138} size={5.5} muted>günü bilinmiyor</Label>
+      <Pin x={150} y={124} n={2} />
+      {/* sağ: tablo hücreleri */}
+      <Box x={198} y={34} w={114} h={110} r={6} />
+      <Label x={206} y={48} size={6} muted>İZLEME TARİHİ</Label>
+      {['12.08.2024', '2019 yılında', 'Tarih bilinmiyor'].map((t, i) => (
+        <g key={t}>
+          <Line x={206} y={58 + i * 26} w={98} light />
+          <text x={206} y={72 + i * 26} fontSize={7} className={i ? 'fill-neutral-100' : 'fill-neutral-400'} style={{ fontFamily: 'inherit' }}>
+            {t}
+          </text>
+        </g>
+      ))}
+      <Pin x={306} y={92} n={3} />
+    </Frame>
+  )
+}
+
+// Sağlık Kontrolü'nde durum ile izleme tarihi uyuşmayanlar, tek tıkla düzeltme.
+export function SaglikTarihVisual() {
+  const section = (y: number, title: string, n: string, rows: string[], action: string, bulk: string) => (
+    <g>
+      <Box x={14} y={y} w={292} h={70} r={5} />
+      <Label x={22} y={y + 13} size={7}>{title}</Label>
+      <rect x={258} y={y + 5} width={40} height={11} rx={5.5} fill="#f59e0b" fillOpacity={0.12} />
+      <text x={278} y={y + 12.8} fontSize={5.5} textAnchor="middle" fill="#f59e0b" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {n}
+      </text>
+      <rect x={22} y={y + 20} width={bulk.length * 3.2 + 12} height={11} rx={5.5} fill="none" className="stroke-neutral-600" strokeDasharray="2 1.5" strokeWidth={0.6} />
+      <text x={28} y={y + 27.8} fontSize={5.3} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {bulk}
+      </text>
+      {rows.map((t, i) => (
+        <g key={t}>
+          <text x={22} y={y + 45 + i * 13} fontSize={6.3} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+            {t}
+          </text>
+          <rect x={244} y={y + 38 + i * 13} width={54} height={10} rx={2} fill="none" stroke={ACCENT} strokeOpacity={0.6} strokeWidth={0.6} />
+          <text x={271} y={y + 44.8 + i * 13} fontSize={5.2} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+            {action}
+          </text>
+        </g>
+      ))}
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <Box x={6} y={4} w={308} h={172} r={8} strong />
+      {section(12, 'İzlendi ama izleme tarihi yok', '124 kayıt', ['Esaretin Bedeli', 'Matrix'], 'Hatırlamıyorum', 'Hiçbirini hatırlamıyorum (124 kayıt)')}
+      <Pin x={10} y={14} n={1} />
+      {section(92, 'İzlenecek ama izleme tarihi var', '5 kayıt', ['JUNG_E', 'Ölümlü Dünya'], 'İzlendi yap', 'Hepsini İzlendi yap (5 kayıt)')}
+      <Pin x={10} y={94} n={2} />
+    </Frame>
+  )
+}

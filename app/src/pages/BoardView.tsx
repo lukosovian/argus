@@ -2263,6 +2263,17 @@ export default function BoardView() {
             setHealthOpen(false)
             setDetailRow(row)
           }}
+          onSetValues={async (changes) => {
+            try {
+              for (const c of changes) {
+                const r = rows.find((x) => x.id === c.rowId)
+                if (r) await saveRow({ values: { ...r.values, ...c.values }, createdAt: r.createdAt, updatedAt: Date.now() }, r.id)
+              }
+              notify(changes.length === 1 ? 'Kayıt düzeltildi.' : `${changes.length} kayıt düzeltildi.`, 'success')
+            } catch (e) {
+              notify(e instanceof Error ? e.message : 'Kaydedilemedi.', 'danger')
+            }
+          }}
           onMerge={async (keepId, removeIds) => {
             try {
               const res = await api.mergeRows(board.id, keepId, removeIds)

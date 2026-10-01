@@ -72,7 +72,7 @@ export default function PropertyValueInput({
 
   if (property.type === 'multidate') {
     const dates = Array.isArray(value) ? (value as string[]) : []
-    return <DateChipEditor dates={dates} onChange={onChange} allowRange />
+    return <DateChipEditor dates={dates} onChange={onChange} allowRange allowApprox />
   }
 
   if (property.type === 'checkbox') {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { makeEntry, parseEntry } from '../lib/dateRange'
+import { formatEntry, isFullDate, isUnknownDate, makeEntry, parseEntry, UNKNOWN_DATE } from '../lib/dateRange'
 
 const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 const TR_DAYS = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz']
@@ -153,11 +153,14 @@ export default function DateChipEditor({
   dates,
   onChange,
   allowRange = false,
+  allowApprox = false,
 }: {
   dates: string[]
   onChange: (dates: string[]) => void
   autoFocus?: boolean
   allowRange?: boolean
+  // "Sadece yıl" ve "Hatırlamıyorum" düğmeleri (İzleme Tarihi gibi alanlarda; bkz. lib/dateRange.ts)
+  allowApprox?: boolean
 }) {
   // Düzenlenen öğe (listede durur, yeni güne tıklanınca onun yerine geçer)
   const [editing, setEditing] = useState<string | null>(null)
@@ -165,9 +168,23 @@ export default function DateChipEditor({
   // Bitiş modunda seçilen başlangıç (ikinci tıklama bitişi seçer)
   const [pendingStart, setPendingStart] = useState<string | null>(null)
   const [calKey, setCalKey] = useState(0)
+  // "Sadece yıl" kutusu açık mı, içindeki yıl
+  const [yearOpen, setYearOpen] = useState(false)
+  const [yearText, setYearText] = useState('')
 
   const sorted = [...dates].sort()
-  const initial = editing ? parseEntry(editing).start : (sorted[sorted.length - 1]?.split('/').pop() ?? todayIso())
+  const lastFull = sorted.filter(isFullDate).pop()?.split('/').pop()
+  const editingYear = editing && !isFullDate(editing) && !isUnknownDate(editing) ? `${editing}-01-01` : null
+  const initial = editing && isFullDate(editing) ? parseEntry(editing).start : (editingYear ?? lastFull ?? todayIso())
+  const thisYear = new Date().getFullYear()
+  const yearNum = Number(yearText)
+  const yearValid = /^\d{4}$/.test(yearText) && yearNum >= 1900 && yearNum <= thisYear
+
+  function saveYear() {
+    if (!yearValid) return
+    save(String(yearNum))
+    setYearOpen(false)
+  }
 
   function save(entry: string) {
     const rest = dates.filter((x) => x !== editing && x !== entry)
@@ -222,11 +239,17 @@ export default function DateChipEditor({
                 }`}
               >
                 <button type="button" onClick={() => (active ? cancel() : startEdit(d))} title="Bu tarihi düzenle" className="hover:text-neutral-50 transition">
-                  {fmt(e.start)}
-                  {e.end && (
+                  {!isFullDate(d) ? (
+                    <span className="italic">{formatEntry(d, fmt)}</span>
+                  ) : (
                     <>
-                      <span className="text-neutral-500"> → </span>
-                      {fmt(e.end)}
+                      {fmt(e.start)}
+                      {e.end && (
+                        <>
+                          <span className="text-neutral-500"> → </span>
+                          {fmt(e.end)}
+                        </>
+                      )}
                     </>
                   )}
                 </button>
@@ -250,7 +273,9 @@ export default function DateChipEditor({
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-neutral-400 min-w-0">
           {editing
-            ? `${fmt(parseEntry(editing).start)}${parseEntry(editing).end ? ' → ' + fmt(parseEntry(editing).end!) : ''} düzenleniyor — yeni güne tıkla`
+            ? !isFullDate(editing)
+              ? `${formatEntry(editing, fmt)} — hatırladıysan güne tıkla`
+              : `${fmt(parseEntry(editing).start)}${parseEntry(editing).end ? ' → ' + fmt(parseEntry(editing).end!) : ''} düzenleniyor — yeni güne tıkla`
             : pendingStart
               ? `Başlangıç ${fmt(pendingStart)} — şimdi bitirdiğin güne tıkla`
               : rangeOn
@@ -284,7 +309,7 @@ export default function DateChipEditor({
         onPick={pick}
       />
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {!rangeOn &&
           [
             ['Bugün', 0],
@@ -299,12 +324,68 @@ export default function DateChipEditor({
               {label}
             </button>
           ))}
+        {allowApprox && !rangeOn && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setYearOpen((v) => !v)
+                setYearText(editingYear ? editingYear.slice(0, 4) : '')
+              }}
+              title="Gününü hatırlamıyorsan sadece yılını yaz"
+              className={`whitespace-nowrap text-[11px] rounded-md border px-2 py-1 transition ${
+                yearOpen ? 'border-[#00c0fa] text-[#7fdcff]' : 'border-neutral-700 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff]'
+              }`}
+            >
+              Sadece yıl
+            </button>
+            {!dates.includes(UNKNOWN_DATE) && (
+              <button
+                type="button"
+                onClick={() => save(UNKNOWN_DATE)}
+                title="Ne zaman izlediğini hiç hatırlamıyorsan — İzlendi sayılır, takvime ve yıllık sayımlara girmez"
+                className="whitespace-nowrap text-[11px] rounded-md border border-neutral-700 px-2 py-1 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] transition"
+              >
+                Hatırlamıyorum
+              </button>
+            )}
+          </>
+        )}
         {(editing || pendingStart) && (
           <button type="button" onClick={cancel} className="ml-auto text-[11px] text-neutral-400 hover:text-neutral-100">
             Vazgeç
           </button>
         )}
       </div>
+
+      {allowApprox && yearOpen && !rangeOn && (
+        <div className="flex items-center gap-1.5">
+          <input
+            autoFocus
+            inputMode="numeric"
+            maxLength={4}
+            value={yearText}
+            onChange={(e) => setYearText(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                saveYear()
+              }
+            }}
+            placeholder={`ör. ${thisYear - 5}`}
+            className="w-20 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none focus:border-[#00c0fa]"
+          />
+          <button
+            type="button"
+            disabled={!yearValid}
+            onClick={saveYear}
+            className="text-[11px] rounded-md bg-[#00c0fa] px-2.5 py-1 font-medium text-neutral-950 disabled:opacity-40 transition"
+          >
+            Ekle
+          </button>
+          <span className="text-[11px] text-neutral-500">Günü bilinmiyor, sadece yılı yazılır</span>
+        </div>
+      )}
     </div>
   )
 }
