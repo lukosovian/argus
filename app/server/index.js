@@ -1789,6 +1789,14 @@ async function fillKoleksiyonCollections(profileId, boardId, apiKey) {
   }
 }
 
+// Kayıt → TMDB'de film mi dizi mi (eşleşmesi olanlar). Arşivdeki "Sadece bölümleri yenile" sadece dizilere gitsin diye.
+app.get('/api/profiles/:profileId/tmdb-media', (req, res) => {
+  const refs = readJson(profileTmdbFile(req.params.profileId), {})
+  const out = {}
+  for (const [rowId, ref] of Object.entries(refs)) if (ref?.mediaType) out[rowId] = ref.mediaType
+  res.json(out)
+})
+
 app.get('/api/profiles/:profileId/koleksiyon/:boardId', (req, res) => {
   const { profileId, boardId } = req.params
   const loaded = loadBoardAndRows(profileId, boardId)

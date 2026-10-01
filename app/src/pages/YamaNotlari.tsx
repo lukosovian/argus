@@ -50,6 +50,7 @@ import {
   KoleksiyonRafVisual,
   YedekVisual,
   SeriKisiVisual,
+  SecimliGuncellemeVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 interface PatchEntry {
@@ -63,6 +64,21 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.13',
+    date: '1 Ekim 2026',
+    title: 'Güncellemeyi sadece seçtiklerine ya da filtredekilere yap; sadece bölümleri yenile',
+    items: [
+      'Arşiv tablosunda satırları seçince üstteki çubukta "Seçilenleri Güncelle" var: sadece seçtiğin kayıtlar TMDB\'den güncellenir (boş alanlar dolar, yazdıkların ezilmez, dizilerin bölümleri de yenilenir).',
+      'Aynı çubukta "Bölümlerini Yenile": seçtiğin dizilerin sadece sezon/bölüm listesi yenilenir, yeni çıkan bölümler gelir.',
+      'Genel Güncelleme düğmesine basınca artık küçük bir menü açılıyor. Önce ne yapılacağını seçiyorsun: "Eksik bilgileri doldur" (eskisi gibi) ya da "Sadece bölümleri yenile". Bölüm yenilemede filmler atlanıyor; afiş, sinopsis, oyuncular gibi başka hiçbir şey değişmiyor, dişli menüsündeki ayarların da olduğu gibi kalıyor.',
+      'Aynı menüde "Hangi kayıtlar?" da var: yukarıdaki hazır filtrelerden birini (ör. İzleniyor) seçtiysen, filtre ya da arama yaptıysan "Görünen kayıtlar" kendiliğinden seçili geliyor; satır seçtiysen "Seçili kayıtlar". İstersen yine "Bütün arşiv" diyebilirsin. Örneğin İzleniyor\'a basıp "Sadece bölümleri yenile" dersen sadece izlediğin dizilerin yeni bölümleri gelir.',
+      'Düzeltme: Takvim\'de sayfayı aşağı kaydırınca üstteki "Takvim" kutusu en üstteki menünün üzerine çıkıyor, menüye (arama, bildirimler, profil…) tıklanamıyordu. Artık menü hep üstte kalıyor; Filtre menüsü yine takvimin üstünde açılıyor.',
+    ],
+    visuals: [
+      { caption: '1 seçince çıkan çubukta Seçilenleri Güncelle / Bölümlerini Yenile · 2 Genel Güncelleme menüsünde sadece bölümler · 3 bütün arşiv, görünenler ya da seçililer', Visual: SecimliGuncellemeVisual },
+    ],
+  },
   {
     version: 'v1.12.1',
     date: '30 Eylül 2026',
