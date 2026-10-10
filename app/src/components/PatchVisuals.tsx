@@ -2141,3 +2141,56 @@ export function SaglikTarihVisual() {
     </Frame>
   )
 }
+
+// Detay penceresinde "Müzikler": Nook'un Hum'u izlerken bulduğu şarkılar, bölüm bölüm ve dakikasıyla.
+export function MuziklerVisual() {
+  const song = (y: number, at: string, title: string, artist: string, hover = false) => (
+    <g>
+      {hover && <rect x={14} y={y - 3} width={196} height={22} rx={4} className="fill-neutral-800" />}
+      <text x={44} y={y + 10} fontSize={7} textAnchor="end" fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {at}
+      </text>
+      <rect x={50} y={y} width={16} height={16} rx={3} className="fill-neutral-700" />
+      <text x={72} y={y + 7} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {title}
+      </text>
+      <text x={72} y={y + 15} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {artist}
+      </text>
+      {hover && (
+        <>
+          <MiniButton x={150} y={y + 2.5} w={26} text="Spotify" />
+          <MiniButton x={179} y={y + 2.5} w={26} text="YouTube" />
+        </>
+      )}
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={210} h={164} r={8} strong />
+      <Label x={16} y={26} size={10}>Müzikler</Label>
+      <Label x={64} y={26} size={6} muted>4 şarkı</Label>
+      <NewTag x={176} y={16} />
+      <Label x={16} y={42} size={5.5} muted>1. SEZON 1. BÖLÜM · PİLOT</Label>
+      {song(48, '5:12', 'Running Up That Hill', 'Kate Bush', true)}
+      {song(72, '31:14', 'Should I Stay or…', 'The Clash')}
+      <Label x={16} y={106} size={5.5} muted>1. SEZON 2. BÖLÜM</Label>
+      {song(112, '10:40', 'Africa', 'Toto')}
+      {song(136, '~49:10', 'Heroes', 'Peter Gabriel')}
+      <Pin x={14} y={54} n={1} />
+      <Pin x={208} y={44} n={2} />
+      {/* sağ: Nook izlerken dinliyor */}
+      <Box x={228} y={40} w={84} h={70} r={8} />
+      <circle cx={270} cy={66} r={14} className="fill-neutral-700" />
+      <circle cx={265} cy={63} r={2} className="fill-neutral-100" />
+      <circle cx={275} cy={63} r={2} className="fill-neutral-100" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x={252 + i * 8} y={86 - [4, 9, 6, 11, 5][i]} width={4} height={[4, 9, 6, 11, 5][i] * 2} rx={2} fill={ACCENT} fillOpacity={0.7} />
+      ))}
+      <Label x={270} y={104} size={5.5} anchor="middle" muted>izlerken dinliyor</Label>
+      <Pin x={306} y={44} n={3} />
+      <Label x={270} y={128} size={6} anchor="middle">Nook · Hum</Label>
+      <Label x={270} y={138} size={5} anchor="middle" muted>şarkıyı bulup yazar</Label>
+    </Frame>
+  )
+}

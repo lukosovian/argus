@@ -112,6 +112,9 @@ function profileEpisodesFile(profileId) {
 function profileWatchedFile(profileId) {
   return path.join(profileDir(profileId), 'watched.json')
 }
+function profileSongsFile(profileId) {
+  return path.join(profileDir(profileId), 'songs.json')
+}
 function profileRowsFile(profileId, boardId) {
   return path.join(profileDir(profileId), 'rows', `${boardId}.json`)
 }
@@ -630,6 +633,80 @@ app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
     if (row && shouldAskRating(req.params.profileId, autoWatched.boardId, null, row)) setAskRating(res, autoWatched.boardId, row.id)
   }
   res.json({ ok: true, autoWatched, autoWatching })
+})
+
+// İçerikteki müzikler: kullanıcı "Nook'un Hum'u izlediğim dizilerin filmlerin içindeki müzikleri bulsun,
+// hangi dakikada hangi müzik çaldığı detay penceresinde yazsın" dedi. Nook izlerken çalan şarkıyı tanıyıp
+// buraya yazıyor; elle de silinebiliyor. songs.json: { [rowId]: Song[] } — Song: { id, key (Shazam kimliği),
+// title, artist, album?, cover?, url?, season?, episode?, atMs (içeriğin kaçıncı ms'si; bilinmiyorsa null),
+// approx, foundAt }.
+const SONG_SAME_WINDOW_MS = 5 * 60 * 1000
+
+function cleanText(v, max = 200) {
+  return typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null
+}
+function cleanUrl(v) {
+  const s = cleanText(v, 1000)
+  return s && /^https:\/\//i.test(s) ? s : null
+}
+function cleanInt(v) {
+  return Number.isInteger(v) && v >= 0 ? v : null
+}
+
+app.get('/api/profiles/:profileId/songs/:rowId', (req, res) => {
+  res.json(readJson(profileSongsFile(req.params.profileId), {})[req.params.rowId] ?? [])
+})
+
+app.post('/api/profiles/:profileId/songs/:rowId', (req, res) => {
+  const b = req.body ?? {}
+  const key = cleanText(b.key, 64)
+  const title = cleanText(b.title)
+  const artist = cleanText(b.artist)
+  if (!key || !title) return res.status(400).json({ error: 'Şarkı bilgisi eksik' })
+  const season = cleanInt(b.season)
+  const episode = season !== null ? cleanInt(b.episode) : null
+  const atMs = cleanInt(b.atMs)
+  const file = profileSongsFile(req.params.profileId)
+  const all = readJson(file, {})
+  const list = Array.isArray(all[req.params.rowId]) ? all[req.params.rowId] : []
+  // Aynı şarkı aynı bölümde birkaç dakika içinde yeniden bulunduysa (hâlâ çalıyor) tekrar eklenmez
+  const same = list.find(
+    (s) =>
+      s.key === key &&
+      (s.season ?? null) === season &&
+      (s.episode ?? null) === episode &&
+      (atMs === null || s.atMs === null || Math.abs(s.atMs - atMs) < SONG_SAME_WINDOW_MS),
+  )
+  if (same) return res.json({ ok: true, duplicate: true, song: same })
+  const song = {
+    id: makeId(),
+    key,
+    title,
+    artist: artist ?? '',
+    album: cleanText(b.album),
+    cover: cleanUrl(b.cover),
+    url: cleanUrl(b.url),
+    season,
+    episode,
+    atMs,
+    // Oynatıcı konum vermediyse dakika, izlenen süreden tahmin (ekranda "~" ile)
+    approx: atMs !== null && b.approx === true,
+    foundAt: Date.now(),
+  }
+  all[req.params.rowId] = [...list, song]
+  writeJson(file, all)
+  res.json({ ok: true, duplicate: false, song })
+})
+
+app.delete('/api/profiles/:profileId/songs/:rowId/:songId', (req, res) => {
+  const file = profileSongsFile(req.params.profileId)
+  const all = readJson(file, {})
+  const list = Array.isArray(all[req.params.rowId]) ? all[req.params.rowId] : []
+  const next = list.filter((s) => s.id !== req.params.songId)
+  if (next.length) all[req.params.rowId] = next
+  else delete all[req.params.rowId]
+  writeJson(file, all)
+  res.json({ ok: true })
 })
 
 // Yayınlanmış bölümlerin anahtarları (episodes.json'a göre) — yoksa null.

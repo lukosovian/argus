@@ -53,6 +53,7 @@ import {
   SecimliGuncellemeVisual,
   TarihBilinmiyorVisual,
   SaglikTarihVisual,
+  MuziklerVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 interface PatchEntry {
@@ -66,6 +67,21 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.14',
+    date: '10 Ekim 2026',
+    title: 'İçerikteki müzikler: hangi dakikada hangi şarkı çaldı',
+    items: [
+      'Detay penceresinde yeni "Müzikler" bölümü: dizide ya da filmde çalan şarkılar, hangi dakikada çaldıklarıyla birlikte burada. Dizilerde bölüm bölüm ayrılıyor (ör. 1. Sezon 3. Bölüm), her bölümün içinde dakikaya göre sıralı.',
+      'Şarkıları Nook buluyor: Nook\'ta Ayarlar > Argus\'taki "İzlerken içindeki müzikleri bul (Hum)" açıksa, ARGUS\'taki bir diziyi ya da filmi izlerken Nook arkada dinliyor ve çalan şarkıyı kendiliğinden buraya yazıyor. ARGUS kapalıyken de yazılıyor.',
+      'Şarkının üzerine gelince Spotify\'da ya da YouTube\'da arayabilirsin. Yanlış bulunan bir şarkıyı × ile silebilirsin.',
+      'Oynatıcı dakikayı söylemiyorsa (bazı siteler) dakika izlediğin süreden tahmin ediliyor; bu durumda başında "~" var (ör. ~49:10).',
+      'Pencere açıkken Nook yeni bir şarkı bulursa liste kendiliğinden yenileniyor. Hiç şarkı yoksa bölüm görünmüyor.',
+    ],
+    visuals: [
+      { caption: '1 bölüm bölüm, dakikasıyla şarkılar · 2 üstüne gelince Spotify / YouTube, × ile sil · 3 Nook izlerken dinleyip yazıyor', Visual: MuziklerVisual },
+    ],
+  },
   {
     version: 'v1.13.1',
     date: '1 Ekim 2026',

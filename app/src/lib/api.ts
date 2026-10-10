@@ -3,6 +3,24 @@ import type { HistoryDay, HistoryEntry } from './history'
 import { pingNotifications, type AppNotification, type ShowInfo } from './notifications'
 import { notifyDataChanged } from './dataEvents'
 
+// İçerikte çalan bir şarkı — Nook'un Hum'u izlerken bulup yazıyor (bkz. server/index.js songs uç noktaları).
+// season/episode: dizide hangi bölüm (filmde null); atMs: içeriğin kaçıncı ms'sinde (bilinmiyorsa null).
+export interface Song {
+  id: string
+  key: string
+  title: string
+  artist: string
+  album: string | null
+  cover: string | null
+  url: string | null
+  season: number | null
+  episode: number | null
+  atMs: number | null
+  // atMs tahmini (oynatıcı konum vermedi, izlenen süreden)
+  approx?: boolean
+  foundAt: number
+}
+
 // TMDB'deki bir içeriğin kart bilgisi (Benzerler / Keşfet sonuçları).
 // Seri / kişi sayfalarındaki kartlar: TMDB kartı + arşivdeki durumu
 export interface ArchiveCard extends TmdbCard {
@@ -225,6 +243,8 @@ export const api = {
   getCast: () => request<CastMap>(profilePath('/cast')),
   getEpisodes: () => request<EpisodesMap>(profilePath('/episodes')),
   getWatched: () => request<WatchedMap>(profilePath('/watched')),
+  getSongs: (rowId: string) => request<Song[]>(profilePath(`/songs/${rowId}`)),
+  deleteSong: (rowId: string, songId: string) => request<{ ok: true }>(profilePath(`/songs/${rowId}/${songId}`), { method: 'DELETE' }),
   // Sunucu, dizinin çıkmış bütün bölümleri işaretlenince durumu kendiliğinden İzlendi yapıyor
   // (autoWatched) — o zaman açık ekranlar yenilensin ve zil baksın.
   saveRowWatched: async (rowId: string, map: Record<string, string[]>) => {

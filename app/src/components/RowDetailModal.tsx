@@ -24,6 +24,7 @@ import AgeRatingChip from './AgeRatingChip'
 import { showLabel, useShowInfo } from '../lib/showStatus'
 import PersonModal from './PersonModal'
 import CollectionSection from './CollectionSection'
+import SongsSection from './SongsSection'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { useEscape } from '../hooks/useEscape'
 
@@ -621,6 +622,8 @@ export default function RowDetailModal({
                 )}
               </section>
             )}
+
+            <SongsSection rowId={row.id} seasons={seasons} />
 
             <CollectionSection boardId={board.id} rowId={row.id} onOpenRow={openRow} />
 
