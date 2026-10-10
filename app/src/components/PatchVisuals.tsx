@@ -1,5 +1,6 @@
 import { ACCENT, Box, Chip, Frame, Highlight, Label, Line, Pin } from './wireframe'
 import { CompassIcon, HealthIcon, InfoIcon } from './toolbarIcons'
+import { tt, EP, ttc } from '../lib/i18n'
 
 // Yama Notları'nda "ne değişti/ne eklendi"yi gösteren küçük çizimler. Hepsi aynı boyutta
 // (320×180) — sayfada iki sütunlu bir ızgarada yan yana duruyorlar. Mavi (ACCENT) her zaman
@@ -7,9 +8,15 @@ import { CompassIcon, HealthIcon, InfoIcon } from './toolbarIcons'
 
 const VB = '0 0 320 180'
 
-// Mavi "YENİ" etiketi
-function NewTag({ x, y, text = 'YENİ' }: { x: number; y: number; text?: string }) {
+// Metnin yaklaşık genişliği (çizimler Türkçe metne göre ölçüldü; İngilizce daha uzun olabiliyor)
+const textW = (t: string, size: number) => t.length * size * 0.52
+// Kutusuna sığmayan metin sıkıştırılır (SVG textLength)
+const fit = (t: string, size: number, max: number) => (textW(t, size) > max ? { textLength: max, lengthAdjust: 'spacingAndGlyphs' as const } : {})
+
+// Mavi "YENİ" etiketi (çizimin sağ kenarından taşmaz)
+function NewTag({ x: x0, y, text = tt('YENİ') }: { x: number; y: number; text?: string }) {
   const w = text.length * 5.6 + 10
+  const x = Math.min(x0, 316 - w)
   return (
     <g>
       <rect x={x} y={y} width={w} height={13} rx={3} fill={ACCENT} />
@@ -45,6 +52,7 @@ function MiniButton({ x, y, w, text, accent = false }: { x: number; y: number; w
         fill={accent ? '#fff' : undefined}
         className={accent ? undefined : 'fill-neutral-300'}
         style={{ fontFamily: 'inherit' }}
+        {...fit(text, 6.5, w - 3)}
       >
         {text}
       </text>
@@ -77,11 +85,11 @@ export function KesfetVisual() {
       <Pin x={272} y={40} n={1} />
       {/* keşfet penceresi */}
       <Box x={8} y={8} w={180} h={164} r={8} strong />
-      <Label x={16} y={22} size={9}>Keşfet</Label>
-      <MiniButton x={16} y={28} w={26} text="Film" accent />
-      <MiniButton x={45} y={28} w={26} text="Dizi" />
-      <Chip x={76} y={27} w={40} color="#a855f7" text="Bilim K." />
-      <Chip x={119} y={27} w={30} color="#22c55e" text="Dram" />
+      <Label x={16} y={22} size={9}>{tt('Keşfet')}</Label>
+      <MiniButton x={16} y={28} w={26} text={tt('Film')} accent />
+      <MiniButton x={45} y={28} w={26} text={tt('Dizi')} />
+      <Chip x={76} y={27} w={40} color="#a855f7" text={tt('Bilim K.')} />
+      <Chip x={119} y={27} w={30} color="#22c55e" text={tt('Dram')} />
       {[0, 1, 2, 3].map((i) => {
         const x = 16 + i * 42
         return (
@@ -99,8 +107,8 @@ export function KesfetVisual() {
       })}
       <Highlight x={14} y={113} w={40} h={17} />
       <Pin x={34} y={144} n={2} />
-      <Label x={46} y={147} size={7} muted>+ İzlenecek · ✓ İzledim · × gizle</Label>
-      <NewTag x={16} y={156} text="ARŞİVİNDE OLMAYANLAR" />
+      <Label x={46} y={147} size={7} muted>{tt('+ İzlenecek · ✓ İzledim · × gizle')}</Label>
+      <NewTag x={16} y={156} text={tt('ARŞİVİNDE OLMAYANLAR')} />
     </Frame>
   )
 }
@@ -115,7 +123,7 @@ export function DetayEkleriVisual() {
       <Line x={48} y={45} w={90} />
       <Line x={48} y={54} w={140} light />
       {/* nerede izlenir */}
-      <Label x={18} y={78} size={8}>Nerede İzlenir</Label>
+      <Label x={18} y={78} size={8}>{tt('Nerede İzlenir')}</Label>
       <NewTag x={82} y={69} />
       {[0, 1, 2].map((i) => (
         <g key={i}>
@@ -125,14 +133,14 @@ export function DetayEkleriVisual() {
         </g>
       ))}
       {/* benzer içerikler: poster + altında düğme, düğmeler hep aynı hizada */}
-      <Label x={18} y={112} size={8}>Benzer İçerikler</Label>
+      <Label x={18} y={112} size={8}>{tt('Benzer İçerikler')}</Label>
       <NewTag x={90} y={103} />
       {[0, 1, 2, 3, 4, 5].map((i) => {
         const x = 18 + i * 48
         return (
           <g key={i}>
             <Poster x={x + 9} y={117} w={24} />
-            <MiniButton x={x} y={157} w={42} text={i === 1 ? '✓ Arşivinde' : '+ İzlenecek'} accent={i === 0} />
+            <MiniButton x={x} y={157} w={42} text={i === 1 ? tt('✓ Arşivinde') : tt('+ İzlenecek')} accent={i === 0} />
           </g>
         )
       })}
@@ -146,16 +154,16 @@ export function YeniBolumlerVisual() {
       <Box x={8} y={8} w={304} h={164} r={8} />
       <rect x={16} y={16} width={288} height={50} rx={6} className="fill-neutral-800" />
       <Line x={26} y={46} w={70} />
-      <Label x={16} y={84} size={9}>Yeni Bölümler</Label>
+      <Label x={16} y={84} size={9}>{tt('Yeni Bölümler')}</Label>
       <NewTag x={80} y={75} />
       {[0, 1, 2].map((i) => {
         const x = 16 + i * 98
         return (
           <g key={i}>
             <rect x={x} y={92} width={90} height={50} rx={5} className="fill-neutral-700" />
-            <rect x={x + 5} y={97} width={i === 1 ? 62 : 58} height={11} rx={2.5} fill={ACCENT} />
-            <text x={x + 8} y={105} fontSize={6.2} fontWeight={700} fill="#fff" style={{ fontFamily: 'inherit' }}>
-              {i === 1 ? '3 izlenmemiş bölüm' : i === 0 ? 'Yeni bölüm: S4 B2' : 'Yakında: S1 B5'}
+            <rect x={x + 5} y={97} width={80} height={11} rx={2.5} fill={ACCENT} />
+            <text x={x + 8} y={105} fontSize={6.2} fontWeight={700} fill="#fff" style={{ fontFamily: 'inherit' }} {...fit(i === 1 ? tt('3 izlenmemiş bölüm') : i === 0 ? tt('Yeni bölüm: S4 B2') : tt('Yakında: S1 B5'), 6.2, 74)}>
+              {i === 1 ? tt('3 izlenmemiş bölüm') : i === 0 ? tt('Yeni bölüm: S4 B2') : tt('Yakında: S1 B5')}
             </text>
             <Line x={x} y={147} w={60} />
             <Line x={x} y={156} w={44} light />
@@ -171,26 +179,26 @@ export function GorevVisual() {
     <Frame viewBox={VB}>
       {/* tablo başlığı */}
       <Box x={8} y={10} w={304} h={20} r={4} strong />
-      <Label x={16} y={23} size={8} muted>Türkçe Adı</Label>
-      <Label x={96} y={23} size={8}>Afiş</Label>
-      <Label x={176} y={23} size={8} muted>Tür</Label>
-      <Label x={250} y={23} size={8} muted>Hal</Label>
+      <Label x={16} y={23} size={8} muted>{tt('Türkçe Adı')}</Label>
+      <Label x={96} y={23} size={8}>{tt('Afiş')}</Label>
+      <Label x={176} y={23} size={8} muted>{tt('Tür')}</Label>
+      <Label x={250} y={23} size={8} muted>{tt('Hal')}</Label>
       <Highlight x={90} y={12} w={60} h={16} />
       <Pin x={120} y={42} n={1} />
       {/* sütun menüsü */}
       <Box x={90} y={52} w={150} h={116} r={7} strong />
-      <Label x={100} y={66} size={7} muted>Sütun adı</Label>
+      <Label x={100} y={66} size={7} muted>{tt('Sütun adı')}</Label>
       <Box x={100} y={70} w={130} h={14} r={3} />
-      <Label x={105} y={80} size={7.5}>Afiş</Label>
-      <Label x={100} y={98} size={7} muted>Görevi</Label>
+      <Label x={105} y={80} size={7.5}>{tt('Afiş')}</Label>
+      <Label x={100} y={98} size={7} muted>{tt('Görevi')}</Label>
       <NewTag x={128} y={89} />
       <rect x={100} y={102} width={130} height={16} rx={3} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeWidth={1} />
-      <Label x={106} y={113} size={8}>Poster</Label>
+      <Label x={106} y={113} size={8}>{tt('Poster')}</Label>
       <text x={222} y={113} fontSize={8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
         ▾
       </text>
-      <Label x={100} y={132} size={6.5} muted>Adını değiştirsen de</Label>
-      <Label x={100} y={141} size={6.5} muted>görevi kalır — hiçbir şey bozulmaz.</Label>
+      <Label x={100} y={132} size={6.5} muted>{tt('Adını değiştirsen de')}</Label>
+      <Label x={100} y={141} size={6.5} muted>{tt('görevi kalır — hiçbir şey bozulmaz.')}</Label>
       <Pin x={250} y={110} n={2} />
     </Frame>
   )
@@ -203,9 +211,9 @@ export function NeIzlesemTmdbVisual() {
     <Frame viewBox={VB}>
       {/* ayar */}
       <Box x={8} y={8} w={140} h={60} r={7} />
-      <Label x={16} y={22} size={7} muted>Nereden seçilsin</Label>
-      <MiniButton x={16} y={28} w={50} text="Arşivimden" />
-      <MiniButton x={70} y={28} w={70} text="TMDB'den" accent />
+      <Label x={16} y={22} size={7} muted>{tt('Nereden seçilsin')}</Label>
+      <MiniButton x={16} y={28} w={50} text={tt('Arşivimden')} />
+      <MiniButton x={70} y={28} w={70} text={tt('TMDB\'den')} accent />
       <Chip x={16} y={46} w={30} color="#a855f7" />
       <Chip x={50} y={46} w={26} color="#22c55e" />
       <NewTag x={96} y={47} />
@@ -228,15 +236,15 @@ export function NeIzlesemTmdbVisual() {
       <Box x={172} y={8} w={140} h={164} r={7} strong />
       <rect x={172} y={8} width={140} height={52} rx={7} className="fill-neutral-700" />
       <rect x={180} y={42} width={50} height={10} rx={2} className="fill-neutral-500" />
-      <Label x={236} y={50} size={6} muted>logo</Label>
+      <Label x={236} y={50} size={6} muted>{tt('logo')}</Label>
       <Poster x={180} y={66} w={26} />
       <Line x={212} y={70} w={80} />
       <Line x={212} y={80} w={60} light />
       <Line x={212} y={88} w={70} light />
-      <MiniButton x={180} y={112} w={42} text="+ İzlenecek" accent />
-      <MiniButton x={225} y={112} w={36} text="✓ İzledim" />
-      <MiniButton x={264} y={112} w={40} text="Gösterme" />
-      <Label x={180} y={138} size={7}>Nerede İzlenir</Label>
+      <MiniButton x={180} y={112} w={42} text={tt('+ İzlenecek')} accent />
+      <MiniButton x={225} y={112} w={36} text={tt('✓ İzledim')} />
+      <MiniButton x={264} y={112} w={40} text={tt('Gösterme')} />
+      <Label x={180} y={138} size={7}>{tt('Nerede İzlenir')}</Label>
       {[0, 1, 2].map((i) => (
         <rect key={i} x={180 + i * 20} y={144} width={14} height={14} rx={3} fill={['#e50914', '#113ccf', '#7b2cbf'][i]} />
       ))}
@@ -250,21 +258,21 @@ export function GorselSekliVisual() {
   return (
     <Frame viewBox={VB}>
       <Box x={8} y={8} w={304} h={164} r={8} />
-      <Label x={16} y={24} size={7} muted>Hangi görsel kullanılsın</Label>
-      <MiniButton x={16} y={30} w={44} text="Otomatik" />
-      <MiniButton x={63} y={30} w={34} text="Dikey" accent />
-      <MiniButton x={100} y={30} w={34} text="Yatay" />
+      <Label x={16} y={24} size={7} muted>{tt('Hangi görsel kullanılsın')}</Label>
+      <MiniButton x={16} y={30} w={44} text={tt('Otomatik')} />
+      <MiniButton x={63} y={30} w={34} text={tt('Dikey')} accent />
+      <MiniButton x={100} y={30} w={34} text={tt('Yatay')} />
       <NewTag x={140} y={29} />
       {/* dikey */}
       {[0, 1, 2].map((i) => (
         <rect key={i} x={24 + i * 30} y={62 + (i % 2) * 8} width={24} height={36} rx={3} transform={`rotate(${[-10, 6, -4][i]} ${36 + i * 30} ${80})`} className="fill-neutral-700" />
       ))}
-      <Label x={40} y={128} size={7.5}>Dikey → posterler</Label>
+      <Label x={40} y={128} size={7.5}>{tt('Dikey → posterler')}</Label>
       {/* yatay */}
       {[0, 1].map((i) => (
         <rect key={i} x={176 + i * 56} y={66 + i * 6} width={52} height={29} rx={3} transform={`rotate(${[-6, 8][i]} ${202 + i * 56} 82)`} className="fill-neutral-700" />
       ))}
-      <Label x={190} y={128} size={7.5}>Yatay → bannerlar</Label>
+      <Label x={190} y={128} size={7.5}>{tt('Yatay → bannerlar')}</Label>
       <line x1={160} x2={160} y1={56} y2={140} className="stroke-neutral-800" />
     </Frame>
   )
@@ -272,7 +280,7 @@ export function GorselSekliVisual() {
 
 export function SaglikVisual() {
   const rows = [
-    ['Video', 'Yönetmen'],
+    ['Video', tt('Yönetmen')],
     ['Video'],
     ['Poster', 'Video'],
   ]
@@ -280,10 +288,10 @@ export function SaglikVisual() {
     <Frame viewBox={VB}>
       <Box x={8} y={8} w={304} h={164} r={8} strong />
       <IconAt x={16} y={15} Icon={HealthIcon} />
-      <Label x={32} y={24} size={9}>Sağlık Kontrolü</Label>
-      <Chip x={16} y={34} w={40} color="#737373" text="Hepsi" />
-      <Chip x={60} y={34} w={62} color={ACCENT} text="Video yok (104)" />
-      <Chip x={126} y={34} w={70} color="#737373" text="Yönetmen yok (54)" />
+      <Label x={32} y={24} size={9}>{tt('Sağlık Kontrolü')}</Label>
+      <Chip x={16} y={34} w={40} color="#737373" text={tt('Hepsi')} />
+      <Chip x={60} y={34} w={62} color={ACCENT} text={tt('Video yok (104)')} />
+      <Chip x={126} y={34} w={70} color="#737373" text={tt('Yönetmen yok (54)')} />
       {rows.map((tags, i) => {
         const y = 60 + i * 26
         // Etiketler sağdan sola, her biri kendi genişliği kadar yer kaplayarak diziliyor.
@@ -317,8 +325,8 @@ export function SaglikVisual() {
           </g>
         )
       })}
-      <Label x={16} y={150} size={7} muted>Her kaydın yanında neyinin eksik olduğu yazıyor;</Label>
-      <Label x={16} y={160} size={7} muted>× ile "bu kayıtta bir daha sorma".</Label>
+      <Label x={16} y={150} size={7} muted>{tt('Her kaydın yanında neyinin eksik olduğu yazıyor;')}</Label>
+      <Label x={16} y={160} size={7} muted>{tt('× ile "bu kayıtta bir daha sorma".')}</Label>
     </Frame>
   )
 }
@@ -335,7 +343,7 @@ export function RehberVisual() {
       <rect x={274} y={14} width={32} height={14} rx={3} fill={ACCENT} />
       <Pin x={259} y={46} n={1} />
       <Box x={40} y={58} w={240} h={112} r={8} strong />
-      <Label x={50} y={74} size={8.5}>Arşiv tablosu nasıl kullanılır?</Label>
+      <Label x={50} y={74} size={8.5}>{tt('Arşiv tablosu nasıl kullanılır?')}</Label>
       <NewTag x={196} y={65} />
       <Box x={50} y={82} w={220} h={44} r={5} />
       {[0, 1, 2, 3].map((i) => (
@@ -366,11 +374,11 @@ function ArrowDef({ id }: { id: string }) {
 
 export function GizliSutunVisual() {
   const cols = [
-    { x: 16, w: 62, t: 'Türkçe Adı', hidden: false },
-    { x: 82, w: 48, t: 'Durum', hidden: false },
+    { x: 16, w: 62, t: tt('Türkçe Adı'), hidden: false },
+    { x: 82, w: 48, t: tt('Durum'), hidden: false },
     { x: 134, w: 48, t: 'Poster', hidden: true },
-    { x: 186, w: 44, t: 'Tür', hidden: false },
-    { x: 234, w: 70, t: 'Oyuncular', hidden: true },
+    { x: 186, w: 44, t: tt('Tür'), hidden: false },
+    { x: 234, w: 70, t: tt('Oyuncular'), hidden: true },
   ]
   return (
     <Frame viewBox={VB}>
@@ -403,20 +411,20 @@ export function GizliSutunVisual() {
       <rect x={182} y={14} width={52} height={26} rx={4} fill="none" stroke={ACCENT} strokeWidth={1.3} />
       <path d="M190 70 C 170 90, 120 90, 104 44" fill="none" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-g)" />
       <Pin x={24} y={104} n={1} />
-      <Label x={38} y={107} size={8}>Bir sütunu sürükleyip yerini değiştir</Label>
+      <Label x={38} y={107} size={8}>{tt('Bir sütunu sürükleyip yerini değiştir')}</Label>
       <Pin x={24} y={128} n={2} />
-      <Label x={38} y={131} size={8}>Gizli sütunlar (⊘) yerinde kalıyor,</Label>
-      <Label x={38} y={143} size={8}>içlerindeki bilgiler kaybolmuyor</Label>
-      <NewTag x={38} y={152} text="DÜZELTİLDİ" />
+      <Label x={38} y={131} size={8}>{tt('Gizli sütunlar (⊘) yerinde kalıyor,')}</Label>
+      <Label x={38} y={143} size={8}>{tt('içlerindeki bilgiler kaybolmuyor')}</Label>
+      <NewTag x={38} y={152} text={tt('DÜZELTİLDİ')} />
     </Frame>
   )
 }
 
 export function KapatPuanVisual() {
   const crit: [string, number][] = [
-    ['Senaryo', 0.8],
-    ['Oyunculuk', 0.65],
-    ['Görsellik', 0.7],
+    [tt('Senaryo'), 0.8],
+    [tt('Oyunculuk'), 0.65],
+    [tt('Görsellik'), 0.7],
   ]
   return (
     <Frame viewBox={VB}>
@@ -458,23 +466,23 @@ export function KapatPuanVisual() {
       <Highlight x={217} y={63} w={14} h={14} r={4} />
       <line x1={50} x2={230} y1={120} y2={120} className="stroke-neutral-700" />
       <Label x={50} y={133} size={7} muted>
-        Ortalama: 7.2 / 10
+        {tt('Ortalama: 7.2 / 10')}
       </Label>
       <text x={230} y={133} fontSize={7} textAnchor="end" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
-        Puanı kaldır
+        {tt('Puanı kaldır')}
       </text>
-      <MiniButton x={196} y={148} w={34} text="Kapat" accent />
+      <MiniButton x={196} y={148} w={34} text={tt('Kapat')} accent />
       <Pin x={256} y={70} n={1} />
       <Label x={268} y={73} size={6.5} muted>
-        tek kriteri sil
+        {tt('tek kriteri sil')}
       </Label>
       <Pin x={256} y={130} n={2} />
       <Label x={268} y={133} size={6.5} muted>
-        hepsini sil
+        {tt('hepsini sil')}
       </Label>
       <Pin x={256} y={154} n={3} />
       <Label x={268} y={157} size={6.5} muted>
-        kaydet, kapat
+        {tt('kaydet, kapat')}
       </Label>
     </Frame>
   )
@@ -487,7 +495,7 @@ export function BenzerDetayVisual() {
       {/* detay penceresinin altındaki Benzer İçerikler */}
       <Box x={8} y={8} w={140} h={164} r={8} />
       <Label x={16} y={24} size={8}>
-        Benzer İçerikler
+        {tt('Benzer İçerikler')}
       </Label>
       {[0, 1, 2].map((i) => (
         <g key={i}>
@@ -498,7 +506,7 @@ export function BenzerDetayVisual() {
       <Highlight x={55} y={29} w={42} h={70} />
       <Pin x={76} y={116} n={1} />
       <Label x={16} y={140} size={7} muted>
-        Afişe ya da ada tıkla
+        {tt('Afişe ya da ada tıkla')}
       </Label>
       <NewTag x={16} y={150} />
       <path d="M150 60 h18" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-b)" />
@@ -509,10 +517,10 @@ export function BenzerDetayVisual() {
       <Line x={212} y={66} w={80} />
       <Line x={212} y={76} w={60} light />
       <Line x={212} y={84} w={70} light />
-      <MiniButton x={180} y={110} w={50} text="+ İzlenecek" accent />
-      <MiniButton x={234} y={110} w={40} text="✓ İzledim" />
+      <MiniButton x={180} y={110} w={50} text={tt('+ İzlenecek')} accent />
+      <MiniButton x={234} y={110} w={40} text={tt('✓ İzledim')} />
       <Label x={180} y={138} size={7}>
-        Nerede İzlenir
+        {tt('Nerede İzlenir')}
       </Label>
       {[0, 1, 2].map((i) => (
         <rect key={i} x={180 + i * 20} y={144} width={14} height={14} rx={3} fill={['#e50914', '#113ccf', '#7b2cbf'][i]} />
@@ -532,17 +540,17 @@ export function FiltreDonusVisual() {
       <Line x={44} y={20} w={60} />
       <rect x={44} y={30} width={98} height={13} rx={3} fill={ACCENT} fillOpacity={0.15} stroke={ACCENT} strokeWidth={1} />
       <Label x={48} y={39} size={6}>
-        × Filtreyi Kaldır ve Geri Dön
+        {tt('× Filtreyi Kaldır ve Geri Dön')}
       </Label>
       {[0, 1, 2].map((i) => (
         <Poster key={i} x={16 + i * 42} y={62} w={36} dim />
       ))}
       <Pin x={128} y={52} n={1} />
       <Label x={16} y={148} size={6.5} muted>
-        Tabloya, kaldığın satıra ve
+        {tt('Tabloya, kaldığın satıra ve')}
       </Label>
       <Label x={16} y={158} size={6.5} muted>
-        açık olan detaya geri döner
+        {tt('açık olan detaya geri döner')}
       </Label>
       <path d="M150 36 C 162 36, 158 60, 170 60" fill="none" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-f)" />
       {/* kaldığın yerdeki tablo + açık detay penceresi */}
@@ -579,34 +587,34 @@ export function OnayYeriVisual() {
       {/* 6 nokta menüsü */}
       <Box x={16} y={62} w={70} h={34} r={5} strong />
       <Label x={24} y={75} size={6.5} muted>
-        Çoğalt
+        {tt('Çoğalt')}
       </Label>
       <Label x={24} y={89} size={6.5}>
-        Sil
+        {tt('Sil')}
       </Label>
       <Highlight x={18} y={80} w={66} h={13} r={3} />
       <Pin x={98} y={86} n={1} />
       {/* onay kartı hemen yanında */}
       <rect x={30} y={104} width={150} height={50} rx={6} className="fill-neutral-900" stroke="#f43f5e" strokeOpacity={0.5} />
       <Label x={38} y={118} size={7}>
-        Bu kaydı silmek istediğine
+        {tt('Bu kaydı silmek istediğine')}
       </Label>
       <Label x={38} y={128} size={7}>
-        emin misin?
+        {tt('emin misin?')}
       </Label>
       <rect x={38} y={135} width={24} height={12} rx={3} fill="#e11d48" />
       <text x={50} y={143.5} fontSize={6.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
-        Sil
+        {tt('Sil')}
       </text>
       <Label x={70} y={144} size={6.5} muted>
-        Vazgeç
+        {tt('Vazgeç')}
       </Label>
       <Pin x={192} y={128} n={2} />
-      <NewTag x={204} y={122} text="TIKLADIĞIN YERDE" />
+      <NewTag x={204} y={122} text={tt('TIKLADIĞIN YERDE')} />
       {/* eski yer: sağ alt köşe, soluk */}
       <rect x={236} y={146} width={70} height={20} rx={4} fill="none" className="stroke-neutral-700" strokeDasharray="3 2" />
       <Label x={271} y={159} size={6} anchor="middle" muted>
-        eskiden burada
+        {tt('eskiden burada')}
       </Label>
     </Frame>
   )
@@ -632,28 +640,28 @@ export function GuncelleVisual() {
       <Box x={40} y={50} w={110} h={70} r={6} strong />
       <rect x={44} y={54} width={102} height={16} rx={3} fill={ACCENT} fillOpacity={0.15} />
       <text x={52} y={65} fontSize={8} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
-        ↻ Güncelle
+        {tt('↻ Güncelle')}
       </text>
       <Label x={52} y={84} size={7} muted>
-        Altına Satır Ekle
+        {tt('Altına Satır Ekle')}
       </Label>
       <Label x={52} y={98} size={7} muted>
-        Çoğalt
+        {tt('Çoğalt')}
       </Label>
       <Label x={52} y={112} size={7} muted>
-        Sil
+        {tt('Sil')}
       </Label>
       <Pin x={162} y={62} n={1} />
       <Label x={180} y={100} size={7} muted>
-        Eskiden kayda göre değişiyordu:
+        {tt('Eskiden kayda göre değişiyordu:')}
       </Label>
       <Label x={180} y={114} size={7} muted>
-        {"\"TMDB'den Doldur\" /"}
+        {tt('"TMDB\'den Doldur" /')}
       </Label>
       <Label x={180} y={126} size={7} muted>
-        "Bölümleri Güncelle"
+        {tt('"Bölümleri Güncelle"')}
       </Label>
-      <NewTag x={180} y={138} text="ARTIK HEP AYNI" />
+      <NewTag x={180} y={138} text={tt('ARTIK HEP AYNI')} />
     </Frame>
   )
 }
@@ -669,11 +677,11 @@ export function SinemaVisual() {
       <Line x={12} y={6} w={30} />
       <Line x={250} y={6} w={58} light />
       <rect x={14} y={30} width={70} height={10} rx={2} className="fill-neutral-400" />
-      <MiniButton x={14} y={46} w={40} text="Daha Fazla" accent />
+      <MiniButton x={14} y={46} w={40} text={tt('Daha Fazla')} accent />
       <Pin x={300} y={40} n={1} />
       {/* En İyi 10 */}
       <Label x={12} y={96} size={8}>
-        Arşivindeki En İyi 10
+        {tt('Arşivindeki En İyi 10')}
       </Label>
       <NewTag x={98} y={87} />
       {[0, 1, 2, 3, 4].map((i) => (
@@ -687,7 +695,7 @@ export function SinemaVisual() {
       <Pin x={300} y={126} n={2} />
       {/* slayt noktaları */}
       <Label x={12} y={168} size={7} muted>
-        Vitrin: Klasik · Sinema · Slayt
+        {tt('Vitrin: Klasik · Sinema · Slayt')}
       </Label>
       {[0, 1, 2, 3].map((i) => (
         <rect key={i} x={230 + i * 9} y={163} width={i === 0 ? 14 : 5} height={4} rx={2} fill={i === 0 ? ACCENT : undefined} className={i === 0 ? undefined : 'fill-neutral-600'} transform={i > 0 ? 'translate(9 0)' : undefined} />
@@ -731,37 +739,37 @@ export function OtomatikFiltreVisual() {
     <Frame viewBox={VB}>
       <Box x={8} y={8} w={304} h={164} r={8} strong />
       <Label x={18} y={24} size={8.5}>
-        Hangi satırlar gelsin, hangileri gelmesin
+        {tt('Hangi satırlar gelsin, hangileri gelmesin')}
       </Label>
       <NewTag x={196} y={15} />
       <Label x={18} y={42} size={7} muted>
-        Tür
+        {tt('Tür')}
       </Label>
-      <TriChip x={40} y={33} w={44} state="in" text="Korku" />
-      <TriChip x={88} y={33} w={52} state="in" text="Gerilim" />
-      <TriChip x={144} y={33} w={52} state="out" text="Komedi" />
-      <TriChip x={200} y={33} w={40} state="none" text="Dram" />
+      <TriChip x={46} y={33} w={44} state="in" text={tt('Korku')} />
+      <TriChip x={94} y={33} w={52} state="in" text={tt('Gerilim')} />
+      <TriChip x={150} y={33} w={52} state="out" text={tt('Komedi')} />
+      <TriChip x={206} y={33} w={40} state="none" text={tt('Dram')} />
       <Pin x={292} y={40} n={1} />
       <Label x={18} y={64} size={7} muted>
-        Ülke
+        {tt('Ülke')}
       </Label>
-      <TriChip x={40} y={55} w={40} state="out" text="ABD" />
-      <TriChip x={84} y={55} w={50} state="none" text="Türkiye" />
+      <TriChip x={50} y={55} w={40} state="out" text={tt('ABD')} />
+      <TriChip x={94} y={55} w={50} state="none" text={tt('Türkiye')} />
       <line x1={16} y1={80} x2={304} y2={80} className="stroke-neutral-700" />
       <Label x={18} y={96} size={7.5}>
-        Durum
+        {tt('Durum')}
       </Label>
-      <MiniButton x={236} y={88} w={62} text="Hiç gelmesin" />
+      <MiniButton x={236} y={88} w={62} text={tt('Hiç gelmesin')} />
       <Pin x={226} y={94} n={2} />
       <line x1={16} y1={108} x2={304} y2={108} className="stroke-neutral-700" />
       {/* ülke adları: bayraksız, Türkçe */}
       <Label x={18} y={128} size={7} muted>
-        Yeni eklenen ülkeler artık böyle:
+        {tt('Yeni eklenen ülkeler artık böyle:')}
       </Label>
-      <TriChip x={18} y={136} w={60} state="none" text="Hırvatistan" />
-      <TriChip x={82} y={136} w={54} state="none" text="Porto Riko" />
+      <TriChip x={18} y={136} w={60} state="none" text={tt('Hırvatistan')} />
+      <TriChip x={82} y={136} w={54} state="none" text={tt('Porto Riko')} />
       <text x={148} y={146} fontSize={7} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        (önceden "HR Croatia")
+        {tt('(önceden "HR Croatia")')}
       </text>
       <Pin x={292} y={142} n={3} />
     </Frame>
@@ -775,7 +783,7 @@ export function TakvimAyVisual() {
   return (
     <Frame viewBox={VB}>
       <Label x={12} y={16} size={9}>
-        ‹ Nisan 2025 ›
+        {tt('‹ Nisan 2025 ›')}
       </Label>
       <NewTag x={78} y={7} />
       {[0, 1, 2].map((i) => (
@@ -828,7 +836,7 @@ export function TakvimGunVisual() {
       {/* sağdan açılan gün paneli */}
       <Box x={150} y={4} w={166} h={172} r={6} strong />
       <Label x={158} y={18} size={8}>
-        22 Nisan 2025
+        {tt('22 Nisan 2025')}
       </Label>
       {[0, 1].map((i) => (
         <g key={i}>
@@ -843,21 +851,21 @@ export function TakvimGunVisual() {
       ))}
       <Pin x={300} y={72} n={1} />
       <Label x={158} y={78} size={7} muted>
-        Son izlediklerin
+        {tt('Son izlediklerin')}
       </Label>
       {[0, 1].map((i) => (
         <g key={i}>
           <rect x={158} y={82 + i * 15} width={8} height={12} rx={1} className="fill-neutral-600" />
           <Line x={170} y={85 + i * 15} w={56} />
           <text x={306} y={91 + i * 15} fontSize={6.5} textAnchor="end" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
-            Bölüm seç ›
+            {tt('Bölüm seç ›')}
           </text>
         </g>
       ))}
       <Pin x={140} y={96} n={2} />
       {/* bölüm listesi */}
       <rect x={158} y={116} width={150} height={54} rx={4} fill="none" stroke={ACCENT} strokeOpacity={0.5} />
-      {['B1', 'B2', 'B3'].map((b, i) => (
+      {[`${EP()}1`, `${EP()}2`, `${EP()}3`].map((b, i) => (
         <g key={b}>
           <rect x={163} y={122 + i * 15} width={8} height={8} rx={1.5} fill={i < 2 ? ACCENT : 'none'} className={i < 2 ? undefined : 'stroke-neutral-500'} strokeWidth={0.8} />
           <text x={176} y={129 + i * 15} fontSize={6.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
@@ -881,7 +889,7 @@ export function TakvimYilVisual() {
   const op = [0, 0.25, 0.45, 0.7, 1]
   return (
     <Frame viewBox={VB}>
-      {['İzleme günü', 'En uzun seri', 'Şu anki seri', 'En yoğun'].map((t, i) => (
+      {[tt('İzleme günü'), tt('En uzun seri'), tt('Şu anki seri'), tt('En yoğun')].map((t, i) => (
         <g key={t}>
           <Box x={8 + i * 77} y={8} w={72} h={30} r={5} />
           <text x={14 + i * 77} y={19} fontSize={6.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
@@ -914,10 +922,10 @@ export function TakvimYilVisual() {
         </g>
       ))}
       <Label x={8} y={146} size={7} muted>
-        Ne kadar koyu, o gün o kadar çok izleme · bir güne tıkla, o ay açılsın
+        {tt('Ne kadar koyu, o gün o kadar çok izleme · bir güne tıkla, o ay açılsın')}
       </Label>
       <Label x={8} y={166} size={7.5}>
-        Profil menüsü › Takvim
+        {tt('Profil menüsü › Takvim')}
       </Label>
       <NewTag x={100} y={157} />
     </Frame>
@@ -934,35 +942,35 @@ export function CokluFiltreVisual() {
       ))}
       <Box x={100} y={32} w={212} h={140} r={7} strong />
       <Label x={108} y={46} size={8.5}>
-        Filtrele
+        {tt('Filtrele')}
       </Label>
       {/* özet */}
       <text x={108} y={60} fontSize={6.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Tür:
+        {tt('Tür:')}
       </text>
-      <TriChip x={126} y={52} w={44} state="in" text="Korku" />
-      <TriChip x={174} y={52} w={52} state="out" text="Komedi" />
+      <TriChip x={108 + textW(tt('Ülke:'), 6.5) + 4} y={52} w={44} state="in" text={tt('Korku')} />
+      <TriChip x={156 + textW(tt('Ülke:'), 6.5) + 4} y={52} w={52} state="out" text={tt('Komedi')} />
       <text x={108} y={78} fontSize={6.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Ülke:
+        {tt('Ülke:')}
       </text>
-      <TriChip x={126} y={70} w={40} state="out" text="ABD" />
+      <TriChip x={108 + textW(tt('Ülke:'), 6.5) + 4} y={70} w={40} state="out" text={tt('ABD')} />
       <Pin x={296} y={66} n={1} />
       <line x1={106} y1={90} x2={306} y2={90} className="stroke-neutral-700" />
       <Label x={108} y={103} size={7.5}>
-        ▾ Tür
+        {tt('▾ Tür')}
       </Label>
-      {['Dram', 'Korku', 'Komedi', 'Aile', 'Suç'].map((t, i) => (
+      {[tt('Dram'), tt('Korku'), tt('Komedi'), tt('Aile'), tt('Suç')].map((t, i) => (
         <TriChip key={t} x={108 + i * 40} y={110} w={36} state={t === 'Korku' ? 'in' : t === 'Komedi' ? 'out' : 'none'} text={t} />
       ))}
       <Label x={108} y={140} size={6.5} muted>
-        1 tık ✓ gelsin · 2 tık ✕ gelmesin · 3 tık kaldır
+        {tt('1 tık ✓ gelsin · 2 tık ✕ gelmesin · 3 tık kaldır')}
       </Label>
       <Pin x={296} y={138} n={2} />
       <Label x={108} y={160} size={7.5}>
-        ▸ Ülke · ▸ Kategori · ▸ Oyuncular
+        {tt('▸ Ülke · ▸ Kategori · ▸ Oyuncular')}
       </Label>
       {/* nerelerde */}
-      {['Tablo', 'Vitrin', 'Ne İzlesem', 'Sayfalar', 'Modlar', 'Takvim'].map((t, i) => (
+      {[tt('Tablo'), tt('Vitrin'), tt('Ne İzlesem'), tt('Sayfalar'), tt('Modlar'), tt('Takvim')].map((t, i) => (
         <g key={t}>
           <rect x={8} y={34 + i * 22} width={84} height={17} rx={4} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.8} />
           <text x={16} y={45.5 + i * 22} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
@@ -999,17 +1007,17 @@ export function NeIzlesemSonucVisual() {
       <Line x={130} y={82} w={160} light />
       <Line x={130} y={90} w={120} light />
       <Pin x={306} y={36} n={2} />
-      <MiniButton x={130} y={100} w={58} text="+ İzlenecek" accent />
-      <MiniButton x={192} y={100} w={40} text="İzledim" />
-      <MiniButton x={236} y={100} w={66} text="Bir daha gösterme" />
+      <MiniButton x={130} y={100} w={58} text={tt('+ İzlenecek')} accent />
+      <MiniButton x={192} y={100} w={40} text={tt('İzledim')} />
+      <MiniButton x={236} y={100} w={66} text={tt('Bir daha gösterme')} />
       <Pin x={306} y={112} n={3} />
       {/* tekrar getir */}
       <rect x={112} y={140} width={78} height={18} rx={9} fill={ACCENT} />
       <text x={151} y={152} fontSize={7.5} fontWeight={700} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
-        ↻ Tekrar getir
+        {tt('↻ Tekrar getir')}
       </text>
       <text x={200} y={152} fontSize={7} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Kapat
+        {tt('Kapat')}
       </text>
     </Frame>
   )
@@ -1021,15 +1029,15 @@ export function GenelGuncellemeVisual() {
       {/* ayrıntı kutusu */}
       <rect x={8} y={8} width={304} height={78} rx={7} fill={ACCENT} fillOpacity={0.06} stroke={ACCENT} strokeOpacity={0.35} />
       <Label x={16} y={22} size={8}>
-        Genel Güncelleme sürüyor · 42/120
+        {tt('Genel Güncelleme sürüyor · 42/120')}
       </Label>
       <text x={16} y={33} fontSize={6.5} fill={GREEN} style={{ fontFamily: 'inherit' }}>
-        39 güncellendi
+        {tt('39 güncellendi')}
       </text>
       <text x={70} y={33} fontSize={6.5} fill={RED} style={{ fontFamily: 'inherit' }}>
-        · 3 bulunamadı · yaklaşık 4 dk
+        {tt('· 3 bulunamadı · yaklaşık 4 dk')}
       </text>
-      <MiniButton x={250} y={14} w={52} text="⏸ Durdur" />
+      <MiniButton x={250} y={14} w={52} text={tt('⏸ Durdur')} />
       <rect x={16} y={40} width={288} height={4} rx={2} className="fill-neutral-800" />
       <rect x={16} y={40} width={101} height={4} rx={2} fill={ACCENT} />
       <circle cx={19} cy={54} r={2.2} fill={ACCENT} />
@@ -1047,9 +1055,9 @@ export function GenelGuncellemeVisual() {
       {/* dişli menüsü */}
       <Box x={8} y={94} w={200} h={80} r={7} strong />
       <Label x={16} y={107} size={8}>
-        TMDB'den neler gelsin?
+        {tt('TMDB\'den neler gelsin?')}
       </Label>
-      {['Sinopsis', 'Kapak Adı'].map((t, i) => (
+      {[tt('Sinopsis'), tt('Kapak Adı')].map((t, i) => (
         <g key={t}>
           <Label x={16} y={122 + i * 26} size={7.5}>
             {t}
@@ -1057,21 +1065,21 @@ export function GenelGuncellemeVisual() {
           <rect x={174} y={115 + i * 26} width={24} height={11} rx={5.5} fill={ACCENT} />
           <circle cx={192} cy={120.5 + i * 26} r={4} fill="#fff" />
           <text x={16} y={133 + i * 26} fontSize={6.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-            → Yazdığı sütun
+            {tt('→ Yazdığı sütun')}
           </text>
           <rect x={72} y={126 + i * 26} width={96} height={10} rx={3} className="fill-neutral-900 stroke-neutral-600" strokeWidth={0.7} />
           <text x={77} y={133.5 + i * 26} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-            {i === 0 ? 'Özet ▾' : '+ Yeni sütun ekle ▾'}
+            {i === 0 ? tt('Özet ▾') : tt('+ Yeni sütun ekle ▾')}
           </text>
         </g>
       ))}
       <Pin x={220} y={130} n={2} />
-      <MiniButton x={236} y={122} w={72} text="▶ Devam et (78)" accent />
+      <MiniButton x={236} y={122} w={72} text={tt('▶ Devam et (78)')} accent />
       <Label x={236} y={146} size={6.5} muted>
-        Durdurduğun yerden
+        {tt('Durdurduğun yerden')}
       </Label>
       <Label x={236} y={155} size={6.5} muted>
-        devam eder
+        {tt('devam eder')}
       </Label>
       <Pin x={300} y={108} n={3} />
     </Frame>
@@ -1089,17 +1097,17 @@ export function NeIzlesemPencereVisual() {
       <rect x={76} y={34} width={64} height={11} rx={2} className="fill-neutral-600" />
       <Line x={76} y={52} w={90} light />
       <Line x={76} y={60} w={80} light />
-      <MiniButton x={76} y={76} w={46} text="+ İzlenecek" accent />
-      <MiniButton x={126} y={76} w={34} text="İzledim" />
-      <MiniButton x={164} y={76} w={58} text="Fragman · Nerede" />
+      <MiniButton x={76} y={76} w={46} text={tt('+ İzlenecek')} accent />
+      <MiniButton x={126} y={76} w={34} text={tt('İzledim')} />
+      <MiniButton x={164} y={76} w={58} text={tt('Fragman · Nerede')} />
       {/* sağ üst: Tekrar getir (mavi çerçeve) + Kapat (kırmızı çerçeve) */}
       <rect x={200} y={7} width={58} height={13} rx={6.5} fill="none" stroke={ACCENT} strokeWidth={1} />
       <text x={229} y={16} fontSize={6.5} fontWeight={700} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
-        ↻ Tekrar getir
+        {tt('↻ Tekrar getir')}
       </text>
       <rect x={264} y={7} width={46} height={13} rx={6.5} fill="none" stroke="#f43f5e" strokeWidth={1} />
       <text x={287} y={16} fontSize={6.5} fontWeight={700} textAnchor="middle" fill="#fb7185" style={{ fontFamily: 'inherit' }}>
-        Kapat Esc
+        {tt('Kapat Esc')}
       </text>
       <Pin x={190} y={14} n={1} />
       {/* üstte açılan fragman penceresi */}
@@ -1129,51 +1137,51 @@ export function GecmisVisual() {
     <Frame viewBox={VB}>
       {/* altı nokta menüsü */}
       <Box x={8} y={8} w={118} h={122} r={6} strong />
-      {['Güncelle', 'Altına Satır Ekle', 'Çoğalt', 'Sil'].map((t, i) => (
+      {[tt('Güncelle'), tt('Altına Satır Ekle'), tt('Çoğalt'), tt('Sil')].map((t, i) => (
         <text key={t} x={16} y={24 + i * 13} fontSize={7} className={i === 3 ? undefined : 'fill-neutral-300'} fill={i === 3 ? '#fb7185' : undefined} style={{ fontFamily: 'inherit' }}>
           {t}
         </text>
       ))}
       <line x1={12} y1={72} x2={122} y2={72} className="stroke-neutral-700" />
       <text x={16} y={84} fontSize={6.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        Eklendi: 27 Eyl 2026 09:57
+        {tt('Eklendi: 27 Eyl 2026 09:57')}
       </text>
       <text x={16} y={94} fontSize={6.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        Son değişiklik: 27 Eyl 14:11
+        {tt('Son değişiklik: 27 Eyl 14:11')}
       </text>
       <text x={16} y={105} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        27 Eyl · Durum: İzlenecek → İzlendi
+        {tt('27 Eyl · Durum: İzlenecek → İzlendi')}
       </text>
       <text x={16} y={120} fontSize={6.5} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
-        Tüm geçmişi ›
+        {tt('Tüm geçmişi ›')}
       </text>
       <Pin x={118} y={90} n={1} />
       {/* geçmiş penceresi */}
       <Box x={136} y={8} w={176} h={164} r={7} strong />
       <Label x={144} y={22} size={8}>
-        Arşiv Geçmişi
+        {tt('Arşiv Geçmişi')}
       </Label>
       <text x={144} y={31} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        2.8 MB / 5 GB
+        {tt('2.8 MB / 5 GB')}
       </text>
-      <MiniButton x={242} y={13} w={52} text="⚙ Alan ayarları" />
+      <MiniButton x={242} y={13} w={52} text={tt('⚙ Alan ayarları')} />
       <Pin x={302} y={19} n={3} />
       <rect x={144} y={38} width={48} height={22} rx={4} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} />
       <text x={148} y={47} fontSize={6} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
-        27 Eylül
+        {tt('27 Eylül')}
       </text>
-      <text x={148} y={55} fontSize={5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        1 değişti · 1 silindi
+      <text x={148} y={55} fontSize={5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }} {...fit(tt('1 değişti · 1 silindi'), 5, 42)}>
+        {tt('1 değişti · 1 silindi')}
       </text>
       <rect x={144} y={64} width={48} height={22} rx={4} fill="none" className="stroke-neutral-700" />
       <rect x={198} y={38} width={108} height={14} rx={4} fill="none" stroke="#f59e0b" strokeOpacity={0.6} />
       <text x={252} y={47.5} fontSize={5.8} textAnchor="middle" fill="#fbbf24" style={{ fontFamily: 'inherit' }}>
-        Arşivi bu hale döndür
+        {tt('Arşivi bu hale döndür')}
       </text>
       {[
-        ['Silindi', '#fb7185', 'Geri getir'],
-        ['Değişti', ACCENT, 'Geri al'],
-        ['Eklendi', '#34d399', 'Geri al'],
+        [tt('Silindi'), '#fb7185', tt('Geri getir')],
+        [tt('Değişti'), ACCENT, tt('Geri al')],
+        [tt('Eklendi'), '#34d399', tt('Geri al')],
       ].map(([t, c, u], i) => (
         <g key={t}>
           <rect x={198} y={58 + i * 24} width={108} height={20} rx={4} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.8} />
@@ -1184,10 +1192,10 @@ export function GecmisVisual() {
       ))}
       <Pin x={194} y={80} n={2} />
       <Label x={144} y={144} size={6.5} muted>
-        Her ekleme, değişiklik ve silme
+        {tt('Her ekleme, değişiklik ve silme')}
       </Label>
       <Label x={144} y={154} size={6.5} muted>
-        kendiliğinden kaydedilir.
+        {tt('kendiliğinden kaydedilir.')}
       </Label>
     </Frame>
   )
@@ -1214,12 +1222,12 @@ export function BildirimVisual() {
       {/* bildirim listesi */}
       <Box x={150} y={30} w={164} h={112} r={7} strong />
       <Label x={158} y={43} size={7.5}>
-        Bildirimler
+        {tt('Bildirimler')}
       </Label>
       {[
-        ['✓', '#34d399', 'Star Trek SNW', 'İzlendi yapıldı'],
-        ['▶', ACCENT, 'The Boys', "İzleniyor'a alındı"],
-        ['📅', '#fbbf24', 'Silo', '3. sezon: 12 Mart'],
+        ['✓', '#34d399', 'Star Trek SNW', tt('İzlendi yapıldı')],
+        ['▶', ACCENT, 'The Boys', tt('İzleniyor\'a alındı')],
+        ['📅', '#fbbf24', 'Silo', tt('3. sezon: 12 Mart')],
       ].map(([ic, c, t, x], i) => (
         <g key={t}>
           <circle cx={164} cy={60 + i * 26} r={7} fill={c} fillOpacity={0.18} />
@@ -1243,15 +1251,15 @@ export function BildirimVisual() {
       <rect x={70} y={58} width={20} height={8} rx={4} className="fill-neutral-700" />
       <rect x={48} y={70} width={80} height={10} rx={5} fill="#f59e0b" fillOpacity={0.12} stroke="#f59e0b" strokeOpacity={0.6} strokeWidth={0.8} />
       <text x={88} y={77.3} fontSize={6} textAnchor="middle" fill="#fbbf24" style={{ fontFamily: 'inherit' }}>
-        Yeni sezon bekleniyor
+        {tt('Yeni sezon bekleniyor')}
       </text>
       <Pin x={24} y={100} n={3} />
       <text x={36} y={104} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Dizi bitti · 4. sezon: 12 Mart
+        {tt('Dizi bitti · 4. sezon: 12 Mart')}
       </text>
       {/* akış */}
       <text x={8} y={160} fontSize={6.8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        Bütün bölümler işaretlendi → İzlendi · yeni bölüm çıktı → İzleniyor
+        {tt('Bütün bölümler işaretlendi → İzlendi · yeni bölüm çıktı → İzleniyor')}
       </text>
       <NewTag x={8} y={165} />
     </Frame>
@@ -1266,7 +1274,7 @@ export function TarihAraligiVisual() {
       {/* tarih düzenleyicisi */}
       <Box x={8} y={8} w={150} h={96} r={6} strong />
       <Label x={16} y={22} size={7.5}>
-        İzleme Tarihi
+        {tt('İzleme Tarihi')}
       </Label>
       <rect x={16} y={30} width={118} height={14} rx={7} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} />
       <text x={24} y={40} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
@@ -1281,7 +1289,7 @@ export function TarihAraligiVisual() {
       </text>
       <Pin x={146} y={42} n={1} />
       <text x={16} y={80} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Tarihin yanındaki → ile bitiş günü eklenir
+        {tt('Tarihin yanındaki → ile bitiş günü eklenir')}
       </text>
       {/* takvim: başladın / bitirdin */}
       {Array.from({ length: 4 }, (_, i) => (
@@ -1292,21 +1300,21 @@ export function TarihAraligiVisual() {
       ))}
       <rect x={173} y={22} width={27} height={17} rx={2} className="fill-neutral-800" />
       <text x={186.5} y={34} fontSize={5.2} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        Başladın
+        {tt('Başladın')}
       </text>
       <rect x={281} y={22} width={27} height={17} rx={2} className="fill-neutral-800" />
       <text x={294.5} y={34} fontSize={5.2} textAnchor="middle" fill="#34d399" style={{ fontFamily: 'inherit' }}>
-        Bitirdin
+        {tt('Bitirdin')}
       </text>
       <line x1={200} y1={30} x2={281} y2={30} stroke={ACCENT} strokeOpacity={0.4} strokeDasharray="3 3" />
       <Pin x={240} y={80} n={2} />
       {/* dizi bitince aralık */}
       <Box x={8} y={114} w={304} h={58} r={6} />
       <text x={16} y={130} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        Dizinin son bölümünü işaretledin → İzlendi
+        {tt('Dizinin son bölümünü işaretledin → İzlendi')}
       </text>
       <text x={16} y={144} fontSize={7} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        İzleme Tarihi: ilk bölümü izlediğin gün → son bölümü izlediğin gün
+        {tt('İzleme Tarihi: ilk bölümü izlediğin gün → son bölümü izlediğin gün')}
       </text>
       <rect x={16} y={151} width={112} height={13} rx={6.5} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} />
       <text x={22} y={160} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
@@ -1325,7 +1333,7 @@ export function OyuncuPencereVisual() {
       {/* aşağı kaydırılmış detay penceresi, dikey oyuncu kartları */}
       <Box x={8} y={8} w={304} h={164} r={8} />
       <Label x={18} y={24} size={8}>
-        Oyuncular
+        {tt('Oyuncular')}
       </Label>
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <g key={i}>
@@ -1343,8 +1351,8 @@ export function OyuncuPencereVisual() {
       <rect x={140} y={48} width={40} height={60} rx={4} className="fill-neutral-600" />
       <Line x={128} y={116} w={64} />
       <Line x={132} y={125} w={56} light />
-      <MiniButton x={122} y={135} w={44} text="İçerikleri gör" accent />
-      <MiniButton x={170} y={135} w={32} text="Kapat" />
+      <MiniButton x={122} y={135} w={44} text={tt('İçerikleri gör')} accent />
+      <MiniButton x={170} y={135} w={32} text={tt('Kapat')} />
       <Pin x={220} y={46} n={2} />
     </Frame>
   )
@@ -1357,10 +1365,10 @@ export function YedekVisual() {
     <Frame viewBox={VB}>
       <Box x={8} y={8} w={304} h={164} r={8} strong />
       <Label x={18} y={24} size={8.5}>
-        Ayarlar › Veritabanı › Yedekleme
+        {tt('Ayarlar › Veritabanı › Yedekleme')}
       </Label>
       <NewTag x={186} y={15} />
-      {['OneDrive (buluta gider)', 'Belgeler'].map((t, i) => (
+      {[tt('OneDrive (buluta gider)'), tt('Belgeler')].map((t, i) => (
         <g key={t}>
           <rect x={18 + i * 118} y={34} width={112} height={24} rx={5} fill={i === 0 ? ACCENT : 'none'} fillOpacity={i === 0 ? 0.12 : 0} stroke={i === 0 ? ACCENT : undefined} className={i === 0 ? undefined : 'stroke-neutral-600'} strokeWidth={0.8} />
           <text x={24 + i * 118} y={48} fontSize={6.8} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
@@ -1370,24 +1378,24 @@ export function YedekVisual() {
       ))}
       <Pin x={292} y={46} n={1} />
       <text x={18} y={76} fontSize={6.8} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        Yedek alınıyor · görseller 1.500 / 31.000
+        {tt('Yedek alınıyor · görseller 1.500 / 31.000')}
       </text>
       <rect x={18} y={82} width={270} height={4} rx={2} className="fill-neutral-800" />
       <rect x={18} y={82} width={60} height={4} rx={2} fill={ACCENT} />
       <Pin x={300} y={84} n={2} />
       <text x={18} y={104} fontSize={6.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Otomatik:
+        {tt('Otomatik:')}
       </text>
-      {['Kapalı', 'Her gün', 'Her hafta'].map((t, i) => (
+      {[tt('Kapalı'), tt('Her gün'), tt('Her hafta')].map((t, i) => (
         <MiniButton key={t} x={56 + i * 44} y={97} w={40} text={t} accent={i === 2} />
       ))}
       <line x1={16} y1={118} x2={304} y2={118} className="stroke-neutral-700" />
-      {['27 Eylül 2026, 23:10', '20 Eylül 2026, 21:00'].map((t, i) => (
+      {[tt('27 Eylül 2026, 23:10'), tt('20 Eylül 2026, 21:00')].map((t, i) => (
         <g key={t}>
           <text x={18} y={134 + i * 16} fontSize={6.8} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
             {t}
           </text>
-          <MiniButton x={250} y={126 + i * 16} w={48} text="Geri yükle" />
+          <MiniButton x={250} y={126 + i * 16} w={48} text={tt('Geri yükle')} />
         </g>
       ))}
       <Pin x={236} y={140} n={3} />
@@ -1400,7 +1408,7 @@ export function SeriKisiVisual() {
     <Frame viewBox={VB}>
       {/* seri */}
       <Label x={10} y={16} size={8}>
-        Transformers serisi · 1/5 izledin
+        {tt('Transformers serisi · 1/5 izledin')}
       </Label>
       {[0, 1, 2, 3, 4].map((i) => (
         <g key={i}>
@@ -1411,27 +1419,27 @@ export function SeriKisiVisual() {
           {i === 0 && <rect x={12} y={53} width={22} height={6} rx={2} fill="#10b981" />}
         </g>
       ))}
-      <MiniButton x={40} y={66} w={44} text="+ İzlenecek" />
+      <MiniButton x={40} y={66} w={44} text={tt('+ İzlenecek')} />
       <Pin x={168} y={40} n={1} />
       {/* kişi sayfası */}
       <Box x={178} y={8} w={134} h={164} r={7} strong />
       <rect x={186} y={16} width={30} height={44} rx={3} className="fill-neutral-600" />
       <Label x={222} y={26} size={7.5}>
-        Christopher Nolan
+        {tt('Christopher Nolan')}
       </Label>
       <text x={222} y={36} fontSize={5.8} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Yönetmen · arşivinde 3 yapımı
+        {tt('Yönetmen · arşivinde 3 yapımı')}
       </text>
       <Line x={222} y={44} w={80} light />
       <Line x={222} y={52} w={70} light />
       <text x={186} y={72} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        Arşivinde
+        {tt('Arşivinde')}
       </text>
       {[0, 1, 2].map((i) => (
         <rect key={i} x={186 + i * 24} y={76} width={20} height={30} rx={2} className="fill-neutral-700" />
       ))}
       <text x={186} y={118} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        Arşivinde olmayanlar
+        {tt('Arşivinde olmayanlar')}
       </text>
       {[0, 1, 2, 3, 4].map((i) => (
         <g key={i}>
@@ -1444,7 +1452,7 @@ export function SeriKisiVisual() {
       <Box x={10} y={100} w={160} h={72} r={7} strong />
       <rect x={18} y={108} width={14} height={20} rx={2} className="fill-neutral-600" />
       <text x={38} y={116} fontSize={6.8} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
-        İzledin! Kaç puan verirsin?
+        {tt('İzledin! Kaç puan verirsin?')}
       </text>
       {[0, 1].map((i) => (
         <g key={i}>
@@ -1452,8 +1460,8 @@ export function SeriKisiVisual() {
           <rect x={38} y={124 + i * 10} width={70 + i * 15} height={3} rx={1.5} fill="#fbbf24" />
         </g>
       ))}
-      <MiniButton x={18} y={152} w={36} text="Kaydet" accent />
-      <MiniButton x={58} y={152} w={30} text="Sonra" />
+      <MiniButton x={18} y={152} w={36} text={tt('Kaydet')} accent />
+      <MiniButton x={58} y={152} w={30} text={tt('Sonra')} />
       <Pin x={160} y={110} n={3} />
     </Frame>
   )
@@ -1476,16 +1484,16 @@ export function KoleksiyonVisual() {
   return (
     <Frame viewBox={VB}>
       <Label x={10} y={16} size={9}>
-        Koleksiyon
+        {tt('Koleksiyon')}
       </Label>
-      <NewTag x={46} y={7} />
+      <NewTag x={Math.max(46, 14 + textW(tt('Koleksiyon'), 9))} y={7} />
       {/* raf */}
       <Box x={8} y={24} w={304} h={78} r={7} />
       <Exhibit x={16} y={31} s={48}>
         <path d={DELTA_PATH} transform="translate(29 36) scale(0.3)" fill="#e3c26a" />
       </Exhibit>
       <text x={16} y={92} fontSize={7} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
-        Star Trek
+        {tt('Star Trek')}
       </text>
       <Pin x={70} y={34} n={1} />
       {[0, 1, 2, 3, 4].map((i) => (
@@ -1501,7 +1509,7 @@ export function KoleksiyonVisual() {
       <Pin x={264} y={30} n={2} />
       {/* tek başına olanlar */}
       <Label x={10} y={116} size={7.5}>
-        Tek başına olanlar
+        {tt('Tek başına olanlar')}
       </Label>
       {[0, 1, 2, 3, 4, 5, 6].map((i) => (
         <Exhibit key={i} x={10 + i * 43} y={122} s={36}>
@@ -1514,12 +1522,12 @@ export function KoleksiyonVisual() {
       <path d={DELTA_PATH} transform="translate(211 110) scale(0.2)" fill="#e3c26a" />
       <rect x={248} y={103} width={58} height={20} rx={3} fill="none" strokeDasharray="3 2" className="stroke-neutral-500" strokeWidth={0.7} />
       <text x={252} y={115} fontSize={5.2} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        Sürükle / Ctrl+V
+        {tt('Sürükle / Ctrl+V')}
       </text>
-      <text x={248} y={133} fontSize={5.2} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        ya da adres, hazır sembol
+      <text x={248} y={133} fontSize={5.2} className="fill-neutral-500" style={{ fontFamily: 'inherit' }} {...fit(tt('ya da adres, hazır sembol'), 5.2, 64)}>
+        {tt('ya da adres, hazır sembol')}
       </text>
-      <MiniButton x={270} y={156} w={36} text="Kaydet" accent />
+      <MiniButton x={270} y={156} w={36} text={tt('Kaydet')} accent />
       <Pin x={194} y={100} n={3} />
     </Frame>
   )
@@ -1531,15 +1539,15 @@ export function IlerlemeVisual() {
   return (
     <Frame viewBox={VB}>
       <Label x={10} y={18} size={9}>
-        Koleksiyon
+        {tt('Koleksiyon')}
       </Label>
       <Box x={8} y={28} w={304} h={52} r={7} strong />
       <circle cx={24} cy={44} r={5} fill="none" stroke={ACCENT} strokeWidth={1.6} strokeDasharray="20 12" />
       <text x={36} y={47} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
-        İlk açılış: filmlerinin hangi seriden olduğu öğreniliyor
+        {tt('İlk açılış: filmlerinin hangi seriden olduğu öğreniliyor')}
       </text>
       <text x={250} y={47} fontSize={6} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        205/297 · ~30 sn
+        {tt('205/297 · ~30 sn')}
       </text>
       <rect x={18} y={56} width={284} height={4} rx={2} className="fill-neutral-800" />
       <rect x={18} y={56} width={196} height={4} rx={2} fill={ACCENT} />
@@ -1577,14 +1585,14 @@ export function TarihSeciciVisual() {
       </text>
       {/* anahtar */}
       <text x={196} y={42} fontSize={6} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        Bitiş tarihi
+        {tt('Bitiş tarihi')}
       </text>
       <rect x={232} y={36} width={16} height={8} rx={4} fill={ACCENT} />
       <circle cx={244} cy={40} r={3} fill="#fff" />
       <Pin x={254} y={32} n={1} />
       {/* takvim */}
       <text x={124} y={60} fontSize={7.5} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
-        Haziran 2024
+        {tt('Haziran 2024')}
       </text>
       <text x={76} y={60} fontSize={8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
         ‹
@@ -1627,7 +1635,7 @@ export function AcilisVisual() {
       <line x1={14} y1={34} x2={126} y2={106} stroke="#f87171" strokeWidth={2} />
       <line x1={126} y1={34} x2={14} y2={106} stroke="#f87171" strokeWidth={2} />
       <text x={70} y={124} fontSize={7} textAnchor="middle" className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        eskiden
+        {tt('eskiden')}
       </text>
       <text x={150} y={74} fontSize={14} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
         →
@@ -1638,15 +1646,15 @@ export function AcilisVisual() {
       <path d="M229 62 Q241 54 253 62" fill="none" stroke={ACCENT} strokeWidth={2.2} />
       <circle cx={241} cy={63} r={1.8} fill={ACCENT} />
       <text x={241} y={80} fontSize={9} fontWeight={800} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
-        ARGUS
+        {tt('ARGUS')}
       </text>
       <text x={241} y={93} fontSize={5.5} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        Arayüz hazırlanıyor…
+        {tt('Arayüz hazırlanıyor…')}
       </text>
       <rect x={211} y={102} width={60} height={2} rx={1} className="fill-neutral-700" />
       <rect x={226} y={102} width={18} height={2} rx={1} fill={ACCENT} />
       <text x={241} y={138} fontSize={7} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        şimdi
+        {ttc('cizim', 'şimdi')}
       </text>
       <Pin x={306} y={26} n={1} />
       <Pin x={280} y={92} n={2} />
@@ -1666,7 +1674,7 @@ export function UygulamaAyarVisual() {
   return (
     <Frame viewBox={VB}>
       {/* sol menü */}
-      {['Veritabanı', 'Ana Sayfa Ayarları', 'Uygulama Ayarları', 'Profil Ayarları'].map((t, i) => (
+      {[tt('Veritabanı'), tt('Ana Sayfa Ayarları'), tt('Uygulama Ayarları'), tt('Profil Ayarları')].map((t, i) => (
         <g key={t}>
           <rect x={8} y={14 + i * 24} width={92} height={20} rx={5} fill={i === 2 ? ACCENT : 'none'} fillOpacity={i === 2 ? 0.12 : 0} stroke={i === 2 ? ACCENT : undefined} strokeOpacity={0.5} strokeWidth={0.7} />
           <text x={16} y={27 + i * 24} fontSize={6.2} className={i === 2 ? 'fill-neutral-50' : 'fill-neutral-400'} style={{ fontFamily: 'inherit' }}>
@@ -1679,12 +1687,12 @@ export function UygulamaAyarVisual() {
       {/* sağ panel */}
       <Box x={112} y={10} w={200} h={160} r={8} strong />
       <Label x={122} y={26} size={8}>
-        Uygulama Ayarları
+        {tt('Uygulama Ayarları')}
       </Label>
       {[
-        ['Bilgisayar açılınca ARGUS\'u da aç', true, 44],
-        ['Pencereyi açmadan, tepside başlasın', false, 70],
-        ['Kapatınca tepsiye küçült', true, 110],
+        [tt('Bilgisayar açılınca ARGUS\'u da aç'), true, 44],
+        [tt('Pencereyi açmadan, tepside başlasın'), false, 70],
+        [tt('Kapatınca tepsiye küçült'), true, 110],
       ].map(([t, on, y]) => (
         <g key={t as string}>
           <text x={122} y={(y as number) + 8} fontSize={6.2} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
@@ -1700,7 +1708,7 @@ export function UygulamaAyarVisual() {
       <rect x={236} y={146} width={66} height={16} rx={3} className="fill-neutral-800" />
       <path d="M244 158 L248 150 L252 158" fill="none" stroke={ACCENT} strokeWidth={1.4} />
       <text x={258} y={157} fontSize={5.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        tepside
+        {tt('tepside')}
       </text>
     </Frame>
   )
@@ -1712,11 +1720,11 @@ export function KoleksiyonRafVisual() {
     <Frame viewBox={VB}>
       {/* araç çubuğu */}
       {[
-        ['+ Yeni raf', 20, true],
-        ['Görsel oluştur', 78, true],
+        [tt('+ Yeni raf'), 20, true],
+        [tt('Görsel oluştur'), 20 + Math.max(52, textW(tt('+ Yeni raf'), 6.2) + 12) + 6, true],
       ].map(([t, x, hi]) => (
         <g key={t as string}>
-          <rect x={x as number} y={10} width={t === '+ Yeni raf' ? 52 : 66} height={14} rx={4} fill="none" stroke={hi ? ACCENT : undefined} strokeOpacity={0.8} strokeWidth={0.8} />
+          <rect x={x as number} y={10} width={Math.max(t === tt('+ Yeni raf') ? 52 : 66, textW(t as string, 6.2) + 12)} height={14} rx={4} fill="none" stroke={hi ? ACCENT : undefined} strokeOpacity={0.8} strokeWidth={0.8} />
           <text x={(x as number) + 6} y={20} fontSize={6.2} fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
             {t as string}
           </text>
@@ -1728,10 +1736,10 @@ export function KoleksiyonRafVisual() {
       <Box x={14} y={32} w={292} h={78} r={8} />
       <rect x={22} y={40} width={44} height={44} rx={6} className="fill-neutral-900" />
       <text x={44} y={69} fontSize={20} textAnchor="middle" className="fill-neutral-700" style={{ fontFamily: 'inherit' }}>
-        G
+        {tt('G')}
       </text>
       <text x={22} y={96} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
-        Ghibli
+        {tt('Ghibli')}
       </text>
       {[0, 1, 2].map((i) => (
         <rect key={i} x={78 + i * 44} y={40} width={38} height={38} rx={5} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.6} />
@@ -1741,22 +1749,22 @@ export function KoleksiyonRafVisual() {
         +
       </text>
       <text x={229} y={88} fontSize={5.4} textAnchor="middle" fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
-        Yapım ekle
+        {tt('Yapım ekle')}
       </text>
       <Pin x={254} y={40} n={2} />
       {/* PNG önizlemesi */}
       <Box x={40} y={118} w={240} h={56} r={6} strong />
       <text x={50} y={132} fontSize={5} fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
-        ARGUS
+        {tt('ARGUS')}
       </text>
       <text x={50} y={146} fontSize={11} className="fill-neutral-50" style={{ fontFamily: 'inherit', fontWeight: 900 }}>
-        Koleksiyon
+        {tt('Koleksiyon')}
       </text>
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <rect key={i} x={140 + i * 22} y={126} width={18} height={18} rx={3} className="fill-neutral-800" />
       ))}
       <text x={236} y={166} fontSize={6} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
-        ↓ PNG
+        {tt('↓ PNG')}
       </text>
     </Frame>
   )
@@ -1765,16 +1773,16 @@ export function KoleksiyonRafVisual() {
 // "Hangisi?" penceresi: TMDB'de aynı adlı birden fazla yapım — afiş, ad, yıl, Film/Dizi, "adı tutuyor".
 export function HangisiVisual() {
   const items: [string, string, string, boolean][] = [
-    ['Joker', '2019', 'Film', true],
-    ['Joker', '2012', 'Film', true],
-    ['Joker', '2021', 'Dizi', true],
-    ['Joker: Folie à Deux', '2024', 'Film', false],
+    ['Joker', '2019', tt('Film'), true],
+    ['Joker', '2012', tt('Film'), true],
+    ['Joker', '2021', tt('Dizi'), true],
+    ['Joker: Folie à Deux', '2024', tt('Film'), false],
   ]
   return (
     <Frame viewBox={VB}>
       <Box x={40} y={8} w={240} h={164} r={8} strong />
       <Label x={52} y={24} size={9}>
-        Hangisi?
+        {tt('Hangisi?')}
       </Label>
       <Line x={52} y={31} w={150} light />
       {items.map(([t, y, k, exact], i) => {
@@ -1793,7 +1801,7 @@ export function HangisiVisual() {
               <g>
                 <rect x={214} y={top + 5} width={48} height={10} rx={2} fill={ACCENT} fillOpacity={0.12} stroke={ACCENT} strokeOpacity={0.5} strokeWidth={0.5} />
                 <text x={238} y={top + 12} fontSize={5} textAnchor="middle" fill="#7fdcff" style={{ fontFamily: 'inherit' }}>
-                  adı tutuyor
+                  {tt('adı tutuyor')}
                 </text>
               </g>
             )}
@@ -1810,7 +1818,7 @@ export function HangisiVisual() {
 
 // Tabloda Güncelle'ye basılan satırın üstünden geçen mavi ışık hüzmesi; altta bitmiş, parlayan satır.
 export function SatirGuncelleVisual() {
-  const rows = ['Artemis Fowl', 'Düşler Fabrikası', 'Snowpiercer', 'Narnia Günlükleri', 'Hayaller Diyarı']
+  const rows = ['Artemis Fowl', tt('Düşler Fabrikası'), 'Snowpiercer', tt('Narnia Günlükleri'), tt('Hayaller Diyarı')]
   return (
     <Frame viewBox={VB}>
       <defs>
@@ -1852,7 +1860,7 @@ export function SatirGuncelleVisual() {
 
 // Satırı altı noktadan tutup sürükleyerek taşıma: sürüklenen satır soluk, bırakılacak yerde mavi çizgi.
 export function SatirTasiVisual() {
-  const rows = ['Artemis Fowl', 'Düşler Fabrikası', 'Snowpiercer', 'Narnia Günlükleri', 'Hayaller Diyarı']
+  const rows = ['Artemis Fowl', tt('Düşler Fabrikası'), 'Snowpiercer', tt('Narnia Günlükleri'), tt('Hayaller Diyarı')]
   return (
     <Frame viewBox={VB}>
       <Box x={20} y={12} w={280} h={140} r={8} strong />
@@ -1884,7 +1892,7 @@ export function SatirTasiVisual() {
       <g transform="translate(60 128) rotate(-2)">
         <rect width={150} height={20} rx={4} className="fill-neutral-800" stroke={ACCENT} strokeOpacity={0.6} strokeWidth={0.7} />
         <text x={12} y={13} fontSize={7} className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
-          Artemis Fowl
+          {tt('Artemis Fowl')}
         </text>
       </g>
       <path d="M150 150 L150 162 L154 158" fill="none" className="stroke-neutral-400" strokeWidth={1} />
@@ -1894,7 +1902,7 @@ export function SatirTasiVisual() {
 
 // Arşiv tablosu: mükerrer olabilecek satırların solunda kırmızı nokta; sol altta en üste / en alta düğmeleri.
 export function TabloMukerrerVisual() {
-  const rows = ['Başlangıç', 'Dark', 'Dune: Çöl Gezegeni', 'Başlangıç', 'Esaretin Bedeli', 'Dark']
+  const rows = [tt('Başlangıç'), 'Dark', tt('Dune: Çöl Gezegeni'), tt('Başlangıç'), tt('Esaretin Bedeli'), 'Dark']
   const dup = new Set([0, 1, 3, 5])
   return (
     <Frame viewBox={VB}>
@@ -1942,7 +1950,7 @@ export function MukerrerVisual() {
       </text>
       <rect x={keep ? 150 : 142} y={y - 7} width={keep ? 20 : 28} height={11} rx={2} fill={keep ? '#10b981' : 'none'} fillOpacity={keep ? 0.15 : 0} className={keep ? undefined : 'stroke-neutral-600'} stroke={keep ? '#10b981' : undefined} strokeWidth={0.6} />
       <text x={keep ? 160 : 156} y={y + 0.6} fontSize={5} textAnchor="middle" fill={keep ? '#34d399' : undefined} className={keep ? undefined : 'fill-neutral-400'} style={{ fontFamily: 'inherit' }}>
-        {keep ? 'kalır' : 'Bu kalsın'}
+        {keep ? tt('kalır') : tt('Bu kalsın')}
       </text>
     </g>
   )
@@ -1950,19 +1958,19 @@ export function MukerrerVisual() {
     <Frame viewBox={VB}>
       <Box x={8} y={10} w={172} h={160} r={8} strong />
       <Label x={18} y={26} size={8}>
-        Mükerrer kayıtlar
+        {tt('Mükerrer kayıtlar')}
       </Label>
       <NewTag x={100} y={19} />
       <Box x={14} y={36} w={160} h={78} r={5} />
-      {row(50, 'Dune: Çöl Gezegeni', 'Film · 2021 · İzlendi · puanlı · 18 alan dolu', true)}
-      {row(72, 'Dune: Çöl Gezegeni', 'Film · 2021 · 14 alan dolu', false)}
+      {row(50, tt('Dune: Çöl Gezegeni'), tt('Film · 2021 · İzlendi · puanlı · 18 alan dolu'), true)}
+      {row(72, tt('Dune: Çöl Gezegeni'), tt('Film · 2021 · 14 alan dolu'), false)}
       <rect x={82} y={96} width={42} height={12} rx={6} className="stroke-neutral-600" fill="none" strokeWidth={0.6} />
-      <text x={103} y={104} fontSize={5.2} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
-        Bunlar farklı
+      <text x={103} y={104} fontSize={5.2} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }} {...fit(tt('Bunlar farklı'), 5.2, 38)}>
+        {tt('Bunlar farklı')}
       </text>
       <rect x={128} y={96} width={40} height={12} rx={6} fill="none" stroke={ACCENT} strokeWidth={0.8} />
       <text x={148} y={104} fontSize={5.2} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
-        Birleştir
+        {tt('Birleştir')}
       </text>
       <Pin x={176} y={100} n={1} />
       <Line x={18} y={126} w={120} light />
@@ -1971,24 +1979,24 @@ export function MukerrerVisual() {
       {/* sağ: İngilizce ad → Türkçe ad */}
       <Box x={192} y={34} w={120} h={24} r={5} />
       <text x={200} y={49} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
-        Parasite
+        {tt('Parasite')}
       </text>
       <path d="M252 62 L252 82" stroke={ACCENT} strokeWidth={1.2} />
       <path d="M248 78 L252 84 L256 78" fill="none" stroke={ACCENT} strokeWidth={1.2} />
       <text x={258} y={75} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Güncelle
+        {tt('Güncelle')}
       </text>
       <Box x={192} y={88} w={120} h={34} r={5} strong />
       <text x={200} y={103} fontSize={7.5} className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
-        Parazit
+        {tt('Parazit')}
       </text>
       <text x={200} y={114} fontSize={5.2} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        Orjinal Adı: Parasite
+        {tt('Orjinal Adı: Parasite')}
       </text>
       <Pin x={306} y={92} n={2} />
       <rect x={192} y={132} width={120} height={22} rx={5} fill="#f43f5e" fillOpacity={0.1} stroke="#f43f5e" strokeOpacity={0.5} strokeWidth={0.7} />
       <text x={200} y={146} fontSize={5.4} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
-        Bu içerik arşivde zaten var
+        {tt('Bu içerik arşivde zaten var')}
       </text>
       <Pin x={306} y={136} n={3} />
     </Frame>
@@ -2006,9 +2014,9 @@ export function SecimliGuncellemeVisual() {
       {/* tablo: seçim çubuğu + satırlar */}
       <Box x={8} y={8} w={146} h={164} r={7} />
       <rect x={8} y={8} width={146} height={34} rx={7} className="fill-neutral-800" />
-      <Label x={14} y={19} size={6.5}>2 kayıt seçili</Label>
-      <MiniButton x={12} y={25} w={70} text="Seçilenleri Güncelle" accent />
-      <MiniButton x={85} y={25} w={65} text="Bölümlerini Yenile" />
+      <Label x={14} y={19} size={6.5}>{tt('2 kayıt seçili')}</Label>
+      <MiniButton x={12} y={25} w={70} text={tt('Seçilenleri Güncelle')} accent />
+      <MiniButton x={85} y={25} w={65} text={tt('Bölümlerini Yenile')} />
       <Pin x={146} y={52} n={1} />
       {[0, 1, 2, 3, 4].map((i) => (
         <g key={i}>
@@ -2020,20 +2028,20 @@ export function SecimliGuncellemeVisual() {
       ))}
       {/* Genel Güncelleme menüsü */}
       <Box x={162} y={8} w={150} h={164} r={7} strong />
-      <Label x={170} y={21} size={8}>Genel Güncelleme</Label>
+      <Label x={170} y={21} size={8}>{tt('Genel Güncelleme')}</Label>
       <rect x={168} y={27} width={138} height={18} rx={4} className="fill-neutral-900 stroke-neutral-700" strokeWidth={0.7} />
       {radio(176, 36, false)}
-      <Label x={183} y={38.5} size={6.5}>Eksik bilgileri doldur</Label>
+      <Label x={183} y={38.5} size={6.5}>{tt('Eksik bilgileri doldur')}</Label>
       <rect x={168} y={48} width={138} height={18} rx={4} fill={ACCENT} fillOpacity={0.1} stroke={ACCENT} strokeOpacity={0.6} strokeWidth={0.7} />
       {radio(176, 57, true)}
-      <Label x={183} y={59.5} size={6.5}>Sadece bölümleri yenile</Label>
+      <Label x={183} y={59.5} size={6.5}>{tt('Sadece bölümleri yenile')}</Label>
       <NewTag x={262} y={51} />
       <Pin x={300} y={76} n={2} />
-      <Label x={170} y={82} size={6} muted>HANGİ KAYITLAR?</Label>
+      <Label x={170} y={82} size={6} muted>{tt('HANGİ KAYITLAR?')}</Label>
       {[
-        ['Bütün arşiv', '812'],
-        ['Görünen (filtre/arama)', '6'],
-        ['Seçili kayıtlar', '2'],
+        [tt('Bütün arşiv'), '812'],
+        [tt('Görünen (filtre/arama)'), '6'],
+        [tt('Seçili kayıtlar'), '2'],
       ].map(([t, n], i) => (
         <g key={t}>
           <rect x={168} y={87 + i * 17} width={138} height={14} rx={4} className={i === 1 ? '' : 'fill-neutral-900 stroke-neutral-700'} fill={i === 1 ? ACCENT : undefined} fillOpacity={i === 1 ? 0.1 : undefined} stroke={i === 1 ? ACCENT : undefined} strokeOpacity={i === 1 ? 0.6 : undefined} strokeWidth={0.7} />
@@ -2045,7 +2053,7 @@ export function SecimliGuncellemeVisual() {
       <Pin x={156} y={112} n={3} />
       <rect x={168} y={143} width={138} height={18} rx={5} fill={ACCENT} />
       <text x={237} y={155} fontSize={7.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
-        Başlat
+        {tt('Başlat')}
       </text>
     </Frame>
   )
@@ -2066,17 +2074,23 @@ export function TarihBilinmiyorVisual() {
   return (
     <Frame viewBox={VB}>
       <Box x={8} y={8} w={180} h={164} r={8} strong />
-      {chip(16, 56, '2019 yılında')}
-      {chip(76, 66, 'Tarih bilinmiyor')}
+      {chip(16, 56, tt('2019 yılında'))}
+      {chip(76, 66, tt('Tarih bilinmiyor'))}
       {/* küçük takvim (sade) */}
       <Box x={16} y={38} w={164} h={62} r={5} />
       {[0, 1, 2, 3].map((r) => (
         <Line key={r} x={26} y={50 + r * 13} w={144} light />
       ))}
-      <MiniButton x={16} y={108} w={30} text="Bugün" />
-      <MiniButton x={49} y={108} w={22} text="Dün" />
-      <MiniButton x={74} y={108} w={44} text="Sadece yıl" accent />
-      <MiniButton x={121} y={108} w={56} text="Hatırlamıyorum" accent />
+      {(() => {
+        // Düğmeler metinlerine göre yan yana (İngilizce daha uzun)
+        let x = 16
+        return [tt('Bugün'), tt('Dün'), tt('Sadece yıl'), tt('Hatırlamıyorum')].map((t, i) => {
+          const w = Math.max([30, 22, 44, 56][i], textW(t, 6.5) + 6)
+          const el = <MiniButton key={t} x={x} y={108} w={Math.min(w, 178 - x)} text={t} accent={i > 1} />
+          x += w + 3
+          return el
+        })
+      })()}
       <Pin x={180} y={104} n={1} />
       <rect x={16} y={128} width={40} height={14} rx={3} className="fill-neutral-900 stroke-neutral-600" strokeWidth={0.7} />
       <text x={22} y={138} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
@@ -2084,14 +2098,14 @@ export function TarihBilinmiyorVisual() {
       </text>
       <rect x={60} y={128} width={26} height={14} rx={3} fill={ACCENT} />
       <text x={73} y={138} fontSize={6.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
-        Ekle
+        {tt('Ekle')}
       </text>
-      <Label x={92} y={138} size={5.5} muted>günü bilinmiyor</Label>
+      <Label x={92} y={138} size={5.5} muted>{tt('günü bilinmiyor')}</Label>
       <Pin x={150} y={124} n={2} />
       {/* sağ: tablo hücreleri */}
       <Box x={198} y={34} w={114} h={110} r={6} />
-      <Label x={206} y={48} size={6} muted>İZLEME TARİHİ</Label>
-      {['12.08.2024', '2019 yılında', 'Tarih bilinmiyor'].map((t, i) => (
+      <Label x={206} y={48} size={6} muted>{tt('İZLEME TARİHİ')}</Label>
+      {['12.08.2024', tt('2019 yılında'), tt('Tarih bilinmiyor')].map((t, i) => (
         <g key={t}>
           <Line x={206} y={58 + i * 26} w={98} light />
           <text x={206} y={72 + i * 26} fontSize={7} className={i ? 'fill-neutral-100' : 'fill-neutral-400'} style={{ fontFamily: 'inherit' }}>
@@ -2134,9 +2148,9 @@ export function SaglikTarihVisual() {
   return (
     <Frame viewBox={VB}>
       <Box x={6} y={4} w={308} h={172} r={8} strong />
-      {section(12, 'İzlendi ama izleme tarihi yok', '124 kayıt', ['Esaretin Bedeli', 'Matrix'], 'Hatırlamıyorum', 'Hiçbirini hatırlamıyorum (124 kayıt)')}
+      {section(12, tt('İzlendi ama izleme tarihi yok'), tt('124 kayıt'), [tt('Esaretin Bedeli'), 'Matrix'], tt('Hatırlamıyorum'), tt('Hiçbirini hatırlamıyorum (124 kayıt)'))}
       <Pin x={10} y={14} n={1} />
-      {section(92, 'İzlenecek ama izleme tarihi var', '5 kayıt', ['JUNG_E', 'Ölümlü Dünya'], 'İzlendi yap', 'Hepsini İzlendi yap (5 kayıt)')}
+      {section(92, tt('İzlenecek ama izleme tarihi var'), tt('5 kayıt'), ['JUNG_E', tt('Ölümlü Dünya')], tt('İzlendi yap'), tt('Hepsini İzlendi yap (5 kayıt)'))}
       <Pin x={10} y={94} n={2} />
     </Frame>
   )
@@ -2159,8 +2173,8 @@ export function MuziklerVisual() {
       </text>
       {hover && (
         <>
-          <MiniButton x={150} y={y + 2.5} w={26} text="Spotify" />
-          <MiniButton x={179} y={y + 2.5} w={26} text="YouTube" />
+          <MiniButton x={150} y={y + 2.5} w={26} text={tt('Spotify')} />
+          <MiniButton x={179} y={y + 2.5} w={26} text={tt('YouTube')} />
         </>
       )}
     </g>
@@ -2168,13 +2182,13 @@ export function MuziklerVisual() {
   return (
     <Frame viewBox={VB}>
       <Box x={8} y={8} w={210} h={164} r={8} strong />
-      <Label x={16} y={26} size={10}>Müzikler</Label>
-      <Label x={64} y={26} size={6} muted>4 şarkı</Label>
+      <Label x={16} y={26} size={10}>{tt('Müzikler')}</Label>
+      <Label x={64} y={26} size={6} muted>{tt('4 şarkı')}</Label>
       <NewTag x={176} y={16} />
-      <Label x={16} y={42} size={5.5} muted>1. SEZON 1. BÖLÜM · PİLOT</Label>
+      <Label x={16} y={42} size={5.5} muted>{tt('1. SEZON 1. BÖLÜM · PİLOT')}</Label>
       {song(48, '5:12', 'Running Up That Hill', 'Kate Bush', true)}
       {song(72, '31:14', 'Should I Stay or…', 'The Clash')}
-      <Label x={16} y={106} size={5.5} muted>1. SEZON 2. BÖLÜM</Label>
+      <Label x={16} y={106} size={5.5} muted>{tt('1. SEZON 2. BÖLÜM')}</Label>
       {song(112, '10:40', 'Africa', 'Toto')}
       {song(136, '~49:10', 'Heroes', 'Peter Gabriel')}
       <Pin x={14} y={54} n={1} />
@@ -2187,10 +2201,10 @@ export function MuziklerVisual() {
       {[0, 1, 2, 3, 4].map((i) => (
         <rect key={i} x={252 + i * 8} y={86 - [4, 9, 6, 11, 5][i]} width={4} height={[4, 9, 6, 11, 5][i] * 2} rx={2} fill={ACCENT} fillOpacity={0.7} />
       ))}
-      <Label x={270} y={104} size={5.5} anchor="middle" muted>izlerken dinliyor</Label>
+      <Label x={270} y={104} size={5.5} anchor="middle" muted>{tt('izlerken dinliyor')}</Label>
       <Pin x={306} y={44} n={3} />
-      <Label x={270} y={128} size={6} anchor="middle">Nook · Hum</Label>
-      <Label x={270} y={138} size={5} anchor="middle" muted>şarkıyı bulup yazar</Label>
+      <Label x={270} y={128} size={6} anchor="middle">{tt('Nook · Hum')}</Label>
+      <Label x={270} y={138} size={5} anchor="middle" muted>{tt('şarkıyı bulup yazar')}</Label>
     </Frame>
   )
 }
@@ -2208,16 +2222,16 @@ export function MuzikEkleVisual() {
   return (
     <Frame viewBox={VB}>
       <Box x={8} y={8} w={304} h={164} r={8} strong />
-      <Label x={18} y={28} size={10}>Müzikler</Label>
+      <Label x={18} y={28} size={10}>{tt('Müzikler')}</Label>
       <rect x={240} y={17} width={62} height={15} rx={7.5} fill="none" stroke={ACCENT} strokeWidth={1} />
       <text x={271} y={27} fontSize={6.5} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
-        + Müzik ekle
+        {tt('+ Müzik ekle')}
       </text>
       <Pin x={304} y={14} n={1} />
       <Box x={16} y={40} w={288} h={70} r={6} />
       <rect x={24} y={48} width={272} height={16} rx={3} className="fill-neutral-800 stroke-neutral-600" strokeWidth={0.6} />
       <text x={29} y={59} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
-        1. Sezon 5. Bölüm · Işıklar Söndü
+        {tt('1. Sezon 5. Bölüm · Işıklar Söndü')}
       </text>
       {field(24, 40, '42:05')}
       {field(68, 112, 'Take On Me')}
@@ -2225,22 +2239,73 @@ export function MuzikEkleVisual() {
       <Pin x={22} y={66} n={2} />
       <rect x={266} y={92} width={30} height={13} rx={3} fill={ACCENT} />
       <text x={281} y={101} fontSize={6.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
-        Ekle
+        {tt('Ekle')}
       </text>
-      <Label x={24} y={102} size={5.5} muted>dakika boş bırakılabilir</Label>
-      <Label x={18} y={128} size={5.5} muted>1. SEZON 5. BÖLÜM</Label>
+      <Label x={24} y={102} size={5.5} muted>{tt('dakika boş bırakılabilir')}</Label>
+      <Label x={18} y={128} size={5.5} muted>{tt('1. SEZON 5. BÖLÜM')}</Label>
       <text x={46} y={146} fontSize={7} textAnchor="end" fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
         42:05
       </text>
       <rect x={52} y={135} width={16} height={16} rx={3} className="fill-neutral-700" />
       <text x={74} y={142} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
-        Take On Me
+        {tt('Take On Me')}
       </text>
       <text x={74} y={150} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
-        a-ha
+        {tt('a-ha')}
       </text>
       <NewTag x={122} y={137} />
       <Pin x={160} y={140} n={3} />
+    </Frame>
+  )
+}
+
+// Dil seçimi: Ayarlar › Uygulama Ayarları › Dil · Language; arayüz, bildirimler ve TMDB bilgileri seçilen dilde.
+export function DilVisual() {
+  const btn = (x: number, t: string, on: boolean) => (
+    <g>
+      <rect x={x} y={56} width={52} height={15} rx={3} fill={on ? ACCENT : 'none'} className={on ? undefined : 'stroke-neutral-600'} strokeWidth={0.8} />
+      <text x={x + 26} y={66.5} fontSize={7} textAnchor="middle" fill={on ? '#fff' : undefined} className={on ? undefined : 'fill-neutral-300'} style={{ fontFamily: 'inherit' }}>
+        {t}
+      </text>
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={150} h={164} r={8} strong />
+      <Label x={16} y={26} size={8.5}>Dil · Language</Label>
+      <NewTag x={104} y={17} />
+      <Label x={16} y={46} size={6} muted>{tt('Arayüz dili')}</Label>
+      {btn(16, 'Türkçe', false)}
+      {btn(72, 'English', true)}
+      <Pin x={132} y={64} n={1} />
+      {[0, 1, 2].map((i) => (
+        <Line key={i} x={16} y={92 + i * 12} w={120 - i * 24} light />
+      ))}
+      {/* sağ: İngilizce arayüz */}
+      <Box x={168} y={8} w={144} h={164} r={8} />
+      <Label x={176} y={26} size={8}>Home · Calendar</Label>
+      <rect x={176} y={36} width={128} height={44} rx={4} className="fill-neutral-800" />
+      <text x={182} y={50} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        Season 1 Episode 5
+      </text>
+      <text x={182} y={61} fontSize={6} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        Watched · March 12, 2026
+      </text>
+      <rect x={182} y={66} width={44} height={9} rx={4.5} fill={ACCENT} fillOpacity={0.2} />
+      <text x={204} y={72.5} fontSize={5.5} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        S1E5
+      </text>
+      <Pin x={300} y={40} n={2} />
+      <rect x={176} y={90} width={128} height={30} rx={4} fill="none" className="stroke-neutral-700" />
+      <text x={182} y={103} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        New episode out — moved to
+      </text>
+      <text x={182} y={113} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        Watching
+      </text>
+      <Pin x={300} y={98} n={3} />
+      <Label x={176} y={140} size={6} muted>TMDB · Synopsis, Genre…</Label>
+      <Label x={176} y={152} size={6} muted>Status · Category · Cast</Label>
     </Frame>
   )
 }

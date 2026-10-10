@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { PropertyDef, PropertyValue } from '../types'
 import AnchoredMenu from './AnchoredMenu'
 import PropertyValueInput from './PropertyValueInput'
+import { tt } from '../lib/i18n'
 
 const SINGLE_STEP_TYPES = new Set(['text', 'number', 'date', 'url'])
 
@@ -73,7 +74,7 @@ export default function CellEditor({
             onClick={handleClose}
             className="text-xs font-semibold rounded-md bg-[#00c0fa] hover:brightness-110 text-white px-3 py-1.5 transition"
           >
-            Kapat
+            {tt('Kapat')}
           </button>
         </div>
       </div>

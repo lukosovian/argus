@@ -1,3 +1,4 @@
+import { tt } from '../lib/i18n'
 // TMDB tür seçimi (Keşfet, Ne İzlesem'in TMDB modu): bir tık ✓ gelsin, ikinci tık ✕ gelmesin,
 // üçüncü tık seçimi kaldırır — arşivdeki filtrelerle (MultiFilterEditor) aynı mantık.
 export default function GenreTriPicker({
@@ -24,7 +25,7 @@ export default function GenreTriPicker({
           <button
             key={g.id}
             onClick={() => cycle(g.id)}
-            title={state === 'in' ? 'Gelsin — tekrar tıkla: gelmesin' : state === 'out' ? 'Gelmesin — tekrar tıkla: seçimi kaldır' : 'Tıkla: gelsin'}
+            title={state === 'in' ? tt('Gelsin — tekrar tıkla: gelmesin') : state === 'out' ? tt('Gelmesin — tekrar tıkla: seçimi kaldır') : tt('Tıkla: gelsin')}
             className={`text-xs rounded-full px-2.5 py-1 border transition ${
               state === 'in'
                 ? 'border-emerald-400 text-emerald-300 bg-emerald-500/10'

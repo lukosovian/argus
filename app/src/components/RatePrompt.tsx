@@ -6,6 +6,7 @@ import { resolveRole } from '../lib/roles'
 import { titleText, type Board, type PropertyValue, type Row } from '../types'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import PropertyValueInput from './PropertyValueInput'
+import { tt, ttx } from '../lib/i18n'
 
 // Puan hatırlatması — kullanıcı "izledikten sonra puan sorsun" dedi. Bir kayıt hangi yoldan olursa olsun
 // (tablo, takvim, Ne İzlesem, dizinin bütün bölümleri bitince) İzlendi olup puanı boşsa sunucu haber
@@ -83,7 +84,7 @@ export default function RatePrompt() {
   if (!ctx) return null
   const puan = resolveRole(ctx.board, 'puan')!
   const tp = ctx.board.properties.find((p) => p.id === ctx.board.titlePropertyId)
-  const title = (tp ? titleText(tp, ctx.row.values[tp.id]) : '') || 'Bu kayıt'
+  const title = (tp ? titleText(tp, ctx.row.values[tp.id]) : '') || tt('Bu kayıt')
   const posterProp = resolveRole(ctx.board, 'poster')
   const poster = posterProp ? (ctx.row.values[posterProp.id] as string) : ''
   const hasScore = scores && typeof scores === 'object' && Object.keys(scores as object).length > 0
@@ -94,8 +95,8 @@ export default function RatePrompt() {
         {poster && <img src={poster} alt="" className="h-16 w-11 rounded-md object-cover shrink-0 bg-neutral-800" />}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-neutral-50 truncate">{title}</p>
-          <p className="text-xs text-neutral-400 mt-0.5">İzledin! Kaç puan verirsin?</p>
-          {queue.length > 1 && <p className="text-[11px] text-neutral-600 mt-0.5">Sırada {queue.length - 1} tane daha</p>}
+          <p className="text-xs text-neutral-400 mt-0.5">{tt('İzledin! Kaç puan verirsin?')}</p>
+          {queue.length > 1 && <p className="text-[11px] text-neutral-600 mt-0.5">{ttx('Sırada {0} tane daha', queue.length - 1)}</p>}
         </div>
       </div>
       <div className="max-h-64 overflow-y-auto pr-1">
@@ -103,10 +104,10 @@ export default function RatePrompt() {
       </div>
       <div className="flex items-center gap-2">
         <button onClick={save} disabled={busy || !hasScore} style={primaryButtonStyle} className={`text-sm px-4 py-1.5 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-40`}>
-          Kaydet
+          {tt('Kaydet')}
         </button>
         <button onClick={close} className="text-sm text-neutral-400 hover:text-neutral-100 px-2">
-          Sonra
+          {tt('Sonra')}
         </button>
         <button
           onClick={() => {
@@ -120,7 +121,7 @@ export default function RatePrompt() {
           }}
           className="ml-auto text-[11px] text-neutral-600 hover:text-neutral-300"
         >
-          Bir daha sorma
+          {tt('Bir daha sorma')}
         </button>
       </div>
     </div>,

@@ -1,15 +1,16 @@
 import { useRef } from 'react'
 import { BRAND_GRADIENT } from '../lib/theme'
+import { tt } from '../lib/i18n'
 
 // Arka planda süren bir iş (ör. film serilerinin ya da bölüm sürelerinin TMDB'den ilk kez öğrenilmesi)
 // için görünür ilerleme — kullanıcı "sadece yükleniyor yazmasın, ilk seferde yükleme yaptığının bilgisi
 // ve ilerlemesi ekranda olsun ki kullanıcı dondu sanmasın" dedi. Kalan süre, ekran açıkken ölçülen
 // gerçek hızdan tahmin edilir (TMDB'nin hızı değişkenlik gösteriyor).
 function remainingText(seconds: number | null) {
-  if (seconds === null) return 'süre hesaplanıyor…'
-  if (seconds < 10) return 'birkaç saniye kaldı'
-  if (seconds < 60) return `yaklaşık ${Math.round(seconds / 10) * 10} saniye kaldı`
-  return `yaklaşık ${Math.ceil(seconds / 60)} dakika kaldı`
+  if (seconds === null) return tt('süre hesaplanıyor…')
+  if (seconds < 10) return tt('birkaç saniye kaldı')
+  if (seconds < 60) return tt('yaklaşık {0} saniye kaldı', Math.round(seconds / 10) * 10)
+  return tt('yaklaşık {0} dakika kaldı', Math.ceil(seconds / 60))
 }
 
 export default function BackgroundProgress({ title, done, total, note }: { title: string; done: number; total: number; note?: string }) {

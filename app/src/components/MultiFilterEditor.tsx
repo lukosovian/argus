@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Board } from '../types'
 import type { FilterCondition } from '../lib/filters'
 import OptionBadge from './OptionBadge'
+import { tt } from '../lib/i18n'
 
 // Çoklu + ters filtre seçici (vitrin, Ne İzlesem, sayfalar, modlar, tablo hepsi bunu kullanıyor).
 // Bir sütunu açıp değerlere tıklarsın: bir tık ✓ gelsin, ikinci tık ✕ gelmesin, üçüncü tık seçimi
@@ -55,7 +56,7 @@ export default function MultiFilterEditor({
 
   const active = conditions.filter((c) => c.include.length > 0 || c.exclude.length > 0)
 
-  if (props.length === 0) return <p className="text-xs text-neutral-500">Bu arşivde filtrelenecek seçim sütunu yok.</p>
+  if (props.length === 0) return <p className="text-xs text-neutral-500">{tt('Bu arşivde filtrelenecek seçim sütunu yok.')}</p>
 
   return (
     <div className={compact ? 'space-y-2.5' : 'rounded-xl border border-neutral-800 bg-neutral-950/40 p-3 space-y-3'}>
@@ -81,7 +82,7 @@ export default function MultiFilterEditor({
             )
           })}
           <button onClick={() => onChange([])} className="text-[11px] text-neutral-500 hover:text-neutral-200 transition">
-            Filtreyi temizle
+            {tt('Filtreyi temizle')}
           </button>
         </div>
       ) : (
@@ -126,13 +127,13 @@ export default function MultiFilterEditor({
               </button>
               {open && (
                 <div className="mt-2.5 pl-5 space-y-2">
-                  <p className="text-[11px] text-neutral-500">Tıkla: ✓ gelsin → tekrar tıkla: ✕ gelmesin → tekrar tıkla: seçimi kaldır</p>
+                  <p className="text-[11px] text-neutral-500">{tt('Tıkla: ✓ gelsin → tekrar tıkla: ✕ gelmesin → tekrar tıkla: seçimi kaldır')}</p>
                   {many && (
                     <input
                       autoFocus
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder={`${p.name} ara... (${options.length})`}
+                      placeholder={tt('{0} ara... ({1})', p.name, options.length)}
                       className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-2.5 py-1.5 text-sm text-neutral-100 outline-none focus:border-neutral-500"
                     />
                   )}
@@ -165,7 +166,7 @@ export default function MultiFilterEditor({
                       )
                     })}
                     {many && shown.length === 0 && (
-                      <p className="text-xs text-neutral-600">{q ? 'Eşleşen yok.' : 'Aramak için yazmaya başla.'}</p>
+                      <p className="text-xs text-neutral-600">{q ? tt('Eşleşen yok.') : tt('Aramak için yazmaya başla.')}</p>
                     )}
                   </div>
                 </div>
@@ -194,7 +195,7 @@ function SummaryChip({
   return (
     <button
       onClick={onRemove}
-      title={kind === 'in' ? 'Gelsin — kaldırmak için tıkla' : 'Gelmesin — kaldırmak için tıkla'}
+      title={kind === 'in' ? tt('Gelsin — kaldırmak için tıkla') : tt('Gelmesin — kaldırmak için tıkla')}
       className="group inline-flex items-center gap-0.5"
     >
       <span className={`text-[11px] font-bold ${kind === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>{kind === 'in' ? '✓' : '✕'}</span>

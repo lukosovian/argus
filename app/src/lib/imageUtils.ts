@@ -1,3 +1,4 @@
+import { tt } from './i18n'
 // Görselleri Firestore/localStorage içine gömülebilecek kadar küçültüp base64'e çevirir
 // (ayrı bir dosya depolama servisi kurmadan çalışabilmek için).
 export function fileToCompressedDataUrl(file: File, maxWidth = 1200, quality = 0.78): Promise<string> {
@@ -6,7 +7,7 @@ export function fileToCompressedDataUrl(file: File, maxWidth = 1200, quality = 0
     reader.onerror = () => reject(reader.error)
     reader.onload = () => {
       const img = new Image()
-      img.onerror = () => reject(new Error('Görsel okunamadı'))
+      img.onerror = () => reject(new Error(tt('Görsel okunamadı')))
       img.onload = () => {
         const scale = Math.min(1, maxWidth / img.width)
         const canvas = document.createElement('canvas')
@@ -14,7 +15,7 @@ export function fileToCompressedDataUrl(file: File, maxWidth = 1200, quality = 0
         canvas.height = Math.round(img.height * scale)
         const ctx = canvas.getContext('2d')
         if (!ctx) {
-          reject(new Error('Canvas desteklenmiyor'))
+          reject(new Error(tt('Canvas desteklenmiyor')))
           return
         }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)

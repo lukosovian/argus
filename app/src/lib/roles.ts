@@ -1,4 +1,6 @@
 import type { Board, PropertyDef, PropertyType, StatMapping } from '../types'
+import { tt } from './i18n'
+import { COLUMN_NAMES, STATUS_NAMES, isName, nameOf, type NamePair } from './names'
 
 // Sütun "görevleri": uygulamanın bazı özellikleri (poster göstermek, durum rozetleri, TMDB
 // doldurma, istatistikler, Sağlık Kontrolü…) belirli bir İŞİ gören sütunu bulmak zorunda.
@@ -37,35 +39,34 @@ export interface RoleDef {
   key: RoleKey
   label: string
   types: PropertyType[]
+  // Yeni sütun açılırken seçili dildeki ad; tanırken iki dildeki ad da (names) geçerli
   defaultName: string
+  names: NamePair
   hint: string
   legacyStatKey?: keyof StatMapping
 }
 
 export const ROLE_DEFS: RoleDef[] = [
-  { key: 'durum', label: 'Durum', types: ['select'], defaultName: 'Durum', hint: 'İzlendi / İzlenecek gibi durum', legacyStatKey: 'durumId' },
-  { key: 'kategori', label: 'Kategori', types: ['select'], defaultName: 'Kategori', hint: 'Film / Dizi gibi tür ayrımı', legacyStatKey: 'kategoriId' },
-  { key: 'tur', label: 'Tür', types: ['multiselect', 'select'], defaultName: 'Tür', hint: 'Bilim Kurgu, Dram…', legacyStatKey: 'turId' },
-  { key: 'ulke', label: 'Ülke', types: ['multiselect', 'select'], defaultName: 'Ülke', hint: 'Yapım ülkesi', legacyStatKey: 'ulkeId' },
-  { key: 'vizyon', label: 'Vizyon Tarihi', types: ['date'], defaultName: 'Vizyon Tarihi', hint: 'Çıkış tarihi', legacyStatKey: 'vizyonId' },
-  { key: 'izlemeTarihi', label: 'İzleme Tarihi', types: ['multidate', 'date'], defaultName: 'İzleme Tarihi', hint: 'Ne zaman izlediğin' },
-  { key: 'sure', label: 'Süre', types: ['number'], defaultName: 'Süre', hint: 'Dakika', legacyStatKey: 'sureId' },
-  { key: 'puan', label: 'Puan', types: ['rating'], defaultName: 'Puan', hint: 'Kriterli puan', legacyStatKey: 'puanId' },
-  { key: 'oyuncular', label: 'Oyuncular', types: ['multiselect'], defaultName: 'Oyuncular', hint: 'Oyuncu listesi', legacyStatKey: 'oyuncularId' },
-  { key: 'yonetmen', label: 'Yönetmen', types: ['text'], defaultName: 'Yönetmen', hint: 'Yönetmen / yaratıcı' },
-  { key: 'orjinalAdi', label: 'Orjinal Adı', types: ['text'], defaultName: 'Orjinal Adı', hint: 'TMDB aramasında kullanılır' },
-  { key: 'sinopsis', label: 'Sinopsis', types: ['longtext'], defaultName: 'Sinopsis', hint: 'Özet' },
-  { key: 'poster', label: 'Poster', types: ['image'], defaultName: 'Poster', hint: 'Dikey afiş' },
-  { key: 'banner', label: 'Banner', types: ['image'], defaultName: 'Banner', hint: 'Yatay görsel' },
-  { key: 'video', label: 'Fragman', types: ['url'], defaultName: 'Video', hint: 'YouTube fragman linki' },
-  { key: 'yas', label: 'Yaş Sınırı', types: ['text'], defaultName: 'Yaş Sınırı', hint: '13+, 18+…' },
+  { key: 'durum', label: tt('Durum'), types: ['select'], defaultName: nameOf(COLUMN_NAMES.durum), names: COLUMN_NAMES.durum, hint: tt('İzlendi / İzlenecek gibi durum'), legacyStatKey: 'durumId' },
+  { key: 'kategori', label: tt('Kategori'), types: ['select'], defaultName: nameOf(COLUMN_NAMES.kategori), names: COLUMN_NAMES.kategori, hint: tt('Film / Dizi gibi tür ayrımı'), legacyStatKey: 'kategoriId' },
+  { key: 'tur', label: tt('Tür'), types: ['multiselect', 'select'], defaultName: nameOf(COLUMN_NAMES.tur), names: COLUMN_NAMES.tur, hint: tt('Bilim Kurgu, Dram…'), legacyStatKey: 'turId' },
+  { key: 'ulke', label: tt('Ülke'), types: ['multiselect', 'select'], defaultName: nameOf(COLUMN_NAMES.ulke), names: COLUMN_NAMES.ulke, hint: tt('Yapım ülkesi'), legacyStatKey: 'ulkeId' },
+  { key: 'vizyon', label: tt('Vizyon Tarihi'), types: ['date'], defaultName: nameOf(COLUMN_NAMES.vizyon), names: COLUMN_NAMES.vizyon, hint: tt('Çıkış tarihi'), legacyStatKey: 'vizyonId' },
+  { key: 'izlemeTarihi', label: tt('İzleme Tarihi'), types: ['multidate', 'date'], defaultName: nameOf(COLUMN_NAMES.izlemeTarihi), names: COLUMN_NAMES.izlemeTarihi, hint: tt('Ne zaman izlediğin') },
+  { key: 'sure', label: tt('Süre'), types: ['number'], defaultName: nameOf(COLUMN_NAMES.sure), names: COLUMN_NAMES.sure, hint: tt('Dakika'), legacyStatKey: 'sureId' },
+  { key: 'puan', label: tt('Puan'), types: ['rating'], defaultName: nameOf(COLUMN_NAMES.puan), names: COLUMN_NAMES.puan, hint: tt('Kriterli puan'), legacyStatKey: 'puanId' },
+  { key: 'oyuncular', label: tt('Oyuncular'), types: ['multiselect'], defaultName: nameOf(COLUMN_NAMES.oyuncular), names: COLUMN_NAMES.oyuncular, hint: tt('Oyuncu listesi'), legacyStatKey: 'oyuncularId' },
+  { key: 'yonetmen', label: tt('Yönetmen'), types: ['text'], defaultName: nameOf(COLUMN_NAMES.yonetmen), names: COLUMN_NAMES.yonetmen, hint: tt('Yönetmen / yaratıcı') },
+  { key: 'orjinalAdi', label: tt('Orjinal Adı'), types: ['text'], defaultName: nameOf(COLUMN_NAMES.orjinalAdi), names: COLUMN_NAMES.orjinalAdi, hint: tt('TMDB aramasında kullanılır') },
+  { key: 'sinopsis', label: tt('Sinopsis'), types: ['longtext'], defaultName: nameOf(COLUMN_NAMES.sinopsis), names: COLUMN_NAMES.sinopsis, hint: tt('Özet') },
+  { key: 'poster', label: tt('Poster'), types: ['image'], defaultName: nameOf(COLUMN_NAMES.poster), names: COLUMN_NAMES.poster, hint: tt('Dikey afiş') },
+  { key: 'banner', label: tt('Banner'), types: ['image'], defaultName: nameOf(COLUMN_NAMES.banner), names: COLUMN_NAMES.banner, hint: tt('Yatay görsel') },
+  { key: 'video', label: tt('Fragman'), types: ['url'], defaultName: nameOf(COLUMN_NAMES.video), names: COLUMN_NAMES.video, hint: tt('YouTube fragman linki') },
+  { key: 'yas', label: tt('Yaş Sınırı'), types: ['text'], defaultName: nameOf(COLUMN_NAMES.yas), names: COLUMN_NAMES.yas, hint: '13+, 18+…' },
 ]
 
 const ROLE_BY_KEY = new Map(ROLE_DEFS.map((r) => [r.key, r]))
 
-function sameName(a: string, b: string) {
-  return a.trim().toLocaleLowerCase('tr') === b.trim().toLocaleLowerCase('tr')
-}
 
 // Açık kayıt (roles / eski statMapping) varsa onu döndürür: PropertyDef, "kullanma" için null,
 // hiç kayıt yoksa undefined.
@@ -90,7 +91,7 @@ function explicitRole(board: Board, def: RoleDef): PropertyDef | null | undefine
 }
 
 function byName(board: Board, def: RoleDef): PropertyDef | undefined {
-  const named = board.properties.find((p) => sameName(p.name, def.defaultName) && def.types.includes(p.type))
+  const named = board.properties.find((p) => isName(p.name, def.names) && def.types.includes(p.type))
   if (named) return named
   // Sinopsis için eski davranış korunuyor: adı ne olursa olsun ilk uzun metin sütunu.
   if (def.key === 'sinopsis') return board.properties.find((p) => p.type === 'longtext')
@@ -155,9 +156,9 @@ export function roleLabel(key: RoleKey): string {
 export type StatusKey = 'izlenecek' | 'izleniyor' | 'izlendi'
 
 export const STATUS_DEFS: { key: StatusKey; label: string }[] = [
-  { key: 'izlenecek', label: 'İzlenecek' },
-  { key: 'izleniyor', label: 'İzleniyor' },
-  { key: 'izlendi', label: 'İzlendi' },
+  { key: 'izlenecek', label: tt('İzlenecek') },
+  { key: 'izleniyor', label: tt('İzleniyor') },
+  { key: 'izlendi', label: tt('İzlendi') },
 ]
 
 export function resolveStatusOption(board: Board, key: StatusKey): string | undefined {
@@ -165,6 +166,5 @@ export function resolveStatusOption(board: Board, key: StatusKey): string | unde
   if (!durum) return undefined
   const explicit = board.statusOptions?.[key]
   if (explicit && durum.options?.some((o) => o.id === explicit)) return explicit
-  const label = STATUS_DEFS.find((s) => s.key === key)!.label
-  return durum.options?.find((o) => sameName(o.label, label))?.id
+  return durum.options?.find((o) => isName(o.label, STATUS_NAMES[key]))?.id
 }

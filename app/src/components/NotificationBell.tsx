@@ -6,6 +6,7 @@ import type { AppNotification } from '../lib/notifications'
 import { useProfiles } from '../hooks/useProfiles'
 import { useToast } from '../hooks/useToast'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx, locale } from '../lib/i18n'
 
 // Üst menüdeki zil — kullanıcı "bildirimler için bir yer olsun" dedi. Dizi kendiliğinden İzlendi olunca,
 // bitmiş bir diziye yeni bölüm gelince ya da yeni sezon tarihi açıklanınca burada birikir. Okunmamış
@@ -14,13 +15,13 @@ const POLL_MS = 60_000
 
 function ago(t: number): string {
   const m = Math.round((Date.now() - t) / 60000)
-  if (m < 1) return 'şimdi'
-  if (m < 60) return `${m} dk önce`
+  if (m < 1) return tt('şimdi')
+  if (m < 60) return tt('{0} dk önce', m)
   const h = Math.round(m / 60)
-  if (h < 24) return `${h} sa önce`
+  if (h < 24) return tt('{0} sa önce', h)
   const d = Math.round(h / 24)
-  if (d < 30) return `${d} gün önce`
-  return new Date(t).toLocaleDateString('tr-TR')
+  if (d < 30) return tt('{0} gün önce', d)
+  return new Date(t).toLocaleDateString(locale())
 }
 
 const TYPE_ICON: Record<string, { icon: string; cls: string }> = {
@@ -62,7 +63,7 @@ export default function NotificationBell() {
           const fresh = r.items.filter((n) => !n.read && !knownIds.current!.has(n.id))
           if (fresh.length === 1) notify(`${fresh[0].title}: ${fresh[0].text}`, 'success')
           else if (fresh.length > 1)
-            notify(`${fresh.length} yeni bildirim (${fresh.slice(0, 3).map((n) => n.title).join(', ')}${fresh.length > 3 ? '…' : ''}) — zil simgesinden bakabilirsin.`, 'success')
+            notify(tt('{0} yeni bildirim ({1}{2}) — zil simgesinden bakabilirsin.', fresh.length, fresh.slice(0, 3).map((n) => n.title).join(', '), fresh.length > 3 ? '…' : ''), 'success')
         }
         knownIds.current = new Set(r.items.map((n) => n.id))
         setItems(r.items)
@@ -115,8 +116,8 @@ export default function NotificationBell() {
       <button
         ref={btnRef}
         onClick={toggle}
-        title="Bildirimler"
-        aria-label="Bildirimler"
+        title={tt('Bildirimler')}
+        aria-label={tt('Bildirimler')}
         className={`relative h-10 w-10 flex items-center justify-center rounded-full transition shrink-0 ${
           open ? 'bg-neutral-900 text-[#00c0fa]' : 'text-neutral-50 hover:bg-neutral-900 hover:text-[#00c0fa]'
         }`}
@@ -139,17 +140,17 @@ export default function NotificationBell() {
             >
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-neutral-800">
                 <p className="text-sm font-semibold text-neutral-100">
-                  Bildirimler{unread > 0 && <span className="ml-1.5 text-xs font-normal text-neutral-500">{unread} okunmamış</span>}
+                  {tt('Bildirimler')}{unread > 0 && <span className="ml-1.5 text-xs font-normal text-neutral-500">{ttx('{0} okunmamış', unread)}</span>}
                 </p>
                 <div className="flex items-center gap-3 text-xs">
                   {unread > 0 && (
                     <button onClick={markAll} className="text-[#00c0fa] hover:underline">
-                      Hepsini okundu say
+                      {tt('Hepsini okundu say')}
                     </button>
                   )}
                   {items.length > 0 && (
                     <button onClick={clearAll} className="text-neutral-500 hover:text-rose-300">
-                      Temizle
+                      {tt('Temizle')}
                     </button>
                   )}
                 </div>
@@ -157,8 +158,8 @@ export default function NotificationBell() {
               <div className="overflow-y-auto">
                 {items.length === 0 ? (
                   <p className="text-sm text-neutral-500 px-4 py-8 text-center">
-                    Henüz bildirim yok.
-                    <span className="block text-xs text-neutral-600 mt-1">Bir diziyi bitirince ya da izlediğin bir diziye yeni sezon gelince burada görünür.</span>
+                    {tt('Henüz bildirim yok.')}
+                    <span className="block text-xs text-neutral-600 mt-1">{tt('Bir diziyi bitirince ya da izlediğin bir diziye yeni sezon gelince burada görünür.')}</span>
                   </p>
                 ) : (
                   items.map((n) => {

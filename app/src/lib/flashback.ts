@@ -2,15 +2,16 @@ import { resolveRole } from './roles'
 import { entryEnd, parseEntry, toEntries } from './dateRange'
 import { autoShelf, commonTitle } from './shelves'
 import { ratingAverage, titleText, type Board, type Row, type WatchedMap } from '../types'
+import { tt, monthNames, dayNames } from './i18n'
 
 // Flashback (yıllık özet) hesapları — kullanıcının istediği her kutu burada hesaplanıyor: toplam ekran
 // süresi (film + dizi), puanlama profili, nostalji radarı, zaman alışkanlıkları, izleyici unvanı,
 // maraton/seri tespiti, en çok oyuncular/yönetmenler. Bir yılda izlenenler: İzleme Tarihi'nin (aralıksa
 // bitiş günü) o yıla düşenleri ve o yıl işaretlenen bölümler.
 
-export const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
-export const TR_DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
-export const TR_DAYS_SHORT = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
+export const TR_MONTHS = monthNames()
+export const TR_DAYS = dayNames()
+export const TR_DAYS_SHORT = dayNames('short')
 
 // TMDB'de bölüm süresi bulunamayan diziler için varsayılan (toplamda "yaklaşık" diye belirtilir)
 const DEFAULT_EPISODE_MINUTES = 42
@@ -84,20 +85,20 @@ export function fmtDuration(min: number): string {
   const total = Math.round(min / 60)
   const days = Math.floor(total / 24)
   const hours = total % 24
-  if (days && hours) return `${days} gün ${hours} saat`
-  if (days) return `${days} gün`
+  if (days && hours) return tt('{0} gün {1} saat', days, hours)
+  if (days) return tt('{0} gün', days)
   return `${total} saat`
 }
 
 const PERSONAS = [
-  { re: /bilim|fantas|süper kahraman/i, title: 'Boyut Gezgini', what: 'bilim kurgu, fantastik ve süper kahraman' },
-  { re: /korku|gerilim/i, title: 'Gece Bekçisi', what: 'korku ve gerilim' },
-  { re: /komedi|sitcom|hiciv/i, title: 'Kahkaha Avcısı', what: 'komedi' },
-  { re: /animasyon|çocuk|aile/i, title: 'Çizgi Film Ruhu', what: 'animasyon ve aile' },
-  { re: /dram|romantik|gençlik/i, title: 'Duygu Kaşifi', what: 'dram ve romantik' },
-  { re: /aksiyon|macera|savaş|casus|vahşi batı/i, title: 'Adrenalin Avcısı', what: 'aksiyon ve macera' },
-  { re: /suç|polisiye|gizem|dedektif/i, title: 'Dedektif', what: 'suç ve gizem' },
-  { re: /belgesel|tarih|biyograf/i, title: 'Zaman Yolcusu', what: 'belgesel, tarih ve biyografi' },
+  { re: /bilim|fantas|süper kahraman/i, title: tt('Boyut Gezgini'), what: tt('bilim kurgu, fantastik ve süper kahraman') },
+  { re: /korku|gerilim/i, title: tt('Gece Bekçisi'), what: tt('korku ve gerilim') },
+  { re: /komedi|sitcom|hiciv/i, title: tt('Kahkaha Avcısı'), what: tt('komedi') },
+  { re: /animasyon|çocuk|aile/i, title: tt('Çizgi Film Ruhu'), what: tt('animasyon ve aile') },
+  { re: /dram|romantik|gençlik/i, title: tt('Duygu Kaşifi'), what: tt('dram ve romantik') },
+  { re: /aksiyon|macera|savaş|casus|vahşi batı/i, title: tt('Adrenalin Avcısı'), what: tt('aksiyon ve macera') },
+  { re: /suç|polisiye|gizem|dedektif/i, title: tt('Dedektif'), what: tt('suç ve gizem') },
+  { re: /belgesel|tarih|biyograf/i, title: tt('Zaman Yolcusu'), what: tt('belgesel, tarih ve biyografi') },
 ]
 
 export function computeStats(board: Board, rows: Row[], watched: WatchedMap, year: string, x: FlashbackExtras): Stats {
@@ -142,7 +143,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
       const rel = vizyonProp ? String(row.values[vizyonProp.id] ?? '').slice(0, 4) : ''
       t = {
         row,
-        title: (tp ? titleText(tp, row.values[tp.id]) : '') || 'İsimsiz',
+        title: (tp ? titleText(tp, row.values[tp.id]) : '') || tt('İsimsiz'),
         poster: (posterProp && (row.values[posterProp.id] as string)) || '',
         releaseYear: /^\d{4}$/.test(rel) ? Number(rel) : null,
         isSeries: isSeriesRow(row),
@@ -346,21 +347,21 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
   const badges: Badge[] = []
   if (fastMarathon)
     badges.push({
-      title: 'Maraton Ustası',
-      why: fastMarathon.kind === 'seri' ? `${fastMarathon.name} serisini ${fastMarathon.days} günde bitirdin` : `${fastMarathon.name}: ${fastMarathon.days} günde ${fastMarathon.count} bölüm`,
+      title: tt('Maraton Ustası'),
+      why: fastMarathon.kind === 'seri' ? tt('{0} serisini {1} günde bitirdin', fastMarathon.name, fastMarathon.days) : tt('{0}: {1} günde {2} bölüm', fastMarathon.name, fastMarathon.days, fastMarathon.count),
     })
-  if (episodes >= 150) badges.push({ title: 'Dizi Bağımlısı', why: `${episodes} bölüm izledin` })
-  if (classicShare >= 0.3) badges.push({ title: 'Nostalji Avcısı', why: `İzlediklerinin %${Math.round(classicShare * 100)}'i 20 yıldan eski` })
-  if (newShare >= 0.5) badges.push({ title: 'Güncel Takipçi', why: `İzlediklerinin %${Math.round(newShare * 100)}'i yeni yapımlar` })
-  if (countries.length >= 8) badges.push({ title: 'Dünya Gezgini', why: `${countries.length} farklı ülkeden yapım` })
-  if (rewatches >= 3) badges.push({ title: 'Sadık İzleyici', why: `${rewatches} filmi yeniden izledin` })
-  if (x.timed >= 10 && nightTimed / x.timed >= 0.4) badges.push({ title: 'Gece Kuşu', why: `İzlemelerinin %${Math.round((nightTimed / x.timed) * 100)}'i gece` })
-  if (avgScore !== null && scores.count >= 5 && avgScore >= 8.5) badges.push({ title: 'Cömert Jüri', why: `Puan ortalaman ${avgScore.toFixed(1)}` })
-  if (avgScore !== null && scores.count >= 5 && avgScore <= 6.5) badges.push({ title: 'Zor Beğenen', why: `Puan ortalaman ${avgScore.toFixed(1)}` })
+  if (episodes >= 150) badges.push({ title: tt('Dizi Bağımlısı'), why: tt('{0} bölüm izledin', episodes) })
+  if (classicShare >= 0.3) badges.push({ title: tt('Nostalji Avcısı'), why: tt('İzlediklerinin %{0}\'i 20 yıldan eski', Math.round(classicShare * 100)) })
+  if (newShare >= 0.5) badges.push({ title: tt('Güncel Takipçi'), why: tt('İzlediklerinin %{0}\'i yeni yapımlar', Math.round(newShare * 100)) })
+  if (countries.length >= 8) badges.push({ title: tt('Dünya Gezgini'), why: tt('{0} farklı ülkeden yapım', countries.length) })
+  if (rewatches >= 3) badges.push({ title: tt('Sadık İzleyici'), why: tt('{0} filmi yeniden izledin', rewatches) })
+  if (x.timed >= 10 && nightTimed / x.timed >= 0.4) badges.push({ title: tt('Gece Kuşu'), why: tt('İzlemelerinin %{0}\'i gece', Math.round((nightTimed / x.timed) * 100)) })
+  if (avgScore !== null && scores.count >= 5 && avgScore >= 8.5) badges.push({ title: tt('Cömert Jüri'), why: tt('Puan ortalaman {0}', avgScore.toFixed(1)) })
+  if (avgScore !== null && scores.count >= 5 && avgScore <= 6.5) badges.push({ title: tt('Zor Beğenen'), why: tt('Puan ortalaman {0}', avgScore.toFixed(1)) })
   const persona =
     top && top.n > 0 && titles.length
-      ? { title: top.p.title, why: `İzlediklerinin %${Math.round((top.n / titles.length) * 100)}'i ${top.p.what}`, badges: badges.slice(0, 3) }
-      : { title: badges[0]?.title ?? 'İzleyici', why: badges[0]?.why ?? '', badges: badges.slice(1, 4) }
+      ? { title: top.p.title, why: tt('İzlediklerinin %{0}\'i {1}', Math.round((top.n / titles.length) * 100), top.p.what), badges: badges.slice(0, 3) }
+      : { title: badges[0]?.title ?? tt('İzleyici'), why: badges[0]?.why ?? '', badges: badges.slice(1, 4) }
 
   return {
     order,

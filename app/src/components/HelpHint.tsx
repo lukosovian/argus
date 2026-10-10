@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { tt } from '../lib/i18n'
 
 // Küçük "?" ikonu — üzerine gelince (ya da dokununca) sağında/altında kısa bir açıklama
 // kutusu açılır. Uzun/ayrıntılı metinleri sayfanın ana akışından çıkarıp buraya taşımak için:
@@ -18,7 +19,7 @@ export default function HelpHint({ children, className = '' }: { children: React
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        aria-label="Yardım"
+        aria-label={tt('Yardım')}
         className="h-4 w-4 shrink-0 rounded-full border border-neutral-600 text-neutral-500 hover:border-neutral-400 hover:text-neutral-300 text-[10px] leading-none flex items-center justify-center transition"
       >
         ?

@@ -11,6 +11,7 @@ import NotificationBell from './NotificationBell'
 import { gradientBorderStyle } from '../lib/theme'
 import { APP_VERSION } from '../lib/version'
 import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
+import { tt } from '../lib/i18n'
 
 function SunIcon() {
   return (
@@ -72,14 +73,14 @@ export default function Navbar() {
   const isHome = location.pathname === '/' && !activeSection
   const currentPage = (
     [
-      ['/board/', 'Arşiv Tablosu'],
-      ['/takvim', 'Takvim'],
-      ['/istatistikler', 'İstatistikler'],
-      ['/koleksiyon', 'Koleksiyon'],
+      ['/board/', tt('Arşiv Tablosu')],
+      ['/takvim', tt('Takvim')],
+      ['/istatistikler', tt('İstatistikler')],
+      ['/koleksiyon', tt('Koleksiyon')],
       ['/flashback', 'Flashback'],
-      ['/arsivlerim', 'Ayarlar'],
-      ['/yardim', 'Yardım Merkezi'],
-      ['/yama-notlari', 'Yama Notları'],
+      ['/arsivlerim', tt('Ayarlar')],
+      ['/yardim', tt('Yardım Merkezi')],
+      ['/yama-notlari', tt('Yama Notları')],
     ] as const
   ).find(([p]) => location.pathname.startsWith(p))?.[1]
   const pinnedSections = sortByOrder((settings.sections ?? []).filter((s) => s.pinnedToNav), settings.navOrder ?? [])
@@ -115,7 +116,7 @@ export default function Navbar() {
       >
         <div className="px-2.5 sm:px-4 h-16 flex items-center gap-1 sm:gap-4">
           <Link to="/" className="flex items-center shrink-0">
-            <img src="/logoblue-yatay.png" alt="ARGUS" className="h-6 sm:h-9 w-auto" />
+            <img src="/logoblue-yatay.png" alt={tt('ARGUS')} className="h-6 sm:h-9 w-auto" />
           </Link>
           {/* Sayfa bağlantıları tek satırda kalıyor (telefonda "Ana Sayfa" iki satıra kayıyordu); sığmazsa
               yana kaydırılıyor. */}
@@ -123,7 +124,7 @@ export default function Navbar() {
               kaydırılınca buraya gelir (bkz. BoardView). Sığmıyorsa o sayfa kendisi göstermez. */}
           <div id="navbar-center-slot" className="absolute left-1/2 top-0 h-16 -translate-x-1/2 flex items-center pointer-events-none z-10" />
           <nav data-navbar-links className="flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {[{ id: null as string | null, name: 'Ana Sayfa', to: '/' }, ...pinnedSections.map((s) => ({ id: s.id as string | null, name: s.name, to: `/?bolum=${s.id}` }))].map((l) => {
+            {[{ id: null as string | null, name: tt('Ana Sayfa'), to: '/' }, ...pinnedSections.map((s) => ({ id: s.id as string | null, name: s.name, to: `/?bolum=${s.id}` }))].map((l) => {
               const active = l.id === null ? isHome : activeSection === l.id
               return (
                 <Link
@@ -157,7 +158,7 @@ export default function Navbar() {
               className={`h-10 w-10 rounded-full bg-neutral-800 overflow-hidden flex items-center justify-center text-sm text-neutral-400 ring-2 transition ${
                 menuOpen ? 'ring-[#00c0fa]' : 'ring-neutral-700 hover:ring-neutral-500'
               }`}
-              title={activeProfile?.username || 'Profil'}
+              title={activeProfile?.username || tt('Profil')}
             >
               {activeProfile?.photo ? (
                 <img src={activeProfile.photo} alt={activeProfile.username} className="h-full w-full object-cover" />
@@ -186,14 +187,14 @@ export default function Navbar() {
                       )}
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-neutral-50 truncate">{activeProfile?.username || 'Profil'}</span>
-                      <span className="block text-xs text-neutral-500">Şu an bu profildesin</span>
+                      <span className="block text-sm font-semibold text-neutral-50 truncate">{activeProfile?.username || tt('Profil')}</span>
+                      <span className="block text-xs text-neutral-500">{tt('Şu an bu profildesin')}</span>
                     </span>
                   </div>
 
                   {otherProfiles.length > 0 && (
                     <div className="py-1.5 border-b border-neutral-800">
-                      <p className="px-4 pt-1 pb-1.5 text-[11px] uppercase tracking-wide text-neutral-500">Profil değiştir</p>
+                      <p className="px-4 pt-1 pb-1.5 text-[11px] uppercase tracking-wide text-neutral-500">{tt('Profil değiştir')}</p>
                       {otherProfiles.map((p) => (
                         <button
                           key={p.id}
@@ -214,25 +215,25 @@ export default function Navbar() {
 
                   <div className="pt-1.5">
                     {/* Yeni kullanıcı denemesinde arşiv tablosuna her seferinde Ayarlar › Veritabanı › Arşivler yolundan gidiliyordu */}
-                    {settings.boardId && <MenuLink to={`/board/${settings.boardId}`} icon="tablo" label="Arşiv Tablosu" onClick={() => setMenuOpen(false)} />}
-                    <MenuLink to="/arsivlerim" icon="ayarlar" label="Ayarlar" onClick={() => setMenuOpen(false)} />
-                    <MenuLink to="/istatistikler" icon="istatistik" label="İstatistikler" onClick={() => setMenuOpen(false)} />
-                    <MenuLink to="/takvim" icon="takvim" label="Takvim" onClick={() => setMenuOpen(false)} />
-                    <MenuLink to="/koleksiyon" icon="koleksiyon" label="Koleksiyon" onClick={() => setMenuOpen(false)} />
+                    {settings.boardId && <MenuLink to={`/board/${settings.boardId}`} icon="tablo" label={tt('Arşiv Tablosu')} onClick={() => setMenuOpen(false)} />}
+                    <MenuLink to="/arsivlerim" icon="ayarlar" label={tt('Ayarlar')} onClick={() => setMenuOpen(false)} />
+                    <MenuLink to="/istatistikler" icon="istatistik" label={tt('İstatistikler')} onClick={() => setMenuOpen(false)} />
+                    <MenuLink to="/takvim" icon="takvim" label={tt('Takvim')} onClick={() => setMenuOpen(false)} />
+                    <MenuLink to="/koleksiyon" icon="koleksiyon" label={tt('Koleksiyon')} onClick={() => setMenuOpen(false)} />
                     {canSeeWrapped(features) && (
                       <MenuLink
                         to="/flashback"
                         icon="ozet"
-                        label="Flashback"
-                        extra={wrappedIsNew(features) ? <span className="text-[10px] font-bold text-white bg-fuchsia-500 rounded-full px-2 py-0.5">YENİ</span> : undefined}
+                        label={tt('Flashback')}
+                        extra={wrappedIsNew(features) ? <span className="text-[10px] font-bold text-white bg-fuchsia-500 rounded-full px-2 py-0.5">{tt('YENİ')}</span> : undefined}
                         onClick={() => setMenuOpen(false)}
                       />
                     )}
-                    <MenuLink to="/yardim" icon="yardim" label="Yardım Merkezi" onClick={() => setMenuOpen(false)} />
+                    <MenuLink to="/yardim" icon="yardim" label={tt('Yardım Merkezi')} onClick={() => setMenuOpen(false)} />
                     <MenuLink
                       to="/yama-notlari"
                       icon="yama"
-                      label="Yama Notları"
+                      label={tt('Yama Notları')}
                       onClick={() => setMenuOpen(false)}
                       extra={<span className="text-[10px] font-medium text-[#00c0fa] bg-[#00c0fa]/10 rounded-full px-2 py-0.5">{APP_VERSION}</span>}
                     />
@@ -249,7 +250,7 @@ export default function Navbar() {
                           }`}
                         >
                           {t === 'dark' ? <MoonIcon /> : <SunIcon />}
-                          {t === 'dark' ? 'Koyu' : 'Açık'}
+                          {t === 'dark' ? tt('Koyu') : tt('Açık')}
                         </button>
                       ))}
                     </div>

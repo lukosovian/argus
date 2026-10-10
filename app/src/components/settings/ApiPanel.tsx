@@ -3,6 +3,7 @@ import { useProfiles } from '../../hooks/useProfiles'
 import { useToast } from '../../hooks/useToast'
 import { api } from '../../lib/api'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
+import { tt } from '../../lib/i18n'
 
 // "API" sekmesi — TMDB API anahtarını profil başına burada saklıyoruz (bkz. server/index.js'teki
 // /api-key uçları). Bu anahtar, bir kaydın 🔄 (TMDB'den doldur) butonuna basıldığında ya da
@@ -35,7 +36,7 @@ export default function ApiPanel() {
     try {
       await api.saveApiKey(key.trim())
       setSaved(key.trim())
-      notify(key.trim() ? 'API anahtarı kaydedildi.' : 'API anahtarı kaldırıldı.', 'success')
+      notify(key.trim() ? tt('API anahtarı kaydedildi.') : tt('API anahtarı kaldırıldı.'), 'success')
     } finally {
       setBusy(false)
     }
@@ -50,8 +51,7 @@ export default function ApiPanel() {
     <div className="max-w-2xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm text-neutral-400 flex-1 min-w-[16rem]">
-          Bir kaydı TMDB'den otomatik doldurmak (poster, oyuncular, yönetmen, süre gibi bilgileri kendisi getirmek) için kendi
-          ücretsiz TMDB anahtarını gir. Girmezsen ARGUS'un geri kalanı normal çalışır, sadece otomatik doldurma kullanılamaz.
+          {tt('Bir kaydı TMDB\'den otomatik doldurmak (poster, oyuncular, yönetmen, süre gibi bilgileri kendisi getirmek) için kendi ücretsiz TMDB anahtarını gir. Girmezsen ARGUS\'un geri kalanı normal çalışır, sadece otomatik doldurma kullanılamaz.')}
         </p>
         {!loading && (
           <span
@@ -60,15 +60,15 @@ export default function ApiPanel() {
             }`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${saved ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            {saved ? 'Bağlı' : 'Anahtar yok'}
+            {saved ? tt('Bağlı') : tt('Anahtar yok')}
           </span>
         )}
       </div>
 
       <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
-        <label className="block text-sm font-medium text-neutral-200 mb-2">TMDB API Anahtarı</label>
+        <label className="block text-sm font-medium text-neutral-200 mb-2">{tt('TMDB API Anahtarı')}</label>
         {loading ? (
-          <p className="text-sm text-neutral-500">Yükleniyor...</p>
+          <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
         ) : (
           <>
             <div className="relative">
@@ -76,7 +76,7 @@ export default function ApiPanel() {
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 type={reveal ? 'text' : 'password'}
-                placeholder="TMDB API anahtarını buraya yapıştır"
+                placeholder={tt('TMDB API anahtarını buraya yapıştır')}
                 className="w-full rounded-lg bg-neutral-800 border border-neutral-700 pl-3 pr-20 py-2.5 text-neutral-100 outline-none focus:border-[#00c0fa]/60 text-sm font-mono"
                 autoComplete="off"
                 spellCheck={false}
@@ -86,38 +86,37 @@ export default function ApiPanel() {
                 onClick={() => setReveal((v) => !v)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-neutral-50 px-2 py-1 rounded-md hover:bg-neutral-700 transition"
               >
-                {reveal ? 'Gizle' : 'Göster'}
+                {reveal ? tt('Gizle') : tt('Göster')}
               </button>
             </div>
-            <p className="text-xs text-neutral-500 mt-1.5 mb-4">Bu anahtar sadece bu bilgisayarda, bu profil için saklanır.</p>
+            <p className="text-xs text-neutral-500 mt-1.5 mb-4">{tt('Bu anahtar sadece bu bilgisayarda, bu profil için saklanır.')}</p>
             <button
               onClick={handleSave}
               disabled={!dirty || busy}
               style={primaryButtonStyle}
               className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
             >
-              {busy ? 'Kaydediliyor...' : 'Kaydet'}
+              {busy ? tt('Kaydediliyor...') : tt('Kaydet')}
             </button>
           </>
         )}
       </div>
 
       <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
-        <p className="text-sm font-medium text-neutral-200 mb-3">Anahtar nasıl alınır?</p>
+        <p className="text-sm font-medium text-neutral-200 mb-3">{tt('Anahtar nasıl alınır?')}</p>
         <ol className="space-y-2.5">
           {[
             <>
               <a href="https://www.themoviedb.org/signup" target="_blank" rel="noreferrer" className="text-[#00c0fa] hover:underline">
-                themoviedb.org
+                {tt('themoviedb.org')}
               </a>{' '}
-              adresinde ücretsiz bir hesap aç.
+              {tt('adresinde ücretsiz bir hesap aç.')}
             </>,
-            <>Hesap Ayarları › API sekmesine git, "API Anahtarı İste"ye bas (kişisel kullanım seçilebilir).</>,
+            <>{tt('Hesap Ayarları › API sekmesine git, "API Anahtarı İste"ye bas (kişisel kullanım seçilebilir).')}</>,
             <>
-              TMDB kısa bir başvuru formu doldurtur: uygulama adına "ARGUS", kullanım amacına "kişisel film/dizi arşivi" yazabilirsin, web sitesi
-              istenirse "localhost" yeterli. Başvuru genelde hemen onaylanır.
+              {tt('TMDB kısa bir başvuru formu doldurtur: uygulama adına "ARGUS", kullanım amacına "kişisel film/dizi arşivi" yazabilirsin, web sitesi istenirse "localhost" yeterli. Başvuru genelde hemen onaylanır.')}
             </>,
-            <>Sana verilen "API Anahtarı (v3 auth)" değerini kopyalayıp yukarıdaki kutuya yapıştır ve Kaydet'e bas.</>,
+            <>{tt('Sana verilen "API Anahtarı (v3 auth)" değerini kopyalayıp yukarıdaki kutuya yapıştır ve Kaydet\'e bas.')}</>,
           ].map((t, i) => (
             <li key={i} className="flex gap-3 text-sm text-neutral-400">
               <span className="h-5 w-5 shrink-0 rounded-full bg-[#00c0fa]/15 text-[#00c0fa] text-[11px] font-bold flex items-center justify-center mt-px">

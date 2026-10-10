@@ -11,6 +11,7 @@ import { api, type TmdbCard } from '../lib/api'
 import RowDetailModal from './RowDetailModal'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import PickResult from './PickResult'
+import { tt } from '../lib/i18n'
 
 // İki üst üste binen "poster kartı" — biri düz, biri hafif çapraz (kullanıcı: "yan yana duran
 // iki kart gibi olsun biri düz biri çapraz olarak"). Soldaki (düz) dolu, sağdaki (çapraz) boş
@@ -158,7 +159,7 @@ export default function RandomPickerButton() {
     if (loading || (phase !== 'idle' && !again)) return
     setResult(null)
     if (!settings.boardId) {
-      notify('Önce Ana Sayfa Ayarları\'ndan bir arşiv seçmelisin.', 'danger')
+      notify(tt('Önce Ana Sayfa Ayarları\'ndan bir arşiv seçmelisin.'), 'danger')
       return
     }
     setLoading(true)
@@ -174,7 +175,7 @@ export default function RandomPickerButton() {
       const current = { ...settings, ...(fresh ?? {}) }
       const b = boards.find((x) => x.id === current.boardId)
       if (!b) {
-        notify('Arşiv bulunamadı.', 'danger')
+        notify(tt('Arşiv bulunamadı.'), 'danger')
         return
       }
       const pref = current.randomPickerImageShape === 'dikey' || current.randomPickerImageShape === 'yatay' ? current.randomPickerImageShape : null
@@ -201,7 +202,7 @@ export default function RandomPickerButton() {
           })
           .filter((e): e is Entry => e !== null)
         if (pool.length === 0) {
-          notify('Bu ayarlara uyan, arşivinde olmayan bir içerik bulunamadı.', 'danger')
+          notify(tt('Bu ayarlara uyan, arşivinde olmayan bir içerik bulunamadı.'), 'danger')
           return
         }
       } else {
@@ -227,7 +228,7 @@ export default function RandomPickerButton() {
           })
           .filter((e): e is Entry => e !== null)
         if (pool.length === 0) {
-          notify('Bu filtreye uyan, seçili görseli olan bir içerik bulunamadı.', 'danger')
+          notify(tt('Bu filtreye uyan, seçili görseli olan bir içerik bulunamadı.'), 'danger')
           return
         }
       }
@@ -253,7 +254,7 @@ export default function RandomPickerButton() {
       setWinnerId(winner.key)
       setPhase('entering')
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Bir şeyler ters gitti.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Bir şeyler ters gitti.'), 'danger')
     } finally {
       setLoading(false)
     }
@@ -398,7 +399,7 @@ export default function RandomPickerButton() {
   }, [phase, openRow, openTmdb])
 
   const captionText =
-    phase === 'entering' ? 'Karıştırılıyor...' : phase === 'eliminating' ? 'Eleniyor...' : phase === 'growing' ? 'Bu nasıl?' : ''
+    phase === 'entering' ? tt('Karıştırılıyor...') : phase === 'eliminating' ? tt('Eleniyor...') : phase === 'growing' ? tt('Bu nasıl?') : ''
 
   clickRef.current = () => {
     void handleClick()
@@ -409,7 +410,7 @@ export default function RandomPickerButton() {
       <button
         onClick={() => handleClick()}
         disabled={loading || phase !== 'idle'}
-        title="Ne İzlesem? — kararsızsan rastgele bir şey seçer"
+        title={tt('Ne İzlesem? — kararsızsan rastgele bir şey seçer')}
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition disabled:opacity-50 shrink-0"
       >
         <StackedCardsIcon />
@@ -437,7 +438,7 @@ export default function RandomPickerButton() {
                   <span className="absolute inline-flex h-full w-full rounded-full bg-[#00c0fa] opacity-60 animate-ping" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00c0fa]" />
                 </span>
-                <span className="text-sm font-medium text-neutral-100">{captionText || 'Ne İzlesem?'}</span>
+                <span className="text-sm font-medium text-neutral-100">{captionText || tt('Ne İzlesem?')}</span>
               </div>
               )}
               {/* Sağ üst: sonuç ekranında "Tekrar getir" (mavi çerçeve, üstüne gelince mavi dolu) ve
@@ -449,14 +450,14 @@ export default function RandomPickerButton() {
                     disabled={loading}
                     className="text-sm font-medium rounded-full px-4 py-2 border border-[#00c0fa] text-[#00c0fa] bg-neutral-900/80 hover:bg-[#00c0fa] hover:text-black transition disabled:opacity-50"
                   >
-                    ↻ Tekrar getir
+                    {tt('↻ Tekrar getir')}
                   </button>
                 )}
                 <button
                   onClick={cancelPick}
                   className="group text-sm font-medium rounded-full px-4 py-2 border border-rose-500 text-rose-400 bg-neutral-900/80 hover:bg-rose-500 hover:text-black transition"
                 >
-                  {phase === 'result' ? 'Kapat' : 'Vazgeç'} <span className="text-rose-400/60 group-hover:text-black/60 text-xs ml-1">Esc</span>
+                  {phase === 'result' ? tt('Kapat') : tt('Vazgeç')} <span className="text-rose-400/60 group-hover:text-black/60 text-xs ml-1">{tt('Esc')}</span>
                 </button>
               </div>
               {phase === 'result' && result && board && (

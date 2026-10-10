@@ -4,6 +4,7 @@ import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { whiteLogo } from '../lib/whiteLogo'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx } from '../lib/i18n'
 
 // Koleksiyon'un paylaşılabilir görseli — kullanıcı "koleksiyonun görsel tablosunu oluşturma ekle, Flashback'teki
 // gibi PNG görselini alacağım" dedi. Raflar (sembolü, adı ve yapımlarıyla) ve istenirse tek başına olanlar,
@@ -134,7 +135,7 @@ function tile(ctx: Ctx, it: ImageItem, x: number, y: number, imgs: Map<string, H
   ctx.fillText(ellipsis(ctx, it.title, TILE), x, y + TILE + 24)
   font(ctx, 400, 14)
   ctx.fillStyle = 'rgba(255,255,255,0.42)'
-  ctx.fillText([it.year, it.isSeries ? 'Dizi' : 'Film'].filter(Boolean).join(' · '), x, y + TILE + 44)
+  ctx.fillText([it.year, it.isSeries ? tt('Dizi') : tt('Film')].filter(Boolean).join(' · '), x, y + TILE + 44)
 }
 
 function glassShelf(ctx: Ctx, x: number, y: number, w: number) {
@@ -200,7 +201,7 @@ async function draw(shelves: ImageShelf[], loose: ImageItem[], stats: string): P
   ctx.fillText('A R G U S', PAD, 120)
   font(ctx, 900, 118)
   ctx.fillStyle = '#ffffff'
-  ctx.fillText('Koleksiyon', PAD - 4, 240)
+  ctx.fillText(tt('Koleksiyon'), PAD - 4, 240)
   font(ctx, 500, 30)
   ctx.fillStyle = 'rgba(255,255,255,0.7)'
   ctx.fillText(stats, PAD, 305)
@@ -239,7 +240,7 @@ async function draw(shelves: ImageShelf[], loose: ImageItem[], stats: string): P
     nameLines.forEach((ln, i) => ctx.fillText(ln, sx, sy + SHELF_SYMBOL + 40 + i * 34))
     font(ctx, 400, 18)
     ctx.fillStyle = 'rgba(255,255,255,0.45)'
-    ctx.fillText(`${s.items.length} yapım`, sx, sy + SHELF_SYMBOL + 40 + nameLines.length * 34)
+    ctx.fillText(tt('{0} yapım', s.items.length), sx, sy + SHELF_SYMBOL + 40 + nameLines.length * 34)
     // yapımlar
     const tx = sx + SHELF_SYMBOL + 40
     s.items.forEach((it, i) => {
@@ -260,10 +261,10 @@ async function draw(shelves: ImageShelf[], loose: ImageItem[], stats: string): P
     ctx.stroke()
     font(ctx, 800, 30)
     ctx.fillStyle = '#ffffff'
-    ctx.fillText('Tek başına olanlar', innerX + 10, y + 60)
+    ctx.fillText(tt('Tek başına olanlar'), innerX + 10, y + 60)
     font(ctx, 400, 18)
     ctx.fillStyle = 'rgba(255,255,255,0.45)'
-    ctx.fillText(`${looseShown.length} yapım`, innerX + 10, y + 88)
+    ctx.fillText(tt('{0} yapım', looseShown.length), innerX + 10, y + 88)
     looseShown.forEach((it, i) => {
       const row = Math.floor(i / l.loosePer)
       const col = i % l.loosePer
@@ -284,7 +285,7 @@ async function draw(shelves: ImageShelf[], loose: ImageItem[], stats: string): P
   ctx.fillText(`${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`, W - PAD - 110, H - 78)
 
   const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/png'))
-  if (!blob) throw new Error('Görsel oluşturulamadı.')
+  if (!blob) throw new Error(tt('Görsel oluşturulamadı.'))
   return { blob, cut: loose.length - looseShown.length }
 }
 
@@ -320,7 +321,7 @@ export default function KoleksiyonImage({
         setUrl(made)
         setCut(cut)
       })
-      .catch((e) => alive && setError(e instanceof Error ? e.message : 'Görsel oluşturulamadı.'))
+      .catch((e) => alive && setError(e instanceof Error ? e.message : tt('Görsel oluşturulamadı.')))
     return () => {
       alive = false
       if (made) URL.revokeObjectURL(made)
@@ -334,11 +335,11 @@ export default function KoleksiyonImage({
     if (!url) return
     const a = document.createElement('a')
     a.href = url
-    a.download = `ARGUS Koleksiyon.png`
+    a.download = tt('ARGUS Koleksiyon.png')
     document.body.appendChild(a)
     a.click()
     a.remove()
-    notify('Koleksiyon görseli indirildi — İndirilenler klasörüne bakabilirsin.')
+    notify(tt('Koleksiyon görseli indirildi — İndirilenler klasörüne bakabilirsin.'))
   }
 
   return createPortal(
@@ -346,13 +347,12 @@ export default function KoleksiyonImage({
       <div className="mx-auto w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <p className="text-neutral-100 font-semibold">Koleksiyon görseli</p>
+            <p className="text-neutral-100 font-semibold">{tt('Koleksiyon görseli')}</p>
             <p className="text-xs text-neutral-500">
-              {shelves.length} raf{withLoose ? ` + ${loose.length - cut} tek başına yapım` : ''}
-              {filtered ? ' · sayfadaki süzgeç (Film/Dizi, sembol, arama) görsele de uygulandı' : ''}
+              {ttx('{0} raf{1}{2}', shelves.length, withLoose ? tt(' + {0} tek başına yapım', loose.length - cut) : '', filtered ? tt(' · sayfadaki süzgeç (Film/Dizi, sembol, arama) görsele de uygulandı') : '')}
             </p>
           </div>
-          <button onClick={onClose} aria-label="Kapat" className="h-9 w-9 shrink-0 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
+          <button onClick={onClose} aria-label={tt('Kapat')} className="h-9 w-9 shrink-0 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
             ×
           </button>
         </div>
@@ -362,26 +362,25 @@ export default function KoleksiyonImage({
               onClick={() => setWithLoose((v) => !v)}
               className={`text-sm rounded-xl px-3 py-1.5 border transition ${withLoose ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-700 text-neutral-400 hover:text-neutral-100'}`}
             >
-              Tek başına olanlar da olsun ({loose.length})
-            </button>
+              {ttx('Tek başına olanlar da olsun ({0})', loose.length)}</button>
           )}
           <button onClick={download} disabled={!url} style={primaryButtonStyle} className={`ml-auto text-sm px-4 py-2 rounded-xl ${PRIMARY_BUTTON} disabled:opacity-50`}>
-            ↓ PNG olarak indir
+            {tt('↓ PNG olarak indir')}
           </button>
         </div>
-        {cut > 0 && <p className="text-xs text-amber-400 mb-2">Görsel çok uzun olduğu için tek başına olanlardan son {cut} tanesi sığmadı.</p>}
+        {cut > 0 && <p className="text-xs text-amber-400 mb-2">{ttx('Görsel çok uzun olduğu için tek başına olanlardan son {0} tanesi sığmadı.', cut)}</p>}
         <div className="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 min-h-40 flex items-center justify-center">
           {error ? (
             <p className="text-sm text-red-400 p-6">{error}</p>
           ) : url ? (
-            <img src={url} alt="Koleksiyon görseli" className="w-full h-auto" />
+            <img src={url} alt={tt('Koleksiyon görseli')} className="w-full h-auto" />
           ) : (
             <span className="flex items-center gap-2 text-sm text-neutral-400 p-10">
-              <span className="h-4 w-4 rounded-full border-2 border-[#00c0fa] border-t-transparent animate-spin" /> Hazırlanıyor…
+              <span className="h-4 w-4 rounded-full border-2 border-[#00c0fa] border-t-transparent animate-spin" />{' '}{tt('Hazırlanıyor…')}
             </span>
           )}
         </div>
-        <p className="text-[11px] text-neutral-500 text-center mt-2">1600 px genişliğinde, rafların hepsi tek görselde.</p>
+        <p className="text-[11px] text-neutral-500 text-center mt-2">{tt('1600 px genişliğinde, rafların hepsi tek görselde.')}</p>
       </div>
     </div>,
     document.body,

@@ -8,6 +8,7 @@ import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
 import { WatchedForm } from './DiscoverModal'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { tt } from '../lib/i18n'
 
 // Ne İzlesem'in sonuç ekranı — kullanıcı "içerik seçildikten sonra poster ya da yatay görseli
 // gelsin, yanında kapak adı, kısa sinopsis, bilgiler; arkada mavi ışık vuran ekranda; altında
@@ -83,10 +84,10 @@ export default function PickResult({
   const meta = r
     ? showcaseMeta(board, r).filter((b) => !genres.includes(b))
     : [
-        tmdb?.mediaType === 'tv' ? 'Dizi' : 'Film',
+        tmdb?.mediaType === 'tv' ? tt('Dizi') : tt('Film'),
         (item ?? tmdb)?.year ?? '',
         item?.runtime ? formatRuntime(item.runtime) : '',
-        item?.seasons ? `${item.seasons} Sezon` : '',
+        item?.seasons ? tt('{0} Sezon', item.seasons) : '',
       ].filter(Boolean)
 
   // Arşivdeki kaydı güncelle: önce en güncel halini al ki arada yapılan değişiklikler ezilmesin.
@@ -105,7 +106,7 @@ export default function PickResult({
       setDone(message)
       notify(message)
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Kaydedilemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
     } finally {
       setBusy(false)
     }
@@ -137,11 +138,11 @@ export default function PickResult({
       })
       notifyDataChanged(board.id)
       setWatchedForm(false)
-      const msg = status === 'izlendi' ? `"${res.title}" izlediklerine eklendi.` : `"${res.title}" izlenecekler listene eklendi.`
+      const msg = status === 'izlendi' ? tt('"{0}" izlediklerine eklendi.', res.title) : tt('"{0}" izlenecekler listene eklendi.', res.title)
       setDone(msg)
       notify(msg)
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
     } finally {
       setBusy(false)
     }
@@ -151,7 +152,7 @@ export default function PickResult({
     if (!tmdb) return
     try {
       await api.dismissTmdb({ tmdbId: tmdb.tmdbId, mediaType: tmdb.mediaType })
-      notify(`"${tmdb.title}" bir daha önerilmeyecek.`)
+      notify(tt('"{0}" bir daha önerilmeyecek.', tmdb.title))
     } catch {
       // kaydedilemese de devam
     }
@@ -167,28 +168,28 @@ export default function PickResult({
   const actions: { label: string; onClick: () => void; primary?: boolean }[] = []
   if (r && !done) {
     if (statusId && statusId === izlendiId) {
-      question = 'Bunu daha önce izlemişsin. Yine mi izliyorsun?'
-      if (tarihProp) actions.push({ label: '↻ Bugün yine izledim', primary: true, onClick: () => patchRow(addToday, 'Bugünün tarihi izleme tarihlerine eklendi.') })
+      question = tt('Bunu daha önce izlemişsin. Yine mi izliyorsun?')
+      if (tarihProp) actions.push({ label: tt('↻ Bugün yine izledim'), primary: true, onClick: () => patchRow(addToday, tt('Bugünün tarihi izleme tarihlerine eklendi.')) })
     } else if (statusId && statusId === izleniyorId) {
-      question = 'Bunu izliyordun — kaldığın yerden devam mı?'
+      question = tt('Bunu izliyordun — kaldığın yerden devam mı?')
       if (izlendiId && durumProp)
         actions.push({
-          label: '✓ Bitirdim',
+          label: tt('✓ Bitirdim'),
           primary: true,
-          onClick: () => patchRow((v) => addToday({ ...v, [durumProp.id]: izlendiId }), 'İzlendi olarak işaretlendi.'),
+          onClick: () => patchRow((v) => addToday({ ...v, [durumProp.id]: izlendiId }), tt('İzlendi olarak işaretlendi.')),
         })
     } else {
-      question = 'Bu akşam bu olsun mu?'
+      question = tt('Bu akşam bu olsun mu?')
       if (izleniyorId && durumProp)
         actions.push({
-          label: '▶ Başlıyorum',
+          label: tt('▶ Başlıyorum'),
           primary: true,
-          onClick: () => patchRow((v) => ({ ...v, [durumProp.id]: izleniyorId }), 'İzleniyor olarak işaretlendi.'),
+          onClick: () => patchRow((v) => ({ ...v, [durumProp.id]: izleniyorId }), tt('İzleniyor olarak işaretlendi.')),
         })
       if (izlendiId && durumProp)
         actions.push({
-          label: '✓ Zaten izledim',
-          onClick: () => patchRow((v) => addToday({ ...v, [durumProp.id]: izlendiId }), 'İzlendi olarak işaretlendi.'),
+          label: tt('✓ Zaten izledim'),
+          onClick: () => patchRow((v) => addToday({ ...v, [durumProp.id]: izlendiId }), tt('İzlendi olarak işaretlendi.')),
         })
     }
   }
@@ -231,7 +232,7 @@ export default function PickResult({
               {statusOpt && <span className="text-xs px-2.5 py-1 rounded-full border border-[#00c0fa]/50 text-[#7fdcff] bg-[#00c0fa]/10">{statusOpt.label}</span>}
               {!r && (
                 <span className="text-xs px-2.5 py-1 rounded-full border border-neutral-600 text-neutral-300 bg-black/20">
-                  {inArchive ? 'Arşivinde var' : "TMDB'den öneri"}
+                  {inArchive ? tt('Arşivinde var') : tt('TMDB\'den öneri')}
                 </span>
               )}
               {meta.map((m) => (
@@ -263,32 +264,32 @@ export default function PickResult({
                       ),
                     )}
                     <button onClick={() => onOpenRow(r)} className={secondary}>
-                      Detayı aç
+                      {tt('Detayı aç')}
                     </button>
                   </div>
                 </>
               ) : inArchive ? (
-                <p className="text-sm text-emerald-400">✓ Zaten arşivinde</p>
+                <p className="text-sm text-emerald-400">{tt('✓ Zaten arşivinde')}</p>
               ) : watchedForm ? (
                 <div className="max-w-xs mx-auto md:mx-0 text-left">
                   <WatchedForm busy={busy} onCancel={() => setWatchedForm(false)} onSave={(date, rating) => addFromTmdb('izlendi', date, rating)} />
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-neutral-400">Arşivinde yok — ne yapalım?</p>
+                  <p className="text-sm text-neutral-400">{tt('Arşivinde yok — ne yapalım?')}</p>
                   <div className="flex flex-wrap justify-center md:justify-start gap-2">
                     <button onClick={() => addFromTmdb('izlenecek')} disabled={busy} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-full ${PRIMARY_BUTTON}`}>
-                      {busy ? 'Ekleniyor...' : '+ İzleneceklere ekle'}
+                      {busy ? tt('Ekleniyor...') : tt('+ İzleneceklere ekle')}
                     </button>
                     <button onClick={() => setWatchedForm(true)} disabled={busy} className={secondary}>
-                      ✓ İzledim
+                      {tt('✓ İzledim')}
                     </button>
                     <button onClick={dismiss} disabled={busy} className={`${secondary} hover:border-rose-500 hover:text-rose-300`}>
-                      Bir daha gösterme
+                      {tt('Bir daha gösterme')}
                     </button>
                     {tmdb && (
                       <button onClick={() => onOpenTmdb(tmdb)} className={secondary}>
-                        Fragman · Nerede izlenir
+                        {tt('Fragman · Nerede izlenir')}
                       </button>
                     )}
                   </div>

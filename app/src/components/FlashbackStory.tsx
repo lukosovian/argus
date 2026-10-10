@@ -5,6 +5,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { fmtDuration, TR_DAYS, TR_DAYS_SHORT, TR_MONTHS } from '../lib/flashback'
 import { whiteLogo } from '../lib/whiteLogo'
 import { useEscape } from '../hooks/useEscape'
+import { tt, fmtDate, locale } from '../lib/i18n'
 
 // Flashback'in hikâye kartları — kullanıcı önce "en çarpıcı istatistikleri tek bir dikey (9:16) kart
 // olarak" istedi, sonra "bir tane değil, Spotify / YouTube gibi farklı konularda birden fazla" dedi.
@@ -249,7 +250,7 @@ const T = {
 const CARDS: CardDef[] = [
   {
     id: 'ozet',
-    label: 'Özet',
+    label: tt('Özet'),
     theme: T.blue,
     show: () => true,
     images: (d) => d.posters.slice(0, 12),
@@ -262,9 +263,9 @@ const CARDS: CardDef[] = [
       ctx.fillStyle = yg
       font(ctx, 900, 170)
       ctx.fillText(d.year, L - 6, 460)
-      text(ctx, 'Bu yıl', L, 580, 500, 40, 'rgba(255,255,255,0.6)')
-      text(ctx, `${d.titles} farklı yapım izledin`, L, 650, 800, 62, '#ffffff', W - L * 2)
-      text(ctx, `${d.activeDays} gün ekran başındaydın`, L, 715, 500, 38, 'rgba(255,255,255,0.7)', W - L * 2)
+      text(ctx, tt('Bu yıl'), L, 580, 500, 40, 'rgba(255,255,255,0.6)')
+      text(ctx, tt('{0} farklı yapım izledin', d.titles), L, 650, 800, 62, '#ffffff', W - L * 2)
+      text(ctx, tt('{0} gün ekran başındaydın', d.activeDays), L, 715, 500, 38, 'rgba(255,255,255,0.7)', W - L * 2)
       // poster mozaiği
       const cols = 4
       const gap = 16
@@ -279,12 +280,12 @@ const CARDS: CardDef[] = [
   },
   {
     id: 'sure',
-    label: 'Ekran süren',
+    label: tt('Ekran süren'),
     theme: T.teal,
     show: (d) => d.totalMin > 0,
     images: () => [],
     draw: (ctx, d) => {
-      header(ctx, T.teal, d.year, 'Ekran başında geçen süre')
+      header(ctx, T.teal, d.year, tt('Ekran başında geçen süre'))
       const hours = Math.round(d.totalMin / 60)
       const days = Math.floor(hours / 24)
       const g = ctx.createLinearGradient(L, 400, L + 700, 760)
@@ -293,8 +294,8 @@ const CARDS: CardDef[] = [
       ctx.fillStyle = g
       font(ctx, 900, 420)
       ctx.fillText(String(days || hours), L - 16, 740)
-      text(ctx, days ? 'gün' : 'saat', L, 830, 800, 90, '#ffffff')
-      text(ctx, `Tam olarak ${fmtDuration(d.totalMin)} · ${hours} saat`, L, 900, 500, 36, 'rgba(255,255,255,0.7)', W - L * 2)
+      text(ctx, days ? tt('gün') : tt('saat'), L, 830, 800, 90, '#ffffff')
+      text(ctx, tt('Tam olarak {0} · {1} saat', fmtDuration(d.totalMin), hours), L, 900, 500, 36, 'rgba(255,255,255,0.7)', W - L * 2)
       // film / dizi dağılımı
       const bw = W - L * 2
       const fw = d.totalMin ? (d.filmMin / d.totalMin) * bw : 0
@@ -307,30 +308,30 @@ const CARDS: CardDef[] = [
       ctx.fillStyle = '#5eead4'
       ctx.fillRect(L, 990, fw, 56)
       ctx.restore()
-      text(ctx, `Film · ${Math.round(d.filmMin / 60)} saat`, L, 1110, 700, 36, '#5eead4')
+      text(ctx, tt('Film · {0} saat', Math.round(d.filmMin / 60)), L, 1110, 700, 36, '#5eead4')
       ctx.textAlign = 'right'
-      text(ctx, `Dizi · ${Math.round(d.seriesMin / 60)} saat`, W - L, 1110, 700, 36, '#38bdf8')
+      text(ctx, tt('Dizi · {0} saat', Math.round(d.seriesMin / 60)), W - L, 1110, 700, 36, '#38bdf8')
       ctx.textAlign = 'left'
       // eğlenceli karşılaştırma
       const orbits = Math.round(d.totalMin / 92.7)
       rr(ctx, L, 1220, W - L * 2, 330, 36)
       ctx.fillStyle = 'rgba(255,255,255,0.07)'
       ctx.fill()
-      text(ctx, 'Bu sürede Uluslararası Uzay İstasyonu', L + 50, 1310, 500, 36, 'rgba(255,255,255,0.75)', W - L * 2 - 100)
-      text(ctx, `Dünya'nın etrafında`, L + 50, 1360, 500, 36, 'rgba(255,255,255,0.75)')
-      text(ctx, `${orbits.toLocaleString('tr-TR')} tur`, L + 50, 1470, 900, 100, '#ffffff', W - L * 2 - 100)
-      text(ctx, 'atardı.', L + 50, 1520, 500, 36, 'rgba(255,255,255,0.75)')
-      text(ctx, `${d.films} film · ${d.episodes} bölüm`, L, 1680, 700, 44, 'rgba(255,255,255,0.85)')
+      text(ctx, tt('Bu sürede Uluslararası Uzay İstasyonu'), L + 50, 1310, 500, 36, 'rgba(255,255,255,0.75)', W - L * 2 - 100)
+      text(ctx, tt('Dünya\'nın etrafında'), L + 50, 1360, 500, 36, 'rgba(255,255,255,0.75)')
+      text(ctx, `${orbits.toLocaleString(locale())} tur`, L + 50, 1470, 900, 100, '#ffffff', W - L * 2 - 100)
+      text(ctx, tt('atardı.'), L + 50, 1520, 500, 36, 'rgba(255,255,255,0.75)')
+      text(ctx, tt('{0} film · {1} bölüm', d.films, d.episodes), L, 1680, 700, 44, 'rgba(255,255,255,0.85)')
     },
   },
   {
     id: 'unvan',
-    label: 'Unvanın',
+    label: tt('Unvanın'),
     theme: T.purple,
     show: (d) => Boolean(d.persona.title),
     images: () => [],
     draw: (ctx, d) => {
-      header(ctx, T.purple, d.year, 'Bu yılın unvanı')
+      header(ctx, T.purple, d.year, tt('Bu yılın unvanı'))
       ctx.fillStyle = '#ffffff'
       font(ctx, 900, 150)
       let size = 150
@@ -358,12 +359,12 @@ const CARDS: CardDef[] = [
   },
   {
     id: 'favoriler',
-    label: 'Favorilerin',
+    label: tt('Favorilerin'),
     theme: T.amber,
     show: (d) => d.top.length > 0,
     images: (d) => [...d.top.map((t) => t.poster), d.lowest?.poster ?? ''],
     draw: (ctx, d, img) => {
-      header(ctx, T.amber, d.year, 'Yılın favorilerin')
+      header(ctx, T.amber, d.year, tt('Yılın favorilerin'))
       const f = d.top[0]
       const pw = 420
       const ph = 630
@@ -388,7 +389,7 @@ const CARDS: CardDef[] = [
       })
       const y = 1030 + sw * 1.5 + 110
       if (d.avg !== null) {
-        text(ctx, `Puan ortalaman ${d.avg.toFixed(1)} / 10`, L, y, 800, 46, '#ffffff', W - L * 2)
+        text(ctx, tt('Puan ortalaman {0} / 10', d.avg.toFixed(1)), L, y, 800, 46, '#ffffff', W - L * 2)
         text(ctx, d.judge, L, y + 55, 500, 36, T.amber.accent)
       }
       if (d.lowest && y + 330 < H - 100) {
@@ -396,7 +397,7 @@ const CARDS: CardDef[] = [
         ctx.fillStyle = 'rgba(244,63,94,0.14)'
         ctx.fill()
         picture(ctx, img.get(d.lowest.poster), L + 24, y + 128, 110, 164, 14)
-        text(ctx, 'Yılın hayal kırıklığı', L + 160, y + 180, 600, 32, '#fda4af')
+        text(ctx, tt('Yılın hayal kırıklığı'), L + 160, y + 180, 600, 32, '#fda4af')
         text(ctx, d.lowest.title, L + 160, y + 235, 800, 44, '#ffffff', W - L * 2 - 330)
         ctx.textAlign = 'right'
         text(ctx, `★ ${d.lowest.score?.toFixed(1)}`, W - L - 30, y + 235, 900, 44, '#fb7185')
@@ -406,38 +407,38 @@ const CARDS: CardDef[] = [
   },
   {
     id: 'turler',
-    label: 'Türlerin',
+    label: tt('Türlerin'),
     theme: T.green,
     show: (d) => d.genres.length > 0,
     images: () => [],
     draw: (ctx, d) => {
-      header(ctx, T.green, d.year, 'En çok izlediğin türler')
+      header(ctx, T.green, d.year, tt('En çok izlediğin türler'))
       d.genres.slice(0, 5).forEach((g, i) => {
         const y = 440 + i * 190
         text(ctx, String(i + 1), L, y + 40, 900, i === 0 ? 150 : 110, i === 0 ? T.green.accent : 'rgba(255,255,255,0.3)')
         text(ctx, g.label, L + 170, y, 800, i === 0 ? 76 : 60, '#ffffff', W - L * 2 - 170)
-        text(ctx, `${g.count} yapım`, L + 172, y + 55, 500, 34, 'rgba(255,255,255,0.55)')
+        text(ctx, tt('{0} yapım', g.count), L + 172, y + 55, 500, 34, 'rgba(255,255,255,0.55)')
       })
       if (d.countries[0]) {
         rr(ctx, L, 1450, W - L * 2, 230, 32)
         ctx.fillStyle = 'rgba(255,255,255,0.07)'
         ctx.fill()
-        text(ctx, 'En çok izlediğin ülke', L + 44, 1530, 500, 34, 'rgba(255,255,255,0.6)')
+        text(ctx, tt('En çok izlediğin ülke'), L + 44, 1530, 500, 34, 'rgba(255,255,255,0.6)')
         text(ctx, d.countries[0].label, L + 44, 1620, 900, 72, '#ffffff', W - L * 2 - 300)
         ctx.textAlign = 'right'
-        text(ctx, `${d.countries[0].count} yapım`, W - L - 44, 1620, 700, 40, T.green.accent)
+        text(ctx, tt('{0} yapım', d.countries[0].count), W - L - 44, 1620, 700, 40, T.green.accent)
         ctx.textAlign = 'left'
       }
     },
   },
   {
     id: 'maraton',
-    label: 'Maratonların',
+    label: tt('Maratonların'),
     theme: T.red,
     show: (d) => d.marathons.length > 0,
     images: (d) => d.marathons.slice(0, 3).flatMap((m) => m.posters.slice(0, 4)),
     draw: (ctx, d, img) => {
-      header(ctx, T.red, d.year, 'Maratonların')
+      header(ctx, T.red, d.year, tt('Maratonların'))
       d.marathons.slice(0, 3).forEach((m, i) => {
         const y = 380 + i * 460
         rr(ctx, L, y, W - L * 2, 420, 36)
@@ -450,7 +451,7 @@ const CARDS: CardDef[] = [
         })
         const tx = L + 40 + (ps.length - 1) * 70 + 250
         const tw = W - L - 40 - tx
-        text(ctx, m.kind === 'seri' ? 'SERİYİ TÜKETTİN' : 'DİZİ MARATONU', tx, y + 120, 800, 28, T.red.accent)
+        text(ctx, m.kind === 'seri' ? tt('SERİYİ TÜKETTİN') : tt('DİZİ MARATONU'), tx, y + 120, 800, 28, T.red.accent)
         ctx.fillStyle = '#ffffff'
         font(ctx, 900, 58)
         const n = wrap(ctx, m.name, tx, y + 195, tw, 64, 2)
@@ -460,44 +461,44 @@ const CARDS: CardDef[] = [
   },
   {
     id: 'oyuncular',
-    label: 'Oyuncuların',
+    label: tt('Oyuncuların'),
     theme: T.pink,
     show: (d) => d.actors.length > 0,
     images: (d) => d.actors.slice(0, 5).map((a) => a.image ?? ''),
     draw: (ctx, d, img) => {
-      header(ctx, T.pink, d.year, 'En çok karşına çıkanlar')
+      header(ctx, T.pink, d.year, tt('En çok karşına çıkanlar'))
       const a = d.actors[0]
       picture(ctx, img.get(a.image ?? ''), L, 340, 400, 600, 28)
       text(ctx, '1', L + 450, 470, 900, 160, T.pink.accent)
       ctx.fillStyle = '#ffffff'
       font(ctx, 800, 60)
       const n = wrap(ctx, a.label, L + 450, 590, W - L * 2 - 450, 68, 3)
-      text(ctx, `${a.count} yapımda`, L + 452, 590 + n * 68 + 10, 500, 38, 'rgba(255,255,255,0.65)')
+      text(ctx, tt('{0} yapımda', a.count), L + 452, 590 + n * 68 + 10, 500, 38, 'rgba(255,255,255,0.65)')
       d.actors.slice(1, 5).forEach((x, i) => {
         const y = 1010 + i * 190
         picture(ctx, img.get(x.image ?? ''), L, y, 120, 160, 16)
         text(ctx, String(i + 2), L + 160, y + 70, 900, 56, 'rgba(255,255,255,0.35)')
         text(ctx, x.label, L + 240, y + 70, 800, 50, '#ffffff', W - L * 2 - 240)
-        text(ctx, `${x.count} yapım`, L + 242, y + 122, 500, 32, 'rgba(255,255,255,0.55)')
+        text(ctx, tt('{0} yapım', x.count), L + 242, y + 122, 500, 32, 'rgba(255,255,255,0.55)')
       })
     },
   },
   {
     id: 'nostalji',
-    label: 'Nostalji radarı',
+    label: tt('Nostalji radarı'),
     theme: T.sepia,
     show: (d) => d.decades.length > 0,
     images: (d) => [d.oldest?.poster ?? ''],
     draw: (ctx, d, img) => {
-      header(ctx, T.sepia, d.year, 'Nostalji radarı')
-      text(ctx, 'İzlediklerinin çıkış yılları', L, 330, 500, 36, 'rgba(255,255,255,0.6)')
+      header(ctx, T.sepia, d.year, tt('Nostalji radarı'))
+      text(ctx, tt('İzlediklerinin çıkış yılları'), L, 330, 500, 36, 'rgba(255,255,255,0.6)')
       const items = d.decades.slice(-7).map((x) => ({ label: x.label, value: x.count }))
       hBars(ctx, items, L, 380, W - L * 2, 96, '#e9b872', 200)
       let y = 380 + items.length * 96 + 60
       const half = (W - L * 2 - 24) / 2
       ;[
-        [`%${Math.round(d.newShare * 100)}`, `yeni (${Number(d.year) - 1}–${d.year})`],
-        [`%${Math.round(d.classicShare * 100)}`, '20 yıldan eski'],
+        [`%${Math.round(d.newShare * 100)}`, tt('yeni ({0}–{1})', Number(d.year) - 1, d.year)],
+        [`%${Math.round(d.classicShare * 100)}`, tt('20 yıldan eski')],
       ].forEach(([v, l], i) => {
         rr(ctx, L + i * (half + 24), y, half, 190, 28)
         ctx.fillStyle = 'rgba(255,255,255,0.07)'
@@ -508,7 +509,7 @@ const CARDS: CardDef[] = [
       y += 250
       if (d.oldest && y + 330 < H - 100) {
         picture(ctx, img.get(d.oldest.poster), L, y, 220, 330, 22)
-        text(ctx, 'En eski izlediğin', L + 260, y + 70, 500, 34, 'rgba(255,255,255,0.6)')
+        text(ctx, tt('En eski izlediğin'), L + 260, y + 70, 500, 34, 'rgba(255,255,255,0.6)')
         ctx.fillStyle = '#ffffff'
         font(ctx, 800, 56)
         const n = wrap(ctx, d.oldest.title, L + 260, y + 150, W - L * 2 - 260, 64, 2)
@@ -518,27 +519,27 @@ const CARDS: CardDef[] = [
   },
   {
     id: 'zaman',
-    label: 'Zaman alışkanlıkların',
+    label: tt('Zaman alışkanlıkların'),
     theme: T.indigo,
     show: (d) => d.months.some((m) => m > 0),
     images: () => [],
     draw: (ctx, d) => {
-      header(ctx, T.indigo, d.year, 'Zaman alışkanlıkların')
+      header(ctx, T.indigo, d.year, tt('Zaman alışkanlıkların'))
       const bm = d.months.indexOf(Math.max(...d.months))
-      text(ctx, 'En yoğun ayın', L, 380, 500, 36, 'rgba(255,255,255,0.6)')
+      text(ctx, tt('En yoğun ayın'), L, 380, 500, 36, 'rgba(255,255,255,0.6)')
       text(ctx, TR_MONTHS[bm], L, 480, 900, 96, '#ffffff')
       vBars(ctx, d.months, TR_MONTHS.map((m) => m.slice(0, 1)), L, 530, W - L * 2, 260, '#818cf8', bm)
       const bd = d.weekdays.indexOf(Math.max(...d.weekdays))
-      text(ctx, 'En çok izlediğin gün', L, 940, 500, 36, 'rgba(255,255,255,0.6)')
-      text(ctx, `${TR_DAYS[bd]} günleri`, L, 1040, 900, 96, '#ffffff', W - L * 2)
+      text(ctx, tt('En çok izlediğin gün'), L, 940, 500, 36, 'rgba(255,255,255,0.6)')
+      text(ctx, tt('{0} günleri', TR_DAYS[bd]), L, 1040, 900, 96, '#ffffff', W - L * 2)
       vBars(ctx, d.weekdays, TR_DAYS_SHORT, L, 1090, W - L * 2, 220, '#38bdf8', bd)
       rr(ctx, L, 1440, W - L * 2, 250, 32)
       ctx.fillStyle = 'rgba(255,255,255,0.07)'
       ctx.fill()
-      text(ctx, 'En uzun serin', L + 44, 1515, 500, 34, 'rgba(255,255,255,0.6)')
-      text(ctx, `${d.streak.days} gün üst üste`, L + 44, 1610, 900, 80, '#ffffff', W - L * 2 - 88)
+      text(ctx, tt('En uzun serin'), L + 44, 1515, 500, 34, 'rgba(255,255,255,0.6)')
+      text(ctx, tt('{0} gün üst üste', d.streak.days), L + 44, 1610, 900, 80, '#ffffff', W - L * 2 - 88)
       if (d.streak.days > 1) {
-        const f = (s: string) => `${Number(s.slice(8))} ${TR_MONTHS[Number(s.slice(5, 7)) - 1]}`
+        const f = (s: string) => fmtDate(null, Number(s.slice(5, 7)) - 1, Number(s.slice(8)))
         text(ctx, `${f(d.streak.start)} – ${f(d.streak.end)}`, L + 46, 1660, 500, 30, T.indigo.accent)
       }
     },
@@ -558,7 +559,7 @@ async function drawCard(card: CardDef, d: StoryData, n: number, total: number): 
   card.draw(ctx, d, img)
   footer(ctx, n, total, logo)
   const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/png'))
-  if (!blob) throw new Error('Kart oluşturulamadı.')
+  if (!blob) throw new Error(tt('Kart oluşturulamadı.'))
   return blob
 }
 
@@ -625,7 +626,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
       await new Promise((r) => setTimeout(r, 350))
     }
     setBusy(false)
-    notify(`${cards.length} kart indirildi — İndirilenler klasörüne bakabilirsin.`)
+    notify(tt('{0} kart indirildi — İndirilenler klasörüne bakabilirsin.', cards.length))
   }
 
   const ready = urls.every(Boolean)
@@ -637,7 +638,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
           <p className="text-neutral-100 font-semibold">
             {cards[i].label} <span className="text-neutral-500 font-normal text-sm">· {i + 1}/{cards.length}</span>
           </p>
-          <button onClick={onClose} aria-label="Kapat" className="h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
+          <button onClick={onClose} aria-label={tt('Kapat')} className="h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
             ×
           </button>
         </div>
@@ -648,24 +649,24 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
           ))}
         </div>
         <div className="relative aspect-[9/16] rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 flex items-center justify-center select-none">
-          {urls[i] ? <img src={urls[i]!} alt={cards[i].label} className="h-full w-full object-contain" /> : <span className="text-sm text-neutral-500">Hazırlanıyor…</span>}
+          {urls[i] ? <img src={urls[i]!} alt={cards[i].label} className="h-full w-full object-contain" /> : <span className="text-sm text-neutral-500">{tt('Hazırlanıyor…')}</span>}
           {/* sol / sağ yarıya tıklayınca önceki / sonraki */}
-          <button onClick={() => go(-1)} aria-label="Önceki kart" className="absolute inset-y-0 left-0 w-1/3 group">
+          <button onClick={() => go(-1)} aria-label={tt('Önceki kart')} className="absolute inset-y-0 left-0 w-1/3 group">
             {i > 0 && <span className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition flex items-center justify-center">‹</span>}
           </button>
-          <button onClick={() => go(1)} aria-label="Sonraki kart" className="absolute inset-y-0 right-0 w-1/3 group">
+          <button onClick={() => go(1)} aria-label={tt('Sonraki kart')} className="absolute inset-y-0 right-0 w-1/3 group">
             {i < cards.length - 1 && <span className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition flex items-center justify-center">›</span>}
           </button>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-3">
           <button onClick={() => save(i)} disabled={!urls[i]} style={primaryButtonStyle} className={`text-sm px-3 py-2.5 rounded-xl ${PRIMARY_BUTTON} disabled:opacity-50`}>
-            ↓ Bu kartı indir
+            {tt('↓ Bu kartı indir')}
           </button>
           <button onClick={saveAll} disabled={!ready || busy} className="text-sm px-3 py-2.5 rounded-xl border border-neutral-700 text-neutral-200 hover:border-neutral-500 disabled:opacity-50">
-            {busy ? 'İndiriliyor…' : ready ? `↓ Hepsini indir (${cards.length})` : 'Hazırlanıyor…'}
+            {busy ? tt('İndiriliyor…') : ready ? tt('↓ Hepsini indir ({0})', cards.length) : tt('Hazırlanıyor…')}
           </button>
         </div>
-        <p className="text-[11px] text-neutral-500 text-center mt-2">← → tuşlarıyla ya da kartın sağına/soluna tıklayarak gez. 1080 × 1920, hikâyelere tam oturur.</p>
+        <p className="text-[11px] text-neutral-500 text-center mt-2">{tt('← → tuşlarıyla ya da kartın sağına/soluna tıklayarak gez. 1080 × 1920, hikâyelere tam oturur.')}</p>
       </div>
     </div>,
     document.body,

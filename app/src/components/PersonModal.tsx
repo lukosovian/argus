@@ -6,14 +6,14 @@ import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx, fmtDate } from '../lib/i18n'
 
 // Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,
 // tek tıkla ekleyeyim" dedi. TMDB'den kişinin bilgileri ve filmografisi: arşivinde olanlar (izlediklerin
 // işaretli) ve olmayanlar (en bilinenler önce, "+ İzlenecek" ya da tıklayınca önizleme).
-const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 function trDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
-  return d && m ? `${d} ${TR_MONTHS[m - 1]} ${y}` : iso
+  return d && m ? fmtDate(y, m - 1, d) : iso
 }
 
 export default function PersonModal({
@@ -76,14 +76,14 @@ export default function PersonModal({
         d
           ? {
               ...d,
-              inArchive: [...d.inArchive, { ...c, rowId: res.rowId, status: 'İzlenecek', watched: false }],
+              inArchive: [...d.inArchive, { ...c, rowId: res.rowId, status: tt('İzlenecek'), watched: false }],
               notInArchive: d.notInArchive.filter((x) => !(x.tmdbId === c.tmdbId && x.mediaType === c.mediaType)),
             }
           : d,
       )
-      notify(`"${res.title}" izlenecekler listene eklendi.`)
+      notify(tt('"{0}" izlenecekler listene eklendi.', res.title))
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
     } finally {
       setBusy(null)
     }
@@ -95,15 +95,15 @@ export default function PersonModal({
   return createPortal(
     <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-6 px-4 sm:px-8" onClick={onClose}>
       <div className="relative w-full max-w-4xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6 space-y-6" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} aria-label="Kapat" className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
+        <button onClick={onClose} aria-label={tt('Kapat')} className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
           ×
         </button>
         {!data ? (
-          <p className="text-sm text-neutral-500 py-10 text-center">{name} yükleniyor...</p>
+          <p className="text-sm text-neutral-500 py-10 text-center">{ttx('{0} yükleniyor...', name)}</p>
         ) : data.needsApiKey ? (
-          <p className="text-sm text-amber-400">Bunun için Ayarlar › Veritabanı › API'den TMDB anahtarını girmelisin.</p>
+          <p className="text-sm text-amber-400">{tt('Bunun için Ayarlar › Veritabanı › API\'den TMDB anahtarını girmelisin.')}</p>
         ) : !p ? (
-          <p className="text-sm text-neutral-500 py-10 text-center">"{name}" TMDB'de bulunamadı.</p>
+          <p className="text-sm text-neutral-500 py-10 text-center">{ttx('"{0}" TMDB\'de bulunamadı.', name)}</p>
         ) : (
           <>
             <div className="flex items-start gap-5">
@@ -111,14 +111,13 @@ export default function PersonModal({
               <div className="min-w-0 flex-1 pr-8">
                 <h2 className="text-2xl font-bold text-neutral-50">{p.name}</h2>
                 <p className="text-sm text-neutral-400 mt-1">
-                  {[role === 'directing' ? 'Yönetmen' : 'Oyuncu', p.birthday && `${trDate(p.birthday)}${p.deathday ? ` – ${trDate(p.deathday)}` : ''}`, p.place]
+                  {[role === 'directing' ? tt('Yönetmen') : tt('Oyuncu'), p.birthday && `${trDate(p.birthday)}${p.deathday ? ` – ${trDate(p.deathday)}` : ''}`, p.place]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
-                {character && <p className="text-sm text-neutral-300 mt-1">Bu yapımdaki rolü: {character}</p>}
+                {character && <p className="text-sm text-neutral-300 mt-1">{ttx('Bu yapımdaki rolü: {0}', character)}</p>}
                 <p className="text-xs text-neutral-500 mt-1">
-                  Arşivinde {data.inArchive.length} yapımı var{watchedCount ? `, ${watchedCount} tanesini izledin` : ''}.
-                </p>
+                  {ttx('Arşivinde {0} yapımı var{1}.', data.inArchive.length, watchedCount ? tt(', {0} tanesini izledin', watchedCount) : '')}</p>
                 {p.bio && (
                   <p className={`text-sm text-neutral-300 leading-relaxed mt-3 ${bioOpen ? '' : 'line-clamp-4'}`}>
                     {p.bio}
@@ -127,12 +126,12 @@ export default function PersonModal({
                 <div className="flex flex-wrap gap-3 mt-2">
                   {p.bio && p.bio.length > 300 && (
                     <button onClick={() => setBioOpen((v) => !v)} className="text-xs text-[#00c0fa] hover:underline">
-                      {bioOpen ? 'Daha az' : 'Devamını oku'}
+                      {bioOpen ? tt('Daha az') : tt('Devamını oku')}
                     </button>
                   )}
                   {onShowContents && (
                     <button onClick={onShowContents} style={primaryButtonStyle} className={`text-xs px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}>
-                      Arşivindekileri listele
+                      {tt('Arşivindekileri listele')}
                     </button>
                   )}
                 </div>
@@ -142,7 +141,7 @@ export default function PersonModal({
             {data.inArchive.length > 0 && (
               <section>
                 <h3 className="text-base font-semibold text-neutral-100 mb-3">
-                  Arşivinde <span className="text-xs font-normal text-neutral-500">{data.inArchive.length}</span>
+                  {tt('Arşivinde')}{' '}<span className="text-xs font-normal text-neutral-500">{data.inArchive.length}</span>
                 </h3>
                 <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
                   {data.inArchive.map((c) => (
@@ -154,7 +153,7 @@ export default function PersonModal({
                       >
                         {c.poster && <img src={c.poster} alt={c.title} loading="lazy" className="h-full w-full object-cover group-enabled:group-hover:scale-105 transition" />}
                         {c.watched ? (
-                          <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-emerald-500 text-white rounded px-1.5 py-0.5">✓ İzledin</span>
+                          <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-emerald-500 text-white rounded px-1.5 py-0.5">{tt('✓ İzledin')}</span>
                         ) : c.status ? (
                           <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-black/70 text-neutral-100 rounded px-1.5 py-0.5">{c.status}</span>
                         ) : null}
@@ -172,7 +171,7 @@ export default function PersonModal({
             {data.notInArchive.length > 0 && (
               <section>
                 <h3 className="text-base font-semibold text-neutral-100 mb-3">
-                  Arşivinde olmayanlar <span className="text-xs font-normal text-neutral-500">en bilinenler önce</span>
+                  {tt('Arşivinde olmayanlar')}{' '}<span className="text-xs font-normal text-neutral-500">{tt('en bilinenler önce')}</span>
                 </h3>
                 <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
                   {data.notInArchive.map((c) => {
@@ -184,16 +183,16 @@ export default function PersonModal({
                           {c.rating ? <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-black/70 text-amber-300 rounded px-1.5 py-0.5">★ {c.rating}</span> : null}
                         </button>
                         <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{c.title}</p>
-                        <p className="text-[11px] text-neutral-500 truncate">{[c.year, c.mediaType === 'tv' ? 'Dizi' : 'Film'].filter(Boolean).join(' · ')}</p>
+                        <p className="text-[11px] text-neutral-500 truncate">{[c.year, c.mediaType === 'tv' ? tt('Dizi') : tt('Film')].filter(Boolean).join(' · ')}</p>
                         {added.has(k) ? (
-                          <p className="text-[11px] text-emerald-400 mt-1">✓ Eklendi</p>
+                          <p className="text-[11px] text-emerald-400 mt-1">{tt('✓ Eklendi')}</p>
                         ) : (
                           <button
                             onClick={() => addWatchlist(c)}
                             disabled={busy === k}
                             className="mt-1 w-full text-[11px] rounded-md border border-neutral-700 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] py-1 transition disabled:opacity-50"
                           >
-                            {busy === k ? 'Ekleniyor...' : '+ İzlenecek'}
+                            {busy === k ? tt('Ekleniyor...') : tt('+ İzlenecek')}
                           </button>
                         )}
                       </div>

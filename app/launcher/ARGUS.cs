@@ -92,7 +92,7 @@ static class Program
                 if (arkaPlan) psi.EnvironmentVariables["ARGUS_ARKA_PLAN"] = "1";
                 if (atla) psi.EnvironmentVariables["GIT_DIR"] = Path.Combine(Root, ".guncelleme-atlandi");
                 try { Process.Start(psi); }
-                catch (Exception e) { MessageBox.Show("ARGUS başlatılamadı: " + e.Message, "ARGUS"); return; }
+                catch (Exception e) { MessageBox.Show(Program.T("ARGUS başlatılamadı: ") + e.Message, "ARGUS"); return; }
             }
             if (arkaPlan) return;
             Application.Run(new Splash(guncelleme, zatenAcik));
@@ -182,18 +182,55 @@ static class Program
         st.InvokeMember("Save", BindingFlags.InvokeMethod, null, s, null);
     }
 
+    // Arayüz dili: ARGUS'un data\ui-prefs.json'undaki argus_lang (kullanıcı "argus u komple ingilizce yap" dedi)
+    static bool? en;
+    public static string T(string tr)
+    {
+        if (en == null)
+        {
+            try
+            {
+                string f = Path.Combine(Path.Combine(Root, "data"), "ui-prefs.json");
+                en = File.Exists(f) && File.ReadAllText(f).Replace(" ", "").Contains("\"argus_lang\":\"en\"");
+            }
+            catch { en = false; }
+        }
+        if (en != true) return tr;
+        switch (tr)
+        {
+            case "Güncellemeler kontrol ediliyor…": return "Checking for updates…";
+            case "ARGUS güncelleniyor…": return "Updating ARGUS…";
+            case "Gerekli dosyalar kontrol ediliyor…": return "Checking required files…";
+            case "İlk kurulum: gerekli dosyalar indiriliyor, birkaç dakika sürebilir…": return "First setup: downloading required files, this may take a few minutes…";
+            case "Uygulama motoru indiriliyor (bir kereye mahsus, ~100 MB)…": return "Downloading the app engine (one time only, ~100 MB)…";
+            case "ARGUS başlatılıyor…": return "Starting ARGUS…";
+            case "Arayüz hazırlanıyor…": return "Preparing the interface…";
+            case "Neredeyse hazır…": return "Almost ready…";
+            case "ARGUS zaten açık, öne getiriliyor…": return "ARGUS is already open, bringing it to the front…";
+            case "Güncellendi, ARGUS açılıyor…": return "Updated, opening ARGUS…";
+            case "Hazır! ARGUS açılıyor…": return "Ready! Opening ARGUS…";
+            case "Beklenenden uzun sürüyor, biraz daha bekle…": return "This is taking longer than expected, please wait a bit more…";
+            case "Güncelle": return "Update";
+            case "Şimdilik atla": return "Skip for now";
+            case "ARGUS'un yeni bir sürümü var": return "A new version of ARGUS is available";
+            case "Şimdi güncelleyebilir ya da bu sefer atlayabilirsin. Yenilikleri Yama Notları'nda görürsün.": return "You can update now or skip it this time. You'll find what's new in Patch Notes.";
+            case "ARGUS başlatılamadı: ": return "Couldn't start ARGUS: ";
+            default: return tr;
+        }
+    }
+
     public static string Metin(string code)
     {
         switch (code)
         {
-            case "update": return "Güncellemeler kontrol ediliyor…";
-            case "guncelleme": return "ARGUS güncelleniyor…";
-            case "modules": return "Gerekli dosyalar kontrol ediliyor…";
-            case "install": return "İlk kurulum: gerekli dosyalar indiriliyor, birkaç dakika sürebilir…";
-            case "motor": return "Uygulama motoru indiriliyor (bir kereye mahsus, ~100 MB)…";
-            case "start": return "ARGUS başlatılıyor…";
-            case "build": return "Arayüz hazırlanıyor…";
-            case "server": return "Neredeyse hazır…";
+            case "update": return T("Güncellemeler kontrol ediliyor…");
+            case "guncelleme": return T("ARGUS güncelleniyor…");
+            case "modules": return T("Gerekli dosyalar kontrol ediliyor…");
+            case "install": return T("İlk kurulum: gerekli dosyalar indiriliyor, birkaç dakika sürebilir…");
+            case "motor": return T("Uygulama motoru indiriliyor (bir kereye mahsus, ~100 MB)…");
+            case "start": return T("ARGUS başlatılıyor…");
+            case "build": return T("Arayüz hazırlanıyor…");
+            case "server": return T("Neredeyse hazır…");
             default: return null;
         }
     }
@@ -233,7 +270,7 @@ class Splash : Form
             if (m.Success) version = m.Groups[1].Value;
         }
         catch { }
-        status = zatenAcik ? "ARGUS zaten açık, öne getiriliyor…" : Program.Metin(guncelleme ? "guncelleme" : "update");
+        status = zatenAcik ? Program.T("ARGUS zaten açık, öne getiriliyor…") : Program.Metin(guncelleme ? "guncelleme" : "update");
         if (zatenAcik) { ready = true; readyAt = 0; }
 
         var path = new GraphicsPath();
@@ -280,13 +317,13 @@ class Splash : Form
             catch { }
             if (Program.PortAcik(250))
             {
-                status = guncelleme ? "Güncellendi, ARGUS açılıyor…" : "Hazır! ARGUS açılıyor…";
+                status = guncelleme ? Program.T("Güncellendi, ARGUS açılıyor…") : Program.T("Hazır! ARGUS açılıyor…");
                 ready = true;
                 return;
             }
             double mins = (DateTime.Now - started).TotalMinutes;
             if (mins > 15) { gorunur = true; return; }
-            if (mins > 3 && status == Program.Metin("modules")) status = "Beklenenden uzun sürüyor, biraz daha bekle…";
+            if (mins > 3 && status == Program.Metin("modules")) status = Program.T("Beklenenden uzun sürüyor, biraz daha bekle…");
             Thread.Sleep(300);
         }
     }
@@ -461,9 +498,9 @@ class Soru : Form
         path.AddArc(0, H - r, r, r, 90, 90);
         path.CloseFigure();
         Region = new Region(path);
-        var guncelle = Dugme("Güncelle", true, new Rectangle(W / 2 + 6, 176, 150, 38));
+        var guncelle = Dugme(Program.T("Güncelle"), true, new Rectangle(W / 2 + 6, 176, 150, 38));
         guncelle.Click += (s, e) => { Guncelle = true; Close(); };
-        var atla = Dugme("Şimdilik atla", false, new Rectangle(W / 2 - 156, 176, 150, 38));
+        var atla = Dugme(Program.T("Şimdilik atla"), false, new Rectangle(W / 2 - 156, 176, 150, 38));
         atla.Click += (s, e) => { Guncelle = false; Close(); };
         Controls.Add(guncelle);
         Controls.Add(atla);
@@ -511,10 +548,10 @@ class Soru : Form
         if (logo != null) g.DrawImage(logo, (W - 60) / 2, 28, 60, 60);
         var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
         using (var f = new Font("Segoe UI", 14, FontStyle.Bold))
-            g.DrawString("ARGUS'un yeni bir sürümü var", f, Brushes.White, new RectangleF(0, 100, W, 30), center);
+            g.DrawString(Program.T("ARGUS'un yeni bir sürümü var"), f, Brushes.White, new RectangleF(0, 100, W, 30), center);
         using (var f = new Font("Segoe UI", 9.5f))
         using (var b = new SolidBrush(Color.FromArgb(165, 165, 175)))
-            g.DrawString("Şimdi güncelleyebilir ya da bu sefer atlayabilirsin. Yenilikleri Yama Notları'nda görürsün.", f, b, new RectangleF(30, 128, W - 60, 40), center);
+            g.DrawString(Program.T("Şimdi güncelleyebilir ya da bu sefer atlayabilirsin. Yenilikleri Yama Notları'nda görürsün."), f, b, new RectangleF(30, 128, W - 60, 40), center);
         using (var pen = new Pen(Color.FromArgb(40, 255, 255, 255)))
             g.DrawRectangle(pen, 0, 0, W - 1, H - 1);
     }

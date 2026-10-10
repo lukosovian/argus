@@ -13,6 +13,7 @@ import {
   SortIcon,
 } from './toolbarIcons'
 import { useEscape } from '../hooks/useEscape'
+import { tt } from '../lib/i18n'
 
 // Arşiv tablosunun sağ üstündeki "i" butonuyla açılan kullanım rehberi — kullanıcı "burası
 // nedir nasıl kullanılır wireframelerle bi infografik hazırla... oyuncu ekleme, sütun tipini
@@ -62,7 +63,7 @@ function ToolbarWire() {
       })}
       <rect x={474} y={18} width={64} height={24} rx={6} fill={ACCENT} fillOpacity={0.9} />
       <text x={506} y={34} fontSize={9} textAnchor="middle" fill="#fff" fontWeight={600} style={{ fontFamily: 'inherit' }}>
-        + Yeni Ekle
+        {tt('+ Yeni Ekle')}
       </text>
       <Pin x={506} y={56} n={12} />
       {/* altında küçük tablo izlenimi */}
@@ -84,10 +85,10 @@ function RowWire() {
     <Frame viewBox="0 0 520 170">
       {/* başlık satırı */}
       <Box x={10} y={10} w={500} h={24} r={4} strong />
-      <Label x={60} y={26} size={9} muted>Türkçe Adı</Label>
-      <Label x={200} y={26} size={9} muted>Durum</Label>
-      <Label x={300} y={26} size={9} muted>Tür</Label>
-      <Label x={420} y={26} size={9} muted>Poster</Label>
+      <Label x={60} y={26} size={9} muted>{tt('Türkçe Adı')}</Label>
+      <Label x={200} y={26} size={9} muted>{tt('Durum')}</Label>
+      <Label x={300} y={26} size={9} muted>{tt('Tür')}</Label>
+      <Label x={420} y={26} size={9} muted>{tt('Poster')}</Label>
       {[0, 1, 2].map((r) => {
         const y = 34 + r * 30
         const active = r === 1
@@ -127,7 +128,7 @@ function RowWire() {
       <Pin x={226} y={140} n={3} />
       <line x1={226} y1={132} x2={226} y2={93} stroke={ACCENT} strokeWidth={1} />
       {/* altta satır ekleme */}
-      <Label x={62} y={144} size={9} muted>+ Yeni satır</Label>
+      <Label x={62} y={144} size={9} muted>{tt('+ Yeni satır')}</Label>
       <Pin x={120} y={141} n={4} />
     </Frame>
   )
@@ -137,9 +138,9 @@ function ColumnWire() {
   return (
     <Frame viewBox="0 0 520 200">
       <Box x={10} y={10} w={340} h={24} r={4} strong />
-      <Label x={24} y={26} size={9} muted>Türkçe Adı</Label>
-      <Label x={124} y={26} size={9}>Durum</Label>
-      <Label x={224} y={26} size={9} muted>Tür</Label>
+      <Label x={24} y={26} size={9} muted>{tt('Türkçe Adı')}</Label>
+      <Label x={124} y={26} size={9}>{tt('Durum')}</Label>
+      <Label x={224} y={26} size={9} muted>{tt('Tür')}</Label>
       {/* sağdaki "+" */}
       <Box x={356} y={10} w={24} h={24} r={4} dashed />
       <Label x={368} y={26} size={13} anchor="middle">+</Label>
@@ -158,24 +159,24 @@ function ColumnWire() {
       <Highlight x={116} y={12} w={70} h={20} />
       {/* açılan sütun menüsü */}
       <Box x={116} y={80} w={200} h={112} r={8} strong />
-      <Label x={126} y={96} size={8} muted>Sütun adı</Label>
+      <Label x={126} y={96} size={8} muted>{tt('Sütun adı')}</Label>
       <Box x={126} y={100} w={180} h={16} r={4} />
-      <Label x={132} y={111} size={8}>Durum</Label>
-      <Label x={126} y={130} size={8} muted>Tip</Label>
-      {['Metin', 'Seçim', 'Tarih', 'Görsel'].map((t, i) => (
+      <Label x={132} y={111} size={8}>{tt('Durum')}</Label>
+      <Label x={126} y={130} size={8} muted>{tt('Tip')}</Label>
+      {[tt('Metin'), tt('Seçim'), tt('Tarih'), tt('Görsel')].map((t, i) => (
         <g key={t}>
           <rect x={126 + i * 45} y={134} width={41} height={14} rx={3} className={i === 1 ? 'fill-neutral-600' : 'fill-neutral-900 stroke-neutral-700'} />
           <Label x={146 + i * 45} y={144} size={7} anchor="middle">{t}</Label>
         </g>
       ))}
-      <Chip x={126} y={156} w={40} color="#22c55e" text="İzlendi" />
-      <Chip x={170} y={156} w={46} color="#eab308" text="İzlenecek" />
-      <Label x={126} y={184} size={8} muted>Sütunu Temizle · Sütunu Sil</Label>
+      <Chip x={126} y={156} w={40} color="#22c55e" text={tt('İzlendi')} />
+      <Chip x={170} y={156} w={46} color="#eab308" text={tt('İzlenecek')} />
+      <Label x={126} y={184} size={8} muted>{tt('Sütunu Temizle · Sütunu Sil')}</Label>
       <Pin x={330} y={96} n={2} />
       {/* yeni sütun popover */}
       <Box x={380} y={60} w={130} h={80} r={8} strong />
       <Box x={390} y={70} w={110} h={16} r={4} />
-      <Label x={396} y={81} size={8} muted>Sütun adı</Label>
+      <Label x={396} y={81} size={8} muted>{tt('Sütun adı')}</Label>
       {[0, 1, 2, 3].map((i) => (
         <rect key={i} x={390 + (i % 2) * 56} y={92 + Math.floor(i / 2) * 18} width={52} height={14} rx={3} className="fill-neutral-900 stroke-neutral-700" />
       ))}
@@ -189,26 +190,26 @@ function ActorWire() {
     <Frame viewBox="0 0 520 170">
       {/* hücre */}
       <Box x={10} y={14} w={230} h={28} r={4} strong />
-      <Label x={20} y={32} size={9} muted>Oyuncular</Label>
-      <Chip x={90} y={21} w={60} color="#3b82f6" text="Tom Hanks" />
-      <Chip x={154} y={21} w={70} color="#f97316" text="Meg Ryan" />
+      <Label x={20} y={32} size={9} muted>{tt('Oyuncular')}</Label>
+      <Chip x={90} y={21} w={60} color="#3b82f6" text={tt('Tom Hanks')} />
+      <Chip x={154} y={21} w={70} color="#f97316" text={tt('Meg Ryan')} />
       <Highlight x={86} y={16} w={150} h={24} />
       <Pin x={250} y={28} n={1} />
       {/* açılan seçici */}
       <Box x={10} y={52} w={230} h={100} r={8} strong />
       <Box x={20} y={62} w={210} h={18} r={4} />
-      <Label x={26} y={74} size={8}>Leonardo Di|</Label>
-      <Chip x={20} y={90} w={62} color="#22c55e" text="Leo Firth" />
+      <Label x={26} y={74} size={8}>{tt('Leonardo Di|')}</Label>
+      <Chip x={20} y={90} w={62} color="#22c55e" text={tt('Leo Firth')} />
       <rect x={88} y={90} width={120} height={14} rx={7} className="fill-none stroke-neutral-500" strokeDasharray="3 2" />
-      <Label x={148} y={100} size={8} anchor="middle">+ "Leonardo Di…" ekle</Label>
+      <Label x={148} y={100} size={8} anchor="middle">{tt('+ "Leonardo Di…" ekle')}</Label>
       <Pin x={220} y={97} n={2} />
-      <Label x={20} y={124} size={8} muted>Enter → yeni oyuncu eklenir,</Label>
-      <Label x={20} y={136} size={8} muted>sonra her kayıtta listeden seçilir</Label>
+      <Label x={20} y={124} size={8} muted>{tt('Enter → yeni oyuncu eklenir,')}</Label>
+      <Label x={20} y={136} size={8} muted>{tt('sonra her kayıtta listeden seçilir')}</Label>
       {/* TMDB yolu */}
       <Box x={280} y={14} w={230} h={138} r={8} />
-      <Label x={292} y={32} size={9}>Otomatik yol</Label>
+      <Label x={292} y={32} size={9}>{tt('Otomatik yol')}</Label>
       <Box x={292} y={42} w={120} h={18} r={4} strong />
-      <Label x={352} y={54} size={8} anchor="middle">Güncelle</Label>
+      <Label x={352} y={54} size={8} anchor="middle">{tt('Güncelle')}</Label>
       <Pin x={424} y={51} n={3} />
       {[0, 1, 2, 3].map((i) => (
         <g key={i}>
@@ -216,16 +217,16 @@ function ActorWire() {
           <Line x={292 + i * 46} y={112} w={28} light />
         </g>
       ))}
-      <Label x={292} y={138} size={8} muted>Oyuncular fotoğraflarıyla gelir</Label>
+      <Label x={292} y={138} size={8} muted>{tt('Oyuncular fotoğraflarıyla gelir')}</Label>
     </Frame>
   )
 }
 
 function RatingWire() {
   const crit = [
-    ['Senaryo', 0.8],
-    ['Oyunculuk', 0.65],
-    ['Görsellik', 0.9],
+    [tt('Senaryo'), 0.8],
+    [tt('Oyunculuk'), 0.65],
+    [tt('Görsellik'), 0.9],
   ] as const
   return (
     <Frame viewBox="0 0 520 120">
@@ -239,7 +240,7 @@ function RatingWire() {
           <Label x={232} y={32 + i * 22} size={8} muted>{(v * 10).toFixed(1)}</Label>
         </g>
       ))}
-      <Label x={22} y={100} size={8} muted>+ kriter ekle</Label>
+      <Label x={22} y={100} size={8} muted>{tt('+ kriter ekle')}</Label>
       <Pin x={80} y={97} n={1} />
       <path d="M270 60 h40" stroke={ACCENT} strokeWidth={1.2} markerEnd="url(#arrow2)" />
       <defs>
@@ -249,7 +250,7 @@ function RatingWire() {
       </defs>
       <Box x={320} y={42} w={90} h={36} r={6} />
       <Label x={365} y={65} size={14} anchor="middle">7.8</Label>
-      <Label x={420} y={64} size={8} muted>tabloda ortalama</Label>
+      <Label x={420} y={64} size={8} muted>{tt('tabloda ortalama')}</Label>
       <Pin x={410} y={42} n={2} />
     </Frame>
   )
@@ -258,17 +259,17 @@ function RatingWire() {
 // ---- Sütun tipi tablosu ------------------------------------------------------------------
 
 const TYPE_GUIDE: { type: string; use: string; example: string }[] = [
-  { type: 'Metin', use: 'Kısa, tek satırlık yazılar', example: 'Türkçe Adı, Orjinal Adı, Yönetmen' },
-  { type: 'Sinopsis / Açıklama', use: 'Uzun, çok satırlı yazılar', example: 'Sinopsis, notların' },
-  { type: 'Seçim', use: 'Her kayıtta sadece BİR değer seçilecekse', example: 'Durum (İzlendi / İzlenecek), Kategori (Film / Dizi)' },
-  { type: 'Çoklu Seçim', use: 'Bir kayıtta BİRDEN FAZLA değer olabilecekse', example: 'Tür, Ülke, Oyuncular' },
-  { type: 'Sayı', use: 'Hesap yapılacak rakamlar', example: 'Süre (dakika), Sıra' },
-  { type: 'Tarih', use: 'Tek bir gün', example: 'Vizyon Tarihi' },
-  { type: 'Çoklu Tarih', use: 'Aynı şey birden çok kez olduysa', example: 'İzleme Tarihi (tekrar izlediklerin)' },
-  { type: 'Onay Kutusu', use: 'Evet / hayır', example: 'Favori mi?, Sahibim' },
-  { type: 'Bağlantı / Fragman Linki', use: 'İnternet adresi', example: 'Video (YouTube fragmanı — vitrinde oynar)' },
-  { type: 'Görsel', use: 'Resim dosyası', example: 'Poster (dikey), Banner (yatay), Kapak Adı (logo)' },
-  { type: 'Puan', use: 'Kendi kriterlerinle 10 üzerinden puan', example: 'Puan (Senaryo, Oyunculuk, Müzik…)' },
+  { type: tt('Metin'), use: tt('Kısa, tek satırlık yazılar'), example: tt('Türkçe Adı, Orjinal Adı, Yönetmen') },
+  { type: tt('Sinopsis / Açıklama'), use: tt('Uzun, çok satırlı yazılar'), example: tt('Sinopsis, notların') },
+  { type: tt('Seçim'), use: tt('Her kayıtta sadece BİR değer seçilecekse'), example: tt('Durum (İzlendi / İzlenecek), Kategori (Film / Dizi)') },
+  { type: tt('Çoklu Seçim'), use: tt('Bir kayıtta BİRDEN FAZLA değer olabilecekse'), example: tt('Tür, Ülke, Oyuncular') },
+  { type: tt('Sayı'), use: tt('Hesap yapılacak rakamlar'), example: tt('Süre (dakika), Sıra') },
+  { type: tt('Tarih'), use: tt('Tek bir gün'), example: tt('Vizyon Tarihi') },
+  { type: tt('Çoklu Tarih'), use: tt('Aynı şey birden çok kez olduysa'), example: tt('İzleme Tarihi (tekrar izlediklerin)') },
+  { type: tt('Onay Kutusu'), use: tt('Evet / hayır'), example: tt('Favori mi?, Sahibim') },
+  { type: tt('Bağlantı / Fragman Linki'), use: tt('İnternet adresi'), example: tt('Video (YouTube fragmanı — vitrinde oynar)') },
+  { type: tt('Görsel'), use: tt('Resim dosyası'), example: tt('Poster (dikey), Banner (yatay), Kapak Adı (logo)') },
+  { type: tt('Puan'), use: tt('Kendi kriterlerinle 10 üzerinden puan'), example: tt('Puan (Senaryo, Oyunculuk, Müzik…)') },
 ]
 
 // ---- Bölümler ----------------------------------------------------------------------------
@@ -308,13 +309,13 @@ function Section({ id, title, intro, wire, children }: { id: string; title: stri
 }
 
 const SECTIONS = [
-  { id: 'rehber-arac', label: 'Araç çubuğu' },
-  { id: 'rehber-satir', label: 'Satırlar' },
-  { id: 'rehber-sutun', label: 'Sütunlar' },
-  { id: 'rehber-tip', label: 'Hangi tip ne için?' },
-  { id: 'rehber-oyuncu', label: 'Oyuncu ekleme' },
-  { id: 'rehber-puan', label: 'Puanlama' },
-  { id: 'rehber-ipucu', label: 'İpuçları' },
+  { id: 'rehber-arac', label: tt('Araç çubuğu') },
+  { id: 'rehber-satir', label: tt('Satırlar') },
+  { id: 'rehber-sutun', label: tt('Sütunlar') },
+  { id: 'rehber-tip', label: tt('Hangi tip ne için?') },
+  { id: 'rehber-oyuncu', label: tt('Oyuncu ekleme') },
+  { id: 'rehber-puan', label: tt('Puanlama') },
+  { id: 'rehber-ipucu', label: tt('İpuçları') },
 ]
 
 export default function TableGuideModal({ onClose }: { onClose: () => void }) {
@@ -335,14 +336,14 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 pb-4 border-b border-neutral-800">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-neutral-50">Arşiv tablosu nasıl kullanılır?</h2>
+              <h2 className="text-lg font-semibold text-neutral-50">{tt('Arşiv tablosu nasıl kullanılır?')}</h2>
               <p className="text-sm text-neutral-500 mt-1">
-                Burası arşivinin tamamı: her satır bir film/dizi, her sütun onun bir bilgisi. Sütunları sen belirlersin, istediğini ekler, silersin.
+                {tt('Burası arşivinin tamamı: her satır bir film/dizi, her sütun onun bir bilgisi. Sütunları sen belirlersin, istediğini ekler, silersin.')}
               </p>
             </div>
             <button
               onClick={onClose}
-              aria-label="Kapat"
+              aria-label={tt('Kapat')}
               className="h-8 w-8 shrink-0 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-500 flex items-center justify-center text-neutral-400 hover:text-neutral-50 text-lg leading-none transition"
             >
               ×
@@ -362,60 +363,60 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div ref={scrollRef} className="overflow-y-auto p-6 space-y-5">
-          <Section id="rehber-arac" title="Araç çubuğu" intro="Tablonun sağ üstündeki düğmeler, soldan sağa (üzerine gelince adları da yazar):" wire={<ToolbarWire />}>
+          <Section id="rehber-arac" title={tt('Araç çubuğu')} intro={tt('Tablonun sağ üstündeki düğmeler, soldan sağa (üzerine gelince adları da yazar):')} wire={<ToolbarWire />}>
             <Steps
               items={[
-                { n: 1, title: 'Ara', text: 'Başlık, oyuncu, tür, ülke… herhangi bir yazıya göre tabloyu süzer.' },
-                { n: 2, title: 'Filtrele', text: 'Bir ya da birden fazla sütuna göre süzer: bir değere bir kez tıklarsan ✓ gelsin, iki kez tıklarsan ✕ gelmesin (ör. Tür: ✓ Korku, Ülke: ✕ ABD).' },
-                { n: 3, title: 'Sırala', text: 'Tabloyu bir sütuna göre A→Z, yeniden eskiye vb. dizer.' },
-                { n: 4, title: 'Sütunları göster/gizle', text: 'Görmek istemediğin sütunları kapatırsın. Veri silinmez, sadece gizlenir.' },
-                { n: 5, title: 'Satır sıklığı', text: 'Sıkı (daha çok satır sığar) ile Rahat (daha büyük satır ve afiş) arasında geçer. Seçimin bu arşiv için hatırlanır.' },
-                { n: 6, title: 'TMDB\'den neler gelsin', text: 'TMDB\'den bilgi çekerken hangi alanların doldurulacağını, her birinin hangi sütununa yazılacağını ve dolu alanların üzerine yazılıp yazılmayacağını seçersin.' },
-                { n: 7, title: 'Genel Güncelleme', text: 'Eksik bilgisi olan kayıtları TMDB\'den doldurur ya da sadece dizilerin bölümlerini yeniler; bütün arşive, filtreyle görünenlere ya da seçtiklerine. Tablonun üstünde o an ne yaptığını görürsün; durdurursan kaldığı yerden devam ettirebilirsin.' },
-                { n: 8, title: 'Geçmiş', text: 'Arşivdeki her ekleme, değişiklik ve silme gün gün burada. Tek tek geri alabilir, silineni geri getirebilir ya da arşivi bir günün başındaki haline döndürebilirsin.' },
-                { n: 9, title: 'Sağlık Kontrolü', text: 'Görseli, fragmanı, yönetmeni vb. eksik kayıtları ve neyinin eksik olduğunu listeler.' },
-                { n: 10, title: 'Keşfet', text: 'Film mi dizi mi, hangi türde, kaç tane istediğini seçersin; arşivinde OLMAYAN içerikleri getirir. Beğendiğini "+ İzlenecek" ile eklersin, izlediysen "İzledim" deyip tarih ve puan girersin, istemediğini × ile gizlersin (bir daha gelmez).' },
-                { n: 11, title: 'Bu rehber', text: 'Şu an okuduğun sayfa.' },
-                { n: 12, title: '+ Yeni Ekle', text: 'Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "Güncelle" dersen gerisi TMDB\'den otomatik gelir.' },
-                { title: 'Durum düğmeleri', text: 'Tablonun hemen üstündeki "Hepsi · İzlendi · İzlenecek…" düğmeleri tek tıkla duruma göre süzer; yanlarında kaç kayıt olduğu yazar.' },
+                { n: 1, title: tt('Ara'), text: tt('Başlık, oyuncu, tür, ülke… herhangi bir yazıya göre tabloyu süzer.') },
+                { n: 2, title: tt('Filtrele'), text: tt('Bir ya da birden fazla sütuna göre süzer: bir değere bir kez tıklarsan ✓ gelsin, iki kez tıklarsan ✕ gelmesin (ör. Tür: ✓ Korku, Ülke: ✕ ABD).') },
+                { n: 3, title: tt('Sırala'), text: tt('Tabloyu bir sütuna göre A→Z, yeniden eskiye vb. dizer.') },
+                { n: 4, title: tt('Sütunları göster/gizle'), text: tt('Görmek istemediğin sütunları kapatırsın. Veri silinmez, sadece gizlenir.') },
+                { n: 5, title: tt('Satır sıklığı'), text: tt('Sıkı (daha çok satır sığar) ile Rahat (daha büyük satır ve afiş) arasında geçer. Seçimin bu arşiv için hatırlanır.') },
+                { n: 6, title: tt('TMDB\'den neler gelsin'), text: tt('TMDB\'den bilgi çekerken hangi alanların doldurulacağını, her birinin hangi sütununa yazılacağını ve dolu alanların üzerine yazılıp yazılmayacağını seçersin.') },
+                { n: 7, title: tt('Genel Güncelleme'), text: tt('Eksik bilgisi olan kayıtları TMDB\'den doldurur ya da sadece dizilerin bölümlerini yeniler; bütün arşive, filtreyle görünenlere ya da seçtiklerine. Tablonun üstünde o an ne yaptığını görürsün; durdurursan kaldığı yerden devam ettirebilirsin.') },
+                { n: 8, title: tt('Geçmiş'), text: tt('Arşivdeki her ekleme, değişiklik ve silme gün gün burada. Tek tek geri alabilir, silineni geri getirebilir ya da arşivi bir günün başındaki haline döndürebilirsin.') },
+                { n: 9, title: tt('Sağlık Kontrolü'), text: tt('Görseli, fragmanı, yönetmeni vb. eksik kayıtları ve neyinin eksik olduğunu listeler.') },
+                { n: 10, title: tt('Keşfet'), text: tt('Film mi dizi mi, hangi türde, kaç tane istediğini seçersin; arşivinde OLMAYAN içerikleri getirir. Beğendiğini "+ İzlenecek" ile eklersin, izlediysen "İzledim" deyip tarih ve puan girersin, istemediğini × ile gizlersin (bir daha gelmez).') },
+                { n: 11, title: tt('Bu rehber'), text: tt('Şu an okuduğun sayfa.') },
+                { n: 12, title: tt('+ Yeni Ekle'), text: tt('Tabloya boş bir satır ekler. Adını yazıp satır menüsünden "Güncelle" dersen gerisi TMDB\'den otomatik gelir.') },
+                { title: tt('Durum düğmeleri'), text: tt('Tablonun hemen üstündeki "Hepsi · İzlendi · İzlenecek…" düğmeleri tek tıkla duruma göre süzer; yanlarında kaç kayıt olduğu yazar.') },
               ]}
             />
           </Section>
 
-          <Section id="rehber-satir" title="Satırlar (kayıtlar)" wire={<RowWire />}>
+          <Section id="rehber-satir" title={tt('Satırlar (kayıtlar)')} wire={<RowWire />}>
             <Steps
               items={[
-                { n: 1, title: 'Onay kutusu', text: 'Birden çok satırı seçip topluca silebilirsin. Başlıktaki kutu hepsini seçer.' },
-                { n: 2, title: 'Altı nokta ve göz', text: 'Satırın üzerine gelince belirir. Altı nokta satır menüsünü açar (Güncelle, Altına Satır Ekle, Çoğalt, Sil); göz ikonu kaydın detay penceresini açar.' },
-                { n: 3, title: 'Hücreye tıkla', text: 'Herhangi bir hücreye tıklayıp değerini değiştirirsin. Yazı yazılır, seçim listeden seçilir, görsel bilgisayardan ya da medya klasöründen seçilir.' },
-                { n: 4, title: 'Yeni satır', text: 'Tablonun en altından ya da "+ Yeni Ekle" ile eklersin.' },
-                { title: 'Adın yanındaki afiş', text: 'Her kaydın adının solunda küçük afişi durur; sağa kaydırınca ad ve afiş solda sabit kalır.' },
-                { title: '"+2" gibi sayılar', text: 'Hücreye sığmayan etiketler ya da tarihler için kaç tane daha olduğunu gösterir; üzerine gelince hepsi yazar.' },
-                { title: 'Kapat', text: 'Bir hücreyi düzenlerken açılan kutuyu "Kapat" ile ya da boş bir yere tıklayarak kapatırsın; değişiklik kaydedilir.' },
+                { n: 1, title: tt('Onay kutusu'), text: tt('Birden çok satırı seçip topluca silebilirsin. Başlıktaki kutu hepsini seçer.') },
+                { n: 2, title: tt('Altı nokta ve göz'), text: tt('Satırın üzerine gelince belirir. Altı nokta satır menüsünü açar (Güncelle, Altına Satır Ekle, Çoğalt, Sil); göz ikonu kaydın detay penceresini açar.') },
+                { n: 3, title: tt('Hücreye tıkla'), text: tt('Herhangi bir hücreye tıklayıp değerini değiştirirsin. Yazı yazılır, seçim listeden seçilir, görsel bilgisayardan ya da medya klasöründen seçilir.') },
+                { n: 4, title: tt('Yeni satır'), text: tt('Tablonun en altından ya da "+ Yeni Ekle" ile eklersin.') },
+                { title: tt('Adın yanındaki afiş'), text: tt('Her kaydın adının solunda küçük afişi durur; sağa kaydırınca ad ve afiş solda sabit kalır.') },
+                { title: tt('"+2" gibi sayılar'), text: tt('Hücreye sığmayan etiketler ya da tarihler için kaç tane daha olduğunu gösterir; üzerine gelince hepsi yazar.') },
+                { title: tt('Kapat'), text: tt('Bir hücreyi düzenlerken açılan kutuyu "Kapat" ile ya da boş bir yere tıklayarak kapatırsın; değişiklik kaydedilir.') },
               ]}
             />
           </Section>
 
-          <Section id="rehber-sutun" title="Sütunlar" intro="Sütunlar tamamen senin — hazır bir liste yok, neye ihtiyacın varsa onu eklersin." wire={<ColumnWire />}>
+          <Section id="rehber-sutun" title={tt('Sütunlar')} intro={tt('Sütunlar tamamen senin — hazır bir liste yok, neye ihtiyacın varsa onu eklersin.')} wire={<ColumnWire />}>
             <Steps
               items={[
-                { n: 1, title: 'Sütun ekle', text: 'Başlık satırının en sağındaki "+" ile. Bir ad yazıp tipini seçersin (hangi tipi seçeceğin aşağıda).' },
-                { n: 2, title: 'Sütun ayarları', text: 'Sütun adına tıkla: adını ve tipini değiştir, seçeneklerin renklerini ayarla, tüm değerleri temizle ya da sütunu sil. Görsel sütunlarında "Kapak Görseli Yap" (kartlarda görünen) ve "Vitrin Başlık Görseli Yap" (logo) da buradadır.' },
-                { n: 3, title: 'Genişlik', text: 'Sütun başlığının sağ kenarından tutup sürükle.' },
-                { n: 4, title: 'Sıra', text: 'Sütun başlığını tutup başka bir sütunun üstüne sürükle.' },
-                { title: 'Görevi', text: 'Sütun menüsündeki "Görevi" uygulamaya o sütunun ne işe yaradığını söyler (Poster, Durum, Tür, Puan…). Poster, istatistikler, TMDB doldurma ve Keşfet bunu kullanır. Görev sütunun adına bağlı değil — adını istediğin gibi değiştirebilirsin, hiçbir şey bozulmaz. Durum sütununda ayrıca hangi seçeneğin "İzlenecek / İzleniyor / İzlendi" anlamına geldiğini de seçebilirsin.' },
+                { n: 1, title: tt('Sütun ekle'), text: tt('Başlık satırının en sağındaki "+" ile. Bir ad yazıp tipini seçersin (hangi tipi seçeceğin aşağıda).') },
+                { n: 2, title: tt('Sütun ayarları'), text: tt('Sütun adına tıkla: adını ve tipini değiştir, seçeneklerin renklerini ayarla, tüm değerleri temizle ya da sütunu sil. Görsel sütunlarında "Kapak Görseli Yap" (kartlarda görünen) ve "Vitrin Başlık Görseli Yap" (logo) da buradadır.') },
+                { n: 3, title: tt('Genişlik'), text: tt('Sütun başlığının sağ kenarından tutup sürükle.') },
+                { n: 4, title: tt('Sıra'), text: tt('Sütun başlığını tutup başka bir sütunun üstüne sürükle.') },
+                { title: tt('Görevi'), text: tt('Sütun menüsündeki "Görevi" uygulamaya o sütunun ne işe yaradığını söyler (Poster, Durum, Tür, Puan…). Poster, istatistikler, TMDB doldurma ve Keşfet bunu kullanır. Görev sütunun adına bağlı değil — adını istediğin gibi değiştirebilirsin, hiçbir şey bozulmaz. Durum sütununda ayrıca hangi seçeneğin "İzlenecek / İzleniyor / İzlendi" anlamına geldiğini de seçebilirsin.') },
               ]}
             />
           </Section>
 
-          <Section id="rehber-tip" title="Hangi sütun tipini seçmeliyim?" intro="Kısa kural: tek değer → Seçim, birden çok değer → Çoklu Seçim, serbest yazı → Metin.">
+          <Section id="rehber-tip" title={tt('Hangi sütun tipini seçmeliyim?')} intro={tt('Kısa kural: tek değer → Seçim, birden çok değer → Çoklu Seçim, serbest yazı → Metin.')}>
             <div className="rounded-xl border border-neutral-800 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-neutral-800/60 text-left text-xs text-neutral-400">
-                    <th className="px-3 py-2 font-medium">Tip</th>
-                    <th className="px-3 py-2 font-medium">Ne zaman</th>
-                    <th className="px-3 py-2 font-medium hidden sm:table-cell">Örnek</th>
+                    <th className="px-3 py-2 font-medium">{tt('Tip')}</th>
+                    <th className="px-3 py-2 font-medium">{tt('Ne zaman')}</th>
+                    <th className="px-3 py-2 font-medium hidden sm:table-cell">{tt('Örnek')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -436,39 +437,39 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
 
           <Section
             id="rehber-oyuncu"
-            title="Oyuncu ekleme"
-            intro="Oyuncular ayrı bir şey değil — tipi Çoklu Seçim olan bir sütun. Her oyuncu o sütunun bir seçeneği."
+            title={tt('Oyuncu ekleme')}
+            intro={tt('Oyuncular ayrı bir şey değil — tipi Çoklu Seçim olan bir sütun. Her oyuncu o sütunun bir seçeneği.')}
             wire={<ActorWire />}
           >
             <Steps
               items={[
-                { n: 1, title: 'Hücreye tıkla', text: 'Kaydın Oyuncular hücresine tıkla.' },
-                { n: 2, title: 'Adı yaz', text: 'Listede varsa tıklayıp seç; yoksa "+ ekle"ye bas (ya da Enter). Oyuncu bir kere eklenince bütün kayıtlarda listeden seçilebilir.' },
-                { n: 3, title: 'Ya da otomatik', text: 'Satır menüsündeki "Güncelle" oyuncuları fotoğraflarıyla birlikte TMDB\'den kendisi ekler.' },
-                { title: 'Oyuncunun filmleri', text: 'Detay penceresinde bir oyuncunun adına tıklarsan o oyuncunun oynadığı tüm kayıtlar listelenir. Tür, Ülke gibi diğer etiketler de aynı şekilde çalışır.' },
+                { n: 1, title: tt('Hücreye tıkla'), text: tt('Kaydın Oyuncular hücresine tıkla.') },
+                { n: 2, title: tt('Adı yaz'), text: tt('Listede varsa tıklayıp seç; yoksa "+ ekle"ye bas (ya da Enter). Oyuncu bir kere eklenince bütün kayıtlarda listeden seçilebilir.') },
+                { n: 3, title: tt('Ya da otomatik'), text: tt('Satır menüsündeki "Güncelle" oyuncuları fotoğraflarıyla birlikte TMDB\'den kendisi ekler.') },
+                { title: tt('Oyuncunun filmleri'), text: tt('Detay penceresinde bir oyuncunun adına tıklarsan o oyuncunun oynadığı tüm kayıtlar listelenir. Tür, Ülke gibi diğer etiketler de aynı şekilde çalışır.') },
               ]}
             />
           </Section>
 
-          <Section id="rehber-puan" title="Puanlama" intro="Puan tipi sütun, kendi belirlediğin kriterlere ayrı ayrı not vermeni sağlar." wire={<RatingWire />}>
+          <Section id="rehber-puan" title={tt('Puanlama')} intro={tt('Puan tipi sütun, kendi belirlediğin kriterlere ayrı ayrı not vermeni sağlar.')} wire={<RatingWire />}>
             <Steps
               items={[
-                { n: 1, title: 'Kriterler', text: 'Puan hücresine tıkla, her kriter için kaydırıcıyı ayarla. "+ kriter ekle" ile kendi kriterini ekle (ör. Müzik, Final).' },
-                { n: 2, title: 'Ortalama', text: 'Tabloda tüm kriterlerin ortalaması tek bir puan olarak görünür.' },
-                { title: 'Puanı kaldırma', text: 'Kriterin yanındaki × o kriterin puanını, alttaki "Puanı kaldır" hepsini siler.' },
+                { n: 1, title: tt('Kriterler'), text: tt('Puan hücresine tıkla, her kriter için kaydırıcıyı ayarla. "+ kriter ekle" ile kendi kriterini ekle (ör. Müzik, Final).') },
+                { n: 2, title: tt('Ortalama'), text: tt('Tabloda tüm kriterlerin ortalaması tek bir puan olarak görünür.') },
+                { title: tt('Puanı kaldırma'), text: tt('Kriterin yanındaki × o kriterin puanını, alttaki "Puanı kaldır" hepsini siler.') },
               ]}
             />
           </Section>
 
-          <Section id="rehber-ipucu" title="İpuçları">
+          <Section id="rehber-ipucu" title={tt('İpuçları')}>
             <Steps
               items={[
-                { title: 'TMDB anahtarı', text: 'Otomatik doldurma için bir kere Ayarlar → Veritabanı → API\'den TMDB anahtarını girmen gerekir.' },
-                { title: 'Kapak ve vitrin', text: 'Ana sayfadaki kartlarda hangi görselin görüneceğini sütun ayarlarındaki "Kapak Görseli Yap" belirler.' },
-                { title: 'Fragman', text: 'Video sütununa YouTube linki koyarsan vitrinde ve kartın üzerine gelince oynar.' },
-                { title: 'Nerede izlenir ve benzerler', text: 'Bir kaydın detay penceresinin en altında Türkiye\'de hangi platformda izlenebildiği (anlık bilgi) ve benzer içerikler var; benzerleri tek tıkla "İzlenecek" olarak ekleyebilirsin.' },
-                { title: 'Yeni bölümler', text: 'Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri ana sayfanın en üstünde görünür. Bölümleri tek tek işaretliyorsan kaç bölüm geride olduğunu da yazar.' },
-                { title: 'Silme', text: 'Sütun silmek içindeki tüm bilgiyi de siler. Sadece görmek istemiyorsan gizlemek daha güvenli.' },
+                { title: tt('TMDB anahtarı'), text: tt('Otomatik doldurma için bir kere Ayarlar → Veritabanı → API\'den TMDB anahtarını girmen gerekir.') },
+                { title: tt('Kapak ve vitrin'), text: tt('Ana sayfadaki kartlarda hangi görselin görüneceğini sütun ayarlarındaki "Kapak Görseli Yap" belirler.') },
+                { title: tt('Fragman'), text: tt('Video sütununa YouTube linki koyarsan vitrinde ve kartın üzerine gelince oynar.') },
+                { title: tt('Nerede izlenir ve benzerler'), text: tt('Bir kaydın detay penceresinin en altında Türkiye\'de hangi platformda izlenebildiği (anlık bilgi) ve benzer içerikler var; benzerleri tek tıkla "İzlenecek" olarak ekleyebilirsin.') },
+                { title: tt('Yeni bölümler'), text: tt('Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri ana sayfanın en üstünde görünür. Bölümleri tek tek işaretliyorsan kaç bölüm geride olduğunu da yazar.') },
+                { title: tt('Silme'), text: tt('Sütun silmek içindeki tüm bilgiyi de siler. Sadece görmek istemiyorsan gizlemek daha güvenli.') },
               ]}
             />
           </Section>

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import { useToast } from './useToast'
 import { isBusy } from '../lib/busy'
+import { tt } from '../lib/i18n'
 
 // Uygulama açılışında bir kere, sonra periyodik olarak (uygulama açık kalsa bile) ARGUS
 // klasörünün git deposunda yeni bir sürüm var mı diye sorar (bkz. server/index.js'teki
@@ -62,9 +63,9 @@ export function useUpdateCheck() {
         }
         askingRef.current = true
         const wantsUpdate = await confirm({
-          message: 'Yeni bir ARGUS güncellemesi hazır. Şimdi güncellensin mi? (Az sonra kısa bir an bağlantı kesilip sayfa kendiliğinden yenilenecek.)',
-          confirmLabel: 'Şimdi Güncelle',
-          cancelLabel: 'Sonra',
+          message: tt('Yeni bir ARGUS güncellemesi hazır. Şimdi güncellensin mi? (Az sonra kısa bir an bağlantı kesilip sayfa kendiliğinden yenilenecek.)'),
+          confirmLabel: tt('Şimdi Güncelle'),
+          cancelLabel: tt('Sonra'),
           tone: 'info',
           persist: true,
         })
@@ -78,7 +79,7 @@ export function useUpdateCheck() {
           // durum — asıl hata mı yoksa bu mu olduğunu ayırt edemiyoruz, o yüzden yine de
           // devam edip sayfayı yeniliyoruz (en kötü ihtimalle kullanıcı elle bir daha yeniler).
         }
-        notify('Güncelleniyor, birazdan sayfa kendiliğinden yenilenecek...', 'info')
+        notify(tt('Güncelleniyor, birazdan sayfa kendiliğinden yenilenecek...'), 'info')
         await waitForServer()
         window.location.reload()
       } catch {

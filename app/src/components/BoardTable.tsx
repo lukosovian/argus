@@ -14,6 +14,7 @@ import ColumnMenu from './ColumnMenu'
 import CellEditor from './CellEditor'
 import InlineValueEditor from './InlineValueEditor'
 import { entryEnd, formatEntry } from '../lib/dateRange'
+import { tt } from '../lib/i18n'
 
 const TITLE_DEFAULT_WIDTH = 220
 const ACTIONS_COLUMN_WIDTH = 44
@@ -218,7 +219,7 @@ function RowMenu({
           Satırın üstüne gelince tutamaç görünsün diye nokta kayboluyor. */}
       {duplicate && !open && (
         <span
-          title="Mükerrer olabilir — Sağlık Kontrolü'nden birleştirebilirsin"
+          title={tt('Mükerrer olabilir — Sağlık Kontrolü\'nden birleştirebilirsin')}
           className="absolute inset-0 flex items-center justify-center group-hover:opacity-0 transition pointer-events-none"
         >
           <span className="h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.7)]" />
@@ -230,7 +231,7 @@ function RowMenu({
         draggable={Boolean(onDragRow)}
         onDragStart={onDragRow}
         onDragEnd={onDragRowEnd}
-        title={onDragRow ? 'Satır ayarları için tıkla, taşımak için sürükle' : 'Satır ayarları'}
+        title={onDragRow ? tt('Satır ayarları için tıkla, taşımak için sürükle') : tt('Satır ayarları')}
         className={`h-7 w-7 flex items-center justify-center rounded-md text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition ${onDragRow ? 'cursor-grab active:cursor-grabbing' : ''} ${
           open ? 'opacity-100 bg-neutral-800 text-neutral-200' : 'opacity-0 group-hover:opacity-100'
         }`}
@@ -254,11 +255,11 @@ function RowMenu({
                     onFetchTmdb()
                   }}
                   disabled={refreshing}
-                  title={"TMDB'den güncelle: boş bilgileri doldurur, dizilerde yeni bölümleri de getirir"}
+                  title={tt('TMDB\'den güncelle: boş bilgileri doldurur, dizilerde yeni bölümleri de getirir')}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition disabled:opacity-50"
                 >
                   <RefreshIcon spinning={refreshing} />
-                  {refreshing ? 'Çekiliyor...' : 'Güncelle'}
+                  {refreshing ? tt('Çekiliyor...') : tt('Güncelle')}
                 </button>
               )}
               <button
@@ -269,7 +270,7 @@ function RowMenu({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition"
               >
                 <PlusIcon />
-                Altına Satır Ekle
+                {tt('Altına Satır Ekle')}
               </button>
               <button
                 onClick={() => {
@@ -279,7 +280,7 @@ function RowMenu({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition"
               >
                 <CopyIcon />
-                Çoğalt
+                {tt('Çoğalt')}
               </button>
               <div className="my-1 border-t border-neutral-800" />
               <button
@@ -290,19 +291,19 @@ function RowMenu({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 transition"
               >
                 <TrashIcon />
-                Sil
+                {tt('Sil')}
               </button>
               <div className="mt-1 border-t border-neutral-800 px-3 pt-2 pb-1.5 space-y-1 text-[11px] text-neutral-500">
                 <p>
-                  Eklendi: <span className="text-neutral-300">{row.createdAt ? formatStamp(row.createdAt) : '—'}</span>
+                  {tt('Eklendi:')}{' '}<span className="text-neutral-300">{row.createdAt ? formatStamp(row.createdAt) : '—'}</span>
                 </p>
                 {row.updatedAt && row.createdAt && row.updatedAt - row.createdAt > 60_000 && (
                   <p>
-                    Son değişiklik: <span className="text-neutral-300">{formatStamp(row.updatedAt)}</span>
+                    {tt('Son değişiklik:')}{' '}<span className="text-neutral-300">{formatStamp(row.updatedAt)}</span>
                   </p>
                 )}
                 {recent === null ? (
-                  <p className="text-neutral-600">Değişiklikler yükleniyor...</p>
+                  <p className="text-neutral-600">{tt('Değişiklikler yükleniyor...')}</p>
                 ) : (
                   (() => {
                     const list = recent.filter((e) => e.type === 'update').slice(0, 3)
@@ -326,7 +327,7 @@ function RowMenu({
                     }}
                     className="pt-0.5 text-[#00c0fa] hover:underline"
                   >
-                    Tüm geçmişi ›
+                    {tt('Tüm geçmişi ›')}
                   </button>
                 )}
               </div>
@@ -568,7 +569,7 @@ function Cell({
         onClick={(e) => e.stopPropagation()}
         className="text-sky-400 hover:underline"
       >
-        Link
+        {tt('Link')}
       </a>
     )
   }
@@ -832,12 +833,12 @@ const BoardTable = forwardRef<
       if (result) {
         const parts: string[] = []
         if (result.filled.length > 0) parts.push(`dolduruldu: ${result.filled.join(', ')}`)
-        if (result.newEpisodes > 0) parts.push(`${result.newEpisodes} yeni bölüm`)
-        if (result.newActors > 0) parts.push(`${result.newActors} yeni oyuncu`)
-        notify(parts.length > 0 ? parts.join(' · ') : 'TMDB eşleşmesi bulundu ama eklenecek yeni bir şey yoktu.', 'success')
+        if (result.newEpisodes > 0) parts.push(tt('{0} yeni bölüm', result.newEpisodes))
+        if (result.newActors > 0) parts.push(tt('{0} yeni oyuncu', result.newActors))
+        notify(parts.length > 0 ? parts.join(' · ') : tt('TMDB eşleşmesi bulundu ama eklenecek yeni bir şey yoktu.'), 'success')
       }
     } catch (e) {
-      notify(e instanceof Error ? e.message : "TMDB'den çekerken bir hata oluştu.", 'danger')
+      notify(e instanceof Error ? e.message : tt('TMDB\'den çekerken bir hata oluştu.'), 'danger')
     } finally {
       setRefreshingRowIds((s) => {
         const next = new Set(s)
@@ -877,8 +878,8 @@ const BoardTable = forwardRef<
     }
     // Çoklu seçim penceresi her tıklamada kaydediyor — bildirim her seferinde tekrar çıkmasın.
     if (Date.now() - lastBulkNotice.current > 4000) {
-      const name = board.properties.find((p) => p.id === propertyId)?.name ?? 'Değişiklik'
-      notify(`${name} seçili ${selectedRowIds.size} kayda uygulandı.`, 'success')
+      const name = board.properties.find((p) => p.id === propertyId)?.name ?? tt('Değişiklik')
+      notify(tt('{0} seçili {1} kayda uygulandı.', name, selectedRowIds.size), 'success')
     }
     lastBulkNotice.current = Date.now()
   }
@@ -917,8 +918,8 @@ const BoardTable = forwardRef<
     const ids = [...selectedRowIds]
     if (ids.length === 0) return
     const ok = await confirm({
-      message: `${ids.length} kaydı silmek istediğine emin misin? Bu işlem geri alınamaz.`,
-      confirmLabel: 'Sil',
+      message: tt('{0} kaydı silmek istediğine emin misin? Bu işlem geri alınamaz.', ids.length),
+      confirmLabel: tt('Sil'),
     })
     if (!ok) return
     setBulkDeleting(true)
@@ -1100,7 +1101,7 @@ const BoardTable = forwardRef<
           tabIndex={0}
           onClick={() => setMenuFor(menuFor === p.id ? null : p.id)}
           className="block truncate cursor-pointer hover:text-neutral-200"
-          title={reorderable ? 'Sütun ayarları için tıkla, taşımak için sürükle' : 'Sütun ayarları için tıkla'}
+          title={reorderable ? tt('Sütun ayarları için tıkla, taşımak için sürükle') : tt('Sütun ayarları için tıkla')}
         >
           {p.name}
         </span>
@@ -1194,33 +1195,33 @@ const BoardTable = forwardRef<
       {selectedRowIds.size > 0 && (
         <div className="sticky top-16 z-20 flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-t-xl px-4 py-2.5">
           <p className="text-sm text-neutral-300">
-            <span className="font-medium text-neutral-50">{selectedRowIds.size}</span> kayıt seçili
-            {selectedRowIds.size > 1 && <span className="text-neutral-500"> · seçili birinde bir hücreyi değiştirirsen hepsine uygulanır</span>}
+            <span className="font-medium text-neutral-50">{selectedRowIds.size}</span>{' '}{tt('kayıt seçili')}
+            {selectedRowIds.size > 1 && <span className="text-neutral-500">{' '}{tt('· seçili birinde bir hücreyi değiştirirsen hepsine uygulanır')}</span>}
           </p>
           <button
             onClick={() => setSelectedRowIds(new Set())}
             className="text-sm text-neutral-400 hover:text-neutral-200 px-2 py-1 transition"
           >
-            Seçimi Temizle
+            {tt('Seçimi Temizle')}
           </button>
           {onBulkUpdateRows && (
             <>
               <button
                 onClick={() => onBulkUpdateRows([...selectedRowIds], 'fill')}
                 disabled={bulkUpdating}
-                title="Seçili kayıtları TMDB'den güncelle (boş alanlar dolar, dizilerin bölümleri yenilenir)"
+                title={tt('Seçili kayıtları TMDB\'den güncelle (boş alanlar dolar, dizilerin bölümleri yenilenir)')}
                 className="flex items-center gap-1.5 text-sm text-[#00c0fa] hover:bg-[#00c0fa]/10 rounded-lg px-3 py-1.5 transition disabled:opacity-50"
               >
                 <RefreshIcon />
-                Seçilenleri Güncelle
+                {tt('Seçilenleri Güncelle')}
               </button>
               <button
                 onClick={() => onBulkUpdateRows([...selectedRowIds], 'bolum')}
                 disabled={bulkUpdating}
-                title="Seçili dizilerin sadece sezon/bölüm listesini yenile"
+                title={tt('Seçili dizilerin sadece sezon/bölüm listesini yenile')}
                 className="text-sm text-neutral-300 hover:text-[#00c0fa] hover:bg-neutral-800 rounded-lg px-3 py-1.5 transition disabled:opacity-50"
               >
-                Bölümlerini Yenile
+                {tt('Bölümlerini Yenile')}
               </button>
             </>
           )}
@@ -1230,7 +1231,7 @@ const BoardTable = forwardRef<
             className="flex items-center gap-1.5 text-sm text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg px-3 py-1.5 transition disabled:opacity-50"
           >
             <TrashIcon />
-            {bulkDeleting ? 'Siliniyor...' : 'Seçilenleri Sil'}
+            {bulkDeleting ? tt('Siliniyor...') : tt('Seçilenleri Sil')}
           </button>
         </div>
       )}
@@ -1251,7 +1252,7 @@ const BoardTable = forwardRef<
                   checked={allSelected}
                   indeterminate={selectedRowIds.size > 0 && !allSelected}
                   onChange={toggleSelectAll}
-                  label="Tümünü seç"
+                  label={tt('Tümünü seç')}
                 />
               </th>
               {titleProp && headerCell(titleProp, TITLE_DEFAULT_WIDTH, false, true)}
@@ -1260,7 +1261,7 @@ const BoardTable = forwardRef<
                 <button
                   ref={addColRef}
                   onClick={() => setShowAddCol((v) => !v)}
-                  title="Sütun ekle"
+                  title={tt('Sütun ekle')}
                   className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-neutral-800 text-neutral-500 hover:text-neutral-50 text-base leading-none transition"
                 >
                   +
@@ -1334,7 +1335,7 @@ const BoardTable = forwardRef<
                   <Checkbox
                     checked={isSelected}
                     onChange={() => toggleSelectRow(row.id)}
-                    label="Satırı seç"
+                    label={tt('Satırı seç')}
                     className={selectedRowIds.size > 0 || isSelected ? '' : 'opacity-0 group-hover:opacity-100'}
                   />
                   <RowMenu
@@ -1367,7 +1368,7 @@ const BoardTable = forwardRef<
                   />
                   <button
                     onClick={() => onOpenDetail(row)}
-                    title="Detayı Gör"
+                    title={tt('Detayı Gör')}
                     className="h-7 w-7 flex items-center justify-center rounded-md text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition opacity-0 group-hover:opacity-100"
                   >
                     <EyeIcon />
@@ -1424,7 +1425,7 @@ const BoardTable = forwardRef<
           )}
           <tr className="border-t border-neutral-800 hover:bg-neutral-900/60 cursor-pointer" onClick={onCreateRow}>
             <td colSpan={otherProps.length + 3} className="px-3" style={{ paddingLeft: HANDLE_PAD_LEFT + 6 }}>
-              <div className="h-9 flex items-center text-neutral-500">+ Yeni Ekle</div>
+              <div className="h-9 flex items-center text-neutral-500">{tt('+ Yeni Ekle')}</div>
             </td>
           </tr>
         </tbody>

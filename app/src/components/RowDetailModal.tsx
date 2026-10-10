@@ -27,6 +27,7 @@ import CollectionSection from './CollectionSection'
 import SongsSection from './SongsSection'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx } from '../lib/i18n'
 
 const CAST_PREVIEW = 12
 
@@ -82,7 +83,7 @@ function DetailValue({
   isRuntime: boolean
   onOptionClick: (propertyId: string, option: SelectOption) => void
 }) {
-  if (property.type === 'checkbox') return <span className="text-neutral-300 text-base">{value ? 'Evet' : 'Hayır'}</span>
+  if (property.type === 'checkbox') return <span className="text-neutral-300 text-base">{value ? tt('Evet') : tt('Hayır')}</span>
   if (property.type === 'date') return <span className="text-neutral-300 text-base">{formatDate(value as string)}</span>
   if (property.type === 'multidate') {
     const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort()
@@ -290,13 +291,13 @@ export default function RowDetailModal({
       if (result) {
         const parts: string[] = []
         if (result.filled.length > 0) parts.push(`dolduruldu: ${result.filled.join(', ')}`)
-        if (result.newEpisodes > 0) parts.push(`${result.newEpisodes} yeni bölüm`)
-        if (result.newActors > 0) parts.push(`${result.newActors} yeni oyuncu`)
-        notify(parts.length > 0 ? parts.join(' · ') : 'TMDB eşleşmesi bulundu ama eklenecek yeni bir şey yoktu.', 'success')
+        if (result.newEpisodes > 0) parts.push(tt('{0} yeni bölüm', result.newEpisodes))
+        if (result.newActors > 0) parts.push(tt('{0} yeni oyuncu', result.newActors))
+        notify(parts.length > 0 ? parts.join(' · ') : tt('TMDB eşleşmesi bulundu ama eklenecek yeni bir şey yoktu.'), 'success')
         if (result.newEpisodes > 0) reloadEpisodes()
       }
     } catch (e) {
-      notify(e instanceof Error ? e.message : "TMDB'den çekerken bir hata oluştu.", 'danger')
+      notify(e instanceof Error ? e.message : tt('TMDB\'den çekerken bir hata oluştu.'), 'danger')
     } finally {
       setRefreshing(false)
     }
@@ -356,7 +357,7 @@ export default function RowDetailModal({
       notifyDataChanged(board.id)
       notify(message, 'success')
     } catch {
-      notify('Kaydedilemedi.', 'danger')
+      notify(tt('Kaydedilemedi.'), 'danger')
     } finally {
       setQuickBusy(false)
     }
@@ -371,7 +372,7 @@ export default function RowDetailModal({
     const nextDates = tarihProp.type === 'multidate' ? [...list, today] : today
     const patch: Record<string, PropertyValue> = { [tarihProp.id]: nextDates }
     if (durumProp && izlendiOpt) patch[durumProp.id] = izlendiOpt
-    quickSave(patch, again ? 'Bugün tekrar izledin olarak eklendi.' : 'Bugün izledin olarak eklendi.')
+    quickSave(patch, again ? tt('Bugün tekrar izledin olarak eklendi.') : tt('Bugün izledin olarak eklendi.'))
   }
   const scores =
     puanProp && row.values[puanProp.id] && typeof row.values[puanProp.id] === 'object' && !Array.isArray(row.values[puanProp.id])
@@ -442,7 +443,7 @@ export default function RowDetailModal({
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
           <button
             onClick={onClose}
-            aria-label="Kapat"
+            aria-label={tt('Kapat')}
             className="absolute top-4 right-4 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-sm text-white text-xl z-10 transition"
           >
             ×
@@ -491,7 +492,7 @@ export default function RowDetailModal({
                 {yasValue && <AgeRatingChip raw={yasValue} className="h-6 min-w-6" />}
                 {showTag && (
                   <span
-                    title="TMDB'ye göre dizinin durumu"
+                    title={tt('TMDB\'ye göre dizinin durumu')}
                     className={`text-[11px] leading-none px-2 py-1 rounded-full border ${
                       showTag.tone === 'done'
                         ? 'border-neutral-500 text-neutral-300 bg-black/20'
@@ -512,7 +513,7 @@ export default function RowDetailModal({
                       <button
                         key={o.id}
                         disabled={quickBusy || on}
-                        onClick={() => quickSave({ [durumProp.id]: o.id }, `Durum: ${o.label}`)}
+                        onClick={() => quickSave({ [durumProp.id]: o.id }, tt('Durum: {0}', o.label))}
                         className={`text-xs rounded-full px-3 py-1.5 border transition ${on ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/15' : 'border-neutral-600 text-neutral-300 bg-black/20 hover:border-neutral-400 hover:text-neutral-50'} disabled:cursor-default`}
                       >
                         {o.label}
@@ -524,17 +525,17 @@ export default function RowDetailModal({
                       onClick={() => window.dispatchEvent(new CustomEvent('argus-ask-rating', { detail: { boardId: board.id, rowId: row.id, force: true } }))}
                       className="text-xs rounded-full px-3 py-1.5 border border-amber-500/50 text-amber-300 bg-black/20 hover:bg-amber-500/10 transition"
                     >
-                      ★ {avgScore !== null ? 'Puanı değiştir' : 'Puan ver'}
+                      ★ {avgScore !== null ? tt('Puanı değiştir') : tt('Puan ver')}
                     </button>
                   )}
                   {tarihProp && (
                     <button
                       onClick={watchedToday}
                       disabled={quickBusy}
-                      title="İzleme tarihine bugünü ekler (daha önce izlediysen tekrar izleme olarak) ve durumu İzlendi yapar"
+                      title={tt('İzleme tarihine bugünü ekler (daha önce izlediysen tekrar izleme olarak) ve durumu İzlendi yapar')}
                       className="text-xs rounded-full px-3 py-1.5 border border-emerald-500/50 text-emerald-300 bg-black/20 hover:bg-emerald-500/10 transition disabled:opacity-50"
                     >
-                      ✓ Bugün izledim
+                      {tt('✓ Bugün izledim')}
                     </button>
                   )}
                 </div>
@@ -543,11 +544,11 @@ export default function RowDetailModal({
                 <button
                   onClick={handleFetchTmdb}
                   disabled={refreshing}
-                  title={"TMDB'den güncelle: boş bilgileri doldurur, dizilerde yeni bölümleri de getirir"}
+                  title={tt('TMDB\'den güncelle: boş bilgileri doldurur, dizilerde yeni bölümleri de getirir')}
                   className="hidden sm:inline-flex items-center gap-1.5 text-xs text-neutral-300 hover:text-neutral-50 border border-neutral-600 hover:border-neutral-400 bg-black/20 rounded-full px-3 py-1.5 transition disabled:opacity-50"
                 >
                   <RefreshIcon spinning={refreshing} />
-                  {refreshing ? 'Çekiliyor...' : 'Güncelle'}
+                  {refreshing ? tt('Çekiliyor...') : tt('Güncelle')}
                 </button>
               )}
             </div>
@@ -568,7 +569,7 @@ export default function RowDetailModal({
                     className="sm:hidden inline-flex items-center gap-1.5 text-xs text-neutral-300 border border-neutral-700 rounded-full px-3 py-1.5 disabled:opacity-50"
                   >
                     <RefreshIcon spinning={refreshing} />
-                    {refreshing ? 'Çekiliyor...' : 'Güncelle'}
+                    {refreshing ? tt('Çekiliyor...') : tt('Güncelle')}
                   </button>
                 )}
               </section>
@@ -576,7 +577,7 @@ export default function RowDetailModal({
 
             {seasons && seasons.length > 0 && (
               <section id="rd-bolumler">
-                <SectionTitle title="Bölümler" count={`${seasons.length} sezon`} />
+                <SectionTitle title={tt('Bölümler')} count={tt('{0} sezon', seasons.length)} />
                 <SeasonsBrowser
                   seasons={seasons}
                   watched={rowWatched}
@@ -596,7 +597,7 @@ export default function RowDetailModal({
                     const opt = oyuncularProp.options?.find((o) => o.id === id)
                     if (!opt) return null
                     const entry = castByOptionId.get(id)
-                    const roleLine = entry?.episodeCount ? `${entry.character} · ${entry.episodeCount} bölüm` : entry?.character
+                    const roleLine = entry?.episodeCount ? tt('{0} · {1} bölüm', entry.character, entry.episodeCount) : entry?.character
                     return (
                       <button key={id} onClick={() => handleOptionClick(oyuncularProp.id, opt, roleLine)} className="min-w-0 text-center group">
                         <span className="block w-full aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800 ring-1 ring-neutral-800 group-hover:ring-2 group-hover:ring-[#3fa9ff] transition">
@@ -617,7 +618,7 @@ export default function RowDetailModal({
                     onClick={() => setShowAllCast((v) => !v)}
                     className="mt-5 w-full text-sm text-neutral-300 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-xl py-2 transition"
                   >
-                    {showAllCast ? 'Daha az göster' : `Tümünü göster (${actorIds.length})`}
+                    {showAllCast ? tt('Daha az göster') : tt('Tümünü göster ({0})', actorIds.length)}
                   </button>
                 )}
               </section>
@@ -639,9 +640,9 @@ export default function RowDetailModal({
                     {avgScore.toFixed(1)}
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-neutral-100">Puanın</p>
+                    <p className="text-sm font-semibold text-neutral-100">{tt('Puanın')}</p>
                     <p className="text-xs text-neutral-500">
-                      {scoredCriteria.length > 0 ? `${scoredCriteria.length} kritere göre, 10 üzerinden` : 'Tek puan, 10 üzerinden — kriter kriter puanlamadın'}
+                      {scoredCriteria.length > 0 ? tt('{0} kritere göre, 10 üzerinden', scoredCriteria.length) : tt('Tek puan, 10 üzerinden — kriter kriter puanlamadın')}
                     </p>
                   </div>
                 </div>
@@ -663,12 +664,12 @@ export default function RowDetailModal({
 
             {(watchDates.length > 0 || episodeProgress) && (
               <div className={`${sideCard} space-y-3`}>
-                <p className="text-sm font-semibold text-neutral-100">İzleme</p>
+                <p className="text-sm font-semibold text-neutral-100">{tt('İzleme')}</p>
                 {episodeProgress && (
                   <div>
                     <div className="flex items-baseline justify-between text-xs mb-1.5">
                       <span className="text-neutral-400">
-                        <span className="text-neutral-50 font-semibold">{episodeProgress.seen}</span> / {episodeProgress.aired} bölüm
+                        <span className="text-neutral-50 font-semibold">{episodeProgress.seen}</span> {' '}{ttx('/ {0} bölüm', episodeProgress.aired)}
                       </span>
                       <span className="text-neutral-500 tabular-nums">%{Math.round((episodeProgress.seen / episodeProgress.aired) * 100)}</span>
                     </div>
@@ -679,7 +680,7 @@ export default function RowDetailModal({
                 )}
                 {watchDates.length > 0 && (
                   <div>
-                    <p className="text-xs text-neutral-500 mb-1.5">{watchDates.length === 1 ? 'İzlediğin tarih' : `${watchDates.length} kez izledin`}</p>
+                    <p className="text-xs text-neutral-500 mb-1.5">{watchDates.length === 1 ? tt('İzlediğin tarih') : tt('{0} kez izledin', watchDates.length)}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {watchDates.map((d, i) => (
                         <span key={`${d}-${i}`} className="text-xs px-2 py-1 rounded-md bg-neutral-800 text-neutral-200 tabular-nums">

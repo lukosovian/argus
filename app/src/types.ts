@@ -1,5 +1,7 @@
 import type { FilterCondition } from './lib/filters'
 import { resolveRole, type RoleKey, type StatusKey } from './lib/roles'
+import { tt } from './lib/i18n'
+import { COLUMN_NAMES, CRITERIA_NAMES, STATUS_NAMES, nameOf } from './lib/names'
 
 export type PropertyType =
   | 'text'
@@ -54,17 +56,17 @@ export const DEFAULT_COLUMN_WIDTH = 180
 export const MIN_COLUMN_WIDTH = 90
 
 export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
-  text: 'Metin',
-  number: 'Sayı',
-  select: 'Seçim',
-  multiselect: 'Çoklu Seçim',
-  checkbox: 'Onay Kutusu',
-  date: 'Tarih',
-  multidate: 'Çoklu Tarih (ör. tekrar izleme tarihleri)',
-  url: 'Bağlantı / Fragman Linki',
-  image: 'Görsel',
-  longtext: 'Sinopsis / Açıklama',
-  rating: 'Puan (kriterli, 10 üzerinden)',
+  text: tt('Metin'),
+  number: tt('Sayı'),
+  select: tt('Seçim'),
+  multiselect: tt('Çoklu Seçim'),
+  checkbox: tt('Onay Kutusu'),
+  date: tt('Tarih'),
+  multidate: tt('Çoklu Tarih (ör. tekrar izleme tarihleri)'),
+  url: tt('Bağlantı / Fragman Linki'),
+  image: tt('Görsel'),
+  longtext: tt('Sinopsis / Açıklama'),
+  rating: tt('Puan (kriterli, 10 üzerinden)'),
 }
 
 export const OPTION_COLORS: { bg: string; text: string; border: string }[] = [
@@ -127,7 +129,7 @@ export function titleText(property: PropertyDef, v: PropertyValue): string {
       .filter((l): l is string => Boolean(l))
       .join(', ')
   }
-  if (typeof v === 'boolean') return v ? 'Evet' : 'Hayır'
+  if (typeof v === 'boolean') return v ? tt('Evet') : tt('Hayır')
   return String(v)
 }
 
@@ -279,8 +281,8 @@ export const PRESET_AVATARS: string[] = Array.from({ length: 24 }, (_, i) => `/a
 export type HomeLayout = 'yatay' | 'izgara'
 
 export const HOME_LAYOUT_LABELS: Record<HomeLayout, string> = {
-  yatay: 'Yatay',
-  izgara: 'Dikey',
+  yatay: tt('Yatay'),
+  izgara: tt('Dikey'),
 }
 
 // Vitrinin görünümü — kart düzeninden (HomeLayout) bağımsız. 'klasik': eskiden beri olan, kenarlardan
@@ -289,9 +291,9 @@ export const HOME_LAYOUT_LABELS: Record<HomeLayout, string> = {
 export type ShowcaseStyle = 'klasik' | 'sinema' | 'slayt'
 
 export const SHOWCASE_STYLE_LABELS: Record<ShowcaseStyle, string> = {
-  klasik: 'Klasik',
-  sinema: 'Sinema',
-  slayt: 'Slayt',
+  klasik: tt('Klasik'),
+  sinema: tt('Sinema'),
+  slayt: tt('Slayt'),
 }
 
 export type RowTitleSize = 'kucuk' | 'orta' | 'buyuk'
@@ -364,16 +366,16 @@ export interface BuiltinMoodTemplate {
 // bu 10 mod her zaman kırık görsel olarak gelirdi. Dosya adları hâlâ aynı (mojibake'li 4 tanesi
 // dahil — bkz. aşağıdaki not), sadece kopyalanıp klasörü değişti, ayrı bir düzeltme değil.
 export const BUILTIN_MOODS: BuiltinMoodTemplate[] = [
-  { name: 'Enerjik', image: '/moods/enerjik.png', genreLabels: ['Aksiyon', 'Macera', 'Süper Kahraman'] },
-  { name: 'Neşeli', image: '/moods/neÅ\u009feli.png', genreLabels: ['Komedi', 'Animasyon', 'Sitcom'] },
-  { name: 'Romantik', image: '/moods/romantik.png', genreLabels: ['Romantik', 'Romantik Komedi'] },
-  { name: 'Hüzünlü', image: '/moods/hÃ¼zÃ¼nlÃ¼.png', genreLabels: ['Dram', 'Biyografi'] },
-  { name: 'Gergin', image: '/moods/gergin.png', genreLabels: ['Gerilim', 'Korku'] },
-  { name: 'Meraklı', image: '/moods/meraklÄ±.png', genreLabels: ['Casusluk', 'Gizem', 'Dedektif', 'Polisiye'] },
-  { name: 'Hayalperest', image: '/moods/hayalperest.png', genreLabels: ['Bilim Kurgu', 'Fantastik'] },
-  { name: 'Huzurlu', image: '/moods/huzurlu.png', genreLabels: ['Aile', 'Belgesel'] },
-  { name: 'Nostaljik', image: '/moods/nostaljik.png', genreLabels: ['Tarihi', 'Tarih'] },
-  { name: 'Öfkeli', image: '/moods/Ã¶fkeli.png', genreLabels: ['Suç'] },
+  { name: tt('Enerjik'), image: '/moods/enerjik.png', genreLabels: ['Aksiyon', 'Macera', 'Süper Kahraman', 'Action', 'Adventure', 'Action & Adventure', 'Superhero'] },
+  { name: tt('Neşeli'), image: '/moods/neÅ\u009feli.png', genreLabels: ['Komedi', 'Animasyon', 'Sitcom', 'Comedy', 'Animation'] },
+  { name: tt('Romantik'), image: '/moods/romantik.png', genreLabels: ['Romantik', 'Romantik Komedi', 'Romance', 'Romantic Comedy'] },
+  { name: tt('Hüzünlü'), image: '/moods/hÃ¼zÃ¼nlÃ¼.png', genreLabels: ['Dram', 'Biyografi', 'Drama', 'Biography'] },
+  { name: tt('Gergin'), image: '/moods/gergin.png', genreLabels: ['Gerilim', 'Korku', 'Thriller', 'Horror'] },
+  { name: tt('Meraklı'), image: '/moods/meraklÄ±.png', genreLabels: ['Casusluk', 'Gizem', 'Dedektif', 'Polisiye', 'Mystery', 'Spy', 'Detective'] },
+  { name: tt('Hayalperest'), image: '/moods/hayalperest.png', genreLabels: ['Bilim Kurgu', 'Fantastik', 'Science Fiction', 'Fantasy', 'Sci-Fi & Fantasy'] },
+  { name: tt('Huzurlu'), image: '/moods/huzurlu.png', genreLabels: ['Aile', 'Belgesel', 'Family', 'Documentary'] },
+  { name: tt('Nostaljik'), image: '/moods/nostaljik.png', genreLabels: ['Tarihi', 'Tarih', 'History', 'Historical'] },
+  { name: tt('Öfkeli'), image: '/moods/Ã¶fkeli.png', genreLabels: ['Suç', 'Crime'] },
 ]
 
 // Bir board'a göre BUILTIN_MOODS'u gerçek Mood[] kayıtlarına çevirir — HER ZAMAN 10'unu da
@@ -512,7 +514,7 @@ export const emptyHomeSettings: HomeSettings = {
   allSectionOrder: 'karisik',
   cardSize: 'orta',
   showInfoAlways: false,
-  moodRow: { enabled: false, title: 'Bunları da İzle', position: 1, moods: [], seeded: false },
+  moodRow: { enabled: false, title: tt('Bunları da İzle'), position: 1, moods: [], seeded: false },
   autoFill: { enabled: false, count: 4 },
   randomPickerFilter: { propertyId: null, optionIds: [] },
   randomPickerCount: 30,
@@ -520,7 +522,7 @@ export const emptyHomeSettings: HomeSettings = {
   newEpisodesRow: true,
 }
 
-export function makeTitleProperty(name = 'Ad'): PropertyDef {
+export function makeTitleProperty(name = nameOf(['Ad', 'Name'])): PropertyDef {
   return { id: makeId(), name, type: 'text' }
 }
 
@@ -539,65 +541,59 @@ export function mediaTemplateProperties(): {
   coverPropertyId: string
   titleImagePropertyId: string
 } {
-  const title = makeTitleProperty('Türkçe Adı')
-  const banner: PropertyDef = { id: makeId(), name: 'Banner', type: 'image' }
-  const kapakAdi: PropertyDef = { id: makeId(), name: 'Kapak Adı', type: 'image' }
+  const title = makeTitleProperty(nameOf(COLUMN_NAMES.baslik))
+  const banner: PropertyDef = { id: makeId(), name: nameOf(COLUMN_NAMES.banner), type: 'image' }
+  const kapakAdi: PropertyDef = { id: makeId(), name: nameOf(COLUMN_NAMES.kapakAdi), type: 'image' }
   const rest: PropertyDef[] = [
-    { id: makeId(), name: 'Orjinal Adı', type: 'text' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.orjinalAdi), type: 'text' },
     banner,
     {
       id: makeId(),
-      name: 'Durum',
+      name: nameOf(COLUMN_NAMES.durum),
       type: 'select',
       options: [
-        { id: makeId(), label: 'İzlendi', colorIndex: 0 },
-        { id: makeId(), label: 'İzlenecek', colorIndex: 1 },
-        { id: makeId(), label: 'Yarım', colorIndex: 2 },
-        { id: makeId(), label: 'İzleniyor', colorIndex: 3 },
+        { id: makeId(), label: nameOf(STATUS_NAMES.izlendi), colorIndex: 0 },
+        { id: makeId(), label: nameOf(STATUS_NAMES.izlenecek), colorIndex: 1 },
+        { id: makeId(), label: nameOf(STATUS_NAMES.yarim), colorIndex: 2 },
+        { id: makeId(), label: nameOf(STATUS_NAMES.izleniyor), colorIndex: 3 },
       ],
     },
     {
       id: makeId(),
-      name: 'Kategori',
+      name: nameOf(COLUMN_NAMES.kategori),
       type: 'select',
       options: [
-        { id: makeId(), label: 'Film', colorIndex: 0 },
-        { id: makeId(), label: 'Dizi', colorIndex: 1 },
-        { id: makeId(), label: 'Yarışma', colorIndex: 2 },
-        { id: makeId(), label: 'Kısa Film', colorIndex: 3 },
-        { id: makeId(), label: 'Mini Dizi', colorIndex: 4 },
-        { id: makeId(), label: 'Gösteri', colorIndex: 5 },
-        { id: makeId(), label: 'Reality Show', colorIndex: 6 },
-        { id: makeId(), label: 'Belgesel', colorIndex: 7 },
+        { id: makeId(), label: tt('Film'), colorIndex: 0 },
+        { id: makeId(), label: tt('Dizi'), colorIndex: 1 },
+        { id: makeId(), label: tt('Yarışma'), colorIndex: 2 },
+        { id: makeId(), label: tt('Kısa Film'), colorIndex: 3 },
+        { id: makeId(), label: tt('Mini Dizi'), colorIndex: 4 },
+        { id: makeId(), label: tt('Gösteri'), colorIndex: 5 },
+        { id: makeId(), label: tt('Reality Show'), colorIndex: 6 },
+        { id: makeId(), label: tt('Belgesel'), colorIndex: 7 },
       ],
     },
     {
       id: makeId(),
-      name: 'Puan',
+      name: nameOf(COLUMN_NAMES.puan),
       type: 'rating',
-      criteria: [
-        { id: makeId(), name: 'Senaryo' },
-        { id: makeId(), name: 'Oyunculuk' },
-        { id: makeId(), name: 'Görsellik' },
-        { id: makeId(), name: 'Müzik' },
-        { id: makeId(), name: 'Tekrar İzlenebilirlik' },
-      ],
+      criteria: CRITERIA_NAMES.map((c) => ({ id: makeId(), name: nameOf(c) })),
     },
-    { id: makeId(), name: 'Tür', type: 'multiselect', options: [] },
-    { id: makeId(), name: 'Vizyon Tarihi', type: 'date' },
-    { id: makeId(), name: 'Yönetmen', type: 'text' },
-    { id: makeId(), name: 'Ülke', type: 'multiselect', options: [] },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.tur), type: 'multiselect', options: [] },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.vizyon), type: 'date' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.yonetmen), type: 'text' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.ulke), type: 'multiselect', options: [] },
     // Çoklu tarih (tekrar izlemeler, "başladım → bitirdim" aralıkları). Eskiden 'text'ti — Takvim, İstatistik
     // ve Flashback tarih olmayan sütunu "İzleme Tarihi" olarak tanımadığı için şablonla açılan arşivlerde
     // hiçbiri çalışmıyordu.
-    { id: makeId(), name: 'İzleme Tarihi', type: 'multidate' },
-    { id: makeId(), name: 'Video', type: 'url' },
-    { id: makeId(), name: 'Sinopsis', type: 'longtext' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.izlemeTarihi), type: 'multidate' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.video), type: 'url' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.sinopsis), type: 'longtext' },
     kapakAdi,
-    { id: makeId(), name: 'Oyuncular', type: 'multiselect', options: [] },
-    { id: makeId(), name: 'Poster', type: 'image' },
-    { id: makeId(), name: 'Süre', type: 'number' },
-    { id: makeId(), name: 'Yaş Sınırı', type: 'text' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.oyuncular), type: 'multiselect', options: [] },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.poster), type: 'image' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.sure), type: 'number' },
+    { id: makeId(), name: nameOf(COLUMN_NAMES.yas), type: 'text' },
   ]
   return { title, rest, coverPropertyId: banner.id, titleImagePropertyId: kapakAdi.id }
 }
@@ -625,10 +621,10 @@ export function builtinMediaTemplate(): Template {
   const { title, rest, coverPropertyId, titleImagePropertyId } = mediaTemplateProperties()
   return {
     id: '__builtin_medya__',
-    name: 'Medya Arşivi',
+    name: tt('Medya Arşivi'),
     note:
-      'ARGUS\'un vitrin, "Kim İzliyor", İstatistikler ve TMDB\'den otomatik doldurma gibi bütün özelliklerinin ' +
-      'kullandığı, hazır ve tam sütun setine sahip şablon budur.',
+      tt('ARGUS\'un vitrin, "Kim İzliyor", İstatistikler ve TMDB\'den otomatik doldurma gibi bütün özelliklerinin ') +
+      tt('kullandığı, hazır ve tam sütun setine sahip şablon budur.'),
     titlePropertyId: title.id,
     coverPropertyId,
     titleImagePropertyId,

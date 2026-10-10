@@ -1,6 +1,7 @@
 import type { Board, PropertyValue, Row } from '../types'
 import { titleText } from '../types'
 import OptionBadge from './OptionBadge'
+import { tt } from '../lib/i18n'
 
 function CardBadges({ board, row }: { board: Board; row: Row }) {
   const badgeProps = board.properties.filter((p) => p.type === 'select' || p.type === 'multiselect')
@@ -49,7 +50,7 @@ export default function BoardGallery({
         className="aspect-[2/3] rounded-xl border border-dashed border-neutral-700 hover:border-neutral-500 text-neutral-500 hover:text-neutral-300 transition flex flex-col items-center justify-center gap-1"
       >
         <span className="text-3xl leading-none">+</span>
-        <span className="text-xs">Yeni Kayıt</span>
+        <span className="text-xs">{tt('Yeni Kayıt')}</span>
       </button>
 
       {rows.map((row) => {
@@ -72,12 +73,12 @@ export default function BoardGallery({
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs px-2 text-center">
-                  {title || 'İsimsiz'}
+                  {title || tt('İsimsiz')}
                 </div>
               )}
             </div>
             <div className="p-3">
-              <p className="text-sm font-medium text-neutral-100 truncate">{title || 'İsimsiz'}</p>
+              <p className="text-sm font-medium text-neutral-100 truncate">{title || tt('İsimsiz')}</p>
               <CardBadges board={board} row={row} />
             </div>
           </button>

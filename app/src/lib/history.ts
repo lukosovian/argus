@@ -1,4 +1,5 @@
 import type { Board, PropertyValue } from '../types'
+import { tt, fmtDate } from './i18n'
 
 // Arşiv geçmişi (bkz. server/history.js) — değişiklik kayıtlarını okunur hale getiren yardımcılar.
 export interface HistoryChange {
@@ -25,12 +26,10 @@ export interface HistoryDay {
   snapshot: boolean
 }
 
-const TR_MONTHS_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
-const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 
 export function formatStamp(ms: number, withTime = true): string {
   const d = new Date(ms)
-  const base = `${d.getDate()} ${TR_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`
+  const base = fmtDate(d.getFullYear(), d.getMonth(), d.getDate(), { short: true })
   return withTime ? `${base} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : base
 }
 
@@ -38,9 +37,9 @@ export function formatStamp(ms: number, withTime = true): string {
 export function formatDayKey(key: string): string {
   const [day, extra] = key.split('_')
   const [y, m, d] = day.split('-').map(Number)
-  const base = `${d} ${TR_MONTHS[(m || 1) - 1]} ${y}`
+  const base = fmtDate(y, (m || 1) - 1, d)
   const hm = extra?.match(/donus-oncesi-(\d{2})(\d{2})/)
-  return hm ? `${base} · ${hm[1]}:${hm[2]}'de geri dönmeden önceki hali` : base
+  return hm ? tt('{0} · {1}:{2}\'de geri dönmeden önceki hali', base, hm[1], hm[2]) : base
 }
 
 // Bir alanın değerini kısa, okunur bir metne çevirir (seçenek id'leri → etiket, tarih, görsel...).
@@ -53,8 +52,8 @@ export function formatValue(board: Board, propId: string, v: PropertyValue | nul
     const labels = ids.map((id) => p.options?.find((o) => o.id === id)?.label ?? '?')
     return labels.length > 4 ? `${labels.slice(0, 4).join(', ')} +${labels.length - 4}` : labels.join(', ')
   }
-  if (p.type === 'image') return 'görsel'
-  if (p.type === 'checkbox') return v ? 'Evet' : 'Hayır'
+  if (p.type === 'image') return tt('görsel')
+  if (p.type === 'checkbox') return v ? tt('Evet') : tt('Hayır')
   if (p.type === 'rating' && typeof v === 'object' && !Array.isArray(v)) {
     const nums = Object.values(v as Record<string, number>).filter((n) => typeof n === 'number')
     return nums.length ? `★ ${(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1)}` : '—'
@@ -65,19 +64,19 @@ export function formatValue(board: Board, propId: string, v: PropertyValue | nul
 }
 
 export function propName(board: Board, propId: string): string {
-  return board.properties.find((p) => p.id === propId)?.name ?? 'Silinmiş sütun'
+  return board.properties.find((p) => p.id === propId)?.name ?? tt('Silinmiş sütun')
 }
 
 // Bir değişikliğin tek satırlık özeti: "Durum: İzlenecek → İzlendi" (çok alan değiştiyse ilk ikisi + sayı).
 export function summarizeEntry(board: Board, e: HistoryEntry): string {
-  if (e.type === 'create') return 'Eklendi'
-  if (e.type === 'delete') return 'Silindi'
+  if (e.type === 'create') return tt('Eklendi')
+  if (e.type === 'delete') return tt('Silindi')
   const ch = e.changes ?? []
   const parts = ch.slice(0, 2).map((c) => {
     const p = board.properties.find((x) => x.id === c.prop)
-    if (p?.type === 'image') return `${p.name} değişti`
-    if (p?.type === 'longtext') return `${p.name} değişti`
+    if (p?.type === 'image') return tt('{0} değişti', p.name)
+    if (p?.type === 'longtext') return tt('{0} değişti', p.name)
     return `${propName(board, c.prop)}: ${formatValue(board, c.prop, c.from)} → ${formatValue(board, c.prop, c.to)}`
   })
-  return parts.join(' · ') + (ch.length > 2 ? ` · +${ch.length - 2} alan` : '')
+  return parts.join(' · ') + (ch.length > 2 ? tt(' · +{0} alan', ch.length - 2) : '')
 }

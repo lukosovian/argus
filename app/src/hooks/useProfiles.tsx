@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import '../lib/desktopApp'
 import type { Profile } from '../types'
 import { api, setApiProfileId } from '../lib/api'
+import { tt } from '../lib/i18n'
 
 // Hangi profilin "aktif" olduğu, sadece bu SEKME açıkken hatırlanan bir tercih —
 // sessionStorage kullanılıyor (localStorage değil): sekme kapanıp yeniden açıldığında
@@ -107,6 +108,6 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
 
 export function useProfiles(): ProfilesValue {
   const ctx = useContext(ProfilesContext)
-  if (!ctx) throw new Error('useProfiles, <ProfilesProvider> içinde kullanılmalı')
+  if (!ctx) throw new Error(tt('useProfiles, <ProfilesProvider> içinde kullanılmalı'))
   return ctx
 }

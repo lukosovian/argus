@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import type { SelectOption } from '../types'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx } from '../lib/i18n'
 
 // Bayrak emojisi (iki "regional indicator" harfi) Windows'ta "us" gibi harf olarak görünüyor — ayıkla.
 export function stripFlags(s: string): string {
@@ -41,16 +42,16 @@ export default function OptionDetailModal({
         <h3 className="text-lg font-medium text-neutral-100">{option.label}</h3>
         {/* Doğum yerindeki bayrak işareti Windows'ta "us" gibi harf olarak görünüyordu — ayıklanıyor. */}
         {option.subtitle && <p className="text-sm text-neutral-400 mt-1">{stripFlags(option.subtitle)}</p>}
-        {role && <p className="text-sm text-neutral-300 mt-1">Bu yapımdaki rolü: {role}</p>}
+        {role && <p className="text-sm text-neutral-300 mt-1">{ttx('Bu yapımdaki rolü: {0}', role)}</p>}
         <div className="flex items-center justify-center gap-2 mt-5">
           <button onClick={onShowContents} style={primaryButtonStyle} className={`text-sm rounded-lg px-4 py-2 ${PRIMARY_BUTTON}`}>
-            İçerikleri gör
+            {tt('İçerikleri gör')}
           </button>
           <button
             onClick={onClose}
             className="text-sm bg-neutral-800 text-neutral-300 rounded-lg px-4 py-2 hover:bg-neutral-700 transition"
           >
-            Kapat
+            {tt('Kapat')}
           </button>
         </div>
       </div>

@@ -23,6 +23,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import HelpHint from '../HelpHint'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
+import { tt, ttx } from '../../lib/i18n'
 
 const NEW_COLUMN_TYPES: PropertyType[] = ['text', 'number', 'select', 'multiselect', 'checkbox', 'date', 'url', 'image', 'longtext']
 
@@ -64,33 +65,32 @@ export default function TemplatesPanel() {
   // içinde, burada sadece "ana sayfada arşiv seçili değilse bunu seç + bildir + arşive git" kalıyor.
   async function handleCreated(boardId: string, boardName: string) {
     await selectBoardIfNone(boardId)
-    notify(`"${boardName}" arşivi şablondan oluşturuldu.`, 'success')
+    notify(tt('"{0}" arşivi şablondan oluşturuldu.', boardName), 'success')
     navigate(`/board/${boardId}`)
   }
 
   async function handleDeleteTemplate(template: Template) {
     const ok = await confirm({
-      message: `"${template.name}" şablonunu silmek istediğine emin misin? Bu şablondan daha önce oluşturulmuş arşivler etkilenmez, sadece şablonun kendisi silinir.`,
-      confirmLabel: 'Sil',
+      message: tt('"{0}" şablonunu silmek istediğine emin misin? Bu şablondan daha önce oluşturulmuş arşivler etkilenmez, sadece şablonun kendisi silinir.', template.name),
+      confirmLabel: tt('Sil'),
     })
     if (!ok) return
     await deleteTemplate(template.id)
-    notify(`"${template.name}" şablonu silindi.`, 'success')
+    notify(tt('"{0}" şablonu silindi.', template.name), 'success')
   }
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <p className="text-sm text-neutral-400 max-w-lg">
-          Hazır bir sütun seti: bir şablonla yeni arşiv açınca bütün sütunlar tek seferde gelir. Var olan bir arşivin yapısını da
-          şablon olarak kaydedebilirsin.
+          {tt('Hazır bir sütun seti: bir şablonla yeni arşiv açınca bütün sütunlar tek seferde gelir. Var olan bir arşivin yapısını da şablon olarak kaydedebilirsin.')}
         </p>
         <button
           onClick={() => setCreatingTemplate((v) => !v)}
           style={primaryButtonStyle}
           className={`text-sm px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}
         >
-          + Yeni Şablon
+          {tt('+ Yeni Şablon')}
         </button>
       </div>
 
@@ -100,7 +100,7 @@ export default function TemplatesPanel() {
           onCancel={() => setCreatingTemplate(false)}
           onCreated={(name) => {
             setCreatingTemplate(false)
-            notify(`"${name}" şablonu oluşturuldu.`, 'success')
+            notify(tt('"{0}" şablonu oluşturuldu.', name), 'success')
           }}
           createTemplate={createTemplate}
         />
@@ -109,7 +109,7 @@ export default function TemplatesPanel() {
       <div className="space-y-4">
         <TemplateCard template={builtin} deletable={false} createBoard={createBoard} onCreated={handleCreated} />
         {loading ? (
-          <p className="text-neutral-500 text-sm">Yükleniyor...</p>
+          <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
         ) : (
           templates.map((t) => (
             <TemplateCard
@@ -381,7 +381,7 @@ function TemplateCard({
       setOpen(false)
     } catch (err) {
       // Panel kapanmıyor — kullanıcı girdiklerini kaybetmeden hatayı görüp tekrar denesin.
-      notify(err instanceof Error ? err.message : 'Arşiv oluşturulurken bir hata oluştu.', 'danger')
+      notify(err instanceof Error ? err.message : tt('Arşiv oluşturulurken bir hata oluştu.'), 'danger')
     } finally {
       setPhase('idle')
       setProgress(null)
@@ -405,17 +405,17 @@ function TemplateCard({
         </h3>
         {deletable && onDelete && (
           <button onClick={onDelete} className="text-neutral-600 hover:text-rose-400 text-xs shrink-0">
-            Sil
+            {tt('Sil')}
           </button>
         )}
       </div>
       {template.note && <p className="text-sm text-neutral-500 mt-1 mb-4">{template.note}</p>}
 
-      <p className="text-xs text-neutral-500 mb-2">Sütunlar ({template.properties.length}):</p>
+      <p className="text-xs text-neutral-500 mb-2">{ttx('Sütunlar ({0}):', template.properties.length)}</p>
       <div className="flex flex-wrap gap-1.5 mb-5">
         {titleProp && (
           <span className="text-xs rounded-md px-2 py-1 bg-sky-500/10 text-sky-300 border border-sky-500/30">
-            {titleProp.name} · Başlık
+            {ttx('{0} · Başlık', titleProp.name)}
           </span>
         )}
         {restProps.map((p) => (
@@ -427,11 +427,11 @@ function TemplateCard({
 
       {!open ? (
         <button onClick={openFlow} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
-          Şablonu Kullan
+          {tt('Şablonu Kullan')}
         </button>
       ) : (
         <div className="border-t border-neutral-800 pt-5 mt-1">
-          <label className="block text-xs text-neutral-400 mb-1">Yeni arşivin adı</label>
+          <label className="block text-xs text-neutral-400 mb-1">{tt('Yeni arşivin adı')}</label>
           <input
             autoFocus
             value={name}
@@ -440,17 +440,16 @@ function TemplateCard({
           />
 
           <div className="flex items-center gap-1.5 mb-2">
-            <p className="text-sm text-neutral-300">İstemediğin sütunların işaretini kaldır ({includedCount} sütun seçili)</p>
+            <p className="text-sm text-neutral-300">{ttx('İstemediğin sütunların işaretini kaldır ({0} sütun seçili)', includedCount)}</p>
             <HelpHint>
-              Her sütun, arşivini oluşturduktan sonra da eklenebilir/kaldırılabilir/yeniden adlandırılabilir — burada
-              seçtiklerin sadece başlangıç noktası.
+              {tt('Her sütun, arşivini oluşturduktan sonra da eklenebilir/kaldırılabilir/yeniden adlandırılabilir — burada seçtiklerin sadece başlangıç noktası.')}
             </HelpHint>
           </div>
           <div className="space-y-1 max-h-64 overflow-y-auto pr-1 mb-4">
             {titleProp && (
               <label className="flex items-center gap-2 bg-neutral-800/40 rounded-lg px-2.5 py-1.5 text-sm text-neutral-400">
                 <input type="checkbox" checked disabled />
-                {titleProp.name} <span className="text-xs text-neutral-600">(başlık, kaldırılamaz)</span>
+                {titleProp.name} <span className="text-xs text-neutral-600">{tt('(başlık, kaldırılamaz)')}</span>
               </label>
             )}
             {restProps.map((p) => (
@@ -469,7 +468,7 @@ function TemplateCard({
                 <span className="flex-1">{p.name}</span>
                 <span className="text-xs text-neutral-500">{PROPERTY_TYPE_LABELS[p.type]}</span>
                 <button onClick={() => removeExtraColumn(p.id)} className="text-neutral-500 hover:text-rose-400 text-xs px-1">
-                  Kaldır
+                  {tt('Kaldır')}
                 </button>
               </div>
             ))}
@@ -480,7 +479,7 @@ function TemplateCard({
               value={newColumnName}
               onChange={(e) => setNewColumnName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addColumn()}
-              placeholder="Kendi sütununu ekle (ör. Notlarım)"
+              placeholder={tt('Kendi sütununu ekle (ör. Notlarım)')}
               className="flex-1 rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm"
             />
             <button
@@ -488,20 +487,19 @@ function TemplateCard({
               disabled={!newColumnName.trim()}
               className="text-sm text-neutral-300 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-lg px-3 py-2 disabled:opacity-40 transition"
             >
-              + Sütun Ekle
+              {tt('+ Sütun Ekle')}
             </button>
           </div>
 
           <div className="flex items-center justify-between gap-2.5 bg-neutral-800/40 border border-neutral-800 rounded-xl p-3.5 mb-3">
             <span className="flex items-center gap-1.5">
-              <span className="font-medium text-neutral-100 text-sm">Veri İçe Aktar</span>
+              <span className="font-medium text-neutral-100 text-sm">{tt('Veri İçe Aktar')}</span>
               <HelpHint>
-                Bir CSV dosyasından (Notion'dan ya da başka bir yerden) gelen veriyi, yukarıda seçtiğin sütunlarla
-                eşleştirip arşiv oluşur oluşmaz satırları da birlikte ekler.
+                {tt('Bir CSV dosyasından (Notion\'dan ya da başka bir yerden) gelen veriyi, yukarıda seçtiğin sütunlarla eşleştirip arşiv oluşur oluşmaz satırları da birlikte ekler.')}
               </HelpHint>
-              <span className="text-xs text-neutral-500">(isteğe bağlı)</span>
+              <span className="text-xs text-neutral-500">{tt('(isteğe bağlı)')}</span>
             </span>
-            <ToggleSwitch checked={importEnabled} onChange={toggleImport} label="Veri İçe Aktar" />
+            <ToggleSwitch checked={importEnabled} onChange={toggleImport} label={tt('Veri İçe Aktar')} />
           </div>
 
           {importEnabled && (
@@ -516,8 +514,7 @@ function TemplateCard({
               ) : (
                 <>
                   <p className={`text-sm ${titleMapped ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {rawRows.length} satır, {csvPlans.length} sütun bulundu —{' '}
-                    {titleMapped ? `✓ "${titleProp.name}" eşlendi.` : `bir sütunu "${titleProp.name}" alanına eşlemelisin.`}
+                    {ttx('{0} satır, {1} sütun bulundu — {2}', rawRows.length, csvPlans.length, titleMapped ? tt('✓ "{0}" eşlendi.', titleProp.name) : tt('bir sütunu "{0}" alanına eşlemelisin.', titleProp.name))}
                   </p>
                   <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                     {csvPlans.map((p) => (
@@ -528,7 +525,7 @@ function TemplateCard({
                           value={p.mapTo}
                           onChange={(v) => updatePlan(p.header, { mapTo: v })}
                           className="w-1/2 shrink-0"
-                          options={[{ value: '', label: '— Aktarma —' }, ...mapTargets.map((t) => ({ value: t.id, label: t.name }))]}
+                          options={[{ value: '', label: tt('— Aktarma —') }, ...mapTargets.map((t) => ({ value: t.id, label: t.name }))]}
                         />
                       </div>
                     ))}
@@ -536,7 +533,7 @@ function TemplateCard({
 
                   {hasImageColumn && (
                     <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3">
-                      <p className="text-sm text-amber-300 font-medium mb-1">Görselleri seç</p>
+                      <p className="text-sm text-amber-300 font-medium mb-1">{tt('Görselleri seç')}</p>
                       <input
                         type="file"
                         multiple
@@ -545,11 +542,11 @@ function TemplateCard({
                         className="block text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-neutral-200"
                       />
                       {imageFiles.size > 0 ? (
-                        <p className="text-sm text-emerald-400 mt-2">✓ {imageFiles.size} dosya bulundu.</p>
+                        <p className="text-sm text-emerald-400 mt-2">{ttx('✓ {0} dosya bulundu.', imageFiles.size)}</p>
                       ) : (
                         <label className="flex items-center gap-2 text-sm text-neutral-400 mt-2 cursor-pointer">
                           <input type="checkbox" checked={skipImages} onChange={(e) => setSkipImages(e.target.checked)} />
-                          Görselleri şimdilik atla
+                          {tt('Görselleri şimdilik atla')}
                         </label>
                       )}
                     </div>
@@ -559,29 +556,27 @@ function TemplateCard({
                     <div className="border-t border-neutral-800 pt-3 mt-1">
                       <div className="flex items-center justify-between gap-2.5">
                         <span className="flex items-center gap-1.5">
-                          <span className="font-medium text-neutral-100 text-sm">Eksikleri TMDB'den doldur</span>
+                          <span className="font-medium text-neutral-100 text-sm">{tt('Eksikleri TMDB\'den doldur')}</span>
                           <HelpHint>
-                            İçe aktarılan her kayıt için (başlığına bakarak) poster, banner, ülke, yönetmen, süre,
-                            sinopsis, oyuncular gibi boş alanları TMDB'den otomatik çeker — kayıt sayısına göre biraz
-                            sürebilir.
+                            {tt('İçe aktarılan her kayıt için (başlığına bakarak) poster, banner, ülke, yönetmen, süre, sinopsis, oyuncular gibi boş alanları TMDB\'den otomatik çeker — kayıt sayısına göre biraz sürebilir.')}
                           </HelpHint>
-                          <span className="text-xs text-neutral-500">(isteğe bağlı)</span>
+                          <span className="text-xs text-neutral-500">{tt('(isteğe bağlı)')}</span>
                         </span>
-                        <ToggleSwitch checked={autoFillEnabled} onChange={openAutoFill} label="Eksikleri TMDB'den doldur" />
+                        <ToggleSwitch checked={autoFillEnabled} onChange={openAutoFill} label={tt('Eksikleri TMDB\'den doldur')} />
                       </div>
                       {autoFillEnabled && (
                         <div className="mt-2.5">
-                          <label className="block text-xs text-neutral-400 mb-1">TMDB API Anahtarı</label>
+                          <label className="block text-xs text-neutral-400 mb-1">{tt('TMDB API Anahtarı')}</label>
                           <input
                             value={apiKeyInput}
                             onChange={(e) => setApiKeyInput(e.target.value)}
-                            placeholder="TMDB API anahtarını buraya yapıştır"
+                            placeholder={tt('TMDB API anahtarını buraya yapıştır')}
                             className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm font-mono"
                           />
                           <p className="text-xs text-neutral-600 mt-1">
                             {savedApiKey
-                              ? 'Kayıtlı anahtarın önceden dolduruldu, değiştirmek istersen üzerine yazabilirsin.'
-                              : 'Bu anahtar kaydedilip Ayarlar → Veritabanı → API sekmesinde de görünecek.'}
+                              ? tt('Kayıtlı anahtarın önceden dolduruldu, değiştirmek istersen üzerine yazabilirsin.')
+                              : tt('Bu anahtar kaydedilip Ayarlar → Veritabanı → API sekmesinde de görünecek.')}
                           </p>
                         </div>
                       )}
@@ -595,12 +590,12 @@ function TemplateCard({
           {busy && progress && (
             <div className="mb-3">
               <p className="text-sm text-neutral-400">
-                {phase === 'importing' && `İçe aktarılıyor... ${progress.done}/${progress.total}`}
-                {phase === 'filling' && `TMDB'den dolduruluyor... ${progress.done}/${progress.total}`}
+                {phase === 'importing' && tt('İçe aktarılıyor... {0}/{1}', progress.done, progress.total)}
+                {phase === 'filling' && tt('TMDB\'den dolduruluyor... {0}/{1}', progress.done, progress.total)}
               </p>
               {phase === 'filling' && (
                 <button onClick={() => (cancelFillRef.current = true)} className="text-xs text-neutral-500 hover:text-neutral-300 underline mt-1">
-                  Durdur (şimdiye kadar oluşturulanlar kalır)
+                  {tt('Durdur (şimdiye kadar oluşturulanlar kalır)')}
                 </button>
               )}
             </div>
@@ -613,10 +608,10 @@ function TemplateCard({
               style={primaryButtonStyle}
               className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
             >
-              {phase === 'creating' ? 'Oluşturuluyor...' : busy ? 'İşleniyor...' : 'Arşivi Oluştur'}
+              {phase === 'creating' ? tt('Oluşturuluyor...') : busy ? tt('İşleniyor...') : tt('Arşivi Oluştur')}
             </button>
             <button onClick={() => setOpen(false)} disabled={busy} className="text-neutral-400 hover:text-neutral-200 text-sm px-4 py-2 disabled:opacity-40">
-              Vazgeç
+              {tt('Vazgeç')}
             </button>
           </div>
         </div>
@@ -687,7 +682,7 @@ function NewTemplateForm({
           properties,
         })
       } else {
-        const title: PropertyDef = { id: makeId(), name: titleColumnName.trim() || 'Ad', type: 'text' }
+        const title: PropertyDef = { id: makeId(), name: titleColumnName.trim() || tt('Ad'), type: 'text' }
         const rest: PropertyDef[] = scratchColumns
           .filter((c) => c.name.trim())
           .map((c) => ({
@@ -716,8 +711,8 @@ function NewTemplateForm({
       <div className="flex items-center gap-2 mb-4">
         {(
           [
-            ['arsiv', 'Bir arşivden oluştur'],
-            ['sifir', 'Sıfırdan oluştur'],
+            ['arsiv', tt('Bir arşivden oluştur')],
+            ['sifir', tt('Sıfırdan oluştur')],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -736,34 +731,34 @@ function NewTemplateForm({
 
       {mode === 'arsiv' ? (
         boards.length === 0 ? (
-          <p className="text-sm text-neutral-500 mb-4">Henüz bir arşivin yok — önce Arşivler sekmesinden bir tane oluştur.</p>
+          <p className="text-sm text-neutral-500 mb-4">{tt('Henüz bir arşivin yok — önce Arşivler sekmesinden bir tane oluştur.')}</p>
         ) : (
           <div className="mb-4">
-            <label className="block text-xs text-neutral-400 mb-1">Hangi arşivin sütun yapısı kopyalansın?</label>
+            <label className="block text-xs text-neutral-400 mb-1">{tt('Hangi arşivin sütun yapısı kopyalansın?')}</label>
             <Select
               value={boardId}
               onChange={handleBoardChange}
-              options={boards.map((b) => ({ value: b.id, label: `${b.name} (${b.properties.length} sütun)` }))}
+              options={boards.map((b) => ({ value: b.id, label: tt('{0} ({1} sütun)', b.name, b.properties.length) }))}
             />
           </div>
         )
       ) : (
         <div className="mb-4">
-          <label className="block text-xs text-neutral-400 mb-1">Başlık sütununun adı</label>
+          <label className="block text-xs text-neutral-400 mb-1">{tt('Başlık sütununun adı')}</label>
           <input
             value={titleColumnName}
             onChange={(e) => setTitleColumnName(e.target.value)}
-            placeholder="ör. Ad, Başlık, İsim..."
+            placeholder={tt('ör. Ad, Başlık, İsim...')}
             className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm mb-4"
           />
-          <label className="block text-xs text-neutral-400 mb-1">Diğer sütunlar</label>
+          <label className="block text-xs text-neutral-400 mb-1">{tt('Diğer sütunlar')}</label>
           <div className="space-y-1.5 mb-2">
             {scratchColumns.map((c) => (
               <div key={c.id} className="flex items-center gap-2">
                 <input
                   value={c.name}
                   onChange={(e) => updateScratchColumn(c.id, { name: e.target.value })}
-                  placeholder="Sütun adı"
+                  placeholder={tt('Sütun adı')}
                   className="flex-1 rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm"
                 />
                 <Select
@@ -773,7 +768,7 @@ function NewTemplateForm({
                   options={NEW_COLUMN_TYPES.map((t) => ({ value: t, label: PROPERTY_TYPE_LABELS[t] }))}
                 />
                 <button onClick={() => removeScratchColumn(c.id)} className="text-neutral-500 hover:text-rose-400 text-xs px-1">
-                  Kaldır
+                  {tt('Kaldır')}
                 </button>
               </div>
             ))}
@@ -782,23 +777,23 @@ function NewTemplateForm({
             onClick={addScratchColumn}
             className="text-sm text-neutral-300 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-lg px-3 py-2 transition"
           >
-            + Sütun Ekle
+            {tt('+ Sütun Ekle')}
           </button>
         </div>
       )}
 
-      <label className="block text-xs text-neutral-400 mb-1">Şablonun adı</label>
+      <label className="block text-xs text-neutral-400 mb-1">{tt('Şablonun adı')}</label>
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="ör. Kitaplarım, Oynadığım Oyunlar..."
+        placeholder={tt('ör. Kitaplarım, Oynadığım Oyunlar...')}
         className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm mb-3"
       />
-      <label className="block text-xs text-neutral-400 mb-1">Kısa bir not (isteğe bağlı)</label>
+      <label className="block text-xs text-neutral-400 mb-1">{tt('Kısa bir not (isteğe bağlı)')}</label>
       <input
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Bu şablonun ne işe yaradığını kısaca yaz"
+        placeholder={tt('Bu şablonun ne işe yaradığını kısaca yaz')}
         className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm mb-4"
       />
 
@@ -809,10 +804,10 @@ function NewTemplateForm({
           style={primaryButtonStyle}
           className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
         >
-          {busy ? 'Oluşturuluyor...' : 'Şablonu Oluştur'}
+          {busy ? tt('Oluşturuluyor...') : tt('Şablonu Oluştur')}
         </button>
         <button onClick={onCancel} className="text-neutral-400 hover:text-neutral-200 text-sm px-4 py-2">
-          Vazgeç
+          {tt('Vazgeç')}
         </button>
       </div>
     </div>

@@ -50,6 +50,8 @@ import {
   SortIcon,
 } from '../components/toolbarIcons'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx } from '../lib/i18n'
+import { COLUMN_NAMES, nameOf } from '../lib/names'
 
 function CloseIcon() {
   return (
@@ -118,24 +120,24 @@ function missingFillColumns(board: Board): { key: string; label: string }[] {
 }
 
 const FETCHABLE_FIELDS: { key: string; label: string }[] = [
-  { key: 'kategori', label: 'Kategori' },
-  { key: 'orjinalAdi', label: 'Orjinal Adı' },
-  { key: 'vizyonTarihi', label: 'Vizyon Tarihi' },
-  { key: 'sinopsis', label: 'Sinopsis' },
-  { key: 'poster', label: 'Poster' },
-  { key: 'banner', label: 'Banner' },
-  { key: 'kapakAdi', label: 'Kapak Adı (logo)' },
-  { key: 'tur', label: 'Tür' },
-  { key: 'ulke', label: 'Ülke' },
-  { key: 'yonetmen', label: 'Yönetmen' },
-  { key: 'sure', label: 'Süre' },
-  { key: 'yasSiniri', label: 'Yaş Sınırı' },
-  { key: 'video', label: 'Fragman' },
-  { key: 'sezonlar', label: 'Sezon/Bölüm listesi (dizi)' },
-  { key: 'kadro', label: 'Oyuncular/Kadro' },
+  { key: 'kategori', label: tt('Kategori') },
+  { key: 'orjinalAdi', label: tt('Orjinal Adı') },
+  { key: 'vizyonTarihi', label: tt('Vizyon Tarihi') },
+  { key: 'sinopsis', label: tt('Sinopsis') },
+  { key: 'poster', label: tt('Poster') },
+  { key: 'banner', label: tt('Banner') },
+  { key: 'kapakAdi', label: tt('Kapak Adı (logo)') },
+  { key: 'tur', label: tt('Tür') },
+  { key: 'ulke', label: tt('Ülke') },
+  { key: 'yonetmen', label: tt('Yönetmen') },
+  { key: 'sure', label: tt('Süre') },
+  { key: 'yasSiniri', label: tt('Yaş Sınırı') },
+  { key: 'video', label: tt('Fragman') },
+  { key: 'sezonlar', label: tt('Sezon/Bölüm listesi (dizi)') },
+  { key: 'kadro', label: tt('Oyuncular/Kadro') },
   // Sütun değil, davranış: kullanıcı "başlık konusu herkes için bir seçenek olsun" dedi (yeni kullanıcı
   // denemesinde "Pulp Fiction" gibi bilerek İngilizce yazılan adlar "Ucuz Roman" oluyordu).
-  { key: 'turkceAdi', label: 'Başlığı Türkçe adla değiştir (varsayılan kapalı)' },
+  { key: 'turkceAdi', label: tt('Başlığı Türkçe adla değiştir (varsayılan kapalı)') },
 ]
 // Bir sütuna yazmayan alanlar (sütun seçimi yok)
 const NO_COLUMN_FIELDS = new Set(['sezonlar', 'turkceAdi'])
@@ -146,22 +148,22 @@ const NO_COLUMN_FIELDS = new Set(['sezonlar', 'turkceAdi'])
 // localStorage deseni (bkz. ColumnVisibilityPopover): arşive özel, kalıcı.
 // Her alanın ARGUS'ta nerede işe yaradığı — dişli menüsünde küçük açıklama olarak.
 const FIELD_HINTS: Record<string, string> = {
-  kategori: 'Film mi dizi mi — arama da daha isabetli olur',
-  orjinalAdi: 'TMDB aramasında kullanılır',
-  vizyonTarihi: 'Yıl, sıralama ve istatistikler',
-  sinopsis: 'Detay penceresi, vitrin ve Ne İzlesem özeti',
-  poster: 'Kartlar, Ne İzlesem ve detay penceresi',
-  banner: 'Vitrin ve detay penceresinin büyük görseli',
-  kapakAdi: 'Vitrinde ve detayda adın yerine çıkan logo',
-  tur: 'Filtreler, otomatik satırlar, modlar, istatistikler',
-  ulke: 'Filtreler, otomatik satırlar, istatistikler',
-  yonetmen: 'Detay penceresi ve arama',
-  sure: 'Detay, vitrin ve toplam izleme süresi',
-  yasSiniri: 'Yaş sınırı rozeti',
-  video: 'Vitrinde ve detayda oynayan fragman',
-  sezonlar: 'Bölümler, bölüm işaretleme, Yeni Bölümler satırı',
-  kadro: 'Oyuncu fotoğrafları, oyuncuya göre filtre',
-  turkceAdi: 'Adı İngilizce ya da orijinal diliyle yazdıysan TMDB\'deki Türkçe adı gelir (Pulp Fiction → Ucuz Roman)',
+  kategori: tt('Film mi dizi mi — arama da daha isabetli olur'),
+  orjinalAdi: tt('TMDB aramasında kullanılır'),
+  vizyonTarihi: tt('Yıl, sıralama ve istatistikler'),
+  sinopsis: tt('Detay penceresi, vitrin ve Ne İzlesem özeti'),
+  poster: tt('Kartlar, Ne İzlesem ve detay penceresi'),
+  banner: tt('Vitrin ve detay penceresinin büyük görseli'),
+  kapakAdi: tt('Vitrinde ve detayda adın yerine çıkan logo'),
+  tur: tt('Filtreler, otomatik satırlar, modlar, istatistikler'),
+  ulke: tt('Filtreler, otomatik satırlar, istatistikler'),
+  yonetmen: tt('Detay penceresi ve arama'),
+  sure: tt('Detay, vitrin ve toplam izleme süresi'),
+  yasSiniri: tt('Yaş sınırı rozeti'),
+  video: tt('Vitrinde ve detayda oynayan fragman'),
+  sezonlar: tt('Bölümler, bölüm işaretleme, Yeni Bölümler satırı'),
+  kadro: tt('Oyuncu fotoğrafları, oyuncuya göre filtre'),
+  turkceAdi: tt('Adı İngilizce ya da orijinal diliyle yazdıysan TMDB\'deki Türkçe adı gelir (Pulp Fiction → Ucuz Roman)'),
 }
 
 // "API'den hangi alanlar çekilsin" (dişli). Kullanıcı "daha anlaşılır olsun, kullanıcıda olmayan
@@ -194,7 +196,7 @@ function TmdbFieldsPopover({
     <div className="relative">
       <ToolbarIconButton
         onClick={() => setOpen((v) => !v)}
-        title="TMDB'den neler gelsin — Güncelle ve Genel Güncelleme'nin dolduracağı alanlar"
+        title={tt('TMDB\'den neler gelsin — Güncelle ve Genel Güncelleme\'nin dolduracağı alanlar')}
         active={excludedKeys.size > 0 || overwriteExisting || unmapped.length > 0}
       >
         <GearIcon />
@@ -204,19 +206,18 @@ function TmdbFieldsPopover({
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-11 z-40 w-[22rem] max-w-[calc(100vw-2rem)] bg-neutral-900 border border-neutral-800 rounded-xl shadow-lg">
             <div className="p-3 border-b border-neutral-800">
-              <p className="text-sm font-semibold text-neutral-100">TMDB'den neler gelsin?</p>
+              <p className="text-sm font-semibold text-neutral-100">{tt('TMDB\'den neler gelsin?')}</p>
               <p className="text-xs text-neutral-500 mt-1 leading-relaxed">
-                "Güncelle" ve "Genel Güncelleme" açık olan alanları doldurur; her birinin altında hangi sütununa yazacağı var, istersen
-                değiştir. Önerimiz hepsinin açık olması — ARGUS en iyi böyle çalışır ve görünür.
+                {tt('"Güncelle" ve "Genel Güncelleme" açık olan alanları doldurur; her birinin altında hangi sütununa yazacağı var, istersen değiştir. Önerimiz hepsinin açık olması — ARGUS en iyi böyle çalışır ve görünür.')}
               </p>
               <div className="flex items-center gap-3 mt-2 text-xs">
                 <span className={closedCount ? 'text-amber-400' : 'text-emerald-400'}>
-                  {closedCount ? `${closedCount} alan kapalı` : '✓ Hepsi açık'}
+                  {closedCount ? tt('{0} alan kapalı', closedCount) : tt('✓ Hepsi açık')}
                 </span>
-                {unmapped.length > 0 && <span className="text-amber-400">{unmapped.length} alanın sütunu yok</span>}
+                {unmapped.length > 0 && <span className="text-amber-400">{ttx('{0} alanın sütunu yok', unmapped.length)}</span>}
                 {closedCount > 0 && (
                   <button onClick={onOpenAll} className="ml-auto text-[#00c0fa] hover:underline">
-                    Hepsini aç
+                    {tt('Hepsini aç')}
                   </button>
                 )}
               </div>
@@ -237,15 +238,15 @@ function TmdbFieldsPopover({
                     </div>
                     {on && !NO_COLUMN_FIELDS.has(f.key) && (
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-[11px] text-neutral-500 shrink-0">→ Yazdığı sütun</span>
+                        <span className="text-[11px] text-neutral-500 shrink-0">{tt('→ Yazdığı sütun')}</span>
                         <Select
                           value={col?.id ?? ''}
                           onChange={(v) => onSetColumn(f.key, v)}
-                          placeholder={cands.length ? 'Seçilmedi' : 'Sende yok'}
-                          options={[...cands.map((c) => ({ value: c.id, label: c.name })), { value: '__new__', label: `+ Yeni "${f.key === 'kapakAdi' ? 'Kapak Adı' : ROLE_DEFS.find((d) => d.key === FIELD_ROLE[f.key])?.defaultName ?? f.label}" sütunu ekle` }]}
+                          placeholder={cands.length ? tt('Seçilmedi') : tt('Sende yok')}
+                          options={[...cands.map((c) => ({ value: c.id, label: c.name })), { value: '__new__', label: tt('+ Yeni "{0}" sütunu ekle', f.key === 'kapakAdi' ? tt('Kapak Adı') : ROLE_DEFS.find((d) => d.key === FIELD_ROLE[f.key])?.defaultName ?? f.label) }]}
                           className="flex-1 min-w-0"
                         />
-                        {!col && <span className="text-[10px] text-amber-400 shrink-0">{cands.length ? 'seç' : 'yok'}</span>}
+                        {!col && <span className="text-[10px] text-amber-400 shrink-0">{cands.length ? tt('seç') : 'yok'}</span>}
                       </div>
                     )}
                   </div>
@@ -254,10 +255,10 @@ function TmdbFieldsPopover({
             </div>
             <div className="flex items-center justify-between gap-2 p-3 border-t border-neutral-800">
               <span>
-                <span className="block text-sm text-neutral-300">Dolu alanları da güncelle</span>
-                <span className="block text-[11px] text-neutral-500">Kapalıyken sadece boş alanlar doldurulur, yazdıkların ezilmez.</span>
+                <span className="block text-sm text-neutral-300">{tt('Dolu alanları da güncelle')}</span>
+                <span className="block text-[11px] text-neutral-500">{tt('Kapalıyken sadece boş alanlar doldurulur, yazdıkların ezilmez.')}</span>
               </span>
-              <ToggleSwitch checked={overwriteExisting} onChange={onToggleOverwrite} label="Dolu alanları da güncelle" />
+              <ToggleSwitch checked={overwriteExisting} onChange={onToggleOverwrite} label={tt('Dolu alanları da güncelle')} />
             </div>
           </div>
         </>
@@ -301,14 +302,14 @@ function BulkUpdatePopover({
     <span className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ${active ? 'border-[#00c0fa] bg-[#00c0fa]/40' : 'border-neutral-600'}`} />
   )
   const scopes: { key: BulkScope; label: string; count: number }[] = [
-    { key: 'all', label: 'Bütün arşiv', count: total },
-    ...(visible !== null ? [{ key: 'visible' as const, label: 'Görünen kayıtlar (filtre/arama)', count: visible }] : []),
-    ...(selected > 0 ? [{ key: 'selected' as const, label: 'Seçili kayıtlar', count: selected }] : []),
+    { key: 'all', label: tt('Bütün arşiv'), count: total },
+    ...(visible !== null ? [{ key: 'visible' as const, label: tt('Görünen kayıtlar (filtre/arama)'), count: visible }] : []),
+    ...(selected > 0 ? [{ key: 'selected' as const, label: tt('Seçili kayıtlar'), count: selected }] : []),
   ]
 
   return (
     <div className="relative">
-      <ToolbarIconButton onClick={toggle} title="Genel Güncelleme — TMDB'den toplu doldur ya da bölümleri yenile" active={open}>
+      <ToolbarIconButton onClick={toggle} title={tt('Genel Güncelleme — TMDB\'den toplu doldur ya da bölümleri yenile')} active={open}>
         <BulkRefreshIcon />
       </ToolbarIconButton>
       {open && (
@@ -316,19 +317,19 @@ function BulkUpdatePopover({
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-11 z-40 w-[20rem] max-w-[calc(100vw-2rem)] bg-neutral-900 border border-neutral-800 rounded-xl shadow-lg p-3 space-y-3">
             <div>
-              <p className="text-sm font-semibold text-neutral-100">Genel Güncelleme</p>
-              <p className="text-xs text-neutral-500 mt-0.5">TMDB'den ne gelsin, hangi kayıtlara?</p>
+              <p className="text-sm font-semibold text-neutral-100">{tt('Genel Güncelleme')}</p>
+              <p className="text-xs text-neutral-500 mt-0.5">{tt('TMDB\'den ne gelsin, hangi kayıtlara?')}</p>
             </div>
             <div className="space-y-1.5">
               <button onClick={() => setMode('fill')} className={choice(mode === 'fill')}>
                 <span className="flex gap-2.5">
                   {dot(mode === 'fill')}
                   <span>
-                    <span className="block text-sm text-neutral-200">{overwrite ? 'Bütün bilgileri güncelle' : 'Eksik bilgileri doldur'}</span>
+                    <span className="block text-sm text-neutral-200">{overwrite ? tt('Bütün bilgileri güncelle') : tt('Eksik bilgileri doldur')}</span>
                     <span className="block text-[11px] text-neutral-500 leading-snug">
                       {overwrite
-                        ? '"Dolu alanları da güncelle" açık: dolu alanların üzerine de TMDB\'nin güncel bilgisi yazılır'
-                        : 'Poster, sinopsis, ülke… boş olanlar dolar (dişli menüsünde açık alanlar)'}
+                        ? tt('"Dolu alanları da güncelle" açık: dolu alanların üzerine de TMDB\'nin güncel bilgisi yazılır')
+                        : tt('Poster, sinopsis, ülke… boş olanlar dolar (dişli menüsünde açık alanlar)')}
                     </span>
                   </span>
                 </span>
@@ -337,9 +338,9 @@ function BulkUpdatePopover({
                 <span className="flex gap-2.5">
                   {dot(mode === 'bolum')}
                   <span>
-                    <span className="block text-sm text-neutral-200">Sadece bölümleri yenile</span>
+                    <span className="block text-sm text-neutral-200">{tt('Sadece bölümleri yenile')}</span>
                     <span className="block text-[11px] text-neutral-500 leading-snug">
-                      Dizilerin sezon/bölüm listesi yenilenir, yeni çıkan bölümler gelir. Başka hiçbir şey değişmez; filmler atlanır.
+                      {tt('Dizilerin sezon/bölüm listesi yenilenir, yeni çıkan bölümler gelir. Başka hiçbir şey değişmez; filmler atlanır.')}
                     </span>
                   </span>
                 </span>
@@ -347,7 +348,7 @@ function BulkUpdatePopover({
             </div>
             {scopes.length > 1 && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-neutral-500 mb-1.5">Hangi kayıtlar?</p>
+                <p className="text-[11px] uppercase tracking-wide text-neutral-500 mb-1.5">{tt('Hangi kayıtlar?')}</p>
                 <div className="space-y-1">
                   {scopes.map((s) => (
                     <button key={s.key} onClick={() => setScope(s.key)} className={choice(scope === s.key)}>
@@ -369,7 +370,7 @@ function BulkUpdatePopover({
               style={primaryButtonStyle}
               className={`w-full text-sm px-3 py-2 rounded-lg ${PRIMARY_BUTTON}`}
             >
-              Başlat
+              {tt('Başlat')}
             </button>
           </div>
         </>
@@ -418,8 +419,8 @@ function ScrollEndsButtons({ onRefresh }: { onRefresh: () => Promise<void> }) {
             setRefreshing(false)
           }
         }}
-        title="Sayfayı yenile"
-        aria-label="Sayfayı yenile"
+        title={tt('Sayfayı yenile')}
+        aria-label={tt('Sayfayı yenile')}
         className={btn}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}>
@@ -429,13 +430,13 @@ function ScrollEndsButtons({ onRefresh }: { onRefresh: () => Promise<void> }) {
       </button>
       {scrollable && (
         <>
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="En üste çık" aria-label="En üste çık" className={btn}>
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title={tt('En üste çık')} aria-label={tt('En üste çık')} className={btn}>
             {arrow(true)}
           </button>
           <button
             onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
-            title="En alta in"
-            aria-label="En alta in"
+            title={tt('En alta in')}
+            aria-label={tt('En alta in')}
             className={btn}
           >
             {arrow(false)}
@@ -570,7 +571,7 @@ function TableSearchInput({ onSearch, initial = '' }: { onSearch: (value: string
 
   if (!open) {
     return (
-      <ToolbarIconButton onClick={() => setOpen(true)} title="Ara">
+      <ToolbarIconButton onClick={() => setOpen(true)} title={tt('Ara')}>
         <SearchIcon />
       </ToolbarIconButton>
     )
@@ -583,12 +584,12 @@ function TableSearchInput({ onSearch, initial = '' }: { onSearch: (value: string
         value={draft}
         onChange={(e) => handleChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && close()}
-        placeholder="Ara..."
+        placeholder={tt('Ara...')}
         className="bg-neutral-900 border border-neutral-700 rounded-lg pl-3 pr-8 py-1.5 text-sm text-neutral-100 outline-none focus:border-[#00c0fa] w-48"
       />
       <button
         onClick={close}
-        title="Aramayı kapat"
+        title={tt('Aramayı kapat')}
         className="absolute right-2 h-5 w-5 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 transition"
       >
         <CloseIcon />
@@ -613,20 +614,20 @@ function FilterPopover({
   useEscape(open, () => setOpen(false))
   return (
     <div className="relative">
-      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title="Filtrele" active={conditions.length > 0}>
+      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title={tt('Filtrele')} active={conditions.length > 0}>
         <FilterIcon />
       </ToolbarIconButton>
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-11 z-40 w-80 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto bg-neutral-900 border border-neutral-800 rounded-xl p-3 shadow-lg">
-            <p className="text-sm font-semibold text-neutral-100 mb-2">Filtrele</p>
+            <p className="text-sm font-semibold text-neutral-100 mb-2">{tt('Filtrele')}</p>
             <MultiFilterEditor
               board={board}
               conditions={conditions}
               onChange={onChange}
               compact
-              emptyText="Bir sütunu aç; göstermek istediklerine bir kez (✓), gizlemek istediklerine iki kez (✕) tıkla."
+              emptyText={tt('Bir sütunu aç; göstermek istediklerine bir kez (✓), gizlemek istediklerine iki kez (✕) tıkla.')}
             />
           </div>
         </>
@@ -653,7 +654,7 @@ function SortPopover({
 
   return (
     <div className="relative">
-      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title="Sırala" active={Boolean(sortPropertyId)}>
+      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title={tt('Sırala')} active={Boolean(sortPropertyId)}>
         <SortIcon />
       </ToolbarIconButton>
       {open && (
@@ -668,7 +669,7 @@ function SortPopover({
                     sortDirection === 'asc' ? 'bg-neutral-700 text-neutral-50' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                   }`}
                 >
-                  Artan
+                  {tt('Artan')}
                 </button>
                 <button
                   onClick={() => onChange(sortPropertyId, 'desc')}
@@ -676,7 +677,7 @@ function SortPopover({
                     sortDirection === 'desc' ? 'bg-neutral-700 text-neutral-50' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                   }`}
                 >
-                  Azalan
+                  {tt('Azalan')}
                 </button>
               </div>
             )}
@@ -687,7 +688,7 @@ function SortPopover({
                   !sortPropertyId ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-300 hover:bg-neutral-800'
                 }`}
               >
-                Varsayılan (eklenme sırası)
+                {tt('Varsayılan (eklenme sırası)')}
               </button>
               {sortableProps.map((p) => (
                 <button
@@ -727,7 +728,7 @@ function ColumnVisibilityPopover({
 
   return (
     <div className="relative">
-      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title="Sütunları göster/gizle" active={hiddenIds.size > 0}>
+      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title={tt('Sütunları göster/gizle')} active={hiddenIds.size > 0}>
         <ColumnsIcon />
       </ToolbarIconButton>
       {open && (
@@ -735,7 +736,7 @@ function ColumnVisibilityPopover({
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-11 z-40 w-64 bg-neutral-900 border border-neutral-800 rounded-xl p-2 shadow-lg">
             <p className="text-[11px] text-neutral-500 px-2 pb-1.5">
-              Kapattığın sütunlar kalıcı olarak gizlenir, veriler silinmez.
+              {tt('Kapattığın sütunlar kalıcı olarak gizlenir, veriler silinmez.')}
             </p>
             <div className="max-h-64 overflow-y-auto space-y-0.5">
               {columns.map((p) => (
@@ -1274,7 +1275,7 @@ export default function BoardView() {
   )
   const incompleteRowsForHealth = useMemo(() => rows.filter(isIncomplete), [rows, isIncomplete])
 
-  if (boardLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (boardLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
   if (!board) {
     // boards.length 1 ya da >1 ise yukarıdaki effect zaten yönlendirmiş olacak (o gerçekleşene
     // kadar burası kısa bir an görünebilir) — burada sadece gerçekten arşivi olmayan (0 arşiv)
@@ -1282,31 +1283,31 @@ export default function BoardView() {
     if (boards.length === 0) {
       return (
         <div className="px-4 py-16 flex flex-col items-center text-center">
-          <h1 className="text-2xl font-semibold text-neutral-50 mb-2">Arşiv Bulunamadı</h1>
-          <p className="text-neutral-500 text-sm max-w-md">Bu hesabın henüz bir arşivi yok — önce bir arşiv oluşturman lazım.</p>
+          <h1 className="text-2xl font-semibold text-neutral-50 mb-2">{tt('Arşiv Bulunamadı')}</h1>
+          <p className="text-neutral-500 text-sm max-w-md">{tt('Bu hesabın henüz bir arşivi yok — önce bir arşiv oluşturman lazım.')}</p>
           <button onClick={() => navigate('/arsivlerim')} style={primaryButtonStyle} className={`mt-6 text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
-            Arşiv Oluştur
+            {tt('Arşiv Oluştur')}
           </button>
         </div>
       )
     }
-    return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+    return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
   }
 
   // Dişli menüsündeki "Sende yok → + Ekle": o alanın sütununu (görevi otomatik tanınacak adla) ekler.
   function addFillColumn(key: string) {
     if (!board) return
     if (key === 'kapakAdi') {
-      const prop = { id: makeId(), name: 'Kapak Adı', type: 'image' as PropertyType }
+      const prop = { id: makeId(), name: nameOf(COLUMN_NAMES.kapakAdi), type: 'image' as PropertyType }
       saveBoard({ properties: [...board.properties, prop], titleImagePropertyId: prop.id })
-      notify('"Kapak Adı" sütunu eklendi — Güncelle ile logolar gelir.')
+      notify(tt('"Kapak Adı" sütunu eklendi — Güncelle ile logolar gelir.'))
       return
     }
     const role = FIELD_ROLE[key]
     const def = ROLE_DEFS.find((d) => d.key === role)
     if (!def) return
     addProperty(def.defaultName, def.types[0])
-    notify(`"${def.defaultName}" sütunu eklendi — Güncelle ile doldurulur.`)
+    notify(tt('"{0}" sütunu eklendi — Güncelle ile doldurulur.', def.defaultName))
   }
 
   // Dişli menüsünde bir alanın yazacağı sütunu değiştirme — sütun menüsündeki "Görevi" ile aynı kayıt.
@@ -1321,7 +1322,7 @@ export default function BoardView() {
       if (!role) return
       await saveBoard({ roles: { ...(board.roles ?? {}), [role]: propertyId } })
     }
-    notify(`${label} artık "${name}" sütununa yazılacak.`)
+    notify(tt('{0} artık "{1}" sütununa yazılacak.', label, name))
   }
 
   function addProperty(name: string, type: PropertyType) {
@@ -1340,8 +1341,8 @@ export default function BoardView() {
   async function deleteProperty(propertyId: string) {
     if (!board) return
     const ok = await confirm({
-      message: 'Bu sütunu silmek istediğine emin misin? Kayıtlardaki bu sütuna ait veriler görünmez olur.',
-      confirmLabel: 'Sil',
+      message: tt('Bu sütunu silmek istediğine emin misin? Kayıtlardaki bu sütuna ait veriler görünmez olur.'),
+      confirmLabel: tt('Sil'),
     })
     if (!ok) return
     setProperties(board.properties.filter((p) => p.id !== propertyId))
@@ -1380,7 +1381,7 @@ export default function BoardView() {
     const label = (v: unknown) => (typeof v === 'string' ? (old.options?.find((o) => o.id === v)?.label ?? v) : String(v ?? ''))
     // Önce her değerin yazı hali (seçimlerde etiketi, tarih listelerinde virgülle)
     const asText = (v: unknown): string =>
-      Array.isArray(v) ? v.map(label).join(', ') : typeof v === 'boolean' ? (v ? 'Evet' : '') : v === null || v === undefined ? '' : label(v)
+      Array.isArray(v) ? v.map(label).join(', ') : typeof v === 'boolean' ? (v ? tt('Evet') : '') : v === null || v === undefined ? '' : label(v)
     const next: PropertyDef = { ...old, type }
     if (type === 'select' || type === 'multiselect') {
       // Seçenekler: var olanlar + değerlerden yenileri
@@ -1446,7 +1447,7 @@ export default function BoardView() {
       changed++
       saveRow({ values: { ...r.values, [propertyId]: nv }, createdAt: r.createdAt, updatedAt: r.updatedAt }, r.id)
     }
-    if (changed) notify(`${changed} kaydın "${old.name}" değeri yeni tipe (${PROPERTY_TYPE_LABELS[type]}) çevrildi.`)
+    if (changed) notify(tt('{0} kaydın "{1}" değeri yeni tipe ({2}) çevrildi.', changed, old.name, PROPERTY_TYPE_LABELS[type]))
   }
 
   function addOptionToProperty(propertyId: string, label: string): string {
@@ -1536,14 +1537,14 @@ export default function BoardView() {
   async function clearColumn(propertyId: string, propertyName: string) {
     if (!board) return
     const ok = await confirm({
-      message: `"${propertyName}" sütununun değeri TÜM kayıtlarda boşaltılacak. Bu geri alınamaz, emin misin?`,
-      confirmLabel: 'Temizle',
+      message: tt('"{0}" sütununun değeri TÜM kayıtlarda boşaltılacak. Bu geri alınamaz, emin misin?', propertyName),
+      confirmLabel: tt('Temizle'),
       tone: 'danger',
     })
     if (!ok) return
     const result = await api.clearColumn(board.id, propertyId)
     await reloadRows()
-    notify(`"${propertyName}" ${result.count} kayıtta temizlendi.`, 'success')
+    notify(tt('"{0}" {1} kayıtta temizlendi.', propertyName, result.count), 'success')
   }
 
   function resizeProperty(propertyId: string, width: number) {
@@ -1592,7 +1593,7 @@ export default function BoardView() {
       )
       if (dup) {
         const t = board.titlePropertyId ? String(dup.values[board.titlePropertyId] ?? '').trim() : ''
-        notify(`"${value.trim()}" arşivde zaten var${t && t.toLocaleLowerCase('tr') !== norm ? ` ("${t}")` : ''} — mükerrer olabilir, Sağlık Kontrolü'nden birleştirebilirsin.`)
+        notify(tt('"{0}" arşivde zaten var{1} — mükerrer olabilir, Sağlık Kontrolü\'nden birleştirebilirsin.', value.trim(), t && t.toLocaleLowerCase('tr') !== norm ? ` ("${t}")` : ''))
       }
     }
   }
@@ -1631,7 +1632,7 @@ export default function BoardView() {
   function moveRow(dragId: string, targetId: string) {
     if (dragId === targetId) return
     if (sortProperty || search.trim()) {
-      notify('Sıralama ya da arama açıkken satırlar taşınamaz — önce onları kapat.', 'danger')
+      notify(tt('Sıralama ya da arama açıkken satırlar taşınamaz — önce onları kapat.'), 'danger')
       return
     }
     const row = rows.find((r) => r.id === dragId)
@@ -1660,7 +1661,7 @@ export default function BoardView() {
   }
 
   async function deleteRowDirect(rowId: string) {
-    const ok = await confirm({ message: 'Bu kaydı silmek istediğine emin misin?', confirmLabel: 'Sil' })
+    const ok = await confirm({ message: tt('Bu kaydı silmek istediğine emin misin?'), confirmLabel: tt('Sil') })
     if (!ok) return
     await removeRow(rowId)
   }
@@ -1697,7 +1698,7 @@ export default function BoardView() {
     }
     await Promise.all([reloadBoard(), reloadRows()])
     if (result.duplicateOf) {
-      notify(`Bu içerik arşivde zaten var: "${result.duplicateOf.title}" — mükerrer olabilir, Sağlık Kontrolü'nden birleştirebilirsin.`, 'danger')
+      notify(tt('Bu içerik arşivde zaten var: "{0}" — mükerrer olabilir, Sağlık Kontrolü\'nden birleştirebilirsin.', result.duplicateOf.title), 'danger')
     }
     return result
   }
@@ -1720,7 +1721,7 @@ export default function BoardView() {
     try {
       const { tmdbApiKey } = await api.getApiKey()
       if (!tmdbApiKey?.trim()) {
-        notify("TMDB'den bilgi getirmek için önce bir TMDB API anahtarı girmelisin: Ayarlar → Veritabanı → API sekmesi (orada nasıl alınacağı adım adım yazıyor).", 'danger')
+        notify(tt('TMDB\'den bilgi getirmek için önce bir TMDB API anahtarı girmelisin: Ayarlar → Veritabanı → API sekmesi (orada nasıl alınacağı adım adım yazıyor).'), 'danger')
         return
       }
     } catch {
@@ -1729,13 +1730,13 @@ export default function BoardView() {
     // Seçilenlerde eksik olup olmadığına bakılmıyor — kullanıcı onları bilerek seçti (boş alanlar dolar,
     // dizilerin bölümleri ve oyuncular yenilenir).
     const picked = scope === 'selected'
-    const where = scope === 'visible' ? 'görünen ' : scope === 'selected' ? 'seçili ' : ''
+    const where = scope === 'visible' ? tt('görünen ') : scope === 'selected' ? tt('seçili ') : ''
     const targets = tmdbOverwriteExisting || picked ? pool.filter(hasTitleFilled) : pool.filter(isIncomplete)
     if (targets.length === 0) {
       notify(
         tmdbOverwriteExisting || picked
-          ? `${scope === 'selected' ? 'Seçili kayıtlarda' : scope === 'visible' ? 'Görünen kayıtlarda' : 'Arşivde'} başlığı dolu bir kayıt yok.`
-          : `${scope === 'visible' ? 'Görünen kayıtlarda' : 'Arşivde'} eksik görünen bir kayıt yok, hepsi dolu görünüyor.`,
+          ? tt('{0} başlığı dolu bir kayıt yok.', scope === 'selected' ? tt('Seçili kayıtlarda') : scope === 'visible' ? tt('Görünen kayıtlarda') : tt('Arşivde'))
+          : tt('{0} eksik görünen bir kayıt yok, hepsi dolu görünüyor.', scope === 'visible' ? tt('Görünen kayıtlarda') : tt('Arşivde')),
       )
       return
     }
@@ -1782,11 +1783,11 @@ export default function BoardView() {
     } else if (
       !(await confirm({
       message: tmdbOverwriteExisting
-        ? `"Dolu alanları da güncelle" açık — ${where}${targets.length} kaydın TÜMÜ (eksik olsun olmasın) TMDB'nin güncel verisiyle güncellenecek. Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`
+        ? tt('"Dolu alanları da güncelle" açık — {0}{1} kaydın TÜMÜ (eksik olsun olmasın) TMDB\'nin güncel verisiyle güncellenecek. Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.', where, targets.length)
         : picked
-          ? `Seçili ${targets.length} kayıt TMDB'den güncellensin mi? Boş alanlar doldurulur, yazdıkların ezilmez; dizilerin bölümleri de yenilenir.`
-          : `${scope === 'visible' ? 'Görünen kayıtlardan ' : ''}${targets.length} kayıt eksik görünüyor (poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş). TMDB'den doldurulsun mu? Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.`,
-      confirmLabel: picked ? 'Güncelle' : 'Doldur',
+          ? tt('Seçili {0} kayıt TMDB\'den güncellensin mi? Boş alanlar doldurulur, yazdıkların ezilmez; dizilerin bölümleri de yenilenir.', targets.length)
+          : tt('{0}{1} kayıt eksik görünüyor (poster, sinopsis, ülke, yönetmen ya da fragmandan biri boş). TMDB\'den doldurulsun mu? Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.', scope === 'visible' ? tt('Görünen kayıtlardan ') : '', targets.length),
+      confirmLabel: picked ? tt('Güncelle') : tt('Doldur'),
       tone: tmdbOverwriteExisting ? 'danger' : 'info',
     }))
     )
@@ -1822,15 +1823,15 @@ export default function BoardView() {
       return /dizi|anime/i.test(label)
     }
     const targets = pool.filter((r) => hasTitleFilled(r) && isSeries(r))
-    const where = scope === 'visible' ? 'Görünen kayıtlarda' : scope === 'selected' ? 'Seçili kayıtlarda' : 'Arşivde'
+    const where = scope === 'visible' ? tt('Görünen kayıtlarda') : scope === 'selected' ? tt('Seçili kayıtlarda') : tt('Arşivde')
     if (targets.length === 0) {
-      notify(`${where} dizi bulunamadı. (Dizi olduğu, TMDB eşleşmesinden ya da Kategori sütunundan anlaşılıyor.)`)
+      notify(tt('{0} dizi bulunamadı. (Dizi olduğu, TMDB eşleşmesinden ya da Kategori sütunundan anlaşılıyor.)', where))
       return
     }
     if (
       !(await confirm({
-        message: `${scope === 'visible' ? 'Görünen ' : scope === 'selected' ? 'Seçili ' : ''}${targets.length} dizinin sezon/bölüm listesi TMDB'den yenilensin mi? Yeni çıkan bölümler gelir, başka hiçbir bilgi değişmez. İstediğin an "Durdur"a basabilirsin.`,
-        confirmLabel: 'Yenile',
+        message: tt('{0}{1} dizinin sezon/bölüm listesi TMDB\'den yenilensin mi? Yeni çıkan bölümler gelir, başka hiçbir bilgi değişmez. İstediğin an "Durdur"a basabilirsin.', scope === 'visible' ? tt('Görünen ') : scope === 'selected' ? tt('Seçili ') : '', targets.length),
+        confirmLabel: tt('Yenile'),
         tone: 'info',
       }))
     )
@@ -1843,13 +1844,13 @@ export default function BoardView() {
       failed: 0,
       exclude: FETCHABLE_FIELDS.map((f) => f.key).filter((k) => k !== 'sezonlar'),
       overwrite: false,
-      label: 'Bölüm yenileme',
+      label: tt('Bölüm yenileme'),
     })
   }
 
   function rowTitleOf(row: Row): string {
     const tp = board?.properties.find((p) => p.id === board.titlePropertyId)
-    return (tp ? titleText(tp, row.values[tp.id]) : '') || 'İsimsiz'
+    return (tp ? titleText(tp, row.values[tp.id]) : '') || tt('İsimsiz')
   }
 
   async function runBulk(start: BulkSaved) {
@@ -1895,16 +1896,16 @@ export default function BoardView() {
         const res = await api.fetchTmdb(board.id, rowId, state.exclude, state.overwrite)
         state.updated++
         const bits = [...res.filled]
-        if (res.newEpisodes > 0) bits.push(`${res.newEpisodes} yeni bölüm`)
-        if (res.newActors > 0) bits.push(`${res.newActors} yeni oyuncu`)
+        if (res.newEpisodes > 0) bits.push(tt('{0} yeni bölüm', res.newEpisodes))
+        if (res.newActors > 0) bits.push(tt('{0} yeni oyuncu', res.newActors))
         log.unshift(
           bits.length > 0
-            ? { title, kind: 'ok', text: `${res.mediaType === 'tv' ? 'Dizi' : 'Film'} · eklendi: ${bits.join(', ')}` }
-            : { title, kind: 'same', text: 'TMDB\'de bulundu, eklenecek yeni bilgi yoktu' },
+            ? { title, kind: 'ok', text: tt('{0} · eklendi: {1}', res.mediaType === 'tv' ? tt('Dizi') : tt('Film'), bits.join(', ')) }
+            : { title, kind: 'same', text: tt('TMDB\'de bulundu, eklenecek yeni bilgi yoktu') },
         )
       } catch (e) {
         state.failed++
-        log.unshift({ title, kind: 'fail', text: e instanceof Error ? e.message.split(' — ')[0] : 'Hata oluştu' })
+        log.unshift({ title, kind: 'fail', text: e instanceof Error ? e.message.split(' — ')[0] : tt('Hata oluştu') })
       }
       if (log.length > 30) log.length = 30
       state.ids.shift()
@@ -1934,9 +1935,7 @@ export default function BoardView() {
       label: state.label,
     })
     notify(
-      `${stoppedEarly ? 'Durduruldu — ' : 'Tamamlandı — '}${state.updated} kayıt güncellendi${
-        state.failed > 0 ? `, ${state.failed} kayıtta eşleşme bulunamadı/hata oluştu` : ''
-      }${stoppedEarly ? `. Kalan ${state.ids.length} kayda "Devam et" ile kaldığın yerden devam edebilirsin.` : '.'}`,
+      tt('{0}{1} kayıt güncellendi{2}{3}', stoppedEarly ? tt('Durduruldu — ') : tt('Tamamlandı — '), state.updated, state.failed > 0 ? tt(', {0} kayıtta eşleşme bulunamadı/hata oluştu', state.failed) : '', stoppedEarly ? tt('. Kalan {0} kayda "Devam et" ile kaldığın yerden devam edebilirsin.', state.ids.length) : '.'),
     )
   }
 
@@ -1975,7 +1974,7 @@ export default function BoardView() {
       />
       <ToolbarIconButton
         onClick={toggleDensity}
-        title={density === 'rahat' ? 'Satırlar: Rahat — sıkıya geçmek için tıkla' : 'Satırlar: Sıkı — rahata geçmek için tıkla'}
+        title={density === 'rahat' ? tt('Satırlar: Rahat — sıkıya geçmek için tıkla') : tt('Satırlar: Sıkı — rahata geçmek için tıkla')}
         active={density === 'rahat'}
       >
         <DensityIcon roomy={density === 'rahat'} />
@@ -1993,13 +1992,13 @@ export default function BoardView() {
       {bulkUpdating ? (
         <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
           <BulkRefreshIcon spinning />
-          {bulk ? `${bulk.done}/${bulk.total}` : 'Güncelleniyor...'}
+          {bulk ? `${bulk.done}/${bulk.total}` : tt('Güncelleniyor...')}
           <button onClick={() => (bulkCancelRef.current = true)} className="text-rose-400 hover:underline">
-            Durdur
+            {tt('Durdur')}
           </button>
         </div>
       ) : bulk && bulk.done < bulk.total ? (
-        <ToolbarIconButton onClick={resumeBulk} title={`Devam et — ${bulk.label ?? 'Genel Güncelleme'}: kalan ${bulk.total - bulk.done} kayıt`} active>
+        <ToolbarIconButton onClick={resumeBulk} title={tt('Devam et — {0}: kalan {1} kayıt', bulk.label ?? tt('Genel Güncelleme'), bulk.total - bulk.done)} active>
           <BulkRefreshIcon />
         </ToolbarIconButton>
       ) : (
@@ -2013,17 +2012,17 @@ export default function BoardView() {
       )}
 
       <ToolbarDivider />
-      <ToolbarIconButton onClick={() => setHistoryFor({ row: null })} title="Geçmiş — arşivdeki bütün değişiklikler, geri alma">
+      <ToolbarIconButton onClick={() => setHistoryFor({ row: null })} title={tt('Geçmiş — arşivdeki bütün değişiklikler, geri alma')}>
         <HistoryIcon />
       </ToolbarIconButton>
-      <ToolbarIconButton onClick={() => setHealthOpen(true)} title="Sağlık Kontrolü — sorunlu kayıtları listele">
+      <ToolbarIconButton onClick={() => setHealthOpen(true)} title={tt('Sağlık Kontrolü — sorunlu kayıtları listele')}>
         <HealthIcon />
       </ToolbarIconButton>
-      <ToolbarIconButton onClick={() => setDiscoverOpen(true)} title="Keşfet — arşivinde olmayan içerikleri bul">
+      <ToolbarIconButton onClick={() => setDiscoverOpen(true)} title={tt('Keşfet — arşivinde olmayan içerikleri bul')}>
         <CompassIcon />
       </ToolbarIconButton>
 
-      <ToolbarIconButton onClick={() => setGuideOpen(true)} title="Bu tablo nasıl kullanılır?">
+      <ToolbarIconButton onClick={() => setGuideOpen(true)} title={tt('Bu tablo nasıl kullanılır?')}>
         <InfoIcon />
       </ToolbarIconButton>
 
@@ -2032,7 +2031,7 @@ export default function BoardView() {
         style={primaryButtonStyle}
         className={`ml-1 text-sm px-3 py-1.5 rounded-lg whitespace-nowrap ${PRIMARY_BUTTON}`}
       >
-        + Yeni Ekle
+        {tt('+ Yeni Ekle')}
       </button>
     </>
   )
@@ -2043,7 +2042,7 @@ export default function BoardView() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <button
             onClick={() => navigate('/arsivlerim')}
-            title="Arşivlerime dön"
+            title={tt('Arşivlerime dön')}
             className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-neutral-800 text-neutral-400 hover:text-neutral-50 hover:border-neutral-600 transition"
           >
             <ArrowLeftIcon />
@@ -2051,8 +2050,7 @@ export default function BoardView() {
           <div className="flex-1 min-w-[12rem]">
             <BoardNameInput name={board.name} onSave={(name) => saveBoard({ name })} />
             <p className="text-xs text-neutral-500 mt-0.5">
-              {rows.length} kayıt
-              {statusSummary.map((s) => ` · ${s.count} ${s.label.toLocaleLowerCase('tr')}`).join('')}
+              {ttx('{0} kayıt{1}', rows.length, statusSummary.map((s) => ` · ${s.count} ${s.label.toLocaleLowerCase('tr')}`).join(''))}
             </p>
           </div>
 
@@ -2089,7 +2087,7 @@ export default function BoardView() {
 
       {statusProp && statusSummary.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-4">
-          {[{ id: null as string | null, label: 'Hepsi', count: rows.length, colorIndex: -1 }, ...statusSummary].map((s) => {
+          {[{ id: null as string | null, label: tt('Hepsi'), count: rows.length, colorIndex: -1 }, ...statusSummary].map((s) => {
             const active =
               s.id === null
                 ? tableConditions.length === 0
@@ -2117,7 +2115,7 @@ export default function BoardView() {
       )}
 
       {rowsLoading ? (
-        <p className="text-neutral-500 text-sm">Yükleniyor...</p>
+        <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
       ) : (
         <BoardTable
           ref={boardTableRef}
@@ -2165,9 +2163,9 @@ export default function BoardView() {
           onRefresh={async () => {
             try {
               await Promise.all([reloadBoard(), reloadRows()])
-              notify('Arşiv yenilendi.', 'success')
+              notify(tt('Arşiv yenilendi.'), 'success')
             } catch {
-              notify('Yenilenemedi — sunucuya ulaşılamadı.', 'danger')
+              notify(tt('Yenilenemedi — sunucuya ulaşılamadı.'), 'danger')
             }
           }}
         />
@@ -2184,14 +2182,14 @@ export default function BoardView() {
       {!rowsLoading && filteredRows.length !== rows.length && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-sm text-neutral-500">
           <span>
-            {rows.length} kayıttan <span className="text-neutral-200 font-medium">{filteredRows.length}</span> tanesi gösteriliyor
+            {ttx('{0} kayıttan {1} tanesi gösteriliyor', rows.length, <span className="text-neutral-200 font-medium">{filteredRows.length}</span>)}
           </span>
           {tableConditions.length > 0 && (
             <button onClick={() => setTableConditions([])} className="text-[#00c0fa] hover:underline">
-              Filtreyi temizle
+              {tt('Filtreyi temizle')}
             </button>
           )}
-          {search && <span className="text-neutral-600">(arama açık — büyüteçteki kutuyu boşaltınca hepsi gelir)</span>}
+          {search && <span className="text-neutral-600">{tt('(arama açık — büyüteçteki kutuyu boşaltınca hepsi gelir)')}</span>}
         </div>
       )}
 
@@ -2242,8 +2240,8 @@ export default function BoardView() {
             const next = { ...(board.healthIgnore ?? {}) }
             for (const id of rowIds) next[id] = [...new Set([...(next[id] ?? []), propertyId])]
             saveBoard({ healthIgnore: next })
-            const name = board.properties.find((p) => p.id === propertyId)?.name ?? 'Bu alan'
-            notify(rowIds.length === 1 ? `Bu kayıtta ${name} artık sorulmayacak.` : `${rowIds.length} kayıtta ${name} artık sorulmayacak.`)
+            const name = board.properties.find((p) => p.id === propertyId)?.name ?? tt('Bu alan')
+            notify(rowIds.length === 1 ? tt('Bu kayıtta {0} artık sorulmayacak.', name) : tt('{0} kayıtta {1} artık sorulmayacak.', rowIds.length, name))
           }}
           onUnignore={(pairs) => {
             const next = { ...(board.healthIgnore ?? {}) }
@@ -2253,11 +2251,11 @@ export default function BoardView() {
               else delete next[rowId]
             }
             saveBoard({ healthIgnore: next })
-            notify(pairs.length === 1 ? 'Bu alan yine sorulacak.' : `${pairs.length} alan yine sorulacak.`)
+            notify(pairs.length === 1 ? tt('Bu alan yine sorulacak.') : tt('{0} alan yine sorulacak.', pairs.length))
           }}
           onResetIgnored={() => {
             saveBoard({ healthIgnore: {} })
-            notify('Sorulmayan alanların hepsi yine sorulacak.')
+            notify(tt('Sorulmayan alanların hepsi yine sorulacak.'))
           }}
           onOpenRow={(row) => {
             setHealthOpen(false)
@@ -2269,9 +2267,9 @@ export default function BoardView() {
                 const r = rows.find((x) => x.id === c.rowId)
                 if (r) await saveRow({ values: { ...r.values, ...c.values }, createdAt: r.createdAt, updatedAt: Date.now() }, r.id)
               }
-              notify(changes.length === 1 ? 'Kayıt düzeltildi.' : `${changes.length} kayıt düzeltildi.`, 'success')
+              notify(changes.length === 1 ? tt('Kayıt düzeltildi.') : tt('{0} kayıt düzeltildi.', changes.length), 'success')
             } catch (e) {
-              notify(e instanceof Error ? e.message : 'Kaydedilemedi.', 'danger')
+              notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
             }
           }}
           onMerge={async (keepId, removeIds) => {
@@ -2280,19 +2278,19 @@ export default function BoardView() {
               await reloadRows()
               notify(
                 res.movedFields.length > 0
-                  ? `${removeIds.length} mükerrer kayıt birleştirildi, aktarılan: ${res.movedFields.join(', ')}`
-                  : `${removeIds.length} mükerrer kayıt silindi (aktarılacak ek bilgi yoktu).`,
+                  ? tt('{0} mükerrer kayıt birleştirildi, aktarılan: {1}', removeIds.length, res.movedFields.join(', '))
+                  : tt('{0} mükerrer kayıt silindi (aktarılacak ek bilgi yoktu).', removeIds.length),
                 'success',
               )
             } catch {
-              notify('Birleştirilemedi.', 'danger')
+              notify(tt('Birleştirilemedi.'), 'danger')
             }
           }}
           onIgnoreDuplicate={(rowIds) => {
             const pairs = new Set(board.duplicateIgnore ?? [])
             for (const a of rowIds) for (const b of rowIds) if (a < b) pairs.add(`${a}|${b}`)
             saveBoard({ duplicateIgnore: [...pairs] })
-            notify('Bu kayıtlar bir daha mükerrer diye gösterilmeyecek.')
+            notify(tt('Bu kayıtlar bir daha mükerrer diye gösterilmeyecek.'))
           }}
           onClose={() => setHealthOpen(false)}
         />

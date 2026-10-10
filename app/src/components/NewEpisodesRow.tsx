@@ -4,8 +4,8 @@ import { titleText } from '../types'
 import { api, type NewEpisodeItem } from '../lib/api'
 import { resolveRole } from '../lib/roles'
 import { onDataChanged } from '../lib/dataEvents'
+import { tt, fmtDate, EP } from '../lib/i18n'
 
-const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 
 // "22 Eylül", yarın/bugün/dün için kelimeyle.
 function friendlyDate(iso: string): string {
@@ -14,14 +14,14 @@ function friendlyDate(iso: string): string {
   today.setHours(0, 0, 0, 0)
   const d = new Date(`${iso}T00:00:00`)
   const diff = Math.round((d.getTime() - today.getTime()) / 864e5)
-  if (diff === 0) return 'bugün'
-  if (diff === 1) return 'yarın'
-  if (diff === -1) return 'dün'
-  return `${d.getDate()} ${TR_MONTHS[d.getMonth()]}`
+  if (diff === 0) return tt('bugün')
+  if (diff === 1) return tt('yarın')
+  if (diff === -1) return tt('dün')
+  return fmtDate(null, d.getMonth(), d.getDate())
 }
 
 function ep(s: number, e: number) {
-  return `S${s} B${e}`
+  return `S${s} ${EP()}${e}`
 }
 
 // Ana sayfanın en üstündeki "Yeni Bölümler" satırı: Durum'u "İzleniyor" olan dizilerden yeni
@@ -69,7 +69,7 @@ export default function NewEpisodesRow({
 
   return (
     <div>
-      <h2 className={`${titleClass ?? 'text-xl font-semibold text-neutral-200'} mb-2`}>Yeni Bölümler</h2>
+      <h2 className={`${titleClass ?? 'text-xl font-semibold text-neutral-200'} mb-2`}>{tt('Yeni Bölümler')}</h2>
       <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
         {shown.map((item) => {
           const row = byId.get(item.rowId)!
@@ -78,18 +78,18 @@ export default function NewEpisodesRow({
 
           let headline: string
           if (item.tracking && item.unwatchedCount > 0) {
-            headline = `${item.unwatchedCount} izlenmemiş bölüm`
+            headline = tt('{0} izlenmemiş bölüm', item.unwatchedCount)
           } else if (item.latestIsNew) {
-            headline = `Yeni bölüm: ${ep(item.latest.season, item.latest.episode)}`
+            headline = tt('Yeni bölüm: {0}', ep(item.latest.season, item.latest.episode))
           } else if (item.upcoming) {
-            headline = `Yakında: ${ep(item.upcoming.season, item.upcoming.episode)}`
+            headline = tt('Yakında: {0}', ep(item.upcoming.season, item.upcoming.episode))
           } else {
-            headline = 'Yeni bölüm'
+            headline = tt('Yeni bölüm')
           }
           const details: string[] = []
-          if (item.tracking && item.nextToWatch) details.push(`Sıradaki: ${ep(item.nextToWatch.season, item.nextToWatch.episode)}`)
+          if (item.tracking && item.nextToWatch) details.push(tt('Sıradaki: {0}', ep(item.nextToWatch.season, item.nextToWatch.episode)))
           if (item.latestIsNew && item.latest.airDate)
-            details.push(`${ep(item.latest.season, item.latest.episode)} ${friendlyDate(item.latest.airDate)} çıktı`)
+            details.push(tt('{0} {1} çıktı', ep(item.latest.season, item.latest.episode), friendlyDate(item.latest.airDate)))
           if (item.upcoming) details.push(`${ep(item.upcoming.season, item.upcoming.episode)} ${friendlyDate(item.upcoming.airDate)}`)
 
           return (

@@ -5,6 +5,7 @@ import ArchivesPanel from '../components/settings/ArchivesPanel'
 import HomeSettingsPanel from '../components/settings/HomeSettingsPanel'
 import ProfileSettingsPanel from '../components/settings/ProfileSettingsPanel'
 import AppSettingsPanel from '../components/settings/AppSettingsPanel'
+import { tt } from '../lib/i18n'
 
 type Tab = 'veritabani' | 'ana-sayfa' | 'uygulama' | 'profil'
 
@@ -70,10 +71,10 @@ function MonitorIcon() {
 }
 
 const TABS: { key: Tab; label: string; hint: string; icon: ComponentType }[] = [
-  { key: 'veritabani', label: 'Veritabanı', hint: 'Arşivler, şablonlar, içe aktarma, API', icon: DatabaseIcon },
-  { key: 'ana-sayfa', label: 'Ana Sayfa Ayarları', hint: 'Görünüm, sayfalar, modlar, Ne İzlesem', icon: HomeGearIcon },
-  { key: 'uygulama', label: 'Uygulama Ayarları', hint: 'Başlangıç, kapatma, tepsi', icon: MonitorIcon },
-  { key: 'profil', label: 'Profil Ayarları', hint: 'Profil ekle, düzenle, değiştir', icon: UserIcon },
+  { key: 'veritabani', label: tt('Veritabanı'), hint: tt('Arşivler, şablonlar, içe aktarma, API'), icon: DatabaseIcon },
+  { key: 'ana-sayfa', label: tt('Ana Sayfa Ayarları'), hint: tt('Görünüm, sayfalar, modlar, Ne İzlesem'), icon: HomeGearIcon },
+  { key: 'uygulama', label: tt('Uygulama Ayarları'), hint: tt('Başlangıç, kapatma, tepsi'), icon: MonitorIcon },
+  { key: 'profil', label: tt('Profil Ayarları'), hint: tt('Profil ekle, düzenle, değiştir'), icon: UserIcon },
 ]
 
 function isTab(v: string | null): v is Tab {
@@ -104,8 +105,8 @@ export default function Boards() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-neutral-50 tracking-tight">Ayarlar</h1>
-        <p className="text-sm text-neutral-500 mt-1">Arşivlerini, ana sayfanı, uygulamayı ve profillerini buradan yönet.</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-neutral-50 tracking-tight">{tt('Ayarlar')}</h1>
+        <p className="text-sm text-neutral-500 mt-1">{tt('Arşivlerini, ana sayfanı, uygulamayı ve profillerini buradan yönet.')}</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-5 md:gap-8 items-stretch md:items-start">

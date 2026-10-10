@@ -1,3 +1,4 @@
+import { tt } from './i18n'
 // Vitrin'e eklenen sembollerin (internetten bulunan görsellerin) çoğunun düz beyaz/siyah bir arka
 // planı oluyor; koyu vitrinde kutu gibi duruyor. Kenarlardan başlayıp kenar rengine yakın bölgeyi
 // (taşma dolgusu — ortadaki aynı renkli kısımlara dokunmadan) şeffaf yapıyor, sonra boş kenarları
@@ -8,7 +9,7 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Görsel açılamadı.'))
+    img.onerror = () => reject(new Error(tt('Görsel açılamadı.')))
     img.src = src
   })
 }
@@ -118,6 +119,6 @@ export async function cleanupSymbol(img: HTMLImageElement, removeBackground: boo
     out.getContext('2d')!.drawImage(canvas, minX, minY, maxX - minX + 1, maxY - minY + 1, pad, pad, maxX - minX + 1, maxY - minY + 1)
   }
   const blob = await new Promise<Blob | null>((r) => out.toBlob(r, 'image/png'))
-  if (!blob) throw new Error('Görsel hazırlanamadı.')
+  if (!blob) throw new Error(tt('Görsel hazırlanamadı.'))
   return blob
 }

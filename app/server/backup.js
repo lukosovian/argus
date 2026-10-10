@@ -10,6 +10,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { stt } from './lang.js'
 
 let DATA_DIR = ''
 let MEDYA_DIR = ''
@@ -96,8 +97,8 @@ const dataSkip = (p, e) => e.name === 'backup-settings.json' || e.name.endsWith(
 
 async function runBackup() {
   const s = settings()
-  if (!s.target) throw new Error('Önce yedeklerin konacağı klasörü seç.')
-  if (!fs.existsSync(s.target)) throw new Error('Seçilen klasör bulunamadı: ' + s.target)
+  if (!s.target) throw new Error(stt('Önce yedeklerin konacağı klasörü seç.'))
+  if (!fs.existsSync(s.target)) throw new Error(stt('Seçilen klasör bulunamadı: ') + s.target)
   const root = destRoot(s.target)
   const snapDir = path.join(root, 'veri', stamp())
   const tmpDir = snapDir + '.yaziliyor'
@@ -141,7 +142,7 @@ async function runBackup() {
 async function runRestore(name) {
   const s = settings()
   const snap = path.join(destRoot(s.target), 'veri', name)
-  if (!/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}$/.test(name) || !fs.existsSync(snap)) throw new Error('Yedek bulunamadı')
+  if (!/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}$/.test(name) || !fs.existsSync(snap)) throw new Error(stt('Yedek bulunamadı'))
   // 1) Yedeği önce geçici bir klasöre kopyala, sonra yer değiştir (yarım kalan geri yükleme veriyi bozmasın)
   job.phase = 'veri'
   job.done = 0
@@ -178,7 +179,7 @@ async function runRestore(name) {
 }
 
 function start(kind, fn) {
-  if (job?.running) throw new Error('Şu an zaten bir yedekleme işi sürüyor.')
+  if (job?.running) throw new Error(stt('Şu an zaten bir yedekleme işi sürüyor.'))
   job = { kind, running: true, phase: 'hazırlık', done: 0, total: 0, startedAt: Date.now(), error: null, result: null }
   fn()
     .then((result) => {
@@ -210,12 +211,12 @@ function autoCheck() {
 function suggestions() {
   const home = os.homedir()
   const cands = [
-    { label: 'OneDrive (buluta gider)', path: process.env.OneDrive || path.join(home, 'OneDrive') },
-    { label: 'Google Drive (buluta gider)', path: 'G:\\My Drive' },
-    { label: 'Google Drive (buluta gider)', path: "G:\\Drive'ım" },
-    { label: 'Google Drive (buluta gider)', path: path.join(home, 'Google Drive') },
-    { label: 'Dropbox (buluta gider)', path: path.join(home, 'Dropbox') },
-    { label: 'Belgeler (sadece bu bilgisayar)', path: path.join(home, 'Documents') },
+    { label: stt('OneDrive (buluta gider)'), path: process.env.OneDrive || path.join(home, 'OneDrive') },
+    { label: stt('Google Drive (buluta gider)'), path: 'G:\\My Drive' },
+    { label: stt('Google Drive (buluta gider)'), path: "G:\\Drive'ım" },
+    { label: stt('Google Drive (buluta gider)'), path: path.join(home, 'Google Drive') },
+    { label: stt('Dropbox (buluta gider)'), path: path.join(home, 'Dropbox') },
+    { label: stt('Belgeler (sadece bu bilgisayar)'), path: path.join(home, 'Documents') },
   ]
   const seen = new Set()
   return cands.filter((c) => {
@@ -237,7 +238,7 @@ export function registerBackupRoutes(app) {
     const patch = {}
     if (typeof b.target === 'string') {
       const t = b.target.trim().replace(/^"|"$/g, '')
-      if (t && !fs.existsSync(t)) return res.status(400).json({ error: 'Bu klasör bulunamadı: ' + t })
+      if (t && !fs.existsSync(t)) return res.status(400).json({ error: stt('Bu klasör bulunamadı: ') + t })
       patch.target = t
     }
     if (['off', 'daily', 'weekly'].includes(b.auto)) patch.auto = b.auto

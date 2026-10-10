@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { formatEntry, isFullDate, isUnknownDate, makeEntry, parseEntry, UNKNOWN_DATE } from '../lib/dateRange'
+import { tt, monthNames, dayNames } from '../lib/i18n'
 
-const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
-const TR_DAYS = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz']
+const TR_MONTHS = monthNames()
+const TR_DAYS = dayNames('two')
 
 function fmt(iso: string): string {
   const [y, m, day] = iso.split('-')
@@ -58,7 +59,7 @@ function MiniCalendar({
           type="button"
           onClick={() => setMode(mode === 'days' ? 'months' : mode === 'months' ? 'years' : 'days')}
           className="text-sm font-semibold text-neutral-100 hover:text-[#00c0fa] px-2 py-0.5 rounded transition"
-          title="Ay / yıl seç"
+          title={tt('Ay / yıl seç')}
         >
           {mode === 'days' ? `${TR_MONTHS[cursor.m]} ${cursor.y}` : mode === 'months' ? cursor.y : `${yearsFrom} – ${yearsFrom + 11}`}
         </button>
@@ -238,7 +239,7 @@ export default function DateChipEditor({
                   active ? 'bg-[#00c0fa]/10 border-[#00c0fa]/60' : 'bg-neutral-800 border-neutral-700'
                 }`}
               >
-                <button type="button" onClick={() => (active ? cancel() : startEdit(d))} title="Bu tarihi düzenle" className="hover:text-neutral-50 transition">
+                <button type="button" onClick={() => (active ? cancel() : startEdit(d))} title={tt('Bu tarihi düzenle')} className="hover:text-neutral-50 transition">
                   {!isFullDate(d) ? (
                     <span className="italic">{formatEntry(d, fmt)}</span>
                   ) : (
@@ -259,7 +260,7 @@ export default function DateChipEditor({
                     if (active) cancel()
                     onChange(dates.filter((x) => x !== d))
                   }}
-                  title="Bu tarihi sil"
+                  title={tt('Bu tarihi sil')}
                   className="h-4 w-4 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 transition"
                 >
                   ×
@@ -274,17 +275,17 @@ export default function DateChipEditor({
         <p className="text-[11px] text-neutral-400 min-w-0">
           {editing
             ? !isFullDate(editing)
-              ? `${formatEntry(editing, fmt)} — hatırladıysan güne tıkla`
-              : `${fmt(parseEntry(editing).start)}${parseEntry(editing).end ? ' → ' + fmt(parseEntry(editing).end!) : ''} düzenleniyor — yeni güne tıkla`
+              ? tt('{0} — hatırladıysan güne tıkla', formatEntry(editing, fmt))
+              : tt('{0}{1} düzenleniyor — yeni güne tıkla', fmt(parseEntry(editing).start), parseEntry(editing).end ? ' → ' + fmt(parseEntry(editing).end!) : '')
             : pendingStart
-              ? `Başlangıç ${fmt(pendingStart)} — şimdi bitirdiğin güne tıkla`
+              ? tt('Başlangıç {0} — şimdi bitirdiğin güne tıkla', fmt(pendingStart))
               : rangeOn
-                ? 'Önce başladığın güne tıkla'
-                : 'Eklemek için bir güne tıkla'}
+                ? tt('Önce başladığın güne tıkla')
+                : tt('Eklemek için bir güne tıkla')}
         </p>
         {allowRange && (
           <label className="flex items-center gap-1.5 shrink-0 cursor-pointer text-[11px] text-neutral-300">
-            <span>Bitiş tarihi</span>
+            <span>{tt('Bitiş tarihi')}</span>
             <button
               type="button"
               role="switch"
@@ -312,8 +313,8 @@ export default function DateChipEditor({
       <div className="flex flex-wrap items-center gap-1.5">
         {!rangeOn &&
           [
-            ['Bugün', 0],
-            ['Dün', 1],
+            [tt('Bugün'), 0],
+            [tt('Dün'), 1],
           ].map(([label, off]) => (
             <button
               key={label}
@@ -332,28 +333,28 @@ export default function DateChipEditor({
                 setYearOpen((v) => !v)
                 setYearText(editingYear ? editingYear.slice(0, 4) : '')
               }}
-              title="Gününü hatırlamıyorsan sadece yılını yaz"
+              title={tt('Gününü hatırlamıyorsan sadece yılını yaz')}
               className={`whitespace-nowrap text-[11px] rounded-md border px-2 py-1 transition ${
                 yearOpen ? 'border-[#00c0fa] text-[#7fdcff]' : 'border-neutral-700 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff]'
               }`}
             >
-              Sadece yıl
+              {tt('Sadece yıl')}
             </button>
             {!dates.includes(UNKNOWN_DATE) && (
               <button
                 type="button"
                 onClick={() => save(UNKNOWN_DATE)}
-                title="Ne zaman izlediğini hiç hatırlamıyorsan — İzlendi sayılır, takvime ve yıllık sayımlara girmez"
+                title={tt('Ne zaman izlediğini hiç hatırlamıyorsan — İzlendi sayılır, takvime ve yıllık sayımlara girmez')}
                 className="whitespace-nowrap text-[11px] rounded-md border border-neutral-700 px-2 py-1 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] transition"
               >
-                Hatırlamıyorum
+                {tt('Hatırlamıyorum')}
               </button>
             )}
           </>
         )}
         {(editing || pendingStart) && (
           <button type="button" onClick={cancel} className="ml-auto text-[11px] text-neutral-400 hover:text-neutral-100">
-            Vazgeç
+            {tt('Vazgeç')}
           </button>
         )}
       </div>
@@ -372,7 +373,7 @@ export default function DateChipEditor({
                 saveYear()
               }
             }}
-            placeholder={`ör. ${thisYear - 5}`}
+            placeholder={tt('ör. {0}', thisYear - 5)}
             className="w-20 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none focus:border-[#00c0fa]"
           />
           <button
@@ -381,9 +382,9 @@ export default function DateChipEditor({
             onClick={saveYear}
             className="text-[11px] rounded-md bg-[#00c0fa] px-2.5 py-1 font-medium text-neutral-950 disabled:opacity-40 transition"
           >
-            Ekle
+            {tt('Ekle')}
           </button>
-          <span className="text-[11px] text-neutral-500">Günü bilinmiyor, sadece yılı yazılır</span>
+          <span className="text-[11px] text-neutral-500">{tt('Günü bilinmiyor, sadece yılı yazılır')}</span>
         </div>
       )}
     </div>

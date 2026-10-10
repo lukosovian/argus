@@ -1,4 +1,5 @@
 import { filterConditions, rowMatchesConditions, type FilterLike } from './filters'
+import { tt } from './i18n'
 import { ratingAverage, type Board, type Row, type RowTitleSize } from '../types'
 import { resolveRole } from './roles'
 
@@ -40,7 +41,7 @@ export function metaSummary(
 export function formatRuntime(mins: number): string {
   const h = Math.floor(mins / 60)
   const m = mins % 60
-  return h > 0 ? `${h}s ${m}dk` : `${m}dk`
+  return h > 0 ? tt('{0}s {1}dk', h, m) : tt('{0}dk', m)
 }
 
 // Vitrin (Netflix tarzı öne çıkan afiş) için özel, kısa tutulmuş bir özet: Kategori, Tür'den
@@ -75,7 +76,7 @@ export function showcaseMeta(board: Board, row: Row, seasonCount?: number): stri
   }
 
   if (typeof seasonCount === 'number' && seasonCount > 0) {
-    bits.push(seasonCount === 1 ? '1 Sezon' : `${seasonCount} Sezon`)
+    bits.push(seasonCount === 1 ? tt('1 Sezon') : tt('{0} Sezon', seasonCount))
   } else {
     const sureProp = resolveRole(board, 'sure')
     const mins = sureProp ? row.values[sureProp.id] : undefined

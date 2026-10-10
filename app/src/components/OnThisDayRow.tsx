@@ -4,6 +4,7 @@ import type { Board, Row, WatchedMap } from '../types'
 import { titleText } from '../types'
 import { api } from '../lib/api'
 import { resolveRole } from '../lib/roles'
+import { tt } from '../lib/i18n'
 
 // "Geçmiş yıllarda bugün" — takvimle birlikte gelen ana sayfa satırı: bugünün ayı-günü, önceki
 // yıllarda ne izlemişsin (izleme tarihi ya da bölüm işaretleri). Hiçbir şey yoksa satır hiç görünmez.
@@ -62,12 +63,12 @@ export default function OnThisDayRow({
   return (
     <div>
       <div className="flex items-baseline gap-3 mb-2">
-        <h2 className={titleClass ?? 'text-xl font-semibold text-neutral-200'}>Geçmiş yıllarda bugün</h2>
+        <h2 className={titleClass ?? 'text-xl font-semibold text-neutral-200'}>{tt('Geçmiş yıllarda bugün')}</h2>
         <button
           onClick={() => navigate(calendarLink(hits[0].year))}
           className="text-xs text-neutral-500 hover:text-[#00c0fa] transition"
         >
-          Takvimde gör ›
+          {tt('Takvimde gör ›')}
         </button>
       </div>
       <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
@@ -81,17 +82,17 @@ export default function OnThisDayRow({
                 <div className="relative aspect-video rounded-lg overflow-hidden bg-neutral-800">
                   {image && <img src={image} alt={title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />}
                   <span className="absolute top-2 left-2 text-[11px] font-semibold text-white bg-[#00c0fa] rounded px-2 py-0.5 shadow">
-                    {ago === 1 ? '1 yıl önce' : `${ago} yıl önce`}
+                    {ago === 1 ? tt('1 yıl önce') : tt('{0} yıl önce', ago)}
                   </span>
                 </div>
                 <p className="text-sm text-neutral-200 font-medium mt-1.5 truncate">{title}</p>
               </button>
               <p className="text-xs text-neutral-500 truncate">
                 {year}
-                {episodes > 0 ? ` · ${episodes} bölüm izledin` : ' · izledin'}
+                {episodes > 0 ? tt(' · {0} bölüm izledin', episodes) : tt(' · izledin')}
                 {' · '}
                 <button onClick={() => navigate(calendarLink(year))} className="hover:text-[#00c0fa] transition">
-                  takvimde gör
+                  {tt('takvimde gör')}
                 </button>
               </p>
             </div>

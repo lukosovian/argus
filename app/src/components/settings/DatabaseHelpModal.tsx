@@ -1,4 +1,5 @@
 import { BRAND_TEXT } from '../../lib/theme'
+import { tt } from '../../lib/i18n'
 
 // Ayarlar → Veritabanı başlığının yanındaki "?" ile açılan, bu bölümün nasıl çalıştığını
 // Yardım Merkezi'yle aynı derinlikte anlatan pencere — her bir alt-sekme (Arşivler/Şablonlar/
@@ -148,70 +149,57 @@ function GearWireframe() {
 
 const SECTIONS: { title: string; wireframe: React.ReactNode; text: React.ReactNode }[] = [
   {
-    title: '1. Arşivler',
+    title: tt('1. Arşivler'),
     wireframe: <ArsivlerWireframe />,
     text: (
       <>
-        Birden fazla arşiv oluşturabilirsin (filmler, kitaplar, oyunlar...). Her birinin kendi sütunları vardır,
-        istediğin gibi ekleyip/silebilirsin, arşivin içinde <strong className="text-neutral-200">Tablo</strong> ya da{' '}
-        <strong className="text-neutral-200">Galeri</strong> görünümü arasında geçebilirsin. "+ Yeni Arşiv"e basınca
-        boş mı başlayacağını yoksa bir şablon mu kullanacağını seçersin.
+        {tt('Birden fazla arşiv oluşturabilirsin (filmler, kitaplar, oyunlar...). Her birinin kendi sütunları vardır, istediğin gibi ekleyip/silebilirsin, arşivin içinde')}{' '}<strong className="text-neutral-200">{tt('Tablo')}</strong>{' '}{tt('ya da')}{' '}
+        <strong className="text-neutral-200">{tt('Galeri')}</strong>{' '}{tt('görünümü arasında geçebilirsin. "+ Yeni Arşiv"e basınca boş mı başlayacağını yoksa bir şablon mu kullanacağını seçersin.')}
       </>
     ),
   },
   {
-    title: '2. Şablonlar',
+    title: tt('2. Şablonlar'),
     wireframe: <SablonlarWireframe />,
     text: (
       <>
-        Hazır ya da kendi oluşturduğun bir sütun setiyle <strong className="text-neutral-200">tek tıkla</strong> yeni
-        arşiv açar. "Şablonu Kullan"a basınca hangi sütunları istediğini seçersin, isteğe bağlı olarak bir CSV'yi de
-        doğrudan bu adımda içe aktarabilir, hatta eksikleri TMDB'den otomatik doldurtabilirsin — üçü de aynı ekranda.
+        {tt('Hazır ya da kendi oluşturduğun bir sütun setiyle')}{' '}<strong className="text-neutral-200">{tt('tek tıkla')}</strong>{' '}{tt('yeni arşiv açar. "Şablonu Kullan"a basınca hangi sütunları istediğini seçersin, isteğe bağlı olarak bir CSV\'yi de doğrudan bu adımda içe aktarabilir, hatta eksikleri TMDB\'den otomatik doldurtabilirsin — üçü de aynı ekranda.')}
       </>
     ),
   },
   {
-    title: '3. İçe Aktar',
+    title: tt('3. İçe Aktar'),
     wireframe: <IceAktarWireframe />,
     text: (
       <>
-        Bir CSV dosyasından (Notion'dan dışa aktardığın ya da başka bir yerden gelen) yeni bir arşiv oluşturur. Her
-        CSV sütununu hangi arşiv sütununa gideceğini kendin seçersin (adı benzer olanlar otomatik eşlenir), görsel
-        sütunu varsa görsel dosyalarını da ayrıca seçersin.
+        {tt('Bir CSV dosyasından (Notion\'dan dışa aktardığın ya da başka bir yerden gelen) yeni bir arşiv oluşturur. Her CSV sütununu hangi arşiv sütununa gideceğini kendin seçersin (adı benzer olanlar otomatik eşlenir), görsel sütunu varsa görsel dosyalarını da ayrıca seçersin.')}
       </>
     ),
   },
   {
-    title: '4. API',
+    title: tt('4. API'),
     wireframe: <ApiWireframe />,
     text: (
       <>
-        TMDB'den otomatik bilgi çekmek istersen kendi ücretsiz anahtarını girdiğin yer — herkes kendi anahtarını
-        girmek zorunda, tek bir ortak anahtar yok. Girmezsen uygulamanın geri kalanı hiç etkilenmez, sadece aşağıdaki
-        otomatik doldurma özelliği kullanılamaz.
+        {tt('TMDB\'den otomatik bilgi çekmek istersen kendi ücretsiz anahtarını girdiğin yer — herkes kendi anahtarını girmek zorunda, tek bir ortak anahtar yok. Girmezsen uygulamanın geri kalanı hiç etkilenmez, sadece aşağıdaki otomatik doldurma özelliği kullanılamaz.')}
       </>
     ),
   },
   {
-    title: '5. Bir kaydı TMDB’den doldurma',
+    title: tt('5. Bir kaydı TMDB’den doldurma'),
     wireframe: <RowMenuWireframe />,
     text: (
       <>
-        Bir arşivin içinde her satırın solundaki <strong className="text-neutral-200">⠿</strong> simgesine tıkla —
-        açılan menüdeki <strong className="text-neutral-200">Güncelle</strong> ile o kaydı TMDB'den doldurabilir (başlığa bakarak
-        poster, oyuncular, tür, sinopsis gibi boş alanları tek tek doldurur), altına yeni satır ekleyebilir ya da
-        silebilirsin. Bunun için önce API sekmesinden bir anahtar girmiş olman gerekir.
+        {tt('Bir arşivin içinde her satırın solundaki')}{' '}<strong className="text-neutral-200">⠿</strong>{' '}{tt('simgesine tıkla — açılan menüdeki')}{' '}<strong className="text-neutral-200">{tt('Güncelle')}</strong>{' '}{tt('ile o kaydı TMDB\'den doldurabilir (başlığa bakarak poster, oyuncular, tür, sinopsis gibi boş alanları tek tek doldurur), altına yeni satır ekleyebilir ya da silebilirsin. Bunun için önce API sekmesinden bir anahtar girmiş olman gerekir.')}
       </>
     ),
   },
   {
-    title: '6. Hangi alanlar doldurulsun',
+    title: tt('6. Hangi alanlar doldurulsun'),
     wireframe: <GearWireframe />,
     text: (
       <>
-        Tablonun üstündeki <strong className="text-neutral-200">⚙</strong> ikonundan, API'nin hangi alanları
-        doldurup dolduramayacağını tek tek açıp kapatırsın — zaten dolu bir alana asla dokunulmaz, bu sadece boşken
-        doldurulsun mu diye seçer.
+        {tt('Tablonun üstündeki')}{' '}<strong className="text-neutral-200">⚙</strong>{' '}{tt('ikonundan, API\'nin hangi alanları doldurup dolduramayacağını tek tek açıp kapatırsın — zaten dolu bir alana asla dokunulmaz, bu sadece boşken doldurulsun mu diye seçer.')}
       </>
     ),
   },
@@ -225,18 +213,17 @@ export default function DatabaseHelpModal({ onClose }: { onClose: () => void }) 
     >
       <div className="w-full max-w-4xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-lg font-semibold text-neutral-50">Veritabanı Nasıl Çalışır?</h2>
+          <h2 className="text-lg font-semibold text-neutral-50">{tt('Veritabanı Nasıl Çalışır?')}</h2>
           <button
             onClick={onClose}
-            aria-label="Kapat"
+            aria-label={tt('Kapat')}
             className="h-8 w-8 shrink-0 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-500 flex items-center justify-center text-neutral-400 hover:text-neutral-50 text-lg leading-none transition"
           >
             ×
           </button>
         </div>
         <p className="text-sm text-neutral-500 mb-6">
-          Bu sekmenin dört bölümü ve içindeki bir arşivde API'nin nasıl kullanılacağı — Yardım Merkezi'ndeki gibi,
-          burada da her adımın küçük bir taslağı var.
+          {tt('Bu sekmenin dört bölümü ve içindeki bir arşivde API\'nin nasıl kullanılacağı — Yardım Merkezi\'ndeki gibi, burada da her adımın küçük bir taslağı var.')}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-8">

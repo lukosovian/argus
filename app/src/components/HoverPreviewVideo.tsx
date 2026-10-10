@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
 import { beginHoverVideo, endHoverVideo } from '../lib/videoGuard'
+import { tt } from '../lib/i18n'
 
 // Kart üzerine gelince kapak görseli yerine, sessiz başlayan (tarayıcıların otomatik oynatma
 // kuralı gereği) ama küçük bir hoparlör düğmesiyle sesi açılabilen bir YouTube önizlemesi
@@ -114,7 +115,7 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
           tabIndex={0}
           onClick={toggleMute}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleMute(e)}
-          title={muted ? 'Sesi aç' : 'Sesi kapat'}
+          title={muted ? tt('Sesi aç') : tt('Sesi kapat')}
           className="absolute bottom-1.5 right-1.5 z-10 h-6 w-6 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white text-xs pointer-events-auto cursor-pointer transition"
         >
           {muted ? '🔇' : '🔊'}

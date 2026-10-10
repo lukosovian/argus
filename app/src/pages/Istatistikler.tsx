@@ -12,6 +12,7 @@ import { ROLE_DEFS, resolveRole, resolveStatusOption, type RoleKey } from '../li
 import Select from '../components/Select'
 import { entryEnd } from '../lib/dateRange'
 import { withLocative } from '../lib/turkce'
+import { tt, ttx, monthNames, getLang } from '../lib/i18n'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -44,20 +45,20 @@ interface StatSlot {
 }
 
 const STAT_SLOTS: StatSlot[] = [
-  { key: 'durum', label: 'Durum', type: 'select', hint: '"İzlenen" sayısı ve durum dağılımı grafiği için — tek seçimli bir sütun (ör. İzlendi/İzlenecek).' },
-  { key: 'kategori', label: 'Kategori', type: 'select', hint: 'Kategori dağılımı grafiği için — tek seçimli bir sütun (ör. Film/Dizi).' },
-  { key: 'tur', label: 'Tür', type: 'multiselect', hint: '"En çok geçen türler" için — çoklu seçim bir sütun.' },
-  { key: 'ulke', label: 'Ülke', type: 'multiselect', hint: '"En çok geçen ülkeler" için — çoklu seçim bir sütun.' },
-  { key: 'vizyon', label: 'Vizyon / Yayın Tarihi', type: 'date', hint: 'Yıla göre dağılım grafiği için — tarih tipi bir sütun.' },
+  { key: 'durum', label: tt('Durum'), type: 'select', hint: tt('"İzlenen" sayısı ve durum dağılımı grafiği için — tek seçimli bir sütun (ör. İzlendi/İzlenecek).') },
+  { key: 'kategori', label: tt('Kategori'), type: 'select', hint: tt('Kategori dağılımı grafiği için — tek seçimli bir sütun (ör. Film/Dizi).') },
+  { key: 'tur', label: tt('Tür'), type: 'multiselect', hint: tt('"En çok geçen türler" için — çoklu seçim bir sütun.') },
+  { key: 'ulke', label: tt('Ülke'), type: 'multiselect', hint: tt('"En çok geçen ülkeler" için — çoklu seçim bir sütun.') },
+  { key: 'vizyon', label: tt('Vizyon / Yayın Tarihi'), type: 'date', hint: tt('Yıla göre dağılım grafiği için — tarih tipi bir sütun.') },
   {
     key: 'sure',
-    label: 'Süre',
+    label: tt('Süre'),
     type: 'number',
-    hint: 'Toplam izleme süresi için — dakika cinsinden sayı sütunu. Not: TMDB otomatik doldurma bu alanı şu an SADECE filmler için dolduruyor, dizilerin bölüm süreleri toplanmıyor — "Toplam süre" bu yüzden aslında yalnızca izlediğin filmleri sayar.',
+    hint: tt('Toplam izleme süresi için — dakika cinsinden sayı sütunu. Not: TMDB otomatik doldurma bu alanı şu an SADECE filmler için dolduruyor, dizilerin bölüm süreleri toplanmıyor — "Toplam süre" bu yüzden aslında yalnızca izlediğin filmleri sayar.'),
   },
-  { key: 'puan', label: 'Puan', type: 'rating', hint: 'Ortalama puan ve puan dağılımı için — "Puan (kriterli)" tipi bir sütun.' },
-  { key: 'oyuncular', label: 'Oyuncular', type: 'multiselect', hint: '"En çok karşına çıkan oyuncular" için — çoklu seçim bir sütun.' },
-  { key: 'izlemeTarihi', label: 'İzleme Tarihi', type: 'multidate', hint: '"Son 12 ay" grafiği ve "bu yıl izlediğin" sayısı için — tarih ya da çoklu tarih sütunu.' },
+  { key: 'puan', label: tt('Puan'), type: 'rating', hint: tt('Ortalama puan ve puan dağılımı için — "Puan (kriterli)" tipi bir sütun.') },
+  { key: 'oyuncular', label: tt('Oyuncular'), type: 'multiselect', hint: tt('"En çok karşına çıkan oyuncular" için — çoklu seçim bir sütun.') },
+  { key: 'izlemeTarihi', label: tt('İzleme Tarihi'), type: 'multidate', hint: tt('"Son 12 ay" grafiği ve "bu yıl izlediğin" sayısı için — tarih ya da çoklu tarih sütunu.') },
 ]
 
 interface Bucket {
@@ -79,7 +80,7 @@ function selectBreakdown(rows: Row[], prop: PropertyDef | undefined): Bucket[] {
   // 8'den fazla dilim olursa (paletteki renk sayısı) fazlası "Diğer"e toplanır — renk asla üretilmez.
   if (all.length <= 8) return all
   const kept = all.slice(0, 7)
-  return [...kept, { id: '__other', label: 'Diğer', count: all.slice(7).reduce((s, b) => s + b.count, 0) }]
+  return [...kept, { id: '__other', label: tt('Diğer'), count: all.slice(7).reduce((s, b) => s + b.count, 0) }]
 }
 
 // Çoklu-seçim (Tür, Ülke, Oyuncular) bir sütunun en çok geçen N değeri.
@@ -103,15 +104,15 @@ function multiBreakdown(prop: PropertyDef | undefined, rows: Row[], topN: number
 
 // Kutucuğa sığsın diye büyük değer tek birim (gün ya da saat), kalanı alt satırda.
 function formatTotalMinutes(mins: number): { value: string; rest: string } {
-  if (mins <= 0) return { value: '0 saat', rest: '' }
+  if (mins <= 0) return { value: tt('0 saat'), rest: '' }
   const days = Math.floor(mins / (60 * 24))
   const hours = Math.floor((mins % (60 * 24)) / 60)
-  if (days > 0) return { value: `${days} gün`, rest: hours ? `+ ${hours} saat · ` : '' }
+  if (days > 0) return { value: tt('{0} gün', days), rest: hours ? tt('+ {0} saat · ', hours) : '' }
   return { value: `${hours} saat`, rest: '' }
 }
 
-const TR_MONTHS_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
-const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
+const TR_MONTHS_SHORT = monthNames('short')
+const TR_MONTHS = monthNames()
 
 function useStats(board: Board | null | undefined, rows: Row[]) {
   return useMemo(() => {
@@ -270,7 +271,7 @@ function StatTile({ label, value, sub, hint, accent = false, progress }: { label
 }
 
 function Empty() {
-  return <p className="text-sm text-neutral-600">Henüz veri yok.</p>
+  return <p className="text-sm text-neutral-600">{tt('Henüz veri yok.')}</p>
 }
 
 // ---- grafikler -----------------------------------------------------------------------------
@@ -289,7 +290,7 @@ function StackedBar({ buckets, palette }: { buckets: Bucket[]; palette: Palette 
         {buckets.map((b, i) => (
           <div
             key={b.id}
-            {...bind(b.label, `${b.count} kayıt · ${pct(b.count)}`)}
+            {...bind(b.label, tt('{0} kayıt · {1}', b.count, pct(b.count)))}
             style={{ width: `${(b.count / total) * 100}%`, background: color(b, i), opacity: active && active !== b.label ? 0.45 : 1 }}
             className="min-w-[3px] transition-opacity first:rounded-l-md last:rounded-r-md"
           />
@@ -321,7 +322,7 @@ function MagnitudeBars({ buckets, otherCount, otherLabel, palette }: { buckets: 
   return (
     <div className="space-y-2">
       {buckets.map((b, i) => (
-        <div key={b.id} className="group flex items-center gap-3" {...bind(b.label, `${b.count} kayıt`)}>
+        <div key={b.id} className="group flex items-center gap-3" {...bind(b.label, tt('{0} kayıt', b.count))}>
           <span className="text-xs text-neutral-500 w-4 text-right tabular-nums shrink-0">{i + 1}</span>
           <span className="text-sm text-neutral-300 w-24 sm:w-32 truncate shrink-0">{b.label}</span>
           <div className="flex-1 h-6 flex items-center">
@@ -333,7 +334,7 @@ function MagnitudeBars({ buckets, otherCount, otherLabel, palette }: { buckets: 
           <span className="text-xs text-neutral-400 w-9 text-right tabular-nums shrink-0">{b.count}</span>
         </div>
       ))}
-      {otherCount > 0 && <p className="text-xs text-neutral-500 pt-2 pl-7">+ {otherLabel}: {otherCount} işaretleme daha</p>}
+      {otherCount > 0 && <p className="text-xs text-neutral-500 pt-2 pl-7">{ttx('+ {0}: {1} işaretleme daha', otherLabel, otherCount)}</p>}
       {node}
     </div>
   )
@@ -364,7 +365,7 @@ function Columns({
             key={d.key}
             className={`flex-1 min-w-0 h-full flex flex-col justify-end items-center ${onPick ? 'cursor-pointer' : ''}`}
             onClick={onPick ? () => onPick(d.key) : undefined}
-            {...bind(d.tipTitle, onPick ? `${d.count} kayıt · takvimde görmek için tıkla` : `${d.count} kayıt`)}
+            {...bind(d.tipTitle, onPick ? tt('{0} kayıt · takvimde görmek için tıkla', d.count) : tt('{0} kayıt', d.count))}
           >
             {d.key === maxKey && <span className="text-[11px] font-semibold text-neutral-300 mb-1 tabular-nums">{d.count}</span>}
             <div
@@ -411,7 +412,7 @@ function ActorGrid({ buckets, palette }: { buckets: Bucket[]; palette: Palette }
             </span>
           </div>
           <p className="text-sm text-neutral-100 font-medium mt-2 leading-tight line-clamp-2 min-h-[2.5em]">{b.label}</p>
-          <p className="text-xs text-neutral-500 mt-0.5">{b.count} kayıt</p>
+          <p className="text-xs text-neutral-500 mt-0.5">{ttx('{0} kayıt', b.count)}</p>
           <div className="w-full h-1 rounded-full bg-neutral-800 mt-2 overflow-hidden">
             <div className="h-full rounded-full" style={{ width: `${(b.count / max) * 100}%`, background: palette.sequential }} />
           </div>
@@ -454,10 +455,10 @@ function MappingPanel({ board, onSave }: { board: Board; onSave: (patch: Partial
         className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left text-sm text-neutral-300 hover:text-neutral-50 transition"
       >
         <span>
-          <span className="block font-medium">Sütunları Eşleştir</span>
-          <span className="block text-xs text-neutral-500 mt-0.5">Grafikler yanlış ya da boş görünüyorsa hangi sütundan beslendiklerini buradan seç.</span>
+          <span className="block font-medium">{tt('Sütunları Eşleştir')}</span>
+          <span className="block text-xs text-neutral-500 mt-0.5">{tt('Grafikler yanlış ya da boş görünüyorsa hangi sütundan beslendiklerini buradan seç.')}</span>
         </span>
-        <span className="text-neutral-500 text-xs shrink-0">{open ? 'Gizle ▲' : 'Göster ▼'}</span>
+        <span className="text-neutral-500 text-xs shrink-0">{open ? tt('Gizle ▲') : tt('Göster ▼')}</span>
       </button>
       {open && (
         <div className="px-5 pb-5 border-t border-neutral-800 pt-4 space-y-3">
@@ -475,8 +476,8 @@ function MappingPanel({ board, onSave }: { board: Board; onSave: (patch: Partial
                   disabled={saving === s.key}
                   className="flex-1"
                   options={[
-                    { value: '__auto__', label: 'Otomatik (adına göre bul)' },
-                    { value: '__none__', label: 'Kullanma' },
+                    { value: '__auto__', label: tt('Otomatik (adına göre bul)') },
+                    { value: '__none__', label: tt('Kullanma') },
                     ...options.map((p) => ({ value: p.id, label: p.name })),
                   ]}
                 />
@@ -508,20 +509,20 @@ export default function Istatistikler() {
   const { rows, loading: rowsLoading } = useRows(selectedBoardId ?? undefined)
   const stats = useStats(board, rows)
 
-  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
 
   if (boards.length === 0) {
     return (
       <div className="px-4 py-16 text-center">
-        <p className="text-neutral-500 text-sm mb-4">İstatistik gösterebilmek için önce en az bir arşivin olması lazım — henüz hiç arşivin yok.</p>
+        <p className="text-neutral-500 text-sm mb-4">{tt('İstatistik gösterebilmek için önce en az bir arşivin olması lazım — henüz hiç arşivin yok.')}</p>
         <Link to="/arsivlerim" style={primaryButtonStyle} className={`inline-block text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
-          Arşiv Oluştur
+          {tt('Arşiv Oluştur')}
         </Link>
       </div>
     )
   }
 
-  if (boardLoading || rowsLoading || !board || !stats) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (boardLoading || rowsLoading || !board || !stats) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
 
   const year = new Date().getFullYear()
   const monthTotal = stats.months.reduce((s, m) => s + m.count, 0)
@@ -536,14 +537,14 @@ export default function Istatistikler() {
         />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">İstatistikler</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">{tt('İstatistikler')}</h1>
             <p className="text-sm text-neutral-400 mt-1.5">
-              <span style={{ color: BRAND_TEXT }}>{board.name}</span> arşivindeki {stats.total} kayda göre.
+              {ttx('{0} arşivindeki {1} kayda göre.', <span style={{ color: BRAND_TEXT }}>{board.name}</span>, stats.total)}
             </p>
           </div>
           {boards.length > 1 && (
             <div className="min-w-48">
-              <label className="block text-xs text-neutral-500 mb-1">Hangi arşiv?</label>
+              <label className="block text-xs text-neutral-500 mb-1">{tt('Hangi arşiv?')}</label>
               <Select value={selectedBoardId ?? ''} onChange={setSelectedBoardId} options={boards.map((b) => ({ value: b.id, label: b.name }))} />
             </div>
           )}
@@ -551,39 +552,39 @@ export default function Istatistikler() {
       </section>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatTile label="Toplam kayıt" value={String(stats.total)} accent />
+        <StatTile label={tt('Toplam kayıt')} value={String(stats.total)} accent />
         <StatTile
-          label="İzlenen"
+          label={tt('İzlenen')}
           value={stats.hasDurum ? String(stats.izlendiCount) : '—'}
-          sub={stats.hasDurum && stats.total ? `arşivinin %${Math.round(izlendiShare * 100)}'i` : undefined}
+          sub={stats.hasDurum && stats.total ? tt('arşivinin %{0}\'i', Math.round(izlendiShare * 100)) : undefined}
           progress={stats.hasDurum ? izlendiShare : undefined}
         />
-        <StatTile label="İzlenecek" value={stats.hasDurum ? String(stats.izlenecekCount) : '—'} sub="listende bekliyor" />
+        <StatTile label={tt('İzlenecek')} value={stats.hasDurum ? String(stats.izlenecekCount) : '—'} sub={tt('listende bekliyor')} />
         <StatTile
-          label={`${withLocative(year)} izlediğin`}
+          label={tt('{0} izlediğin', getLang() === 'tr' ? withLocative(year) : tt('{0} yılında', year))}
           value={stats.hasDates ? String(stats.thisYearRows) : '—'}
-          sub="izleme tarihine göre"
-          hint={stats.hasDates ? undefined : 'Bu sayı için kayıtlarda İzleme Tarihi dolu olmalı.'}
+          sub={tt('izleme tarihine göre')}
+          hint={stats.hasDates ? undefined : tt('Bu sayı için kayıtlarda İzleme Tarihi dolu olmalı.')}
         />
         <StatTile
-          label="Toplam süre"
+          label={tt('Toplam süre')}
           value={stats.hasSureProp ? formatTotalMinutes(stats.totalMinutes).value : '—'}
           sub={stats.hasSureProp ? `${formatTotalMinutes(stats.totalMinutes).rest}izlediklerinin` : undefined}
           hint={
             stats.hasSureProp
-              ? 'Sadece "İzlendi" durumundaki kayıtların süresi toplanıyor. Şu an yalnızca filmlerin süresi TMDB\'den otomatik doluyor — dizilerin bölüm süreleri bu sayıya dahil değil.'
-              : 'Bu arşivde süre için eşleştirilmiş bir sütun yok — en alttaki "Sütunları Eşleştir"den bir sayı sütunu seçebilirsin.'
+              ? tt('Sadece "İzlendi" durumundaki kayıtların süresi toplanıyor. Şu an yalnızca filmlerin süresi TMDB\'den otomatik doluyor — dizilerin bölüm süreleri bu sayıya dahil değil.')
+              : tt('Bu arşivde süre için eşleştirilmiş bir sütun yok — en alttaki "Sütunları Eşleştir"den bir sayı sütunu seçebilirsin.')
           }
         />
         <StatTile
-          label="Ortalama puan"
+          label={tt('Ortalama puan')}
           value={stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—'}
-          sub={stats.avgRating !== null ? `10 üzerinden · ${stats.ratedCount} kayıt` : undefined}
+          sub={stats.avgRating !== null ? tt('10 üzerinden · {0} kayıt', stats.ratedCount) : undefined}
         />
       </div>
 
       {stats.hasDates && (
-        <Card title="Son 12 ayda izlediklerin" subtitle={`İzleme tarihine göre aylık · toplam ${monthTotal} izleme (tekrar izlemeler dahil) · bir aya tıklayınca Takvim'de açılır`}>
+        <Card title={tt('Son 12 ayda izlediklerin')} subtitle={tt('İzleme tarihine göre aylık · toplam {0} izleme (tekrar izlemeler dahil) · bir aya tıklayınca Takvim\'de açılır', monthTotal)}>
           <Columns
             palette={palette}
             onPick={(key) => navigate(`/takvim?ay=${key}`)}
@@ -600,12 +601,12 @@ export default function Istatistikler() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stats.kategoriBreakdown.length > 0 && (
-          <Card title="Kategori dağılımı" subtitle="Arşivindeki her şey, kategorisine göre">
+          <Card title={tt('Kategori dağılımı')} subtitle={tt('Arşivindeki her şey, kategorisine göre')}>
             <StackedBar buckets={stats.kategoriBreakdown} palette={palette} />
           </Card>
         )}
         {stats.durumBreakdown.length > 0 && (
-          <Card title="Durum dağılımı" subtitle="İzlediklerin, izleyeceklerin ve yarım kalanlar">
+          <Card title={tt('Durum dağılımı')} subtitle={tt('İzlediklerin, izleyeceklerin ve yarım kalanlar')}>
             <StackedBar buckets={stats.durumBreakdown} palette={palette} />
           </Card>
         )}
@@ -613,20 +614,20 @@ export default function Istatistikler() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stats.genreBreakdown.top.length > 0 && (
-          <Card title="En çok geçen türler" subtitle="En sık işaretlenen 8 tür">
-            <MagnitudeBars buckets={stats.genreBreakdown.top} otherCount={stats.genreBreakdown.otherCount} otherLabel="diğer türlerde" palette={palette} />
+          <Card title={tt('En çok geçen türler')} subtitle={tt('En sık işaretlenen 8 tür')}>
+            <MagnitudeBars buckets={stats.genreBreakdown.top} otherCount={stats.genreBreakdown.otherCount} otherLabel={tt('diğer türlerde')} palette={palette} />
           </Card>
         )}
         {stats.countryBreakdown.top.length > 0 && (
-          <Card title="En çok geçen ülkeler" subtitle="En sık işaretlenen 8 ülke">
-            <MagnitudeBars buckets={stats.countryBreakdown.top} otherCount={stats.countryBreakdown.otherCount} otherLabel="diğer ülkelerde" palette={palette} />
+          <Card title={tt('En çok geçen ülkeler')} subtitle={tt('En sık işaretlenen 8 ülke')}>
+            <MagnitudeBars buckets={stats.countryBreakdown.top} otherCount={stats.countryBreakdown.otherCount} otherLabel={tt('diğer ülkelerde')} palette={palette} />
           </Card>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stats.decadeBreakdown.length > 0 && (
-          <Card title="Vizyon yılına göre" subtitle="On yıllık dilimlere göre kayıt sayısı">
+          <Card title={tt('Vizyon yılına göre')} subtitle={tt('On yıllık dilimlere göre kayıt sayısı')}>
             <Columns
               palette={palette}
               data={stats.decadeBreakdown.map(([decade, count]) => ({
@@ -639,13 +640,13 @@ export default function Istatistikler() {
           </Card>
         )}
         {stats.ratedCount > 0 && (
-          <Card title="Puan dağılımı" subtitle={`Verdiğin puanların ortalamasına göre · ${stats.ratedCount} kayıt`}>
+          <Card title={tt('Puan dağılımı')} subtitle={tt('Verdiğin puanların ortalamasına göre · {0} kayıt', stats.ratedCount)}>
             <Columns
               palette={palette}
               data={stats.ratingBins.map((b) => ({
                 key: String(b.from),
                 label: String(b.from + 1),
-                tipTitle: b.from === 9 ? '9 – 10 puan' : `${b.from} – ${b.from + 1} puan`,
+                tipTitle: b.from === 9 ? tt('9 – 10 puan') : tt('{0} – {1} puan', b.from, b.from + 1),
                 count: b.count,
               }))}
             />
@@ -654,7 +655,7 @@ export default function Istatistikler() {
       </div>
 
       {stats.actorBreakdown.top.length > 0 && (
-        <Card title="En çok karşına çıkan oyuncular" subtitle="En çok kayıtta rol aldığı ilk 10">
+        <Card title={tt('En çok karşına çıkan oyuncular')} subtitle={tt('En çok kayıtta rol aldığı ilk 10')}>
           <ActorGrid buckets={stats.actorBreakdown.top} palette={palette} />
         </Card>
       )}

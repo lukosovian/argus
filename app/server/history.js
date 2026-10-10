@@ -8,6 +8,7 @@
 //     "arşivi bu günün başındaki haline döndür" için.
 import fs from 'fs'
 import path from 'path'
+import { stt } from './lang.js'
 
 const GB = 1024 * 1024 * 1024
 const DEFAULT_LIMIT = 5 * GB
@@ -249,7 +250,7 @@ export function registerHistoryRoutes(app) {
 
   app.post('/api/history/limit', (req, res) => {
     const limitBytes = Number(req.body?.limitBytes)
-    if (!Number.isFinite(limitBytes) || limitBytes < 100 * 1024 * 1024) return res.status(400).json({ error: 'Geçersiz sınır' })
+    if (!Number.isFinite(limitBytes) || limitBytes < 100 * 1024 * 1024) return res.status(400).json({ error: stt('Geçersiz sınır') })
     rawWrite(settingsFile(), { ...readJson(settingsFile(), {}), limitBytes })
     res.json({ ok: true, limitBytes })
   })
@@ -294,15 +295,15 @@ export function registerHistoryRoutes(app) {
   app.post('/api/profiles/:profileId/history/:boardId/undo', (req, res) => {
     const { profileId, boardId } = req.params
     const entry = readLogs(profileId, boardId).find((e) => e.id === req.body?.entryId)
-    if (!entry) return res.status(404).json({ error: 'Bu değişiklik bulunamadı' })
+    if (!entry) return res.status(404).json({ error: stt('Bu değişiklik bulunamadı') })
     const file = path.join(PROFILES_DIR, profileId, 'rows', `${boardId}.json`)
     const rows = readJson(file, [])
     if (entry.type === 'delete') {
-      if (rows.some((r) => r.id === entry.rowId)) return res.status(400).json({ error: 'Bu kayıt zaten arşivinde' })
+      if (rows.some((r) => r.id === entry.rowId)) return res.status(400).json({ error: stt('Bu kayıt zaten arşivinde') })
       rows.push(entry.row)
     } else if (entry.type === 'update') {
       const r = rows.find((x) => x.id === entry.rowId)
-      if (!r) return res.status(400).json({ error: 'Kayıt artık yok — önce silinmiş halini geri getir' })
+      if (!r) return res.status(400).json({ error: stt('Kayıt artık yok — önce silinmiş halini geri getir') })
       r.values = { ...r.values }
       for (const c of entry.changes ?? []) {
         if (typeof c.from === 'string' && c.from.endsWith('…')) continue // kısaltılmış uzun metinler geri yazılmaz
@@ -312,7 +313,7 @@ export function registerHistoryRoutes(app) {
       r.updatedAt = Date.now()
     } else if (entry.type === 'create') {
       const i = rows.findIndex((x) => x.id === entry.rowId)
-      if (i < 0) return res.status(400).json({ error: 'Bu kayıt zaten silinmiş' })
+      if (i < 0) return res.status(400).json({ error: stt('Bu kayıt zaten silinmiş') })
       rows.splice(i, 1)
     }
     // writeJson kancası da çağrılsın diye dışarıdan verilen yazıcıyla
@@ -331,7 +332,7 @@ export function registerHistoryRoutes(app) {
     const day = String(req.body?.day ?? '')
     const dir = path.join(histDir(profileId, boardId), 'snap', day)
     const rows = readJson(path.join(dir, 'rows.json'), null)
-    if (!rows) return res.status(404).json({ error: 'O günün kaydı yok' })
+    if (!rows) return res.status(404).json({ error: stt('O günün kaydı yok') })
     // Dönmeden önceki hal ayrı bir kayıt olarak saklanır — yanlışlıkla dönülürse geri gelinebilsin.
     const now = new Date()
     const beforeDir = path.join(histDir(profileId, boardId), 'snap', `${localDay(now)}_donus-oncesi-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`)

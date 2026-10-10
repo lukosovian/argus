@@ -1,3 +1,4 @@
+import { tt } from './i18n'
 // İzleme tarihi aralıkları — kullanıcı "Notion'daki end date mantığı": dün başladım bugün bitirdim, ya da
 // bir diziye aylar önce başlayıp dün bitirdim. Çoklu Tarih (multidate) sütunundaki her öğe ya tek bir
 // gün ("2025-04-06") ya da bir aralık ("2025-04-06/2025-04-07", ISO aralık yazımı). Eski tek tarihler
@@ -56,8 +57,8 @@ export function toEntries(v: unknown): string[] {
 
 // "12.08.24" ya da "09.08.24 → 12.08.24"; `fmt` tek günü biçimlendirir.
 export function formatEntry(s: string, fmt: (iso: string) => string): string {
-  if (isUnknownDate(s)) return 'Tarih bilinmiyor'
-  if (isYearOnly(s)) return `${s} yılında`
+  if (isUnknownDate(s)) return tt('Tarih bilinmiyor')
+  if (isYearOnly(s)) return tt('{0} yılında', s)
   const e = parseEntry(s)
   return e.end ? `${fmt(e.start)} → ${fmt(e.end)}` : fmt(e.start)
 }

@@ -15,6 +15,7 @@ import ShelfPicker from '../components/ShelfPicker'
 import KoleksiyonImage, { type ImageItem, type ImageShelf } from '../components/KoleksiyonImage'
 import { autoShelf, commonTitle } from '../lib/shelves'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { tt, ttx } from '../lib/i18n'
 
 // Koleksiyon — kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) bir yerde
 // sergileyeyim" dedi. İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım kendiliğinden gelir (sembolü yoksa
@@ -85,7 +86,7 @@ export default function Koleksiyon() {
         setInfo(d)
         setError(null)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Sunucuya ulaşılamadı.'))
+      .catch((e) => setError(e instanceof Error ? e.message : tt('Sunucuya ulaşılamadı.')))
   }, [board])
 
   useEffect(() => {
@@ -115,7 +116,7 @@ export default function Koleksiyon() {
     return rows
       .filter((r) => durum && r.values[durum.id] && r.values[durum.id] !== later)
       .map((r) => {
-        const title = (tp ? titleText(tp, r.values[tp.id]) : '') || 'İsimsiz'
+        const title = (tp ? titleText(tp, r.values[tp.id]) : '') || tt('İsimsiz')
         const original = str(r, orig?.id) || title
         const col = info.collections[r.id]
         const source = col?.name ?? original
@@ -179,7 +180,7 @@ export default function Koleksiyon() {
     // "+ Yapım ekle" ile yapım koyulsun).
     for (const [key, v] of Object.entries(data?.shelves ?? {})) {
       if (!v.manual || groups.has(key)) continue
-      const name = v.name || 'Yeni raf'
+      const name = v.name || tt('Yeni raf')
       const members = items.filter((it) => it.extra.includes(key)).sort((a, b) => (a.year || '9999').localeCompare(b.year || '9999'))
       list.push({ key, name, autoName: name, seriesName: name, symbol: v.image ?? null, custom: Boolean(v.image), manual: true, items: members })
     }
@@ -215,7 +216,7 @@ export default function Koleksiyon() {
       patch.shelves = { [key]: { rows: [...selected] } }
       for (const [id, v] of Object.entries(info.data.items)) if (v.shelf === key) patch.items![id] = { shelf: null }
       await save(patch)
-      notify('Raf güncellendi.')
+      notify(tt('Raf güncellendi.'))
       return
     }
     for (const it of items) {
@@ -225,7 +226,7 @@ export default function Koleksiyon() {
       patch.items![it.row.id] = { shelf: now ? key : it.autoKey === key ? '' : null }
     }
     await save(patch)
-    notify('Raf güncellendi.')
+    notify(tt('Raf güncellendi.'))
   }
 
   async function createShelf(name: string) {
@@ -243,7 +244,7 @@ export default function Koleksiyon() {
     setImage({
       shelves: filteredShelves.filter((s) => s.shown.length).map((s) => ({ name: s.name, symbol: s.symbol, items: s.shown.map(toImg) })),
       loose: filteredLoose.map(toImg),
-      stats: [`${items.length} yapım`, `${shelves.filter((s) => s.items.length).length} raf`, symbolCount ? `${symbolCount} sembol` : ''].filter(Boolean).join(' · '),
+      stats: [tt('{0} yapım', items.length), `${shelves.filter((s) => s.items.length).length} raf`, symbolCount ? `${symbolCount} sembol` : ''].filter(Boolean).join(' · '),
       filtered: !noFilter,
     })
   }
@@ -253,7 +254,7 @@ export default function Koleksiyon() {
       const data = await api.saveKoleksiyon(patch)
       setInfo((i) => (i ? { ...i, data } : i))
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Kaydedilemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
       throw e
     }
   }
@@ -261,11 +262,11 @@ export default function Koleksiyon() {
   if (error && !info)
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center">
-        <p className="text-lg font-semibold text-neutral-100">Koleksiyon açılamadı</p>
+        <p className="text-lg font-semibold text-neutral-100">{tt('Koleksiyon açılamadı')}</p>
         <p className="text-sm text-neutral-400 mt-2">{error}</p>
-        <p className="text-sm text-neutral-500 mt-3">ARGUS yeni güncellendiyse sunucusu eski kalmış olabilir: ARGUS'u kapatıp yeniden açmayı dene.</p>
+        <p className="text-sm text-neutral-500 mt-3">{tt('ARGUS yeni güncellendiyse sunucusu eski kalmış olabilir: ARGUS\'u kapatıp yeniden açmayı dene.')}</p>
         <button onClick={load} className="mt-5 text-sm rounded-xl px-4 py-2 border border-neutral-700 text-neutral-200 hover:border-[#00c0fa]">
-          Tekrar dene
+          {tt('Tekrar dene')}
         </button>
       </div>
     )
@@ -274,7 +275,7 @@ export default function Koleksiyon() {
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-4">
         <div className="flex items-center gap-3 text-sm text-neutral-400">
           <span className="h-4 w-4 rounded-full border-2 border-[#00c0fa] border-t-transparent animate-spin" />
-          Koleksiyonun hazırlanıyor…
+          {tt('Koleksiyonun hazırlanıyor…')}
         </div>
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-48 rounded-3xl border border-neutral-800 bg-neutral-900/40 animate-pulse" />
@@ -283,7 +284,7 @@ export default function Koleksiyon() {
     )
 
   const Exhibit = ({ it, big = false }: { it: Item; big?: boolean }) => (
-    <button onClick={() => setEditing({ kind: 'item', item: it })} className={`group text-left shrink-0 ${big ? 'w-36 sm:w-40' : 'w-full'}`} title={`${it.title} — sembolünü değiştirmek için tıkla`}>
+    <button onClick={() => setEditing({ kind: 'item', item: it })} className={`group text-left shrink-0 ${big ? 'w-36 sm:w-40' : 'w-full'}`} title={tt('{0} — sembolünü değiştirmek için tıkla', it.title)}>
       <div className="relative aspect-square rounded-2xl border border-neutral-800 group-hover:border-neutral-600 flex items-center justify-center p-4 overflow-hidden transition" style={{ background: SPOT }}>
         {it.symbol ? (
           <img src={it.symbol} alt="" loading="lazy" className="max-h-full max-w-full object-contain drop-shadow-[0_0_16px_rgba(255,255,255,0.16)] group-hover:scale-105 transition" />
@@ -295,38 +296,38 @@ export default function Koleksiyon() {
         <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✎</span>
       </div>
       <p className="text-xs text-neutral-200 mt-1.5 line-clamp-1">{it.title}</p>
-      <p className="text-[11px] text-neutral-500">{[it.year, it.isSeries ? 'Dizi' : 'Film'].filter(Boolean).join(' · ')}</p>
+      <p className="text-[11px] text-neutral-500">{[it.year, it.isSeries ? tt('Dizi') : tt('Film')].filter(Boolean).join(' · ')}</p>
     </button>
   )
 
   const shelfOptions = [
-    { value: '__auto', label: 'Kendiliğinden bulunan raf' },
-    { value: '', label: 'Rafsız' },
+    { value: '__auto', label: tt('Kendiliğinden bulunan raf') },
+    { value: '', label: tt('Rafsız') },
     ...shelves.filter((s) => !s.manual).map((s) => ({ value: s.key, label: s.name })),
   ]
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10" style={{ background: 'radial-gradient(ellipse at 20% 0%, rgba(0,192,250,0.14), transparent 60%), radial-gradient(ellipse at 90% 100%, rgba(120,60,200,0.12), transparent 60%), #0a0a0a' }}>
-        <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">ARGUS</p>
-        <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">Koleksiyon</h1>
+        <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
+        <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Koleksiyon')}</h1>
         <p className="text-neutral-300 mt-2 max-w-2xl">
-          İzlediğin, izlemekte olduğun ya da yarım bıraktığın <span className="font-bold text-neutral-50">{items.length}</span> yapım, <span className="font-bold text-neutral-50">{shelves.length}</span> rafta ve tek başına sergileniyor
+          {tt('İzlediğin, izlemekte olduğun ya da yarım bıraktığın')}{' '}<span className="font-bold text-neutral-50">{items.length}</span>{' '}{tt('yapım,')}{' '}<span className="font-bold text-neutral-50">{shelves.length}</span>{' '}{tt('rafta ve tek başına sergileniyor')}
           {symbolCount ? (
             <>
-              ; <span className="font-bold text-neutral-50">{symbolCount}</span> tanesinin kendi sembolü var
+              ; <span className="font-bold text-neutral-50">{symbolCount}</span>{' '}{tt('tanesinin kendi sembolü var')}
             </>
           ) : null}
-          . Bir yapıma ya da rafın büyük sembolüne tıklayıp sembolünü koyabilirsin.
+          {tt('. Bir yapıma ya da rafın büyük sembolüne tıklayıp sembolünü koyabilirsin.')}
         </p>
       </section>
 
       {info.pending && (
         <BackgroundProgress
-          title="İlk açılış: filmlerinin hangi seriden olduğu TMDB'den öğreniliyor"
+          title={tt('İlk açılış: filmlerinin hangi seriden olduğu TMDB\'den öğreniliyor')}
           done={info.pending.done}
           total={info.pending.total}
-          note="Raflar bu sırada kendiliğinden tamamlanıyor, sayfayı kullanmaya devam edebilirsin. Bu sadece ilk seferde (ve yeni eklediğin filmler için) olur."
+          note={tt('Raflar bu sırada kendiliğinden tamamlanıyor, sayfayı kullanmaya devam edebilirsin. Bu sadece ilk seferde (ve yeni eklediğin filmler için) olur.')}
         />
       )}
 
@@ -334,7 +335,7 @@ export default function Koleksiyon() {
         <div className="grid grid-cols-3 rounded-xl bg-neutral-900 border border-neutral-800 p-1 text-sm">
           {(['hepsi', 'film', 'dizi'] as const).map((k) => (
             <button key={k} onClick={() => setKind(k)} className={`px-3 py-1 rounded-lg transition ${kind === k ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:text-neutral-100'}`}>
-              {k === 'hepsi' ? 'Hepsi' : k === 'film' ? 'Filmler' : 'Diziler'}
+              {k === 'hepsi' ? tt('Hepsi') : k === 'film' ? tt('Filmler') : tt('Diziler')}
             </button>
           ))}
         </div>
@@ -342,18 +343,18 @@ export default function Koleksiyon() {
           onClick={() => setOnlySymbols((v) => !v)}
           className={`text-sm rounded-xl px-3 py-1.5 border transition ${onlySymbols ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
         >
-          Sadece sembolü olanlar
+          {tt('Sadece sembolü olanlar')}
         </button>
         <button onClick={() => setNewShelf('')} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
-          + Yeni raf
+          {tt('+ Yeni raf')}
         </button>
         <button onClick={openImage} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
-          Görsel oluştur
+          {tt('Görsel oluştur')}
         </button>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Koleksiyonda ara…"
+          placeholder={tt('Koleksiyonda ara…')}
           className="ml-auto w-full sm:w-56 rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
         />
       </div>
@@ -363,7 +364,7 @@ export default function Koleksiyon() {
           <button
             onClick={() => setEditing({ kind: 'shelf', key: s.key, name: s.name, symbol: info.data.shelves[s.key]?.image ?? null, fallback: DEFAULT_SHELF_SYMBOLS[s.key] ?? null })}
             className="group shrink-0 w-32 sm:w-48 text-left"
-            title="Rafın sembolünü ve adını değiştir"
+            title={tt('Rafın sembolünü ve adını değiştir')}
           >
             <div className="relative aspect-square rounded-2xl border border-neutral-800 group-hover:border-neutral-600 flex items-center justify-center p-6 transition" style={{ background: SPOT }}>
               {s.symbol ? (
@@ -371,13 +372,13 @@ export default function Koleksiyon() {
               ) : (
                 <span className="text-center">
                   <span className="block text-3xl text-neutral-700">＋</span>
-                  <span className="block text-xs text-neutral-500 mt-1">Rafa sembol ekle</span>
+                  <span className="block text-xs text-neutral-500 mt-1">{tt('Rafa sembol ekle')}</span>
                 </span>
               )}
               <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✎</span>
             </div>
             <p className="text-lg font-bold text-neutral-50 mt-2 leading-tight">{s.name}</p>
-            <p className="text-xs text-neutral-500">{s.items.length} yapım</p>
+            <p className="text-xs text-neutral-500">{ttx('{0} yapım', s.items.length)}</p>
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex gap-3 overflow-x-auto pb-3">
@@ -387,11 +388,11 @@ export default function Koleksiyon() {
               <button
                 onClick={() => setPicking({ key: s.key, name: s.name })}
                 className="shrink-0 w-36 sm:w-40 text-left group"
-                title="Bu rafa yapım ekle ya da çıkar"
+                title={tt('Bu rafa yapım ekle ya da çıkar')}
               >
                 <div className="aspect-square rounded-2xl border-2 border-dashed border-neutral-800 group-hover:border-[#00c0fa]/60 flex flex-col items-center justify-center text-neutral-500 group-hover:text-[#7fdcff] transition">
                   <span className="text-3xl leading-none">＋</span>
-                  <span className="text-xs mt-1.5">Yapım ekle</span>
+                  <span className="text-xs mt-1.5">{tt('Yapım ekle')}</span>
                 </div>
               </button>
             </div>
@@ -403,8 +404,8 @@ export default function Koleksiyon() {
 
       {filteredLoose.length > 0 && (
         <section className="rounded-3xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5">
-          <p className="text-lg font-bold text-neutral-50">Tek başına olanlar</p>
-          <p className="text-xs text-neutral-500 mb-4">Son izlediğin önce · {filteredLoose.length} yapım</p>
+          <p className="text-lg font-bold text-neutral-50">{tt('Tek başına olanlar')}</p>
+          <p className="text-xs text-neutral-500 mb-4">{ttx('Son izlediğin önce · {0} yapım', filteredLoose.length)}</p>
           <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
             {filteredLoose.map((it) => (
               <Exhibit key={it.row.id} it={it} />
@@ -413,12 +414,12 @@ export default function Koleksiyon() {
         </section>
       )}
 
-      {!filteredShelves.length && !filteredLoose.length && <p className="text-sm text-neutral-500 text-center py-10">Bu seçime uyan bir şey yok.</p>}
+      {!filteredShelves.length && !filteredLoose.length && <p className="text-sm text-neutral-500 text-center py-10">{tt('Bu seçime uyan bir şey yok.')}</p>}
 
       {editing?.kind === 'item' && (
         <SymbolEditor
           heading={editing.item.title}
-          subheading="Koleksiyondaki sembolü"
+          subheading={tt('Koleksiyondaki sembolü')}
           current={editing.item.symbol}
           fallback={editing.item.logo || null}
           shelf={{
@@ -448,14 +449,14 @@ export default function Koleksiyon() {
               }
             }
             await save(patch)
-            notify('Koleksiyon güncellendi.')
+            notify(tt('Koleksiyon güncellendi.'))
           }}
         />
       )}
       {editing?.kind === 'shelf' && (
         <SymbolEditor
-          heading={`${editing.name} rafı`}
-          subheading="Rafın büyük sembolü ve adı"
+          heading={tt('{0} rafı', editing.name)}
+          subheading={tt('Rafın büyük sembolü ve adı')}
           current={editing.symbol}
           fallback={editing.fallback}
           name={{ value: info.data.shelves[editing.key]?.name ?? '', placeholder: shelves.find((s) => s.key === editing.key)?.autoName ?? editing.name }}
@@ -463,13 +464,13 @@ export default function Koleksiyon() {
           onDelete={
             info.data.shelves[editing.key]?.manual
               ? {
-                  label: 'Rafı kaldır',
+                  label: tt('Rafı kaldır'),
                   run: async () => {
                     const key = editing.key
                     const patch: KoleksiyonPatch = { shelves: { [key]: null }, items: {} }
                     for (const [id, v] of Object.entries(info.data.items)) if (v.shelf === key) patch.items![id] = { shelf: null }
                     await save(patch)
-                    notify('Raf kaldırıldı; içindekiler kendi raflarına döndü.')
+                    notify(tt('Raf kaldırıldı; içindekiler kendi raflarına döndü.'))
                   },
                 }
               : undefined
@@ -479,7 +480,7 @@ export default function Koleksiyon() {
             if (image !== undefined) patch.shelves![editing.key]!.image = image
             if (name !== undefined) patch.shelves![editing.key]!.name = name || null
             await save(patch)
-            notify('Raf güncellendi.')
+            notify(tt('Raf güncellendi.'))
           }}
         />
       )}
@@ -510,22 +511,22 @@ export default function Koleksiyon() {
             }}
             className="w-full max-w-md bg-neutral-900 rounded-2xl border border-neutral-800 p-5"
           >
-            <h2 className="text-lg font-bold text-neutral-50">Yeni raf</h2>
-            <p className="text-sm text-neutral-500 mt-0.5">Bir seri ya da kendi grubun (ör. Marvel, Ghibli, Noel filmleri). Sonra içine yapımları seçeceksin.</p>
+            <h2 className="text-lg font-bold text-neutral-50">{tt('Yeni raf')}</h2>
+            <p className="text-sm text-neutral-500 mt-0.5">{tt('Bir seri ya da kendi grubun (ör. Marvel, Ghibli, Noel filmleri). Sonra içine yapımları seçeceksin.')}</p>
             <input
               autoFocus
               value={newShelf}
               onChange={(e) => setNewShelf(e.target.value)}
               onKeyDown={(e) => e.key === 'Escape' && setNewShelf(null)}
-              placeholder="Rafın adı"
+              placeholder={tt('Rafın adı')}
               className="mt-4 w-full rounded-xl bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
             />
             <div className="flex justify-end gap-2 mt-4">
               <button type="button" onClick={() => setNewShelf(null)} className="text-sm rounded-lg px-4 py-2 text-neutral-300 hover:bg-neutral-800">
-                Vazgeç
+                {tt('Vazgeç')}
               </button>
               <button type="submit" disabled={!newShelf.trim()} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}>
-                Oluştur ve yapım seç
+                {tt('Oluştur ve yapım seç')}
               </button>
             </div>
           </form>

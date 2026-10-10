@@ -7,6 +7,7 @@ import { useRows } from '../hooks/useRows'
 import type { Board, PropertyDef, Row, SelectOption } from '../types'
 import { titleText } from '../types'
 import { HomeCard } from '../pages/AnaSayfa'
+import { tt, ttx } from '../lib/i18n'
 
 const MAX_RESULTS = 30
 
@@ -214,7 +215,7 @@ export default function GlobalSearch() {
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Film, dizi, oyuncu, tür ara…"
+            placeholder={tt('Film, dizi, oyuncu, tür ara…')}
             disabled={!board}
             onKeyDown={(e) => e.key === 'Escape' && close()}
             className="w-52 sm:w-72 rounded-full bg-neutral-900 border border-neutral-700 pl-4 pr-8 py-2 text-neutral-100 outline-none focus:border-[#00c0fa] focus:ring-2 focus:ring-[#00c0fa]/20 text-sm disabled:opacity-50 shadow-lg shadow-black/30 transition"
@@ -222,7 +223,7 @@ export default function GlobalSearch() {
           {q && (
             <button
               onClick={() => setQ('')}
-              title="Aramayı temizle"
+              title={tt('Aramayı temizle')}
               className="absolute right-2 h-5 w-5 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 transition"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-3.5 w-3.5">
@@ -235,7 +236,7 @@ export default function GlobalSearch() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition relative z-40"
-        title='Ara (klavyeden "/")'
+        title={tt('Ara (klavyeden "/")')}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-6 w-6">
           <circle cx="11" cy="11" r="7" />
@@ -259,14 +260,13 @@ export default function GlobalSearch() {
           <div className="fixed inset-x-0 top-16 bottom-0 z-30 bg-neutral-950 overflow-y-auto">
             <div className="px-4 py-6 space-y-8">
               <p className="text-sm text-neutral-500">
-                <span className="text-neutral-100 font-semibold">"{q}"</span> için{' '}
-                {results.length + tagMatches.length > 0 ? `${results.length} kayıt${tagMatches.length ? ` ve ${tagMatches.length} kişi/etiket` : ''} bulundu` : 'bir şey bulunamadı'}
-                {results.length >= MAX_RESULTS && <span className="text-neutral-600"> (ilk {MAX_RESULTS} gösteriliyor)</span>}
+                {ttx('{0} için {1}', <span className="text-neutral-100 font-semibold">"{q}"</span>, results.length + tagMatches.length > 0 ? tt('{0} kayıt{1} bulundu', results.length, tagMatches.length ? tt(' ve {0} kişi/etiket', tagMatches.length) : '') : tt('bir şey bulunamadı'))}
+                {results.length >= MAX_RESULTS && <span className="text-neutral-600">{' '}{ttx('(ilk {0} gösteriliyor)', MAX_RESULTS)}</span>}
               </p>
 
               {tagMatches.length > 0 && (
                 <section>
-                  <h2 className="text-lg font-semibold text-neutral-100 mb-3">Kişiler ve etiketler</h2>
+                  <h2 className="text-lg font-semibold text-neutral-100 mb-3">{tt('Kişiler ve etiketler')}</h2>
                   <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                     {tagMatches.map(({ prop, opt, count }) => (
                       <button
@@ -280,7 +280,7 @@ export default function GlobalSearch() {
                         <span className="text-left">
                           <span className="block text-sm text-neutral-100 leading-tight">{opt.label}</span>
                           <span className="block text-[11px] text-neutral-500">
-                            {prop.name} · {count} kayıt
+                            {ttx('{0} · {1} kayıt', prop.name, count)}
                           </span>
                         </span>
                       </button>
@@ -291,8 +291,8 @@ export default function GlobalSearch() {
 
               {board &&
                 [
-                  { title: 'Adında geçenler', rows: titleResults },
-                  { title: titleResults.length ? 'Diğer eşleşmeler' : 'Eşleşen kayıtlar', rows: otherResults },
+                  { title: tt('Adında geçenler'), rows: titleResults },
+                  { title: titleResults.length ? tt('Diğer eşleşmeler') : tt('Eşleşen kayıtlar'), rows: otherResults },
                 ]
                   .filter((g) => g.rows.length > 0)
                   .map((g) => (
@@ -311,8 +311,8 @@ export default function GlobalSearch() {
               {results.length + tagMatches.length === 0 && (
                 <div className="text-center py-16">
                   <p className="text-4xl mb-3">🔍</p>
-                  <p className="text-neutral-300">Bu aramaya uyan bir şey yok.</p>
-                  <p className="text-sm text-neutral-500 mt-1">Başka bir kelime dene — ad, oyuncu, tür ya da ülke adıyla arayabilirsin.</p>
+                  <p className="text-neutral-300">{tt('Bu aramaya uyan bir şey yok.')}</p>
+                  <p className="text-sm text-neutral-500 mt-1">{tt('Başka bir kelime dene — ad, oyuncu, tür ya da ülke adıyla arayabilirsin.')}</p>
                 </div>
               )}
             </div>

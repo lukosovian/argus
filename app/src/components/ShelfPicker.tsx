@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx } from '../lib/i18n'
 
 // Koleksiyon'da bir rafa yapım ekleme / çıkarma — kullanıcı "serinin içine kendim film ekleyebilmeliyim" dedi.
 // Koleksiyondaki bütün yapımlar aranabilir bir listede; işaretliler bu rafta. Başka raftaysa adı yazıyor
@@ -51,20 +52,20 @@ export default function ShelfPicker({
   return createPortal(
     <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-8 px-4" onClick={onClose}>
       <div className="relative w-full max-w-xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} aria-label="Kapat" className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
+        <button onClick={onClose} aria-label={tt('Kapat')} className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
           ×
         </button>
-        <h2 className="text-xl font-bold text-neutral-50 pr-10">{shelfName} rafı</h2>
+        <h2 className="text-xl font-bold text-neutral-50 pr-10">{ttx('{0} rafı', shelfName)}</h2>
         <p className="text-sm text-neutral-500 mt-0.5">
           {additive
-            ? 'Bu rafta olmasını istediklerini işaretle. Kendi raflarında da durmaya devam ederler; işareti kaldırırsan sadece bu raftan çıkar.'
-            : 'Bu rafta olmasını istediklerini işaretle. Başka bir raftaysa buraya taşınır; işareti kaldırırsan raftan çıkar.'}
+            ? tt('Bu rafta olmasını istediklerini işaretle. Kendi raflarında da durmaya devam ederler; işareti kaldırırsan sadece bu raftan çıkar.')
+            : tt('Bu rafta olmasını istediklerini işaretle. Başka bir raftaysa buraya taşınır; işareti kaldırırsan raftan çıkar.')}
         </p>
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Koleksiyonda ara…"
+          placeholder={tt('Koleksiyonda ara…')}
           className="mt-4 w-full rounded-xl bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
         />
         <ul className="mt-3 max-h-[55vh] overflow-y-auto space-y-1 pr-1">
@@ -90,20 +91,20 @@ export default function ShelfPicker({
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm text-neutral-100 truncate">{i.title}</span>
                     <span className="block text-[11px] text-neutral-500 truncate">
-                      {[i.year, i.isSeries ? 'Dizi' : 'Film', i.shelfName && (additive || !i.inShelf) ? `${i.shelfName} rafında` : ''].filter(Boolean).join(' · ')}
+                      {[i.year, i.isSeries ? tt('Dizi') : tt('Film'), i.shelfName && (additive || !i.inShelf) ? tt('{0} rafında', i.shelfName) : ''].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                 </button>
               </li>
             )
           })}
-          {!shown.length && <li className="text-sm text-neutral-500 text-center py-6">Bu aramaya uyan yapım yok.</li>}
+          {!shown.length && <li className="text-sm text-neutral-500 text-center py-6">{tt('Bu aramaya uyan yapım yok.')}</li>}
         </ul>
         <div className="flex items-center justify-between gap-3 mt-5">
-          <span className="text-xs text-neutral-500">{selected.size} yapım işaretli</span>
+          <span className="text-xs text-neutral-500">{ttx('{0} yapım işaretli', selected.size)}</span>
           <div className="flex gap-2">
             <button onClick={onClose} className="text-sm rounded-lg px-4 py-2 text-neutral-300 hover:bg-neutral-800">
-              Vazgeç
+              {tt('Vazgeç')}
             </button>
             <button
               onClick={async () => {
@@ -119,7 +120,7 @@ export default function ShelfPicker({
               style={primaryButtonStyle}
               className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}
             >
-              {busy ? 'Kaydediliyor…' : 'Kaydet'}
+              {busy ? tt('Kaydediliyor…') : tt('Kaydet')}
             </button>
           </div>
         </div>

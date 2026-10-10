@@ -6,6 +6,7 @@ import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import SectionTitle from './SectionTitle'
+import { tt } from '../lib/i18n'
 
 // Detay penceresinin altındaki iki bölüm: "Nerede İzlenir" (Türkiye'de hangi platformda var)
 // ve "Benzer İçerikler" (TMDB önerileri, tek tıkla "İzlenecek" olarak arşive eklenebilir).
@@ -62,9 +63,9 @@ export default function TmdbExtras({
       const res = await api.addFromTmdb(board.id, { tmdbId: card.tmdbId, mediaType: card.mediaType, status: 'izlenecek' })
       setAdded((prev) => new Set(prev).add(card.tmdbId))
       notifyDataChanged(board.id)
-      notify(`"${res.title}" izlenecekler listene eklendi.`)
+      notify(tt('"{0}" izlenecekler listene eklendi.', res.title))
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
     } finally {
       setAdding(null)
     }
@@ -83,26 +84,26 @@ export default function TmdbExtras({
       {part !== 'similar' && (
       <section id="rd-nerede" className={`scroll-mt-16 ${providersClassName}`}>
         <SectionTitle
-          title="Nerede İzlenir"
+          title={tt('Nerede İzlenir')}
           small={part === 'providers'}
-          count="Türkiye"
+          count={tt('Türkiye')}
           right={
             p?.link ? (
               <a href={p.link} target="_blank" rel="noreferrer" className="text-xs text-neutral-500 hover:text-neutral-50 transition">
-                Tüm seçenekler ↗
+                {tt('Tüm seçenekler ↗')}
               </a>
             ) : undefined
           }
         />
-        {loading ? <p className="text-sm text-neutral-500">Yükleniyor...</p> : <WatchProviderList providers={p ?? null} />}
+        {loading ? <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p> : <WatchProviderList providers={p ?? null} />}
       </section>
       )}
 
       {part !== 'providers' && (loading || similar.length > 0) && (
         <section id="rd-benzer" className="scroll-mt-16">
-          <SectionTitle title="Benzer İçerikler" count={loading ? undefined : String(similar.length)} />
+          <SectionTitle title={tt('Benzer İçerikler')} count={loading ? undefined : String(similar.length)} />
           {loading ? (
-            <p className="text-sm text-neutral-500">Yükleniyor...</p>
+            <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
               {similar.map((c) => {
@@ -135,17 +136,17 @@ export default function TmdbExtras({
                     <p className="text-[11px] text-neutral-500 mb-1.5">
                       {c.year}
                       {c.year && ' · '}
-                      {c.mediaType === 'tv' ? 'Dizi' : 'Film'}
+                      {c.mediaType === 'tv' ? tt('Dizi') : tt('Film')}
                     </p>
                     {inArchive ? (
-                      <p className="mt-auto pt-1.5 text-[11px] text-emerald-500 leading-[22px]">✓ Arşivinde</p>
+                      <p className="mt-auto pt-1.5 text-[11px] text-emerald-500 leading-[22px]">{tt('✓ Arşivinde')}</p>
                     ) : (
                       <button
                         onClick={() => addToWatchlist(c)}
                         disabled={adding !== null}
                         className="mt-auto w-full text-[11px] rounded-md border border-neutral-700 hover:border-[#00c0fa] text-neutral-300 hover:text-[#00c0fa] py-1 transition disabled:opacity-50"
                       >
-                        {adding === c.tmdbId ? 'Ekleniyor...' : '+ İzlenecek'}
+                        {adding === c.tmdbId ? tt('Ekleniyor...') : tt('+ İzlenecek')}
                       </button>
                     )}
                   </div>
@@ -174,13 +175,13 @@ export default function TmdbExtras({
 export function WatchProviderList({ providers }: { providers: WatchProviders | null }) {
   const groups: { label: string; items: WatchProvider[] }[] = providers
     ? [
-        { label: 'Abonelikle', items: providers.flatrate },
-        { label: 'Ücretsiz', items: providers.free },
-        { label: 'Kirala', items: providers.rent },
-        { label: 'Satın al', items: providers.buy },
+        { label: tt('Abonelikle'), items: providers.flatrate },
+        { label: tt('Ücretsiz'), items: providers.free },
+        { label: tt('Kirala'), items: providers.rent },
+        { label: tt('Satın al'), items: providers.buy },
       ].filter((g) => g.items.length > 0)
     : []
-  if (groups.length === 0) return <p className="text-sm text-neutral-500">Şu an Türkiye'de hiçbir platformda görünmüyor.</p>
+  if (groups.length === 0) return <p className="text-sm text-neutral-500">{tt('Şu an Türkiye\'de hiçbir platformda görünmüyor.')}</p>
   return (
     <div className="space-y-3">
       {groups.map((g) => (
@@ -194,7 +195,7 @@ export function WatchProviderList({ providers }: { providers: WatchProviders | n
           ))}
         </div>
       ))}
-      <p className="text-[11px] text-neutral-600">Bilgi TMDB/JustWatch'tan anlık alınıyor, platformlar zamanla değişebilir.</p>
+      <p className="text-[11px] text-neutral-600">{tt('Bilgi TMDB/JustWatch\'tan anlık alınıyor, platformlar zamanla değişebilir.')}</p>
     </div>
   )
 }

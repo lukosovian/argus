@@ -13,6 +13,7 @@ import DatabaseHelpModal from './DatabaseHelpModal'
 import Select from '../Select'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import { PanelHeader, SettingsTabs } from './SettingsUi'
+import { tt, ttx } from '../../lib/i18n'
 
 function ArchiveIcon() {
   return (
@@ -79,8 +80,8 @@ export default function ArchivesPanel() {
     e.preventDefault()
     e.stopPropagation()
     const ok = await confirm({
-      message: 'Bu arşivi ve içindeki tüm kayıtları silmek istediğine emin misin?',
-      confirmLabel: 'Sil',
+      message: tt('Bu arşivi ve içindeki tüm kayıtları silmek istediğine emin misin?'),
+      confirmLabel: tt('Sil'),
     })
     if (!ok) return
     await deleteBoard(id)
@@ -100,12 +101,12 @@ export default function ArchivesPanel() {
   return (
     <div>
       <PanelHeader
-        title="Veritabanı"
-        description="Arşivlerin, hazır sütun şablonların, içe aktarma ve TMDB bağlantısı."
+        title={tt('Veritabanı')}
+        description={tt('Arşivlerin, hazır sütun şablonların, içe aktarma ve TMDB bağlantısı.')}
         extra={
           <button
             onClick={() => setHelpOpen(true)}
-            aria-label="Veritabanı nasıl çalışır"
+            aria-label={tt('Veritabanı nasıl çalışır')}
             className="h-6 w-6 shrink-0 rounded-full border border-neutral-700 text-neutral-500 hover:border-neutral-400 hover:text-neutral-300 text-sm leading-none flex items-center justify-center transition"
           >
             ?
@@ -119,11 +120,11 @@ export default function ArchivesPanel() {
         onChange={setTab}
         tabs={
           [
-            ['arsivler', 'Arşivler'],
-            ['sablonlar', 'Şablonlar'],
-            ['ice-aktar', 'İçe Aktar'],
+            ['arsivler', tt('Arşivler')],
+            ['sablonlar', tt('Şablonlar')],
+            ['ice-aktar', tt('İçe Aktar')],
             ['api', 'API'],
-            ['yedek', 'Yedekleme'],
+            ['yedek', tt('Yedekleme')],
           ] as const
         }
       />
@@ -139,42 +140,41 @@ export default function ArchivesPanel() {
       ) : (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-neutral-400">Bir arşive tıklayınca tablosu açılır.</p>
+            <p className="text-sm text-neutral-400">{tt('Bir arşive tıklayınca tablosu açılır.')}</p>
             <button
               onClick={() => setCreating((v) => !v)}
               style={primaryButtonStyle}
               className={`text-sm px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}
             >
-              + Yeni Arşiv
+              {tt('+ Yeni Arşiv')}
             </button>
           </div>
 
           {creating && (
             <div className="bg-neutral-900/70 border border-[#00c0fa]/30 rounded-2xl p-5 mb-6">
-              <label className="block text-xs text-neutral-400 mb-1">Arşivin adı</label>
+              <label className="block text-xs text-neutral-400 mb-1">{tt('Arşivin adı')}</label>
               <input
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                placeholder="ör. Medya Arşivim, Kitaplarım, Oynadığım Oyunlar..."
+                placeholder={tt('ör. Medya Arşivim, Kitaplarım, Oynadığım Oyunlar...')}
                 className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm mb-3"
               />
-              <label className="block text-xs text-neutral-400 mb-1">Nasıl başlasın?</label>
+              <label className="block text-xs text-neutral-400 mb-1">{tt('Nasıl başlasın?')}</label>
               <div className="mb-4">
                 <Select
                   value={templateChoice}
                   onChange={setTemplateChoice}
                   options={[
-                    { value: BLANK, label: 'Boş arşiv (hiç sütun yok, sıfırdan başla)' },
-                    { value: BUILTIN, label: 'Medya Arşivi şablonu (Kategori, Durum, Yönetmen, Tür, Ülke...)' },
-                    ...customTemplates.map((t) => ({ value: t.id, label: `${t.name} şablonu` })),
+                    { value: BLANK, label: tt('Boş arşiv (hiç sütun yok, sıfırdan başla)') },
+                    { value: BUILTIN, label: tt('Medya Arşivi şablonu (Kategori, Durum, Yönetmen, Tür, Ülke...)') },
+                    ...customTemplates.map((t) => ({ value: t.id, label: tt('{0} şablonu', t.name) })),
                   ]}
                 />
               </div>
               <p className="text-xs text-neutral-600 -mt-2 mb-4">
-                Ne seçersen seç, sütunları sonra istediğin gibi ekleyip/kaldırabilir/yeniden adlandırabilirsin. Daha fazla şablon (hazır
-                sütun setiyle) için Şablonlar sekmesine bak.
+                {tt('Ne seçersen seç, sütunları sonra istediğin gibi ekleyip/kaldırabilir/yeniden adlandırabilirsin. Daha fazla şablon (hazır sütun setiyle) için Şablonlar sekmesine bak.')}
               </p>
               <div className="flex gap-2">
                 <button
@@ -183,19 +183,19 @@ export default function ArchivesPanel() {
                   style={primaryButtonStyle}
                   className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
                 >
-                  {busy ? 'Oluşturuluyor...' : 'Oluştur'}
+                  {busy ? tt('Oluşturuluyor...') : tt('Oluştur')}
                 </button>
                 <button onClick={() => setCreating(false)} className="text-neutral-400 hover:text-neutral-200 text-sm px-4 py-2">
-                  Vazgeç
+                  {tt('Vazgeç')}
                 </button>
               </div>
             </div>
           )}
 
           {loading ? (
-            <p className="text-neutral-500 text-sm">Yükleniyor...</p>
+            <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
           ) : boards.length === 0 ? (
-            <p className="text-neutral-500 text-sm">Henüz bir arşivin yok. Yukarıdan yeni bir tane oluştur.</p>
+            <p className="text-neutral-500 text-sm">{tt('Henüz bir arşivin yok. Yukarıdan yeni bir tane oluştur.')}</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {boards.map((b) => {
@@ -214,17 +214,17 @@ export default function ArchivesPanel() {
                         <span className="text-base font-medium text-neutral-100 truncate">{b.name}</span>
                         {onHome && (
                           <span className="shrink-0 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5">
-                            Ana sayfada
+                            {tt('Ana sayfada')}
                           </span>
                         )}
                       </span>
-                      <span className="block text-xs text-neutral-500 mt-0.5">{b.properties.length} sütun</span>
+                      <span className="block text-xs text-neutral-500 mt-0.5">{ttx('{0} sütun', b.properties.length)}</span>
                     </span>
                     <button
                       onClick={(e) => handleDelete(e, b.id)}
                       className="text-neutral-600 hover:text-rose-400 text-xs opacity-0 group-hover:opacity-100 transition shrink-0"
                     >
-                      Sil
+                      {tt('Sil')}
                     </button>
                     <span className="text-neutral-600 group-hover:text-[#00c0fa] transition shrink-0">→</span>
                   </Link>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Board, PropertyValue, Row } from '../types'
 import PropertyValueInput from './PropertyValueInput'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { tt } from '../lib/i18n'
 
 export default function RowEditorModal({
   board,
@@ -45,7 +46,7 @@ export default function RowEditorModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-neutral-50">{row ? 'Kaydı Düzenle' : 'Yeni Kayıt'}</h2>
+          <h2 className="text-lg font-semibold text-neutral-50">{row ? tt('Kaydı Düzenle') : tt('Yeni Kayıt')}</h2>
           <button onClick={onClose} className="text-neutral-500 hover:text-neutral-300 text-xl leading-none">
             ×
           </button>
@@ -73,7 +74,7 @@ export default function RowEditorModal({
           ))}
           {board.properties.length <= 1 && (
             <p className="text-xs text-neutral-600">
-              Henüz başka sütun yok — kaydettikten sonra tablo görünümünden "+" ile istediğin sütunları ekleyebilirsin.
+              {tt('Henüz başka sütun yok — kaydettikten sonra tablo görünümünden "+" ile istediğin sütunları ekleyebilirsin.')}
             </p>
           )}
         </div>
@@ -85,11 +86,11 @@ export default function RowEditorModal({
             style={primaryButtonStyle}
             className={`rounded-lg px-4 py-2 text-sm ${PRIMARY_BUTTON}`}
           >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            {saving ? tt('Kaydediliyor...') : tt('Kaydet')}
           </button>
           {onDelete && (
             <button onClick={onDelete} className="text-rose-400 hover:text-rose-300 text-sm ml-auto">
-              Kaydı Sil
+              {tt('Kaydı Sil')}
             </button>
           )}
         </div>

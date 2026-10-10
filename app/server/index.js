@@ -11,6 +11,8 @@ import { beforeWrite, findBoard as findBoardCached, initHistory, registerHistory
 import { initNotifications, pushNotification, registerNotificationRoutes } from './notifications.js'
 import { initBackup, registerBackupRoutes } from './backup.js'
 import { publishFile } from './featurePublish.js'
+import { langDate, serverLang, serverRegion, stt, tmdbLang } from './lang.js'
+import { COLUMN_NAMES, KIND_NAMES, isName, nameOf } from './names.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -52,7 +54,7 @@ function readJson(file, fallback) {
 
 function assertWritable(file) {
   if (unreadableFiles.has(file)) {
-    throw new Error(`${path.basename(file)} okunamadığı için kaydedilmedi — verin korunuyor. ARGUS'u yeniden başlatıp tekrar dene.`)
+    throw new Error(stt('{0} okunamadığı için kaydedilmedi — verin korunuyor. ARGUS\'u yeniden başlatıp tekrar dene.', path.basename(file)))
   }
 }
 
@@ -179,7 +181,7 @@ const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i
 app.use((req, res, next) => {
   const origin = req.headers.origin
   if (!LOCAL_HOST.test(req.headers.host || '') || (origin && !LOCAL_ORIGIN.test(origin))) {
-    return res.status(403).json({ error: "Bu adresten ARGUS'a erişilemez." })
+    return res.status(403).json({ error: stt('Bu adresten ARGUS\'a erişilemez.') })
   }
   next()
 })
@@ -213,7 +215,7 @@ app.patch('/api/profiles/:profileId/boards/:id', (req, res) => {
   const boardsFile = profileBoardsFile(req.params.profileId)
   const boards = readJson(boardsFile, [])
   const idx = boards.findIndex((b) => b.id === req.params.id)
-  if (idx === -1) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  if (idx === -1) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
   boards[idx] = { ...boards[idx], ...req.body, id: req.params.id, updatedAt: Date.now() }
   writeJson(boardsFile, boards)
   res.json(boards[idx])
@@ -241,7 +243,7 @@ app.get('/api/profiles/:profileId/boards/:id/health', (req, res) => {
   const boardsFile = profileBoardsFile(req.params.profileId)
   const boards = readJson(boardsFile, [])
   const board = boards.find((b) => b.id === req.params.id)
-  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
   const rows = readJson(profileRowsFile(req.params.profileId, board.id), [])
   const imageProps = board.properties.filter((p) => p.type === 'image')
   const brokenImages = []
@@ -336,7 +338,7 @@ function findDuplicateGroups(profileId, board, rows) {
 // Tablodaki kırmızı nokta için sadece mükerrer grupları (Sağlık Kontrolü'nün disk taraması olmadan).
 app.get('/api/profiles/:profileId/boards/:id/duplicates', (req, res) => {
   const board = readJson(profileBoardsFile(req.params.profileId), []).find((b) => b.id === req.params.id)
-  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
   const rows = readJson(profileRowsFile(req.params.profileId, board.id), [])
   res.json({ duplicates: findDuplicateGroups(req.params.profileId, board, rows) })
 })
@@ -348,15 +350,15 @@ app.post('/api/profiles/:profileId/boards/:id/merge-rows', (req, res) => {
   const { profileId, id: boardId } = req.params
   const { keepId, removeIds } = req.body ?? {}
   if (!keepId || !Array.isArray(removeIds) || removeIds.length === 0 || removeIds.includes(keepId)) {
-    return res.status(400).json({ error: 'Geçersiz birleştirme' })
+    return res.status(400).json({ error: stt('Geçersiz birleştirme') })
   }
   const board = readJson(profileBoardsFile(profileId), []).find((b) => b.id === boardId)
-  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
   const rowsFile = profileRowsFile(profileId, boardId)
   const rows = readJson(rowsFile, [])
   const keep = rows.find((r) => r.id === keepId)
   const removed = removeIds.map((rid) => rows.find((r) => r.id === rid)).filter(Boolean)
-  if (!keep || removed.length === 0) return res.status(404).json({ error: 'Kayıt bulunamadı' })
+  if (!keep || removed.length === 0) return res.status(404).json({ error: stt('Kayıt bulunamadı') })
   const empty = (v) =>
     v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0)
   const dateProp = resolveRole(board, 'izlemeTarihi')
@@ -504,9 +506,9 @@ app.post('/api/profiles/:profileId/boards/:id/clear-column/:propertyId', (req, r
   const { profileId, id: boardId, propertyId } = req.params
   const boards = readJson(profileBoardsFile(profileId), [])
   const board = boards.find((b) => b.id === boardId)
-  if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
   const prop = board.properties.find((p) => p.id === propertyId)
-  if (!prop) return res.status(404).json({ error: 'Sütun bulunamadı' })
+  if (!prop) return res.status(404).json({ error: stt('Sütun bulunamadı') })
 
   const rowsFile = profileRowsFile(profileId, boardId)
   const rows = readJson(rowsFile, [])
@@ -555,7 +557,7 @@ app.post('/api/profiles', (req, res) => {
 app.put('/api/profiles/:id', (req, res) => {
   const profiles = readProfiles()
   const idx = profiles.findIndex((p) => p.id === req.params.id)
-  if (idx === -1) return res.status(404).json({ error: 'Profil bulunamadı' })
+  if (idx === -1) return res.status(404).json({ error: stt('Profil bulunamadı') })
   profiles[idx] = { ...profiles[idx], ...req.body, id: req.params.id }
   writeJson(PROFILE_FILE, profiles)
   res.json(profiles[idx])
@@ -662,7 +664,7 @@ app.post('/api/profiles/:profileId/songs/:rowId', (req, res) => {
   const key = cleanText(b.key, 64)
   const title = cleanText(b.title)
   const artist = cleanText(b.artist)
-  if (!key || !title) return res.status(400).json({ error: 'Şarkı bilgisi eksik' })
+  if (!key || !title) return res.status(400).json({ error: stt('Şarkı bilgisi eksik') })
   const season = cleanInt(b.season)
   const episode = season !== null ? cleanInt(b.episode) : null
   const atMs = cleanInt(b.atMs)
@@ -746,13 +748,13 @@ function autoUnmarkSeriesWatched(profileId, rowId, before, after) {
     row.updatedAt = Date.now()
     writeJson(rowsFile, rows)
     const tp = board.properties.find((p) => p.id === board.titlePropertyId)
-    const title = String((tp && row.values[tp.id]) || 'Dizi')
+    const title = String((tp && row.values[tp.id]) || stt('Dizi'))
     pushNotification(profileId, {
       type: 'newSeason',
       boardId: board.id,
       rowId,
       title,
-      text: 'Bir bölümün işaretini kaldırdın, artık bütün bölümler izlenmiş değil — durumu İzleniyor\'a alındı.',
+      text: stt('Bir bölümün işaretini kaldırdın, artık bütün bölümler izlenmiş değil — durumu İzleniyor\'a alındı.'),
     })
     return { title, boardId: board.id }
   }
@@ -816,29 +818,24 @@ function autoMarkSeriesWatched(profileId, rowId, seen) {
     row.updatedAt = Date.now()
     writeJson(rowsFile, rows)
     const tp = board.properties.find((p) => p.id === board.titlePropertyId)
-    const title = (tp && row.values[tp.id]) || 'Dizi'
+    const title = (tp && row.values[tp.id]) || stt('Dizi')
     const show = readJson(profileTmdbFile(profileId), {})[rowId]?.show
-    const tail = show?.status === 'Ended' || show?.status === 'Canceled' ? ' Dizi bitti, yeni bölüm gelmeyecek.' : show?.next?.airDate ? ` Yeni bölüm ${trDate(show.next.airDate)}'de.` : ' Yeni sezon çıkınca haber vereceğim.'
+    const tail = show?.status === 'Ended' || show?.status === 'Canceled' ? stt(' Dizi bitti, yeni bölüm gelmeyecek.') : show?.next?.airDate ? stt(' Yeni bölüm {0} tarihinde.', langDate(show.next.airDate)) : stt(' Yeni sezon çıkınca haber vereceğim.')
     pushNotification(profileId, {
       type: 'watched',
       boardId: board.id,
       rowId,
       title: String(title),
-      text: `Çıkmış bütün bölümleri izledin, durumu İzlendi yapıldı.${tail}`,
+      text: stt('Çıkmış bütün bölümleri izledin, durumu İzlendi yapıldı.{0}', tail),
     })
     return { title: String(title), boardId: board.id }
   }
   return null
 }
 
-function trDate(iso) {
-  const [y, m, d] = String(iso).split('-').map(Number)
-  return d && m ? `${d} ${TR_MONTHS[m]} ${y}` : String(iso)
-}
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p'
-const TR_MONTHS = ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 
 const ISO_TO_TR = {
   US: 'ABD', GB: 'Birleşik Krallık', FR: 'Fransa', IT: 'İtalya', BE: 'Belçika',
@@ -872,11 +869,10 @@ function stripFlagEmoji(label) {
 // Listede olmayan ülkelerin Türkçe adı (ör. HR → Hırvatistan). Kullanıcı yeni eklenen ülke
 // etiketlerinin başında bayrak emojisi (Windows'ta "HR" gibi harf olarak görünüyordu) ve İngilizce
 // ad ("Croatia") çıktığını söyledi — artık diğer ülkeler gibi sade Türkçe ad yazılıyor.
-const regionNamesTr = new Intl.DisplayNames(['tr'], { type: 'region' })
 function isoToTrName(iso2) {
   if (!iso2 || iso2.length !== 2) return null
   try {
-    const name = regionNamesTr.of(iso2.toUpperCase())
+    const name = new Intl.DisplayNames([serverLang()], { type: 'region' }).of(iso2.toUpperCase())
     return name && name !== iso2.toUpperCase() ? name : null
   } catch {
     return null
@@ -928,11 +924,11 @@ async function bestExact(endpoint, params, trResults, query, apiKey) {
 
 async function searchTv(query, year, apiKey) {
   if (!query) return null
-  const params = { query, language: 'tr-TR' }
+  const params = { query, language: tmdbLang() }
   if (year) params.first_air_date_year = year
   const withYear = year ? await tmdbGet('/search/tv', params, apiKey) : null
   if (withYear?.results?.[0]) return (await bestExact('/search/tv', { first_air_date_year: year }, withYear.results, query, apiKey)) ?? withYear.results[0]
-  const noYear = await tmdbGet('/search/tv', { query, language: 'tr-TR' }, apiKey)
+  const noYear = await tmdbGet('/search/tv', { query, language: tmdbLang() }, apiKey)
   if (!noYear?.results?.length) return null
   return (await bestExact('/search/tv', {}, noYear.results, query, apiKey)) ?? noYear.results[0]
 }
@@ -947,19 +943,19 @@ function pickByTitle(results, query) {
 async function searchMovie(query, year, apiKey) {
   if (!query) return null
   if (year) {
-    const primary = await tmdbGet('/search/movie', { query, language: 'tr-TR', primary_release_year: year }, apiKey)
+    const primary = await tmdbGet('/search/movie', { query, language: tmdbLang(), primary_release_year: year }, apiKey)
     if (primary?.results?.length) return pickByTitle(primary.results, query)
-    const withYear = await tmdbGet('/search/movie', { query, language: 'tr-TR', year }, apiKey)
+    const withYear = await tmdbGet('/search/movie', { query, language: tmdbLang(), year }, apiKey)
     if (withYear?.results?.length) return pickByTitle(withYear.results, query)
   }
-  const noYear = await tmdbGet('/search/movie', { query, language: 'tr-TR' }, apiKey)
+  const noYear = await tmdbGet('/search/movie', { query, language: tmdbLang() }, apiKey)
   if (!noYear?.results?.length) return null
   return (await bestExact('/search/movie', {}, noYear.results, query, apiKey)) ?? noYear.results[0]
 }
 
 async function searchMulti(query, year, apiKey) {
   if (!query) return null
-  const data = await tmdbGet('/search/multi', { query, language: 'tr-TR' }, apiKey)
+  const data = await tmdbGet('/search/multi', { query, language: tmdbLang() }, apiKey)
   const results = (data?.results ?? []).filter((r) => r.media_type === 'movie' || r.media_type === 'tv')
   if (results.length === 0) return null
   if (year) {
@@ -992,7 +988,7 @@ async function isYoutubeVideoAvailable(videoKey) {
 }
 
 async function getTrailerUrl(mediaType, tmdbId, apiKey) {
-  const tr = await tmdbGet(`/${mediaType}/${tmdbId}/videos`, { language: 'tr-TR' }, apiKey)
+  const tr = await tmdbGet(`/${mediaType}/${tmdbId}/videos`, { language: tmdbLang() }, apiKey)
   const trCandidates = rankTrailers(tr?.results)
   for (const c of trCandidates) {
     if (await isYoutubeVideoAvailable(c.key)) return `https://www.youtube.com/watch?v=${c.key}`
@@ -1009,24 +1005,25 @@ async function getTrailerUrl(mediaType, tmdbId, apiKey) {
 function pickLogo(images) {
   const logos = images?.logos ?? []
   if (logos.length === 0) return null
-  return logos.find((l) => l.iso_639_1 === 'tr') ?? logos.find((l) => l.iso_639_1 === 'en') ?? logos[0]
+  return logos.find((l) => l.iso_639_1 === serverLang()) ?? logos.find((l) => l.iso_639_1 === 'en') ?? logos[0]
 }
 
 // Yaş sınırı hep aynı Türkçe biçimde yazılsın — TMDB bazen Türkiye'nin ("13+", "Genel İzleyici Kitlesi"), bazen
 // ABD'nin ("R", "PG-13", "TV-MA") sınıflandırmasını veriyor, sütunda karışık duruyordu (bkz. src/lib/ageRating.ts).
 const AGE_TIERS = {
-  'genel izleyici kitlesi': 'Genel İzleyici', 'genel izleyici': 'Genel İzleyici', g: 'Genel İzleyici', 'tv-y': 'Genel İzleyici', 'tv-g': 'Genel İzleyici',
+  'genel izleyici kitlesi': 'Genel İzleyici', 'genel izleyici': 'Genel İzleyici', 'general audience': 'Genel İzleyici', g: 'Genel İzleyici', 'tv-y': 'Genel İzleyici', 'tv-g': 'Genel İzleyici',
   '6+': '6+', '6a': '6+', '7+': '7+', '7a': '7+', pg: '7+', 'tv-y7': '7+', '10+': '10+', '10a': '10+', 'tv-pg': '10+',
   '13+': '13+', '13a': '13+', 'pg-13': '13+', 'tv-14': '13+', '15+': '16+', '16+': '16+', r: '16+', '18+': '18+', 'nc-17': '18+', 'tv-ma': '18+',
 }
 function normalizeCert(raw) {
-  return raw ? (AGE_TIERS[String(raw).trim().toLocaleLowerCase('tr')] ?? raw) : raw
+  const tier = raw ? AGE_TIERS[String(raw).trim().toLocaleLowerCase('tr')] : null
+  return tier === 'Genel İzleyici' ? stt('Genel İzleyici') : (tier ?? raw)
 }
 
 async function getMovieCertification(tmdbId, apiKey) {
   const data = await tmdbGet(`/movie/${tmdbId}/release_dates`, {}, apiKey)
   const byCountry = new Map((data?.results ?? []).map((c) => [c.iso_3166_1, c.release_dates]))
-  for (const cc of ['TR', 'US']) {
+  for (const cc of [...new Set([serverRegion(), 'US'])]) {
     const entries = byCountry.get(cc)
     if (!entries) continue
     const cert = entries.map((e) => e.certification).find((c) => c)
@@ -1038,7 +1035,7 @@ async function getMovieCertification(tmdbId, apiKey) {
 async function getTvCertification(tmdbId, apiKey) {
   const data = await tmdbGet(`/tv/${tmdbId}/content_ratings`, {}, apiKey)
   const byCountry = new Map((data?.results ?? []).map((c) => [c.iso_3166_1, c.rating]))
-  for (const cc of ['TR', 'US']) {
+  for (const cc of [...new Set([serverRegion(), 'US'])]) {
     if (byCountry.get(cc)) return normalizeCert(byCountry.get(cc))
   }
   return null
@@ -1109,15 +1106,15 @@ async function pickTmdbCandidate(profileId, board, row, apiKey) {
   const byKey = new Map()
   const exactKeys = new Set()
   for (const q of queries) {
-    for (const language of ['tr-TR', 'en-US']) {
+    for (const language of serverLang() === 'tr' ? ['tr-TR', 'en-US'] : ['en-US']) {
       const data = await tmdbGet('/search/multi', { query: q, language }, apiKey)
       for (const r of data?.results ?? []) {
         if (r.media_type !== 'movie' && r.media_type !== 'tv') continue
         const key = tmdbKey(r.media_type, r.id)
         const prev = byKey.get(key)
         // Türkçe sonuç önce geliyor; İngilizce adı ayrıca saklanıyor (listede gösterilir).
-        if (!prev) byKey.set(key, { tr: language === 'tr-TR' ? r : null, en: language === 'en-US' ? r : null, order: byKey.size })
-        else if (language === 'tr-TR' && !prev.tr) prev.tr = r
+        if (!prev) byKey.set(key, { tr: language === tmdbLang() ? r : null, en: language === 'en-US' ? r : null, order: byKey.size })
+        else if (language === tmdbLang() && !prev.tr) prev.tr = r
         else if (language === 'en-US' && !prev.en) prev.en = r
         if ([r.title, r.name, r.original_title, r.original_name].some((t) => t && wanted.has(fold(t)))) exactKeys.add(key)
       }
@@ -1173,18 +1170,18 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
   try {
     const apiKey = readProfileApiKey(profileId)
     if (!apiKey) {
-      return { status: 400, data: { error: 'Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.' } }
+      return { status: 400, data: { error: stt('Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.') } }
     }
     const exclude = new Set(Array.isArray(excludeList) ? excludeList : [])
     const overwrite = Boolean(overwriteFlag)
     const boardsFile = profileBoardsFile(profileId)
     const boards = readJson(boardsFile, [])
     const board = boards.find((b) => b.id === boardId)
-    if (!board) return { status: 404, data: { error: 'Arşiv bulunamadı' } }
+    if (!board) return { status: 404, data: { error: stt('Arşiv bulunamadı') } }
     const rowsFilePath = profileRowsFile(profileId, board.id)
     const rows = readJson(rowsFilePath, [])
     const row = rows.find((r) => r.id === rowId)
-    if (!row) return { status: 404, data: { error: 'Kayıt bulunamadı' } }
+    if (!row) return { status: 404, data: { error: stt('Kayıt bulunamadı') } }
 
     // Başlık her zaman arşivin başlık sütunu (adı "Türkçe Adı" olmak zorunda değil).
     const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
@@ -1210,9 +1207,9 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     // o şekilde işaretleniyor (eskiden "Kapak Adı" adıyla aranıyordu).
     let kapakAdiProp = board.properties.find((p) => p.id === board.titleImagePropertyId && p.type === 'image')
     if (!kapakAdiProp) {
-      kapakAdiProp = board.properties.find((p) => p.type === 'image' && p.name.trim().toLocaleLowerCase('tr') === 'kapak adı')
+      kapakAdiProp = board.properties.find((p) => p.type === 'image' && isName(p.name, COLUMN_NAMES.kapakAdi))
       if (!kapakAdiProp && !exclude.has('kapakAdi')) {
-        kapakAdiProp = { id: mk(), name: 'Kapak Adı', type: 'image' }
+        kapakAdiProp = { id: mk(), name: nameOf(COLUMN_NAMES.kapakAdi), type: 'image' }
         board.properties.push(kapakAdiProp)
       }
       if (kapakAdiProp) board.titleImagePropertyId = kapakAdiProp.id
@@ -1229,7 +1226,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     const titleTr = titleProp ? row.values[titleProp.id] : ''
     const titleOrig = origProp ? row.values[origProp.id] : ''
     if (!titleTr && !titleOrig) {
-      return { status: 400, data: { error: 'Önce başlığı (ya da "Orjinal Adı" sütununu) doldurmalısın.' } }
+      return { status: 400, data: { error: stt('Önce başlığı (ya da "Orjinal Adı" sütununu) doldurmalısın.') } }
     }
 
     const kategoriId = kategoriProp ? row.values[kategoriProp.id] : null
@@ -1257,7 +1254,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
         status: 404,
         data: {
           error:
-            'TMDB eşleşmesi bulunamadı — başlığın yazımını kontrol et; "Kategori" sütununu Film ya da Dizi olarak doldurursan arama daha isabetli sonuç verir.',
+            stt('TMDB eşleşmesi bulunamadı — başlığın yazımını kontrol et; "Kategori" sütununu Film ya da Dizi olarak doldurursan arama daha isabetli sonuç verir.'),
         },
       }
     }
@@ -1266,15 +1263,15 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       mediaType === 'tv'
         ? await tmdbGet(
             `/tv/${result.id}`,
-            { language: 'tr-TR', append_to_response: 'aggregate_credits,images', include_image_language: 'tr,en,null' },
+            { language: tmdbLang(), append_to_response: 'aggregate_credits,images', include_image_language: `${serverLang()},en,null` },
             apiKey,
           )
         : await tmdbGet(
             `/movie/${result.id}`,
-            { language: 'tr-TR', append_to_response: 'credits,images', include_image_language: 'tr,en,null' },
+            { language: tmdbLang(), append_to_response: 'credits,images', include_image_language: `${serverLang()},en,null` },
             apiKey,
           )
-    if (!details) return { status: 502, data: { error: 'TMDB detay alınamadı' } }
+    if (!details) return { status: 502, data: { error: stt('TMDB detay alınamadı') } }
 
     // Bu kaydın TMDB kimliği saklanıyor — Nerede İzlenir, Benzerler, yeni bölüm kontrolü ve
     // Keşfet'in "zaten arşivde var" ayıklaması bunu kullanıyor (bkz. tmdb.json).
@@ -1292,15 +1289,16 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     const filled = []
 
     if (kategoriProp && (overwrite || !kategoriId) && !exclude.has('kategori')) {
-      const wantLabel = mediaType === 'tv' ? 'Dizi' : 'Film'
+      const wantPair = mediaType === 'tv' ? KIND_NAMES.dizi : KIND_NAMES.film
+      const wantLabel = nameOf(wantPair)
       if (!kategoriProp.options) kategoriProp.options = []
-      let opt = kategoriProp.options.find((o) => o.label === wantLabel)
+      let opt = kategoriProp.options.find((o) => isName(o.label, wantPair))
       if (!opt) {
         opt = { id: makeId(), label: wantLabel, colorIndex: kategoriProp.options.length % 9 }
         kategoriProp.options.push(opt)
       }
       row.values[kategoriProp.id] = opt.id
-      filled.push('Kategori')
+      filled.push(stt('Kategori'))
     }
 
     // Başlık: kullanıcı "Türkçe adına İngilizcesini yazıyorum, öyle kalıyor; Türkçe adını bulursa
@@ -1336,7 +1334,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       const orig = mediaType === 'tv' ? details.original_name : details.original_title
       if (orig) {
         row.values[origProp.id] = orig
-        filled.push('Orjinal Adı')
+        filled.push(stt('Orjinal Adı'))
       }
     }
 
@@ -1348,13 +1346,13 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       const date = tmdbDate
       if (date) {
         row.values[vizyonProp.id] = date
-        filled.push('Vizyon Tarihi')
+        filled.push(stt('Vizyon Tarihi'))
       }
     }
 
     if (sinopsisProp && (ow || !row.values[sinopsisProp.id]) && details.overview && !exclude.has('sinopsis')) {
       row.values[sinopsisProp.id] = details.overview
-      filled.push('Sinopsis')
+      filled.push(stt('Sinopsis'))
     }
 
     if (posterProp && (ow || !row.values[posterProp.id]) && details.poster_path && !exclude.has('poster')) {
@@ -1379,7 +1377,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
         const filename = `tmdb_logo_${row.id}_${result.id}.png`
         if (await downloadTmdbImage(`${TMDB_IMG_BASE}/w500${logo.file_path}`, path.join(MEDYA_DIR, filename))) {
           row.values[kapakAdiProp.id] = `/medya/${filename}`
-          filled.push('Kapak Adı')
+          filled.push(stt('Kapak Adı'))
         }
       }
     }
@@ -1404,7 +1402,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
           ids.push(optId)
         }
         row.values[turProp.id] = ids
-        filled.push('Tür')
+        filled.push(stt('Tür'))
       }
     }
 
@@ -1418,7 +1416,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
         const ulkeByName = new Map(ulkeProp.options.map((o) => [normalizeText(stripFlagEmoji(o.label)), o.id]))
         const ids = []
         for (const c of countries) {
-          const trName = ISO_TO_TR[c.iso_3166_1] ?? isoToTrName(c.iso_3166_1) ?? c.name ?? c.iso_3166_1
+          const trName = (serverLang() === 'tr' ? ISO_TO_TR[c.iso_3166_1] : null) ?? isoToTrName(c.iso_3166_1) ?? c.name ?? c.iso_3166_1
           const norm = normalizeText(trName)
           let optId = ulkeByName.get(norm)
           if (!optId) {
@@ -1429,7 +1427,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
           ids.push(optId)
         }
         row.values[ulkeProp.id] = ids
-        filled.push('Ülke')
+        filled.push(stt('Ülke'))
       }
     }
 
@@ -1442,20 +1440,20 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
       if (directors.length) {
         row.values[yonetmenProp.id] = directors.join(', ')
-        filled.push('Yönetmen')
+        filled.push(stt('Yönetmen'))
       }
     }
 
     if (mediaType === 'movie' && sureProp && (ow || !row.values[sureProp.id]) && details.runtime && !exclude.has('sure')) {
       row.values[sureProp.id] = details.runtime
-      filled.push('Süre')
+      filled.push(stt('Süre'))
     }
 
     if (yasProp && (ow || !(row.values[yasProp.id] ?? '').trim()) && !exclude.has('yasSiniri')) {
       const cert = mediaType === 'movie' ? await getMovieCertification(result.id, apiKey) : await getTvCertification(result.id, apiKey)
       if (cert) {
         row.values[yasProp.id] = cert
-        filled.push('Yaş Sınırı')
+        filled.push(stt('Yaş Sınırı'))
       }
     }
 
@@ -1472,7 +1470,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       const seasonsMeta = (details.seasons ?? []).filter((s) => s.season_number >= 1)
       const seasonsOut = []
       for (const s of seasonsMeta) {
-        const sdata = await tmdbGet(`/tv/${result.id}/season/${s.season_number}`, { language: 'tr-TR' }, apiKey)
+        const sdata = await tmdbGet(`/tv/${result.id}/season/${s.season_number}`, { language: tmdbLang() }, apiKey)
         if (!sdata) continue
         const eps = []
         for (const ep of sdata.episodes ?? []) {
@@ -1485,7 +1483,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
           }
           eps.push({
             episodeNumber: ep.episode_number,
-            name: ep.name || `Bölüm ${ep.episode_number}`,
+            name: ep.name || stt('Bölüm {0}', ep.episode_number),
             overview: ep.overview ?? '',
             airDate: ep.air_date ?? '',
             stillUrl,
@@ -1535,7 +1533,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
               newOpt.image = `/medya/${filename}`
             }
           }
-          const person = await tmdbGet(`/person/${c.id}`, { language: 'tr-TR' }, apiKey)
+          const person = await tmdbGet(`/person/${c.id}`, { language: tmdbLang() }, apiKey)
           if (person) {
             const parts = []
             if (person.birthday) {
@@ -1570,12 +1568,12 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
 
     // Mükerrer uyarısı: aynı TMDB içeriği bu arşivde başka bir kayıtta da varsa arayüz haber verir.
     const dupRow = rows.find((x) => x.id !== row.id && refs[x.id]?.id === result.id && refs[x.id]?.mediaType === mediaType)
-    const duplicateOf = dupRow ? { rowId: dupRow.id, title: (titleProp && dupRow.values[titleProp.id]) || 'İsimsiz' } : null
+    const duplicateOf = dupRow ? { rowId: dupRow.id, title: (titleProp && dupRow.values[titleProp.id]) || stt('İsimsiz') } : null
 
     return { status: 200, data: { ok: true, mediaType, filled, newEpisodes, newActors, duplicateOf } }
   } catch (e) {
     console.error('fetch-tmdb hata:', e)
-    return { status: 500, data: { error: 'Çekme sırasında hata oluştu' } }
+    return { status: 500, data: { error: stt('Çekme sırasında hata oluştu') } }
   }
 }
 
@@ -1720,7 +1718,7 @@ app.get('/api/profiles/:profileId/collection/:boardId/:rowId', async (req, res) 
     }
     if (!ref || ref.mediaType !== 'movie') return res.json({ collection: null })
     if (ref.collection === undefined) {
-      const d = await tmdbGet(`/movie/${ref.id}`, { language: 'tr-TR' }, apiKey)
+      const d = await tmdbGet(`/movie/${ref.id}`, { language: tmdbLang() }, apiKey)
       if (!d) return res.json({ collection: null })
       const c = d.belongs_to_collection
       const fresh = readJson(refsFile, {})
@@ -1733,7 +1731,7 @@ app.get('/api/profiles/:profileId/collection/:boardId/:rowId', async (req, res) 
     if (!ref.collection) return res.json({ collection: null })
     let col = collectionCache.get(ref.collection.id)
     if (!col || Date.now() - col.at > 6 * 3600e3) {
-      const d = await tmdbGet(`/collection/${ref.collection.id}`, { language: 'tr-TR' }, apiKey)
+      const d = await tmdbGet(`/collection/${ref.collection.id}`, { language: tmdbLang() }, apiKey)
       if (!d) return res.json({ collection: null })
       col = { at: Date.now(), data: d }
       collectionCache.set(ref.collection.id, col)
@@ -1843,7 +1841,7 @@ async function fillEpisodeRuntimes(profileId, boardId, rowIds, apiKey) {
 app.get('/api/profiles/:profileId/flashback/:boardId', (req, res) => {
   const { profileId, boardId } = req.params
   const year = String(req.query.year ?? '')
-  if (!/^\d{4}$/.test(year)) return res.status(400).json({ error: 'Yıl eksik' })
+  if (!/^\d{4}$/.test(year)) return res.status(400).json({ error: stt('Yıl eksik') })
   const watched = readJson(profileWatchedFile(profileId), {})
   const seriesIds = Object.entries(watched)
     .filter(([, eps]) => Object.values(eps ?? {}).some((ds) => (ds ?? []).some((d) => String(d).startsWith(year))))
@@ -1944,7 +1942,7 @@ app.get('/api/profiles/:profileId/tmdb-media', (req, res) => {
 app.get('/api/profiles/:profileId/koleksiyon/:boardId', (req, res) => {
   const { profileId, boardId } = req.params
   const loaded = loadBoardAndRows(profileId, boardId)
-  if (!loaded) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+  if (!loaded) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
   const refs = readJson(profileTmdbFile(profileId), {})
   const collections = {}
   const mediaTypes = {}
@@ -2002,7 +2000,7 @@ app.get('/api/profiles/:profileId/person/:boardId', async (req, res) => {
     const ck = `${role}:${normalizeText(name)}`
     let hit = personCache.get(ck)
     if (!hit || Date.now() - hit.at > 6 * 3600e3) {
-      const sr = await tmdbGet('/search/person', { query: name, language: 'tr-TR' }, apiKey)
+      const sr = await tmdbGet('/search/person', { query: name, language: tmdbLang() }, apiKey)
       const want = role === 'directing' ? 'Directing' : 'Acting'
       const results = sr?.results ?? []
       const pick =
@@ -2010,7 +2008,7 @@ app.get('/api/profiles/:profileId/person/:boardId', async (req, res) => {
         results.find((p) => normalizeText(p.name) === normalizeText(name)) ??
         results[0]
       if (!pick) return res.json({ person: null })
-      const d = await tmdbGet(`/person/${pick.id}`, { language: 'tr-TR', append_to_response: 'combined_credits' }, apiKey)
+      const d = await tmdbGet(`/person/${pick.id}`, { language: tmdbLang(), append_to_response: 'combined_credits' }, apiKey)
       let bio = d?.biography ?? ''
       if (!bio) bio = (await tmdbGet(`/person/${pick.id}`, { language: 'en-US' }, apiKey))?.biography ?? ''
       hit = { at: Date.now(), data: { d, bio } }
@@ -2080,17 +2078,17 @@ app.get('/api/profiles/:profileId/tmdb-extras/:boardId/:rowId', async (req, res)
     if (!apiKey) return res.json({ needsApiKey: true })
     const loaded = loadBoardAndRows(profileId, boardId)
     const row = loaded?.rows.find((r) => r.id === rowId)
-    if (!row) return res.status(404).json({ error: 'Kayıt bulunamadı' })
+    if (!row) return res.status(404).json({ error: stt('Kayıt bulunamadı') })
     const ref = await ensureTmdbRef(profileId, loaded.board, row, apiKey)
     if (!ref) return res.json({ notFound: true })
 
     const [prov, recs] = await Promise.all([
       tmdbGet(`/${ref.mediaType}/${ref.id}/watch/providers`, {}, apiKey),
-      tmdbGet(`/${ref.mediaType}/${ref.id}/recommendations`, { language: 'tr-TR' }, apiKey),
+      tmdbGet(`/${ref.mediaType}/${ref.id}/recommendations`, { language: tmdbLang() }, apiKey),
     ])
     let similarRaw = recs?.results ?? []
     if (similarRaw.length === 0) {
-      const sim = await tmdbGet(`/${ref.mediaType}/${ref.id}/similar`, { language: 'tr-TR' }, apiKey)
+      const sim = await tmdbGet(`/${ref.mediaType}/${ref.id}/similar`, { language: tmdbLang() }, apiKey)
       similarRaw = sim?.results ?? []
     }
     const index = buildArchiveIndex(profileId, loaded.board, loaded.rows)
@@ -2099,7 +2097,7 @@ app.get('/api/profiles/:profileId/tmdb-extras/:boardId/:rowId', async (req, res)
       .map((r) => toCard(r, ref.mediaType))
       .map((c) => ({ ...c, inArchive: index.has(c) }))
 
-    const tr = prov?.results?.TR
+    const tr = prov?.results?.[serverRegion()]
     res.json({
       providers: tr
         ? {
@@ -2114,7 +2112,7 @@ app.get('/api/profiles/:profileId/tmdb-extras/:boardId/:rowId', async (req, res)
     })
   } catch (e) {
     console.error('tmdb-extras hata:', e)
-    res.status(500).json({ error: 'TMDB bilgileri alınamadı' })
+    res.status(500).json({ error: stt('TMDB bilgileri alınamadı') })
   }
 })
 
@@ -2124,22 +2122,22 @@ app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
   try {
     const { profileId, boardId } = req.params
     const { tmdbId, mediaType, status, watchedDate, rating, exclude } = req.body ?? {}
-    if (!tmdbId || (mediaType !== 'movie' && mediaType !== 'tv')) return res.status(400).json({ error: 'Geçersiz içerik' })
+    if (!tmdbId || (mediaType !== 'movie' && mediaType !== 'tv')) return res.status(400).json({ error: stt('Geçersiz içerik') })
     const apiKey = readProfileApiKey(profileId)
-    if (!apiKey) return res.status(400).json({ error: 'Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.' })
+    if (!apiKey) return res.status(400).json({ error: stt('Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.') })
 
     const boardsFile = profileBoardsFile(profileId)
     const boards = readJson(boardsFile, [])
     const board = boards.find((b) => b.id === boardId)
-    if (!board) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+    if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
     const rowsFile = profileRowsFile(profileId, boardId)
     const rows = readJson(rowsFile, [])
 
     const index = buildArchiveIndex(profileId, board, rows)
-    const basic = await tmdbGet(`/${mediaType}/${tmdbId}`, { language: 'tr-TR' }, apiKey)
-    if (!basic) return res.status(502).json({ error: 'TMDB bilgisi alınamadı' })
+    const basic = await tmdbGet(`/${mediaType}/${tmdbId}`, { language: tmdbLang() }, apiKey)
+    if (!basic) return res.status(502).json({ error: stt('TMDB bilgisi alınamadı') })
     const card = toCard(basic, mediaType)
-    if (index.has(card)) return res.status(409).json({ error: `"${card.title}" zaten arşivinde var.` })
+    if (index.has(card)) return res.status(409).json({ error: stt('"{0}" zaten arşivinde var.', card.title) })
 
     const values = {}
     const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
@@ -2177,7 +2175,7 @@ app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
     res.json({ ok: true, rowId: row.id, title: card.title, filled: fill.status === 200 })
   } catch (e) {
     console.error('tmdb-add hata:', e)
-    res.status(500).json({ error: 'İçerik eklenemedi' })
+    res.status(500).json({ error: stt('İçerik eklenemedi') })
   }
 })
 
@@ -2185,7 +2183,7 @@ app.get('/api/profiles/:profileId/tmdb-genres', async (req, res) => {
   const apiKey = readProfileApiKey(req.params.profileId)
   if (!apiKey) return res.json({ needsApiKey: true, genres: [] })
   const type = req.query.type === 'tv' ? 'tv' : 'movie'
-  const data = await tmdbGet(`/genre/${type}/list`, { language: 'tr-TR' }, apiKey)
+  const data = await tmdbGet(`/genre/${type}/list`, { language: tmdbLang() }, apiKey)
   res.json({ genres: (data?.genres ?? []).map((g) => ({ id: g.id, name: g.name })) })
 })
 
@@ -2194,9 +2192,9 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
   try {
     const { profileId, boardId } = req.params
     const apiKey = readProfileApiKey(profileId)
-    if (!apiKey) return res.status(400).json({ error: 'Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.' })
+    if (!apiKey) return res.status(400).json({ error: stt('Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.') })
     const loaded = loadBoardAndRows(profileId, boardId)
-    if (!loaded) return res.status(404).json({ error: 'Arşiv bulunamadı' })
+    if (!loaded) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
 
     const type = req.body?.type === 'tv' ? 'tv' : 'movie'
     const genreIds = Array.isArray(req.body?.genreIds) ? req.body.genreIds.filter((n) => Number.isInteger(n)) : []
@@ -2207,7 +2205,7 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
 
     // "En yüksek puanlı": az oylu yeni yapımlar (ör. 400 oyla 9.2) klasiklerin önüne geçmesin — yeni kullanıcı
     // denemesinde Baba 7. sıradaydı. Daha yüksek oy sınırı + henüz çıkmamışlar hariç.
-    const params = { language: 'tr-TR', include_adult: 'false', 'vote_count.gte': sort === 'top' ? (type === 'tv' ? 500 : 2000) : 50 }
+    const params = { language: tmdbLang(), include_adult: 'false', 'vote_count.gte': sort === 'top' ? (type === 'tv' ? 500 : 2000) : 50 }
     if (sort === 'top') {
       const today = localDay()
       params[type === 'tv' ? 'first_air_date.lte' : 'primary_release_date.lte'] = today
@@ -2257,7 +2255,7 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
     res.json({ items: out })
   } catch (e) {
     console.error('tmdb-discover hata:', e)
-    res.status(500).json({ error: 'Keşfet sonuçları alınamadı' })
+    res.status(500).json({ error: stt('Keşfet sonuçları alınamadı') })
   }
 })
 
@@ -2266,21 +2264,21 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
 app.get('/api/profiles/:profileId/tmdb-item/:boardId/:mediaType/:tmdbId', async (req, res) => {
   try {
     const { profileId, boardId, mediaType, tmdbId } = req.params
-    if (mediaType !== 'movie' && mediaType !== 'tv') return res.status(400).json({ error: 'Geçersiz içerik' })
+    if (mediaType !== 'movie' && mediaType !== 'tv') return res.status(400).json({ error: stt('Geçersiz içerik') })
     const apiKey = readProfileApiKey(profileId)
-    if (!apiKey) return res.status(400).json({ error: 'TMDB API anahtarı gerekli' })
+    if (!apiKey) return res.status(400).json({ error: stt('TMDB API anahtarı gerekli') })
     const [d, prov, trailer] = await Promise.all([
-      tmdbGet(`/${mediaType}/${tmdbId}`, { language: 'tr-TR', append_to_response: 'images', include_image_language: 'tr,en,null' }, apiKey),
+      tmdbGet(`/${mediaType}/${tmdbId}`, { language: tmdbLang(), append_to_response: 'images', include_image_language: `${serverLang()},en,null` }, apiKey),
       tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`, {}, apiKey),
       getTrailerUrl(mediaType, tmdbId, apiKey).catch(() => null),
     ])
-    if (!d) return res.status(404).json({ error: 'İçerik bulunamadı' })
+    if (!d) return res.status(404).json({ error: stt('İçerik bulunamadı') })
     const card = toCard(d, mediaType)
     // Arşivdeki detay penceresiyle aynı görünüm için: büyük yatay görsel, başlık logosu (Kapak
     // Adı) ve fragman.
     const logo = pickLogo(d.images)
     const loaded = loadBoardAndRows(profileId, boardId)
-    const tr = prov?.results?.TR
+    const tr = prov?.results?.[serverRegion()]
     res.json({
       ...card,
       backdrop: d.backdrop_path ? `${TMDB_IMG_BASE}/w1280${d.backdrop_path}` : card.backdrop,
@@ -2302,13 +2300,13 @@ app.get('/api/profiles/:profileId/tmdb-item/:boardId/:mediaType/:tmdbId', async 
     })
   } catch (e) {
     console.error('tmdb-item hata:', e)
-    res.status(500).json({ error: 'İçerik bilgisi alınamadı' })
+    res.status(500).json({ error: stt('İçerik bilgisi alınamadı') })
   }
 })
 
 app.post('/api/profiles/:profileId/tmdb-dismiss', (req, res) => {
   const { tmdbId, mediaType } = req.body ?? {}
-  if (!tmdbId || !mediaType) return res.status(400).json({ error: 'Geçersiz içerik' })
+  if (!tmdbId || !mediaType) return res.status(400).json({ error: stt('Geçersiz içerik') })
   const file = profileDismissedFile(req.params.profileId)
   const list = readJson(file, [])
   const key = tmdbKey(mediaType, tmdbId)
@@ -2334,7 +2332,7 @@ const TV_CACHE_MS = 3 * 60 * 60 * 1000
 async function getTvStatus(tmdbId, apiKey) {
   const cached = tvStatusCache.get(tmdbId)
   if (cached && Date.now() - cached.at < TV_CACHE_MS) return cached.data
-  const d = await tmdbGet(`/tv/${tmdbId}`, { language: 'tr-TR' }, apiKey)
+  const d = await tmdbGet(`/tv/${tmdbId}`, { language: tmdbLang() }, apiKey)
   if (!d) return null
   const data = {
     status: d.status ?? '',
@@ -2377,7 +2375,7 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
     const st = await getTvStatus(ref.id, apiKey)
     if (!st) continue
     saveShowInfo(profileId, row.id, st)
-    const title = String((tp && row.values[tp.id]) || 'Dizi')
+    const title = String((tp && row.values[tp.id]) || stt('Dizi'))
     // En son ne zaman izledin: bölüm işaretleri ya da izleme tarihi
     const seen = watched[row.id] ?? {}
     const dv = dateProp ? row.values[dateProp.id] : null
@@ -2408,7 +2406,7 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
           boardId,
           rowId: row.id,
           title,
-          text: `Yeni bölüm çıktı (S${st.last.season}B${st.last.episode}, ${trDate(st.last.airDate)}) — durumu İzleniyor'a alındı.`,
+          text: stt('Yeni bölüm çıktı (S{0}B{1}, {2}) — durumu İzleniyor\'a alındı.', st.last.season, st.last.episode, langDate(st.last.airDate)),
         })
       }
       continue
@@ -2420,7 +2418,7 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
         boardId,
         rowId: row.id,
         title,
-        text: `${st.next.season}. sezon ${trDate(st.next.airDate)}'de başlıyor.`,
+        text: stt('{0}. sezon {1}\'de başlıyor.', st.next.season, langDate(st.next.airDate)),
       })
     }
   }
@@ -2538,20 +2536,20 @@ app.post('/api/medya/upload', upload.single('file'), (req, res) => {
 app.post('/api/medya/from-url', async (req, res) => {
   try {
     const url = String(req.body?.url ?? '').trim()
-    if (!/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'Geçerli bir görsel adresi değil.' })
+    if (!/^https?:\/\//i.test(url)) return res.status(400).json({ error: stt('Geçerli bir görsel adresi değil.') })
     const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 ARGUS' }, signal: AbortSignal.timeout(20000) })
-    if (!r.ok) return res.status(400).json({ error: `Görsel indirilemedi (${r.status}).` })
+    if (!r.ok) return res.status(400).json({ error: stt('Görsel indirilemedi ({0}).', r.status) })
     const type = (r.headers.get('content-type') ?? '').split(';')[0].trim()
     const ext = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif', 'image/svg+xml': '.svg', 'image/avif': '.avif' }[type]
-    if (!ext) return res.status(400).json({ error: 'Bu adres bir görsel değil (sayfanın değil, görselin kendi adresini yapıştır).' })
+    if (!ext) return res.status(400).json({ error: stt('Bu adres bir görsel değil (sayfanın değil, görselin kendi adresini yapıştır).') })
     const buf = Buffer.from(await r.arrayBuffer())
-    if (buf.length > 15 * 1024 * 1024) return res.status(400).json({ error: 'Görsel çok büyük (15 MB üstü).' })
+    if (buf.length > 15 * 1024 * 1024) return res.status(400).json({ error: stt('Görsel çok büyük (15 MB üstü).') })
     let name = `sembol_${Date.now().toString(36)}${ext}`
     while (fs.existsSync(path.join(MEDYA_DIR, name))) name = `sembol_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}${ext}`
     fs.writeFileSync(path.join(MEDYA_DIR, name), buf)
     res.json({ filename: name })
   } catch (e) {
-    res.status(400).json({ error: 'Görsel indirilemedi.' })
+    res.status(400).json({ error: stt('Görsel indirilemedi.') })
   }
 })
 
@@ -2580,7 +2578,7 @@ app.post('/api/apply-update', (req, res) => {
       execSync('git reset --hard --quiet @{u}', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })
     }
   } catch {
-    return res.status(500).json({ error: 'Güncelleme çekilemedi — internet bağlantını kontrol et.' })
+    return res.status(500).json({ error: stt('Güncelleme çekilemedi — internet bağlantını kontrol et.') })
   }
   // ARGUS.bat bu dosyayı app/ klasörüne yazıyor ("ARGUS Durdur.bat" da oradan okuyor). Eskiden
   // burada app/server/ içinde aranıyordu — hiç bulunamadığı için eski ARGUS hiç kapatılmıyor,
@@ -2613,8 +2611,8 @@ function announceFeatures(f) {
       pushNotification(p.id, {
         key: 'feature:wrapped',
         type: 'feature',
-        title: 'Yeni: Flashback',
-        text: 'Yılın nasıl geçti? Toplam ekran süren, izleyici unvanın, maratonların, en sevdiklerin ve paylaşabileceğin bir hikâye kartı. Profil menüsünde.',
+        title: stt('Yeni: Flashback'),
+        text: stt('Yılın nasıl geçti? Toplam ekran süren, izleyici unvanın, maratonların, en sevdiklerin ve paylaşabileceğin bir hikâye kartı. Profil menüsünde.'),
         link: '/flashback',
       })
     } catch {
@@ -2680,7 +2678,7 @@ app.get('/api/features', async (req, res) => {
   res.json({ developer: isDevMachine(), wrappedForAll: Boolean(f.wrappedForAll) })
 })
 app.post('/api/features', async (req, res) => {
-  if (!isDevMachine()) return res.status(403).json({ error: 'Bu ayar sadece geliştirici bilgisayarında değiştirilebilir.' })
+  if (!isDevMachine()) return res.status(403).json({ error: stt('Bu ayar sadece geliştirici bilgisayarında değiştirilebilir.') })
   const f = readJson(FEATURES_FILE, {})
   if (typeof req.body?.wrappedForAll === 'boolean') f.wrappedForAll = req.body.wrappedForAll
   fs.writeFileSync(FEATURES_FILE, JSON.stringify(f, null, 2) + '\n', 'utf-8')
@@ -2713,7 +2711,7 @@ if (process.env.ARGUS_SERVE_UI) {
 // Bir istekte hata çıkarsa (ör. "okunamadı, kaydedilmedi") arayüze anlaşılır mesajla dönsün.
 app.use((err, req, res, _next) => {
   console.error('Hata:', err)
-  if (!res.headersSent) res.status(500).json({ error: err?.message || 'Sunucuda hata oluştu.' })
+  if (!res.headersSent) res.status(500).json({ error: err?.message || stt('Sunucuda hata oluştu.') })
 })
 
 const PORT = Number(process.env.PORT) || 4000

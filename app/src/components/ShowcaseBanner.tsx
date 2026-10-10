@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
 import { isHoverVideoActive, subscribeHoverVideo } from '../lib/videoGuard'
+import { tt } from '../lib/i18n'
 
 // Düz 2 durak (renk -> transparent) çizgisel gradyan göze hâlâ keskin/kesik gibi görünüyor —
 // insan gözü doğrusal alfa geçişini "aniden başlayıp aniden biten" bir kesim gibi algılıyor.
@@ -269,14 +270,14 @@ export default function ShowcaseBanner({
           <button
             onClick={() => setStopped(true)}
             className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition"
-            title="Videoyu durdur, görsele geç"
+            title={tt('Videoyu durdur, görsele geç')}
           >
             ⏹
           </button>
           <button
             onClick={toggleMute}
             className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition"
-            title={muted ? 'Sesi aç' : 'Sesi kapat'}
+            title={muted ? tt('Sesi aç') : tt('Sesi kapat')}
           >
             {muted ? '🔇' : '🔊'}
           </button>
@@ -287,9 +288,9 @@ export default function ShowcaseBanner({
           <button
             onClick={replay}
             className="h-9 flex items-center gap-1.5 px-3 rounded-full bg-black/60 hover:bg-black/80 text-white text-sm font-medium transition"
-            title="Videoyu tekrar oynat"
+            title={tt('Videoyu tekrar oynat')}
           >
-            <span aria-hidden>↻</span> Tekrar oynat
+            <span aria-hidden>↻</span>{' '}{tt('Tekrar oynat')}
           </button>
         </div>
       )}

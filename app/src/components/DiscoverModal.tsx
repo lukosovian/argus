@@ -7,6 +7,7 @@ import { BRAND_GRADIENT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme
 import { CompassIcon } from './toolbarIcons'
 import GenreTriPicker from './GenreTriPicker'
 import { useEscape } from '../hooks/useEscape'
+import { tt, ttx } from '../lib/i18n'
 
 // Arşiv tablosunun araç çubuğundaki pusula — "Keşfet". Kullanıcının fikri: "sayısını
 // belirliycez dizi mi film mi... türünü belirliycez... bizde olmayan tablomuzda olmayan
@@ -19,9 +20,9 @@ type Sort = 'popular' | 'top' | 'new'
 
 const COUNTS = [5, 10, 20, 40]
 const SORTS: { value: Sort; label: string }[] = [
-  { value: 'popular', label: 'Popüler' },
-  { value: 'top', label: 'En yüksek puanlı' },
-  { value: 'new', label: 'Yeni çıkanlar' },
+  { value: 'popular', label: tt('Popüler') },
+  { value: 'top', label: tt('En yüksek puanlı') },
+  { value: 'new', label: tt('Yeni çıkanlar') },
 ]
 
 function Segmented<T extends string | number>({
@@ -62,14 +63,14 @@ export function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string 
     <div className="mt-2 space-y-2 rounded-lg bg-neutral-800/70 border border-neutral-700 p-2.5">
       <div>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-neutral-500">İzleme tarihi</span>
+          <span className="text-[11px] text-neutral-500">{tt('İzleme tarihi')}</span>
           {date === null ? (
             <button onClick={() => setDate(todayIso())} className="text-[11px] text-[#00c0fa] hover:underline">
-              Tarih ekle
+              {tt('Tarih ekle')}
             </button>
           ) : (
             <button onClick={() => setDate(null)} className="text-[11px] text-neutral-500 hover:text-neutral-300">
-              Hatırlamıyorum
+              {tt('Hatırlamıyorum')}
             </button>
           )}
         </div>
@@ -85,14 +86,14 @@ export function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string 
       </div>
       <div>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-neutral-500">Puan</span>
+          <span className="text-[11px] text-neutral-500">{tt('Puan')}</span>
           {rating === null ? (
             <button onClick={() => setRating(7)} className="text-[11px] text-[#00c0fa] hover:underline">
-              Puan ver
+              {tt('Puan ver')}
             </button>
           ) : (
             <button onClick={() => setRating(null)} className="text-[11px] text-neutral-500 hover:text-neutral-300">
-              Puansız
+              {tt('Puansız')}
             </button>
           )}
         </div>
@@ -117,10 +118,10 @@ export function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string 
           disabled={busy}
           className="flex-1 text-[11px] rounded-md bg-[#00c0fa] text-white font-semibold py-1 disabled:opacity-50"
         >
-          {busy ? 'Ekleniyor...' : 'Kaydet'}
+          {busy ? tt('Ekleniyor...') : tt('Kaydet')}
         </button>
         <button onClick={onCancel} disabled={busy} className="text-[11px] rounded-md border border-neutral-700 text-neutral-400 px-2 py-1">
-          Vazgeç
+          {tt('Vazgeç')}
         </button>
       </div>
     </div>
@@ -175,7 +176,7 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
       const res = await api.discoverTmdb(boardId, { type, genreIds: selectedGenres, excludeGenreIds: excludedGenres, count, sort })
       setItems(res.items)
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Sonuçlar alınamadı.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Sonuçlar alınamadı.'), 'danger')
     } finally {
       setLoading(false)
     }
@@ -199,9 +200,9 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
       removeItem(card)
       setWatchedFormFor(null)
       notifyDataChanged(boardId)
-      notify(status === 'izlendi' ? `"${res.title}" izlediklerine eklendi.` : `"${res.title}" izlenecekler listene eklendi.`)
+      notify(status === 'izlendi' ? tt('"{0}" izlediklerine eklendi.', res.title) : tt('"{0}" izlenecekler listene eklendi.', res.title))
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
     } finally {
       setBusyId(null)
     }
@@ -220,7 +221,7 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
   async function resetDismissed() {
     await api.resetDismissed()
     setDismissedCount(0)
-    notify('Gizlediğin içerikler Keşfet\'te yeniden görünecek.')
+    notify(tt('Gizlediğin içerikler Keşfet\'te yeniden görünecek.'))
   }
 
   return (
@@ -236,13 +237,13 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
               <CompassIcon className="h-5 w-5" />
             </span>
               <div>
-                <h2 className="text-xl font-semibold text-neutral-50">Keşfet</h2>
-                <p className="text-sm text-neutral-500 mt-0.5">Arşivinde olmayan içerikler. Beğendiğini ekle, istemediğini gizle.</p>
+                <h2 className="text-xl font-semibold text-neutral-50">{tt('Keşfet')}</h2>
+                <p className="text-sm text-neutral-500 mt-0.5">{tt('Arşivinde olmayan içerikler. Beğendiğini ekle, istemediğini gizle.')}</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              aria-label="Kapat"
+              aria-label={tt('Kapat')}
               className="h-8 w-8 shrink-0 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-500 flex items-center justify-center text-neutral-400 hover:text-neutral-50 text-lg leading-none transition"
             >
               ×
@@ -250,33 +251,33 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
           </div>
 
           {needsApiKey ? (
-            <p className="text-sm text-amber-500">Keşfet için önce Ayarlar → Veritabanı → API'den TMDB anahtarını girmelisin.</p>
+            <p className="text-sm text-amber-500">{tt('Keşfet için önce Ayarlar → Veritabanı → API\'den TMDB anahtarını girmelisin.')}</p>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-500">Ne</span>
+                  <span className="text-xs text-neutral-500">{tt('Ne')}</span>
                   <Segmented<MediaType>
                     value={type}
                     onChange={setType}
                     options={[
-                      { value: 'movie', label: 'Film' },
-                      { value: 'tv', label: 'Dizi' },
+                      { value: 'movie', label: tt('Film') },
+                      { value: 'tv', label: tt('Dizi') },
                     ]}
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-500">Kaç tane</span>
+                  <span className="text-xs text-neutral-500">{tt('Kaç tane')}</span>
                   <Segmented<number> value={count} onChange={setCount} options={COUNTS.map((c) => ({ value: c, label: String(c) }))} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-500">Sıralama</span>
+                  <span className="text-xs text-neutral-500">{tt('Sıralama')}</span>
                   <Segmented<Sort> value={sort} onChange={setSort} options={SORTS} />
                 </div>
               </div>
               <div>
                 <p className="text-xs text-neutral-500 mb-1.5">
-                  Tür — bir tık ✓ gelsin, iki tık ✕ gelmesin (hiçbiri seçilmezse hepsi; birden fazla ✓ seçersen hepsini birden taşıyanlar gelir)
+                  {tt('Tür — bir tık ✓ gelsin, iki tık ✕ gelmesin (hiçbiri seçilmezse hepsi; birden fazla ✓ seçersen hepsini birden taşıyanlar gelir)')}
                 </p>
                 <GenreTriPicker
                   genres={genres}
@@ -290,13 +291,13 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
               </div>
               <div className="flex items-center gap-4">
                 <button onClick={fetchItems} disabled={loading} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
-                  {loading ? 'Getiriliyor...' : items ? 'Yeniden Getir' : 'Getir'}
+                  {loading ? tt('Getiriliyor...') : items ? tt('Yeniden Getir') : tt('Getir')}
                 </button>
                 {dismissedCount > 0 && (
                   <span className="text-xs text-neutral-500">
-                    Gizlediğin {dismissedCount} içerik gösterilmiyor ·{' '}
+                    {ttx('Gizlediğin {0} içerik gösterilmiyor ·', dismissedCount)}{' '}
                     <button onClick={resetDismissed} className="text-neutral-400 hover:text-neutral-50 underline">
-                      sıfırla
+                      {tt('sıfırla')}
                     </button>
                   </span>
                 )}
@@ -307,9 +308,9 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
 
         <div className="overflow-y-auto p-6">
           {items === null ? (
-            <p className="text-sm text-neutral-500">Seçimlerini yapıp "Getir"e bas.</p>
+            <p className="text-sm text-neutral-500">{tt('Seçimlerini yapıp "Getir"e bas.')}</p>
           ) : items.length === 0 ? (
-            <p className="text-sm text-neutral-500">Bu seçimlere uyan, arşivinde olmayan başka içerik kalmadı. Farklı tür ya da sıralama dene.</p>
+            <p className="text-sm text-neutral-500">{tt('Bu seçimlere uyan, arşivinde olmayan başka içerik kalmadı. Farklı tür ya da sıralama dene.')}</p>
           ) : (
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
               {items.map((c) => {
@@ -332,7 +333,7 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
                       <button
                         onClick={() => dismiss(c)}
                         disabled={busy}
-                        title="İstemiyorum — bir daha gösterme"
+                        title={tt('İstemiyorum — bir daha gösterme')}
                         className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/70 hover:bg-rose-600 text-white text-sm flex items-center justify-center transition"
                       >
                         ×
@@ -355,14 +356,14 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
                           disabled={busyId !== null}
                           className="flex-1 text-[11px] rounded-md border border-neutral-700 hover:border-[#00c0fa] text-neutral-300 hover:text-[#00c0fa] py-1.5 transition disabled:opacity-50"
                         >
-                          {busy ? 'Ekleniyor...' : '+ İzlenecek'}
+                          {busy ? tt('Ekleniyor...') : tt('+ İzlenecek')}
                         </button>
                         <button
                           onClick={() => setWatchedFormFor(c.tmdbId)}
                           disabled={busyId !== null}
                           className="flex-1 text-[11px] rounded-md border border-neutral-700 hover:border-emerald-500 text-neutral-300 hover:text-emerald-500 py-1.5 transition disabled:opacity-50"
                         >
-                          ✓ İzledim
+                          {tt('✓ İzledim')}
                         </button>
                       </div>
                     )}

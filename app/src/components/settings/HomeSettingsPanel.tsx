@@ -23,6 +23,7 @@ import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
 import { BRAND_TEXT } from '../../lib/theme'
 import { PanelHeader, SettingsSection, SettingsTabs, choiceClass } from './SettingsUi'
+import { tt } from '../../lib/i18n'
 
 function ChoiceButtons<T extends string>({
   value,
@@ -72,27 +73,27 @@ function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettin
 
 
   if (needsApiKey) {
-    return <p className="text-sm text-amber-500">Bunun için önce Ayarlar → Veritabanı → API'den TMDB anahtarını girmelisin.</p>
+    return <p className="text-sm text-amber-500">{tt('Bunun için önce Ayarlar → Veritabanı → API\'den TMDB anahtarını girmelisin.')}</p>
   }
 
   return (
     <div className="space-y-3 rounded-xl border border-neutral-800 p-3">
       <div>
-        <label className="block text-xs text-neutral-400 mb-1.5">Ne</label>
+        <label className="block text-xs text-neutral-400 mb-1.5">{tt('Ne')}</label>
         <ChoiceButtons
           value={value.type}
           // Tür id'leri film ve dizi için farklı — tür değişince seçili türler sıfırlanıyor.
           onChange={(type) => onChange({ ...value, type, genreIds: [], excludeGenreIds: [] })}
           options={[
-            { value: 'movie', label: 'Film' },
-            { value: 'tv', label: 'Dizi' },
-            { value: 'mixed', label: 'Karışık' },
+            { value: 'movie', label: tt('Film') },
+            { value: 'tv', label: tt('Dizi') },
+            { value: 'mixed', label: tt('Karışık') },
           ]}
         />
       </div>
       {value.type !== 'mixed' && (
         <div>
-          <label className="block text-xs text-neutral-400 mb-1.5">Tür — bir tık ✓ gelsin, iki tık ✕ gelmesin (hiçbiri seçilmezse hepsi)</label>
+          <label className="block text-xs text-neutral-400 mb-1.5">{tt('Tür — bir tık ✓ gelsin, iki tık ✕ gelmesin (hiçbiri seçilmezse hepsi)')}</label>
           <GenreTriPicker
             genres={genres}
             include={value.genreIds}
@@ -102,29 +103,28 @@ function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettin
         </div>
       )}
       <div>
-        <label className="block text-xs text-neutral-400 mb-1.5">Hangileri</label>
+        <label className="block text-xs text-neutral-400 mb-1.5">{tt('Hangileri')}</label>
         <ChoiceButtons
           value={value.sort}
           onChange={(sort) => onChange({ ...value, sort })}
           options={[
-            { value: 'popular', label: 'Popüler olanlar' },
-            { value: 'top', label: 'En yüksek puanlılar' },
+            { value: 'popular', label: tt('Popüler olanlar') },
+            { value: 'top', label: tt('En yüksek puanlılar') },
           ]}
         />
       </div>
       <p className="text-[11px] text-neutral-600">
-        Kazanan çıkınca önizlemesi açılır: izlenecekler listene ekleyebilir, izlediysen tarih ve puanla kaydedebilir ya da bir daha
-        gösterilmemesini seçebilirsin.
+        {tt('Kazanan çıkınca önizlemesi açılır: izlenecekler listene ekleyebilir, izlediysen tarih ve puanla kaydedebilir ya da bir daha gösterilmemesini seçebilirsin.')}
       </p>
     </div>
   )
 }
 
 const TABS = [
-  { id: 'gorunum', label: 'Görünüm' },
-  { id: 'sayfalar', label: 'Sayfalar' },
-  { id: 'mod', label: 'Modlar' },
-  { id: 'nizlesem', label: 'Ne İzlesem?' },
+  { id: 'gorunum', label: tt('Görünüm') },
+  { id: 'sayfalar', label: tt('Sayfalar') },
+  { id: 'mod', label: tt('Modlar') },
+  { id: 'nizlesem', label: tt('Ne İzlesem?') },
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
@@ -249,9 +249,9 @@ function VitrinStyleSvg({ style }: { style: ShowcaseStyle }) {
 }
 
 const SHOWCASE_STYLE_HINTS: Record<ShowcaseStyle, string> = {
-  klasik: 'Kenarlardan içeride, köşeleri yuvarlak; fragmanı oynar.',
-  sinema: 'Ekranı kenardan kenara kaplar, menünün arkasına kadar uzanır.',
-  slayt: 'Fragman yok; birkaç içerik sırayla değişir, noktalardan seçilir.',
+  klasik: tt('Kenarlardan içeride, köşeleri yuvarlak; fragmanı oynar.'),
+  sinema: tt('Ekranı kenardan kenara kaplar, menünün arkasına kadar uzanır.'),
+  slayt: tt('Fragman yok; birkaç içerik sırayla değişir, noktalardan seçilir.'),
 }
 
 // Vitrin ayarının taslağı — geniş bir afiş (oynat üçgeni + iki metin çubuğu) üstte, altında
@@ -317,9 +317,9 @@ function ClampedNumberInput({
 
 // Listede olup ana sayfada her zaman görünmeyen satırlar
 const ROW_HINTS: Record<string, string> = {
-  'on-this-day': 'o gün için bir şey yoksa görünmez',
-  'new-episodes': 'yeni bölüm yoksa görünmez',
-  'top-rated': "puanlı içerik 3'ten azsa görünmez",
+  'on-this-day': tt('o gün için bir şey yoksa görünmez'),
+  'new-episodes': tt('yeni bölüm yoksa görünmez'),
+  'top-rated': tt('puanlı içerik 3\'ten azsa görünmez'),
 }
 
 // "Satırların sırası": açık olan bütün satırlar tek listede (bkz. lib/homeRows.ts). ↑ ↓ ya da sürükle-bırak.
@@ -337,7 +337,7 @@ function RowOrderList({ settings, onSave }: { settings: HomeSettings; onSave: (s
     keys.splice(to, 0, k)
     commit(keys)
   }
-  if (!list.length) return <p className="text-xs text-neutral-500">Açık bir satır yok.</p>
+  if (!list.length) return <p className="text-xs text-neutral-500">{tt('Açık bir satır yok.')}</p>
   return (
     <ol className="space-y-1.5">
       {list.map((e, i) => (
@@ -378,7 +378,7 @@ function RowOrderList({ settings, onSave }: { settings: HomeSettings; onSave: (s
               type="button"
               onClick={() => move(i, i - 1)}
               disabled={i === 0}
-              aria-label="Yukarı"
+              aria-label={tt('Yukarı')}
               className="h-7 w-7 rounded-md border border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500 disabled:opacity-30 disabled:hover:text-neutral-400 transition"
             >
               ↑
@@ -387,7 +387,7 @@ function RowOrderList({ settings, onSave }: { settings: HomeSettings; onSave: (s
               type="button"
               onClick={() => move(i, i + 1)}
               disabled={i === list.length - 1}
-              aria-label="Aşağı"
+              aria-label={tt('Aşağı')}
               className="h-7 w-7 rounded-md border border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500 disabled:opacity-30 disabled:hover:text-neutral-400 transition"
             >
               ↓
@@ -446,7 +446,7 @@ export default function HomeSettingsPanel() {
       randomPickerFilter: { propertyId: null, optionIds: [] },
       moodRow: {
         enabled: settings.moodRow?.enabled ?? false,
-        title: settings.moodRow?.title ?? 'Bunları da İzle',
+        title: settings.moodRow?.title ?? tt('Bunları da İzle'),
         position: settings.moodRow?.position ?? 1,
         moods: [],
         seeded: false,
@@ -473,23 +473,23 @@ export default function HomeSettingsPanel() {
 
   return (
     <div>
-      <PanelHeader title="Ana Sayfa Ayarları" description="Ana sayfanın nasıl görüneceği, hangi satırların çıkacağı ve Ne İzlesem." />
+      <PanelHeader title={tt('Ana Sayfa Ayarları')} description={tt('Ana sayfanın nasıl görüneceği, hangi satırların çıkacağı ve Ne İzlesem.')} />
       <SettingsTabs value={tab} onChange={setTab} tabs={TABS.map((t) => [t.id, t.label] as const)} />
 
       {tab === 'gorunum' && (
         <div className="space-y-5 max-w-2xl">
-          <SettingsSection title="Genel" description="Hangi arşiv, hangi düzende ve hangi boyutta.">
+          <SettingsSection title={tt('Genel')} description={tt('Hangi arşiv, hangi düzende ve hangi boyutta.')}>
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">Ana sayfada hangi arşiv gösterilsin</label>
+              <label className="block text-xs text-neutral-400 mb-1">{tt('Ana sayfada hangi arşiv gösterilsin')}</label>
               <Select
                 value={settings.boardId ?? ''}
                 onChange={handleBoardIdChange}
-                options={[{ value: '', label: 'Seçilmedi' }, ...boards.map((b) => ({ value: b.id, label: b.name }))]}
+                options={[{ value: '', label: tt('Seçilmedi') }, ...boards.map((b) => ({ value: b.id, label: b.name }))]}
               />
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400 mb-2">Görünüm tarzı</label>
+              <label className="block text-xs text-neutral-400 mb-2">{tt('Görünüm tarzı')}</label>
               <div className="grid grid-cols-2 gap-3">
                 {(Object.keys(HOME_LAYOUT_LABELS) as HomeLayout[]).map((l) => (
                   <button
@@ -511,7 +511,7 @@ export default function HomeSettingsPanel() {
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400 mb-2">Kart boyutu (Yatay ve Dikey ikisinde de geçerli)</label>
+              <label className="block text-xs text-neutral-400 mb-2">{tt('Kart boyutu (Yatay ve Dikey ikisinde de geçerli)')}</label>
               <div className="flex gap-2">
                 {(['kucuk', 'orta', 'buyuk'] as const).map((s) => (
                   <button
@@ -519,14 +519,14 @@ export default function HomeSettingsPanel() {
                     onClick={() => changeCardSize(s)}
                     className={`flex-1 text-xs rounded-lg border px-2 py-2 transition ${choiceClass((settings.cardSize ?? 'orta') === s)}`}
                   >
-                    {s === 'kucuk' ? 'Küçük' : s === 'orta' ? 'Orta' : 'Büyük'}
+                    {s === 'kucuk' ? tt('Küçük') : s === 'orta' ? tt('Orta') : tt('Büyük')}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400 mb-2">Satır başlığı boyutu ("Tümü", bölümler, mod satırı…)</label>
+              <label className="block text-xs text-neutral-400 mb-2">{tt('Satır başlığı boyutu ("Tümü", bölümler, mod satırı…)')}</label>
               <div className="flex gap-2">
                 {(['kucuk', 'orta', 'buyuk'] as const).map((s) => (
                   <button
@@ -536,7 +536,7 @@ export default function HomeSettingsPanel() {
                       s === 'kucuk' ? 'text-xs' : s === 'orta' ? 'text-sm font-semibold' : 'text-base font-bold'
                     }`}
                   >
-                    {s === 'kucuk' ? 'Küçük' : s === 'orta' ? 'Orta' : 'Büyük'}
+                    {s === 'kucuk' ? tt('Küçük') : s === 'orta' ? tt('Orta') : tt('Büyük')}
                   </button>
                 ))}
               </div>
@@ -544,39 +544,39 @@ export default function HomeSettingsPanel() {
 
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-neutral-300">
-                Kart bilgilerini her zaman göster
+                {tt('Kart bilgilerini her zaman göster')}
                 <span className="block text-xs text-neutral-600 mt-0.5">
                   {infoAlwaysUnavailable
-                    ? 'Dikey + Küçük kart boyutunda güzel durmadığı için bu kombinasyonda kullanılamıyor.'
-                    : 'Durum/kategori/yıl şeridi fareyle üzerine gelmeden de görünür kalır. Açıkken kartlar üzerine gelince artık büyümez.'}
+                    ? tt('Dikey + Küçük kart boyutunda güzel durmadığı için bu kombinasyonda kullanılamıyor.')
+                    : tt('Durum/kategori/yıl şeridi fareyle üzerine gelmeden de görünür kalır. Açıkken kartlar üzerine gelince artık büyümez.')}
                 </span>
               </span>
               <ToggleSwitch
                 checked={!infoAlwaysUnavailable && (settings.showInfoAlways ?? false)}
                 onChange={(v) => saveSettings({ ...settings, showInfoAlways: v })}
                 disabled={infoAlwaysUnavailable}
-                label="Bilgileri her zaman göster"
+                label={tt('Bilgileri her zaman göster')}
               />
             </div>
           </SettingsSection>
 
-          <SettingsSection title="Vitrin" description="Ana sayfanın en üstündeki büyük, öne çıkan içerik.">
+          <SettingsSection title={tt('Vitrin')} description={tt('Ana sayfanın en üstündeki büyük, öne çıkan içerik.')}>
             <div className="space-y-3">
               <div className="max-w-[220px]">
                 <VitrinSvg />
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-neutral-300">Üstte öne çıkan bir vitrin göster</span>
+                <span className="text-sm text-neutral-300">{tt('Üstte öne çıkan bir vitrin göster')}</span>
                 <ToggleSwitch
                   checked={settings.showcase}
                   onChange={(v) => saveSettings({ ...settings, showcase: v })}
-                  label="Vitrini göster"
+                  label={tt('Vitrini göster')}
                 />
               </div>
 
               {settings.showcase && (
                 <div>
-                  <label className="block text-xs text-neutral-400 mb-2">Vitrin görünümü</label>
+                  <label className="block text-xs text-neutral-400 mb-2">{tt('Vitrin görünümü')}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {(Object.keys(SHOWCASE_STYLE_LABELS) as ShowcaseStyle[]).map((st) => {
                       const active = (settings.showcaseStyle ?? 'klasik') === st
@@ -603,12 +603,12 @@ export default function HomeSettingsPanel() {
               {settings.showcase && (
                 <div>
                   <label className="block text-xs text-neutral-400 mb-1">
-                    Vitrinde ne gösterilsin (her girişte bu havuzdan rastgele bir tanesi seçilir)
+                    {tt('Vitrinde ne gösterilsin (her girişte bu havuzdan rastgele bir tanesi seçilir)')}
                   </label>
                   <MultiFilterEditor
                     board={board}
                     conditions={filterConditions(settings.showcaseFilter)}
-                    emptyText="Filtre yok — arşivin tamamından rastgele."
+                    emptyText={tt('Filtre yok — arşivin tamamından rastgele.')}
                     onChange={(c) =>
                       saveSettings({ ...settings, showcaseFilter: withConditions(settings.showcaseFilter ?? { propertyId: null, optionIds: [] }, c) })
                     }
@@ -618,19 +618,19 @@ export default function HomeSettingsPanel() {
             </div>
           </SettingsSection>
 
-          <SettingsSection title="Satırlar" description="Vitrinin altında hangi satırların çıkacağı.">
+          <SettingsSection title={tt('Satırlar')} description={tt('Vitrinin altında hangi satırların çıkacağı.')}>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-neutral-300">
-                  "Yeni Bölümler" satırını göster
+                  {tt('"Yeni Bölümler" satırını göster')}
                   <span className="block text-xs text-neutral-600 mt-0.5">
-                    Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri.
+                    {tt('Durumu "İzleniyor" olan dizilerin yeni çıkan ya da bu hafta çıkacak bölümleri.')}
                   </span>
                 </span>
                 <ToggleSwitch
                   checked={settings.newEpisodesRow ?? true}
                   onChange={(v) => saveSettings({ ...settings, newEpisodesRow: v })}
-                  label="Yeni Bölümler satırını göster"
+                  label={tt('Yeni Bölümler satırını göster')}
                 />
               </div>
             </div>
@@ -638,15 +638,15 @@ export default function HomeSettingsPanel() {
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-neutral-300">
-                  "Geçmiş yıllarda bugün" satırını göster
+                  {tt('"Geçmiş yıllarda bugün" satırını göster')}
                   <span className="block text-xs text-neutral-600 mt-0.5">
-                    Önceki yıllarda bugün ne izlediğin (ör. "1 yıl önce"). O gün için bir şey yoksa görünmez.
+                    {tt('Önceki yıllarda bugün ne izlediğin (ör. "1 yıl önce"). O gün için bir şey yoksa görünmez.')}
                   </span>
                 </span>
                 <ToggleSwitch
                   checked={settings.onThisDay?.enabled ?? true}
                   onChange={(v) => saveSettings({ ...settings, onThisDay: { position: settings.onThisDay?.position ?? 1, enabled: v } })}
-                  label="Geçmiş yıllarda bugün satırını göster"
+                  label={tt('Geçmiş yıllarda bugün satırını göster')}
                 />
               </div>
             </div>
@@ -654,22 +654,21 @@ export default function HomeSettingsPanel() {
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-neutral-300">
-                  Ana sayfada "Tümü" satırını göster
+                  {tt('Ana sayfada "Tümü" satırını göster')}
                   <span className="block text-xs text-neutral-600 mt-0.5">
-                    Vitrinin altındaki, arşivin tamamını listeleyen varsayılan satır — bölümlerin (alt sayfaların) kendi satırlarını
-                    etkilemez.
+                    {tt('Vitrinin altındaki, arşivin tamamını listeleyen varsayılan satır — bölümlerin (alt sayfaların) kendi satırlarını etkilemez.')}
                   </span>
                 </span>
                 <ToggleSwitch
                   checked={settings.showAllSection ?? true}
                   onChange={(v) => saveSettings({ ...settings, showAllSection: v })}
-                  label="Tümü satırını göster"
+                  label={tt('Tümü satırını göster')}
                 />
               </div>
 
               {(settings.showAllSection ?? true) && (
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-neutral-400">Tümü satırındaki kartların sırası</span>
+                  <span className="text-xs text-neutral-400">{tt('Tümü satırındaki kartların sırası')}</span>
                   <div className="flex gap-1.5">
                     {(['karisik', 'sirali'] as const).map((o) => (
                       <button
@@ -677,7 +676,7 @@ export default function HomeSettingsPanel() {
                         onClick={() => saveSettings({ ...settings, allSectionOrder: o })}
                         className={`text-xs rounded-lg border px-3 py-1.5 transition ${choiceClass((settings.allSectionOrder ?? 'karisik') === o)}`}
                       >
-                        {o === 'karisik' ? 'Karışık Getir' : 'Sıralı Getir'}
+                        {o === 'karisik' ? tt('Karışık Getir') : tt('Sıralı Getir')}
                       </button>
                     ))}
                   </div>
@@ -686,17 +685,17 @@ export default function HomeSettingsPanel() {
             </div>
 
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm text-neutral-300">Kapak görseli olmayan kayıtları ana sayfada gösterme</span>
+              <span className="text-sm text-neutral-300">{tt('Kapak görseli olmayan kayıtları ana sayfada gösterme')}</span>
               <ToggleSwitch
                 checked={settings.hideWithoutCover ?? false}
                 onChange={(v) => saveSettings({ ...settings, hideWithoutCover: v })}
-                label="Kapaksız kayıtları gizle"
+                label={tt('Kapaksız kayıtları gizle')}
               />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-neutral-300">En altta, her girişte rastgele satırlarla otomatik doldur</span>
+                <span className="text-sm text-neutral-300">{tt('En altta, her girişte rastgele satırlarla otomatik doldur')}</span>
                 <ToggleSwitch
                   checked={settings.autoFill?.enabled ?? false}
                   onChange={(v) =>
@@ -705,16 +704,15 @@ export default function HomeSettingsPanel() {
                       autoFill: { ...settings.autoFill, count: settings.autoFill?.count ?? 4, enabled: v },
                     })
                   }
-                  label="Otomatik doldur"
+                  label={tt('Otomatik doldur')}
                 />
               </div>
               <p className="text-xs text-neutral-600">
-                Arşivdeki seçim sütunlarından (Tür, Ülke, Kategori...) her seferinde rastgele seçilen bir değer, o değeri taşıyan kayıtlarla
-                birlikte kendi satırını oluşturur — başlık olarak o değerin adı kullanılır.
+                {tt('Arşivdeki seçim sütunlarından (Tür, Ülke, Kategori...) her seferinde rastgele seçilen bir değer, o değeri taşıyan kayıtlarla birlikte kendi satırını oluşturur — başlık olarak o değerin adı kullanılır.')}
               </p>
               {settings.autoFill?.enabled && (
                 <div className="flex items-center gap-2 pt-1">
-                  <label className="text-xs text-neutral-400 shrink-0">Kaç satır gelsin</label>
+                  <label className="text-xs text-neutral-400 shrink-0">{tt('Kaç satır gelsin')}</label>
                   <ClampedNumberInput
                     value={settings.autoFill?.count ?? 4}
                     min={1}
@@ -722,7 +720,7 @@ export default function HomeSettingsPanel() {
                     onCommit={(n) => saveSettings({ ...settings, autoFill: { ...settings.autoFill, enabled: true, count: n } })}
                     className="w-20 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
                   />
-                  <span className="text-xs text-neutral-600">(1-20 arası)</span>
+                  <span className="text-xs text-neutral-600">{tt('(1-20 arası)')}</span>
                 </div>
               )}
               {settings.autoFill?.enabled && (
@@ -737,23 +735,23 @@ export default function HomeSettingsPanel() {
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-neutral-300">
-                  "Arşivindeki En İyi 10" satırını göster
+                  {tt('"Arşivindeki En İyi 10" satırını göster')}
                   <span className="block text-xs text-neutral-600 mt-0.5">
-                    En yüksek puan verdiğin 10 içerik, yanlarında büyük sıra numaralarıyla. Puanlı içerik 3'ten azsa görünmez.
+                    {tt('En yüksek puan verdiğin 10 içerik, yanlarında büyük sıra numaralarıyla. Puanlı içerik 3\'ten azsa görünmez.')}
                   </span>
                 </span>
                 <ToggleSwitch
                   checked={settings.topRated?.enabled ?? false}
                   onChange={(v) => saveSettings({ ...settings, topRated: { position: settings.topRated?.position ?? 2, enabled: v } })}
-                  label="En İyi 10 satırını göster"
+                  label={tt('En İyi 10 satırını göster')}
                 />
               </div>
             </div>
           </SettingsSection>
 
           <SettingsSection
-            title="Satırların sırası"
-            description="Vitrinin altındaki satırlar yukarıdan aşağı bu sırayla çıkar. Oklarla ya da tutup sürükleyerek yerini değiştir. Rastgele doldurulan satırlar her zaman en altta."
+            title={tt('Satırların sırası')}
+            description={tt('Vitrinin altındaki satırlar yukarıdan aşağı bu sırayla çıkar. Oklarla ya da tutup sürükleyerek yerini değiştir. Rastgele doldurulan satırlar her zaman en altta.')}
           >
             <RowOrderList settings={settings} onSave={saveSettings} />
           </SettingsSection>
@@ -828,7 +826,7 @@ export default function HomeSettingsPanel() {
             // `settings.moodRow` eski (title/position eklenmeden önce kaydedilmiş) verilerde
             // var olabilir ama bu iki alanı içermeyebilir — eksik alanları burada tamamlamazsak
             // input'lar `undefined` değerle "controlled'dan uncontrolled'a" React uyarısı verir.
-            settings={{ enabled: false, title: 'Bunları da İzle', position: 1, moods: [], ...settings.moodRow }}
+            settings={{ enabled: false, title: tt('Bunları da İzle'), position: 1, moods: [], ...settings.moodRow }}
             onChange={(moodRow: MoodRowSettings) => saveSettings({ ...settings, moodRow })}
           />
         </div>
@@ -837,17 +835,16 @@ export default function HomeSettingsPanel() {
       {tab === 'nizlesem' && (
         <div className="space-y-5 max-w-2xl">
           <p className="text-sm text-neutral-400">
-            Üstteki arama kutusunun yanındaki kart düğmesi — kararsız kaldığında tıklarsın, aşağıdaki havuzdan rastgele bir şey
-            seçip detayını açar.
+            {tt('Üstteki arama kutusunun yanındaki kart düğmesi — kararsız kaldığında tıklarsın, aşağıdaki havuzdan rastgele bir şey seçip detayını açar.')}
           </p>
-          <SettingsSection title="Nereden seçilsin" description="Kendi arşivinden mi, yoksa TMDB'de olup arşivinde olmayanlardan mı.">
+          <SettingsSection title={tt('Nereden seçilsin')} description={tt('Kendi arşivinden mi, yoksa TMDB\'de olup arşivinde olmayanlardan mı.')}>
           <div>
             <ChoiceButtons
               value={settings.randomPickerSource ?? 'arsiv'}
               onChange={(v) => saveSettings({ ...settings, randomPickerSource: v })}
               options={[
-                { value: 'arsiv', label: 'Arşivimden' },
-                { value: 'tmdb', label: "TMDB'den (arşivimde olmayanlar)" },
+                { value: 'arsiv', label: tt('Arşivimden') },
+                { value: 'tmdb', label: tt('TMDB\'den (arşivimde olmayanlar)') },
               ]}
             />
           </div>
@@ -855,12 +852,12 @@ export default function HomeSettingsPanel() {
           {(settings.randomPickerSource ?? 'arsiv') === 'arsiv' ? (
             <div>
               <label className="block text-xs text-neutral-400 mb-1">
-                Hangi havuzdan seçilsin (hiçbir filtre seçilmezse arşivdeki her şeyden rastgele seçilir)
+                {tt('Hangi havuzdan seçilsin (hiçbir filtre seçilmezse arşivdeki her şeyden rastgele seçilir)')}
               </label>
               <MultiFilterEditor
                 board={board}
                 conditions={filterConditions(settings.randomPickerFilter)}
-                emptyText="Filtre yok — arşivin tamamından rastgele."
+                emptyText={tt('Filtre yok — arşivin tamamından rastgele.')}
                 onChange={(c) =>
                   saveSettings({ ...settings, randomPickerFilter: withConditions(settings.randomPickerFilter ?? { propertyId: null, optionIds: [] }, c) })
                 }
@@ -874,24 +871,24 @@ export default function HomeSettingsPanel() {
           )}
           </SettingsSection>
 
-          <SettingsSection title="Animasyon" description="Seçim yapılırken ekranda dağılan posterler.">
+          <SettingsSection title={tt('Animasyon')} description={tt('Seçim yapılırken ekranda dağılan posterler.')}>
           <div>
             <label className="block text-xs text-neutral-400 mb-1">
-              Hangi görsel kullanılsın (seçilmezse önce dikey görsel, o yoksa yatay olan gelir)
+              {tt('Hangi görsel kullanılsın (seçilmezse önce dikey görsel, o yoksa yatay olan gelir)')}
             </label>
             <Select
               value={settings.randomPickerImageShape ?? ''}
               onChange={(v) => saveSettings({ ...settings, randomPickerImageShape: v === 'dikey' || v === 'yatay' ? v : null })}
               options={[
-                { value: '', label: 'Otomatik' },
-                { value: 'dikey', label: 'Dikey' },
-                { value: 'yatay', label: 'Yatay' },
+                { value: '', label: tt('Otomatik') },
+                { value: 'dikey', label: tt('Dikey') },
+                { value: 'yatay', label: tt('Yatay') },
               ]}
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs text-neutral-400 shrink-0">Ekranda kaç poster dağılsın</label>
+            <label className="text-xs text-neutral-400 shrink-0">{tt('Ekranda kaç poster dağılsın')}</label>
             <ClampedNumberInput
               value={settings.randomPickerCount ?? 30}
               min={6}
@@ -899,7 +896,7 @@ export default function HomeSettingsPanel() {
               onCommit={(n) => saveSettings({ ...settings, randomPickerCount: n })}
               className="w-20 rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
             />
-            <span className="text-xs text-neutral-600">(6-60 arası)</span>
+            <span className="text-xs text-neutral-600">{tt('(6-60 arası)')}</span>
           </div>
           </SettingsSection>
         </div>

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { tt } from '../lib/i18n'
 
 // Uygulama içi bildirim sistemi — tarayıcının `alert`/`confirm` pop-up'ları yerine
 // sağ altta beliren küçük kartlar. İki kullanımı var:
@@ -132,8 +133,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           {
             message: options.message,
             tone: options.tone ?? 'danger',
-            confirmLabel: options.confirmLabel ?? 'Evet',
-            cancelLabel: options.cancelLabel ?? 'Vazgeç',
+            confirmLabel: options.confirmLabel ?? tt('Evet'),
+            cancelLabel: options.cancelLabel ?? tt('Vazgeç'),
             asks: true,
             at,
           },
@@ -154,7 +155,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToast() {
   const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast, ToastProvider içinde kullanılmalı')
+  if (!ctx) throw new Error(tt('useToast, ToastProvider içinde kullanılmalı'))
   return ctx
 }
 
@@ -233,7 +234,7 @@ function ToastCard({ toast: t, onAnswer, onHold }: { toast: Toast; onAnswer: (id
         <button
           onClick={() => onAnswer(t.id, false)}
           className="absolute top-2 right-3 text-neutral-600 hover:text-neutral-300 text-lg leading-none"
-          aria-label="Kapat"
+          aria-label={tt('Kapat')}
         >
           ×
         </button>

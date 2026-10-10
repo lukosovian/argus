@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import AnchoredMenu from './AnchoredMenu'
 import { BRAND_TEXT } from '../lib/theme'
+import { tt } from '../lib/i18n'
 
 function ChevronDownIcon() {
   return (
@@ -31,7 +32,7 @@ export default function Select({
   value,
   onChange,
   options,
-  placeholder = 'Seç...',
+  placeholder = tt('Seç...'),
   disabled = false,
   className = '',
 }: {
@@ -63,7 +64,7 @@ export default function Select({
       {open && (
         <AnchoredMenu anchorRef={anchorRef} width={anchorRef.current?.offsetWidth ?? 240} onClose={() => setOpen(false)}>
           <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl py-1 max-h-64 overflow-y-auto">
-            {options.length === 0 && <p className="px-3 py-2 text-xs text-neutral-500">Seçenek yok</p>}
+            {options.length === 0 && <p className="px-3 py-2 text-xs text-neutral-500">{tt('Seçenek yok')}</p>}
             {options.map((o) => (
               <button
                 key={o.value}

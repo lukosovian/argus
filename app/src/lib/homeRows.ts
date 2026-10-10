@@ -1,4 +1,5 @@
 import type { HomeSettings } from '../types'
+import { tt } from './i18n'
 
 // Ana sayfada vitrinin altındaki satırların sırası — ayarlar (Görünüm › Satırların sırası) ve AnaSayfa aynı
 // listeyi kullanıyor. Eskiden her özel satırın kendi "kaçıncı satırda" numarası vardı, sayfa satırlarının
@@ -23,16 +24,16 @@ function sortByOrder<T extends { id: string }>(items: T[], order: string[]): T[]
 
 function parts(settings: HomeSettings) {
   const specials: Special[] = []
-  if (settings.newEpisodesRow ?? true) specials.push({ key: 'new-episodes', label: 'Yeni Bölümler', position: settings.newEpisodesPosition ?? 1 })
-  if (settings.onThisDay?.enabled ?? true) specials.push({ key: 'on-this-day', label: 'Geçmiş yıllarda bugün', position: settings.onThisDay?.position ?? 1 })
-  if (settings.topRated?.enabled) specials.push({ key: 'top-rated', label: 'Arşivindeki En İyi 10', position: settings.topRated.position ?? 2 })
-  if (settings.moodRow?.enabled) specials.push({ key: 'mood', label: settings.moodRow.title?.trim() || 'Mod satırı', position: settings.moodRow.position ?? 1 })
+  if (settings.newEpisodesRow ?? true) specials.push({ key: 'new-episodes', label: tt('Yeni Bölümler'), position: settings.newEpisodesPosition ?? 1 })
+  if (settings.onThisDay?.enabled ?? true) specials.push({ key: 'on-this-day', label: tt('Geçmiş yıllarda bugün'), position: settings.onThisDay?.position ?? 1 })
+  if (settings.topRated?.enabled) specials.push({ key: 'top-rated', label: tt('Arşivindeki En İyi 10'), position: settings.topRated.position ?? 2 })
+  if (settings.moodRow?.enabled) specials.push({ key: 'mood', label: settings.moodRow.title?.trim() || tt('Mod satırı'), position: settings.moodRow.position ?? 1 })
   const base: HomeRowEntry[] = [
-    ...((settings.showAllSection ?? true) ? [{ key: 'all', label: 'Tümü' }] : []),
+    ...((settings.showAllSection ?? true) ? [{ key: 'all', label: tt('Tümü') }] : []),
     ...sortByOrder(
       (settings.sections ?? []).filter((s) => s.showInBody !== false),
       settings.bodyOrder ?? [],
-    ).map((s) => ({ key: `section:${s.id}`, label: s.name || 'Adsız sayfa' })),
+    ).map((s) => ({ key: `section:${s.id}`, label: s.name || tt('Adsız sayfa') })),
   ]
   return { specials, base }
 }

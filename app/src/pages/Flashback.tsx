@@ -16,6 +16,7 @@ import RowDetailModal from '../components/RowDetailModal'
 import YearPosterWall from '../components/YearPosterWall'
 import FlashbackStory, { type StoryData } from '../components/FlashbackStory'
 import BackgroundProgress from '../components/BackgroundProgress'
+import { tt, ttx, fmtDate, ttc } from '../lib/i18n'
 
 // Flashback — yıllık özet (Spotify Wrapped gibi). Kullanıcı "adı Flashback olsun, dizi filmlere uyumlu"
 // dedi ve şu kutuları istedi: toplam ekran süresi (film + dizi), puanlama profili ve yılın en düşük
@@ -133,23 +134,23 @@ export default function Flashback() {
   )
 
   if (features && !canSeeWrapped(features)) {
-    return <p className="text-neutral-500 text-sm p-10 text-center">Flashback henüz açık değil.</p>
+    return <p className="text-neutral-500 text-sm p-10 text-center">{tt('Flashback henüz açık değil.')}</p>
   }
-  if (!board || loading || !stats) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (!board || loading || !stats) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
 
   const total = stats.filmMinutes + stats.seriesMinutes
   const busiestMonth = stats.months.indexOf(Math.max(...stats.months))
   const busiestDay = stats.weekdays.indexOf(Math.max(...stats.weekdays))
   const collage = stats.order.filter((t) => t.poster).slice(0, 18)
   const dayparts = [
-    { label: 'Sabah', sub: '06–12', hours: [6, 7, 8, 9, 10, 11] },
-    { label: 'Öğlen', sub: '12–17', hours: [12, 13, 14, 15, 16] },
-    { label: 'Akşam', sub: '17–22', hours: [17, 18, 19, 20, 21] },
-    { label: 'Gece', sub: '22–06', hours: [22, 23, 0, 1, 2, 3, 4, 5] },
+    { label: tt('Sabah'), sub: '06–12', hours: [6, 7, 8, 9, 10, 11] },
+    { label: tt('Öğlen'), sub: '12–17', hours: [12, 13, 14, 15, 16] },
+    { label: tt('Akşam'), sub: '17–22', hours: [17, 18, 19, 20, 21] },
+    { label: tt('Gece'), sub: '22–06', hours: [22, 23, 0, 1, 2, 3, 4, 5] },
   ].map((p) => ({ ...p, n: p.hours.reduce((s, h) => s + (stats.hours[h] ?? 0), 0) }))
   const topDaypart = dayparts.reduce((a, b) => (b.n > a.n ? b : a))
   const avg = stats.scores.avg
-  const judge = avg === null ? '' : avg >= 8.5 ? 'Cömert jüri' : avg <= 6.5 ? 'Zor beğenen' : 'Dengeli eleştirmen'
+  const judge = avg === null ? '' : avg >= 8.5 ? tt('Cömert jüri') : avg <= 6.5 ? tt('Zor beğenen') : tt('Dengeli eleştirmen')
   const peopleList = people === 'oyuncu' ? stats.topActors : stats.topDirectors
 
   function openStory() {
@@ -178,7 +179,7 @@ export default function Flashback() {
       marathons: s.marathons.slice(0, 3).map((m) => ({
         name: m.name,
         kind: m.kind,
-        line: m.kind === 'seri' ? `${m.count} yapım, ${m.days} günde` : `${m.days} günde ${m.count} bölüm`,
+        line: m.kind === 'seri' ? tt('{0} yapım, {1} günde', m.count, m.days) : tt('{0} günde {1} bölüm', m.days, m.count),
         posters: m.titles.map((t) => t.poster).filter(Boolean),
       })),
       actors: s.topActors,
@@ -202,12 +203,12 @@ export default function Flashback() {
       if (d.pushed)
         notify(
           v
-            ? 'Flashback diğer kullanıcılara açıldı ve gönderildi. ARGUS\'ları açıksa yaklaşık bir dakika içinde menülerinde çıkacak, bildirim de gelecek (güncelleme gerekmez).'
-            : 'Flashback diğer kullanıcılara kapatıldı ve gönderildi. Yaklaşık bir dakika içinde menülerinden kalkacak.',
+            ? tt('Flashback diğer kullanıcılara açıldı ve gönderildi. ARGUS\'ları açıksa yaklaşık bir dakika içinde menülerinde çıkacak, bildirim de gelecek (güncelleme gerekmez).')
+            : tt('Flashback diğer kullanıcılara kapatıldı ve gönderildi. Yaklaşık bir dakika içinde menülerinden kalkacak.'),
         )
-      else notify(`Ayar bu bilgisayarda kaydedildi ama gönderilemedi: ${d.reason ?? 'bilinmeyen bir sorun'}`, 'danger')
+      else notify(tt('Ayar bu bilgisayarda kaydedildi ama gönderilemedi: {0}', d.reason ?? tt('bilinmeyen bir sorun')), 'danger')
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Kaydedilemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
     } finally {
       setPublishing(false)
     }
@@ -245,16 +246,16 @@ export default function Flashback() {
           ))}
         </div>
         <div className="relative">
-          <p className="text-sm font-semibold tracking-[0.3em] text-[#7fdcff]">ARGUS</p>
+          <p className="text-sm font-semibold tracking-[0.3em] text-[#7fdcff]">{tt('ARGUS')}</p>
           <h1 className="font-black tracking-tight leading-none mt-2">
-            <span className="block text-5xl sm:text-7xl text-neutral-50">FLASHBACK</span>
+            <span className="block text-5xl sm:text-7xl text-neutral-50">{tt('FLASHBACK')}</span>
             <span className="block text-6xl sm:text-8xl bg-gradient-to-r from-[#00c0fa] to-[#8b5cf6] bg-clip-text text-transparent">{year}</span>
           </h1>
           <p className="text-lg text-neutral-300 mt-4 max-w-xl">
-            Bu yıl <span className="font-bold text-neutral-50">{stats.order.length}</span> farklı yapım izledin
+            {tt('Bu yıl')}{' '}<span className="font-bold text-neutral-50">{stats.order.length}</span>{' '}{tt('farklı yapım izledin')}
             {stats.activeDays ? (
               <>
-                , <span className="font-bold text-neutral-50">{stats.activeDays}</span> gün ekran başındaydın.
+                , <span className="font-bold text-neutral-50">{stats.activeDays}</span>{' '}{tt('gün ekran başındaydın.')}
               </>
             ) : (
               '.'
@@ -262,7 +263,7 @@ export default function Flashback() {
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-5">
             <button onClick={openStory} className="text-sm font-semibold rounded-full px-4 py-1.5 bg-white text-neutral-950 hover:bg-neutral-200 transition">
-              Hikâye kartları
+              {tt('Hikâye kartları')}
             </button>
             {years.length > 1 &&
               years.map((y) => (
@@ -282,33 +283,31 @@ export default function Flashback() {
         <BackgroundProgress
           title={
             extra?.pending
-              ? 'İlk açılış: dizilerinin bölüm süreleri TMDB\'den öğreniliyor (toplam ekran süresi için)'
-              : 'İlk açılış: filmlerinin hangi seriden olduğu TMDB\'den öğreniliyor (maratonlar için)'
+              ? tt('İlk açılış: dizilerinin bölüm süreleri TMDB\'den öğreniliyor (toplam ekran süresi için)')
+              : tt('İlk açılış: filmlerinin hangi seriden olduğu TMDB\'den öğreniliyor (maratonlar için)')
           }
           done={(extra?.pending ?? kol!.pending!).done}
           total={(extra?.pending ?? kol!.pending!).total}
-          note="Sayılar bu sırada kendiliğinden güncelleniyor. Bu sadece ilk seferde olur."
+          note={tt('Sayılar bu sırada kendiliğinden güncelleniyor. Bu sadece ilk seferde olur.')}
         />
       )}
 
       {/* Toplam ekran süresi + sayılar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-2 relative overflow-hidden rounded-3xl border border-neutral-800 p-6" style={{ background: 'radial-gradient(ellipse at 0% 0%, rgba(0,192,250,0.18), transparent 60%), radial-gradient(ellipse at 100% 100%, rgba(139,92,246,0.18), transparent 60%), #0b0b0f' }}>
-          <p className="text-sm text-neutral-400">Toplam ekran süren</p>
+          <p className="text-sm text-neutral-400">{tt('Toplam ekran süren')}</p>
           <p className="text-5xl sm:text-6xl font-black text-neutral-50 tracking-tight mt-1">{fmtDuration(total)}</p>
           <p className="text-sm text-neutral-400 mt-2">
-            Film {Math.round(stats.filmMinutes / 60)} saat · Dizi {Math.round(stats.seriesMinutes / 60)} saat
+            {ttx('Film {0} saat · Dizi {1} saat', Math.round(stats.filmMinutes / 60), Math.round(stats.seriesMinutes / 60))}
           </p>
           <p className="text-[11px] text-neutral-600 mt-1">
-            Dizi süresi, izlediğin bölüm sayısı × dizinin ortalama bölüm süresi
-            {stats.seriesEstimated ? ' (süresi bilinmeyen birkaç dizi için yaklaşık 42 dk sayıldı)' : ''}.
-          </p>
+            {ttx('Dizi süresi, izlediğin bölüm sayısı × dizinin ortalama bölüm süresi{0}.', stats.seriesEstimated ? tt(' (süresi bilinmeyen birkaç dizi için yaklaşık 42 dk sayıldı)') : '')}</p>
         </div>
         <div className="grid grid-cols-3 md:grid-cols-1 gap-3">
           {[
-            [stats.films, 'film', stats.rewatches ? `${stats.rewatches} tanesi tekrar` : ''],
-            [stats.seriesFinished, 'dizi bitirdin', ''],
-            [stats.episodes, 'bölüm', ''],
+            [stats.films, tt('film'), stats.rewatches ? tt('{0} tanesi tekrar', stats.rewatches) : ''],
+            [stats.seriesFinished, tt('dizi bitirdin'), ''],
+            [stats.episodes, tt('bölüm'), ''],
           ].map(([n, l, s]) => (
             <div key={l as string} className="rounded-3xl border border-neutral-800 bg-neutral-900/60 px-5 py-4">
               <p className="text-3xl font-black text-neutral-50 tabular-nums">{n}</p>
@@ -321,7 +320,7 @@ export default function Flashback() {
 
       {/* İzleyici unvanı */}
       <section className="relative overflow-hidden rounded-3xl border border-[#8b5cf6]/40 p-6" style={{ background: 'radial-gradient(ellipse at 100% 0%, rgba(139,92,246,0.25), transparent 60%), #0b0b0f' }}>
-        <p className="text-sm text-[#c4b5fd]">Bu yılın unvanı</p>
+        <p className="text-sm text-[#c4b5fd]">{tt('Bu yılın unvanı')}</p>
         <p className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{stats.persona.title}</p>
         {stats.persona.why && <p className="text-neutral-300 mt-2">{stats.persona.why}.</p>}
         {stats.persona.badges.length > 0 && (
@@ -339,7 +338,7 @@ export default function Flashback() {
       {/* Maratonlar */}
       {stats.marathons.length > 0 && (
         <section className={CARD}>
-          <Title sub="Aynı seriden art arda izlediklerin ve birkaç günde bitirdiğin diziler">Maratonların</Title>
+          <Title sub={tt('Aynı seriden art arda izlediklerin ve birkaç günde bitirdiğin diziler')}>{tt('Maratonların')}</Title>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {stats.marathons.map((m) => (
               <button key={m.kind + m.name} onClick={() => setDetail(m.titles[0].row)} className="flex items-center gap-4 rounded-2xl bg-neutral-950/50 border border-neutral-800 hover:border-neutral-600 p-3 text-left transition">
@@ -351,9 +350,9 @@ export default function Flashback() {
                   ))}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold tracking-wide text-[#7fdcff] uppercase">{m.kind === 'seri' ? (m.days <= 30 || m.count >= 3 ? 'Seriyi tükettin' : 'Seri') : 'Dizi maratonu'}</p>
+                  <p className="text-[11px] font-semibold tracking-wide text-[#7fdcff] uppercase">{m.kind === 'seri' ? (m.days <= 30 || m.count >= 3 ? tt('Seriyi tükettin') : tt('Seri')) : tt('Dizi maratonu')}</p>
                   <p className="text-neutral-50 font-bold truncate">{m.name}</p>
-                  <p className="text-sm text-neutral-400">{m.kind === 'seri' ? `${m.count} yapım, ${m.days} günde` : `${m.days} günde ${m.count} bölüm`}</p>
+                  <p className="text-sm text-neutral-400">{m.kind === 'seri' ? tt('{0} yapım, {1} günde', m.count, m.days) : tt('{0} günde {1} bölüm', m.days, m.count)}</p>
                 </div>
               </button>
             ))}
@@ -364,7 +363,7 @@ export default function Flashback() {
       {/* Puanlama profili */}
       {stats.scores.count > 0 && (
         <section className={CARD}>
-          <Title sub={`${stats.scores.count} yapıma puan verdin`}>Puanlama profilin</Title>
+          <Title sub={tt('{0} yapıma puan verdin', stats.scores.count)}>{tt('Puanlama profilin')}</Title>
           <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-6 items-end">
             <div>
               <p className="text-6xl font-black text-neutral-50 tabular-nums">
@@ -390,7 +389,7 @@ export default function Flashback() {
             ))}
             {stats.scores.lowest && (
               <div className="col-span-3 sm:col-span-1 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-2">
-                <p className="text-[11px] font-semibold text-rose-300 mb-1.5">Yılın hayal kırıklığı</p>
+                <p className="text-[11px] font-semibold text-rose-300 mb-1.5">{tt('Yılın hayal kırıklığı')}</p>
                 <MiniPoster t={stats.scores.lowest} badge={<span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold bg-rose-500 text-white rounded px-1.5 py-0.5">★ {stats.scores.lowest.score!.toFixed(1)}</span>} />
               </div>
             )}
@@ -401,21 +400,21 @@ export default function Flashback() {
       {/* Zaman alışkanlıkları */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className={CARD}>
-          <p className="text-sm text-neutral-400">En yoğun ayın</p>
+          <p className="text-sm text-neutral-400">{tt('En yoğun ayın')}</p>
           <p className="text-3xl font-black text-neutral-50 mt-1">{stats.months[busiestMonth] ? TR_MONTHS[busiestMonth] : '—'}</p>
           <div className="mt-4">
             <Bars values={stats.months} labels={TR_MONTHS.map((m) => m.slice(0, 3))} highlight={busiestMonth} />
           </div>
         </div>
         <div className={CARD}>
-          <p className="text-sm text-neutral-400">En çok ekran başında olduğun gün</p>
-          <p className="text-3xl font-black text-neutral-50 mt-1">{Math.max(...stats.weekdays) ? `${TR_DAYS[busiestDay]} günleri` : '—'}</p>
+          <p className="text-sm text-neutral-400">{tt('En çok ekran başında olduğun gün')}</p>
+          <p className="text-3xl font-black text-neutral-50 mt-1">{Math.max(...stats.weekdays) ? tt('{0} günleri', TR_DAYS[busiestDay]) : '—'}</p>
           <div className="mt-4">
             <Bars values={stats.weekdays} labels={TR_DAYS_SHORT} highlight={busiestDay} />
           </div>
         </div>
         <div className={CARD}>
-          <p className="text-sm text-neutral-400">Günün hangi saatinde?</p>
+          <p className="text-sm text-neutral-400">{tt('Günün hangi saatinde?')}</p>
           {stats.timed >= 5 ? (
             <>
               <p className="text-3xl font-black text-neutral-50 mt-1">{topDaypart.label}</p>
@@ -431,25 +430,24 @@ export default function Flashback() {
             </>
           ) : (
             <p className="text-sm text-neutral-500 mt-3">
-              ARGUS izleme saatlerini yeni tutmaya başladı: bir şeyi "bugün izledim" diye işaretlediğin saat kaydediliyor. Birkaç izlemeden sonra burada sabahçı mı, gece kuşu mu olduğun görünecek.
+              {tt('ARGUS izleme saatlerini yeni tutmaya başladı: bir şeyi "bugün izledim" diye işaretlediğin saat kaydediliyor. Birkaç izlemeden sonra burada sabahçı mı, gece kuşu mu olduğun görünecek.')}
             </p>
           )}
         </div>
         <div className={`${CARD} flex flex-col justify-between`}>
           <div>
-            <p className="text-sm text-neutral-400">En uzun serin</p>
-            <p className="text-3xl font-black text-neutral-50 mt-1">{stats.longestStreak.days} gün üst üste</p>
+            <p className="text-sm text-neutral-400">{tt('En uzun serin')}</p>
+            <p className="text-3xl font-black text-neutral-50 mt-1">{ttx('{0} gün üst üste', stats.longestStreak.days)}</p>
             {stats.longestStreak.days > 1 && (
               <p className="text-xs text-neutral-500 mt-1">
-                {Number(stats.longestStreak.start.slice(8))} {TR_MONTHS[Number(stats.longestStreak.start.slice(5, 7)) - 1]} – {Number(stats.longestStreak.end.slice(8))}{' '}
-                {TR_MONTHS[Number(stats.longestStreak.end.slice(5, 7)) - 1]}
+                {fmtDate(null, Number(stats.longestStreak.start.slice(5, 7)) - 1, Number(stats.longestStreak.start.slice(8)))} – {fmtDate(null, Number(stats.longestStreak.end.slice(5, 7)) - 1, Number(stats.longestStreak.end.slice(8)))}
               </p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3 mt-4">
             {([
-              ['Yılın ilki', stats.order[0]],
-              ['Yılın sonuncusu', [...stats.order].sort((a, b) => (a.last < b.last ? 1 : -1))[0]],
+              [tt('Yılın ilki'), stats.order[0]],
+              [tt('Yılın sonuncusu'), [...stats.order].sort((a, b) => (a.last < b.last ? 1 : -1))[0]],
             ] as const).map(([label, t]) =>
               t ? (
                 <button key={label} onClick={() => setDetail(t.row)} className="flex items-center gap-2 text-left min-w-0">
@@ -468,7 +466,7 @@ export default function Flashback() {
       {/* Nostalji radarı */}
       {stats.decades.length > 0 && (
         <section className={CARD}>
-          <Title sub="İzlediklerinin çıkış yıllarına göre">Nostalji radarı</Title>
+          <Title sub={tt('İzlediklerinin çıkış yıllarına göre')}>{tt('Nostalji radarı')}</Title>
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-6">
             <div className="space-y-1.5">
               {stats.decades.map((d) => {
@@ -488,18 +486,18 @@ export default function Flashback() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-2xl border border-neutral-800 p-3">
                   <p className="text-2xl font-black text-neutral-50">%{Math.round(stats.newShare * 100)}</p>
-                  <p className="text-[11px] text-neutral-400">yeni yapım ({Number(year) - 1}–{year})</p>
+                  <p className="text-[11px] text-neutral-400">{ttx('yeni yapım ({0}–{1})', Number(year) - 1, year)}</p>
                 </div>
                 <div className="rounded-2xl border border-neutral-800 p-3">
                   <p className="text-2xl font-black text-neutral-50">%{Math.round(stats.classicShare * 100)}</p>
-                  <p className="text-[11px] text-neutral-400">20 yıldan eski</p>
+                  <p className="text-[11px] text-neutral-400">{tt('20 yıldan eski')}</p>
                 </div>
               </div>
               {stats.oldest && (
                 <button onClick={() => setDetail(stats.oldest!.row)} className="flex items-center gap-3 text-left w-full rounded-2xl border border-neutral-800 p-2 hover:border-neutral-600 transition">
                   {stats.oldest.poster && <img src={stats.oldest.poster} alt="" className="h-16 w-11 rounded object-cover shrink-0" />}
                   <span className="min-w-0">
-                    <span className="block text-[11px] text-neutral-500">En eski izlediğin</span>
+                    <span className="block text-[11px] text-neutral-500">{tt('En eski izlediğin')}</span>
                     <span className="block text-sm text-neutral-100 truncate">{stats.oldest.title}</span>
                     <span className="block text-xs text-amber-300">{stats.oldest.releaseYear}</span>
                   </span>
@@ -513,8 +511,8 @@ export default function Flashback() {
       {/* Türler / ülkeler */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {([
-          ['En çok izlediğin türler', stats.topGenres],
-          ['En çok izlediğin ülkeler', stats.topCountries],
+          [tt('En çok izlediğin türler'), stats.topGenres],
+          [tt('En çok izlediğin ülkeler'), stats.topCountries],
         ] as const).map(([title, l]) =>
           l.length ? (
             <section key={title} className={CARD}>
@@ -537,11 +535,11 @@ export default function Flashback() {
       {(stats.topActors.length > 0 || stats.topDirectors.length > 0) && (
         <section className={CARD}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <p className="text-lg font-bold text-neutral-50">{people === 'oyuncu' ? 'En çok karşına çıkan oyuncular' : 'En çok izlediğin yönetmenler'}</p>
+            <p className="text-lg font-bold text-neutral-50">{people === 'oyuncu' ? tt('En çok karşına çıkan oyuncular') : tt('En çok izlediğin yönetmenler')}</p>
             <div className="grid grid-cols-2 rounded-xl bg-neutral-950/60 border border-neutral-800 p-1 text-sm">
               {(['oyuncu', 'yonetmen'] as const).map((k) => (
                 <button key={k} onClick={() => setPeople(k)} className={`px-3 py-1 rounded-lg transition ${people === k ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:text-neutral-100'}`}>
-                  {k === 'oyuncu' ? 'Oyuncular' : 'Yönetmenler'}
+                  {k === 'oyuncu' ? tt('Oyuncular') : tt('Yönetmenler')}
                 </button>
               ))}
             </div>
@@ -552,12 +550,12 @@ export default function Flashback() {
                 <div key={a.label} className="min-w-0 text-center">
                   <div className="aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800">{a.image && <img src={a.image} alt="" className={`h-full w-full object-cover ${people === 'oyuncu' ? 'object-top' : 'opacity-80'}`} />}</div>
                   <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{a.label}</p>
-                  <p className="text-[11px] text-neutral-500">{a.count} yapım</p>
+                  <p className="text-[11px] text-neutral-500">{ttx('{0} yapım', a.count)}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-neutral-500">Bu yıl birden fazla yapımını izlediğin bir yönetmen yok.</p>
+            <p className="text-sm text-neutral-500">{tt('Bu yıl birden fazla yapımını izlediğin bir yönetmen yok.')}</p>
           )}
         </section>
       )}
@@ -565,23 +563,23 @@ export default function Flashback() {
       <YearPosterWall year={year} items={stats.order.map((t) => ({ title: t.title, poster: t.poster, date: t.first }))} onOpen={(i) => setDetail(stats.order[i].row)} onStory={openStory} />
 
       <p className="text-center text-sm text-neutral-500">
-        Gün gün ne izlediğini{' '}
+        {tt('Gün gün ne izlediğini')}{' '}
         <Link to={`/takvim?ay=${year}-01&gorunum=yil`} className="text-[#00c0fa] hover:underline">
-          Takvim
+          {tt('Takvim')}
         </Link>
-        'de görebilirsin.
+        {tt('\'de görebilirsin.')}
       </p>
 
       {features?.developer && (
         <section className="rounded-2xl border border-dashed border-neutral-700 p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-neutral-200">Diğer kullanıcılara açık mı?</p>
+            <p className="text-sm font-medium text-neutral-200">{tt('Diğer kullanıcılara açık mı?')}</p>
             <p className="text-xs text-neutral-500">
               {publishing
-                ? 'Gönderiliyor…'
+                ? tt('Gönderiliyor…')
                 : features.wrappedForAll
-                  ? 'Diğer kullanıcılarda açık. Kapatırsan hemen gönderilir; yaklaşık bir dakika içinde menülerinden kalkar.'
-                  : 'Şu an sadece sen görüyorsun. Açarsan hemen gönderilir; diğerlerinde güncelleme gerekmeden, yaklaşık bir dakika içinde menüde çıkar ve bildirim gelir.'}
+                  ? tt('Diğer kullanıcılarda açık. Kapatırsan hemen gönderilir; yaklaşık bir dakika içinde menülerinden kalkar.')
+                  : tt('Şu an sadece sen görüyorsun. Açarsan hemen gönderilir; diğerlerinde güncelleme gerekmeden, yaklaşık bir dakika içinde menüde çıkar ve bildirim gelir.')}
             </p>
           </div>
           <div className="grid grid-cols-2 rounded-xl bg-neutral-950/60 border border-neutral-800 p-1 text-sm">
@@ -592,7 +590,7 @@ export default function Flashback() {
                 disabled={publishing}
                 className={`px-3 py-1 rounded-lg transition disabled:opacity-50 ${features.wrappedForAll === v ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:text-neutral-100'}`}
               >
-                {v ? 'Açık' : 'Kapalı'}
+                {v ? ttc('acik-kapali', 'Açık') : tt('Kapalı')}
               </button>
             ))}
           </div>

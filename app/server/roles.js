@@ -2,30 +2,29 @@
 // sırası (açık kayıt → eski statMapping → varsayılan ad). TMDB doldurma sunucuda çalıştığı için
 // burada da gerekiyor. Birinde bir görev eklenir/değişirse diğeri de güncellenmeli.
 
+import { COLUMN_NAMES, STATUS_NAMES, isName, nameOf } from './names.js'
+
 export const ROLE_DEFS = [
-  { key: 'durum', types: ['select'], defaultName: 'Durum', legacyStatKey: 'durumId' },
-  { key: 'kategori', types: ['select'], defaultName: 'Kategori', legacyStatKey: 'kategoriId' },
-  { key: 'tur', types: ['multiselect', 'select'], defaultName: 'Tür', legacyStatKey: 'turId' },
-  { key: 'ulke', types: ['multiselect', 'select'], defaultName: 'Ülke', legacyStatKey: 'ulkeId' },
-  { key: 'vizyon', types: ['date'], defaultName: 'Vizyon Tarihi', legacyStatKey: 'vizyonId' },
-  { key: 'izlemeTarihi', types: ['multidate', 'date'], defaultName: 'İzleme Tarihi' },
-  { key: 'sure', types: ['number'], defaultName: 'Süre', legacyStatKey: 'sureId' },
-  { key: 'puan', types: ['rating'], defaultName: 'Puan', legacyStatKey: 'puanId' },
-  { key: 'oyuncular', types: ['multiselect'], defaultName: 'Oyuncular', legacyStatKey: 'oyuncularId' },
-  { key: 'yonetmen', types: ['text'], defaultName: 'Yönetmen' },
-  { key: 'orjinalAdi', types: ['text'], defaultName: 'Orjinal Adı' },
-  { key: 'sinopsis', types: ['longtext'], defaultName: 'Sinopsis' },
-  { key: 'poster', types: ['image'], defaultName: 'Poster' },
-  { key: 'banner', types: ['image'], defaultName: 'Banner' },
-  { key: 'video', types: ['url'], defaultName: 'Video' },
-  { key: 'yas', types: ['text'], defaultName: 'Yaş Sınırı' },
+  { key: 'durum', types: ['select'], names: COLUMN_NAMES.durum, legacyStatKey: 'durumId' },
+  { key: 'kategori', types: ['select'], names: COLUMN_NAMES.kategori, legacyStatKey: 'kategoriId' },
+  { key: 'tur', types: ['multiselect', 'select'], names: COLUMN_NAMES.tur, legacyStatKey: 'turId' },
+  { key: 'ulke', types: ['multiselect', 'select'], names: COLUMN_NAMES.ulke, legacyStatKey: 'ulkeId' },
+  { key: 'vizyon', types: ['date'], names: COLUMN_NAMES.vizyon, legacyStatKey: 'vizyonId' },
+  { key: 'izlemeTarihi', types: ['multidate', 'date'], names: COLUMN_NAMES.izlemeTarihi },
+  { key: 'sure', types: ['number'], names: COLUMN_NAMES.sure, legacyStatKey: 'sureId' },
+  { key: 'puan', types: ['rating'], names: COLUMN_NAMES.puan, legacyStatKey: 'puanId' },
+  { key: 'oyuncular', types: ['multiselect'], names: COLUMN_NAMES.oyuncular, legacyStatKey: 'oyuncularId' },
+  { key: 'yonetmen', types: ['text'], names: COLUMN_NAMES.yonetmen },
+  { key: 'orjinalAdi', types: ['text'], names: COLUMN_NAMES.orjinalAdi },
+  { key: 'sinopsis', types: ['longtext'], names: COLUMN_NAMES.sinopsis },
+  { key: 'poster', types: ['image'], names: COLUMN_NAMES.poster },
+  { key: 'banner', types: ['image'], names: COLUMN_NAMES.banner },
+  { key: 'video', types: ['url'], names: COLUMN_NAMES.video },
+  { key: 'yas', types: ['text'], names: COLUMN_NAMES.yas },
 ]
 
 const ROLE_BY_KEY = new Map(ROLE_DEFS.map((r) => [r.key, r]))
 
-function sameName(a, b) {
-  return a.trim().toLocaleLowerCase('tr') === b.trim().toLocaleLowerCase('tr')
-}
 
 // PropertyDef | null ("bu görevi kullanma") | undefined (kayıt yok)
 function explicitRole(board, def) {
@@ -47,7 +46,7 @@ function explicitRole(board, def) {
 }
 
 function byName(board, def) {
-  const named = board.properties.find((p) => sameName(p.name, def.defaultName) && def.types.includes(p.type))
+  const named = board.properties.find((p) => isName(p.name, def.names) && def.types.includes(p.type))
   if (named) return named
   if (def.key === 'sinopsis') return board.properties.find((p) => p.type === 'longtext')
   if (def.key === 'video') return board.properties.find((p) => p.type === 'url')
@@ -70,20 +69,19 @@ export function ensureRole(board, key, makeId, extra) {
   const found = resolveRole(board, key)
   if (found) return found
   if (explicitRole(board, def) === null) return undefined
-  const p = { id: makeId(), name: def.defaultName, type: def.types[0], ...(extra ?? {}) }
+  const p = { id: makeId(), name: nameOf(def.names), type: def.types[0], ...(extra ?? {}) }
   board.properties.push(p)
   return p
 }
 
-// Durum sütununun "İzlenecek/İzleniyor/İzlendi" seçeneği — açık kayıt yoksa etiketine göre.
-const STATUS_LABELS = { izlenecek: 'İzlenecek', izleniyor: 'İzleniyor', izlendi: 'İzlendi' }
+// Durum sütununun "İzlenecek/İzleniyor/İzlendi" seçeneği — açık kayıt yoksa etiketine göre (iki dilde de).
 
 export function resolveStatusOption(board, key) {
   const durum = resolveRole(board, 'durum')
   if (!durum) return undefined
   const explicit = board.statusOptions?.[key]
   if (explicit && durum.options?.some((o) => o.id === explicit)) return explicit
-  return durum.options?.find((o) => sameName(o.label, STATUS_LABELS[key]))?.id
+  return durum.options?.find((o) => isName(o.label, STATUS_NAMES[key]))?.id
 }
 
 // Gerekirse seçeneği oluşturarak döndürür (ör. hiç "İzlenecek" seçeneği olmayan bir arşive
@@ -94,7 +92,7 @@ export function ensureStatusOption(board, key, makeId) {
   const existing = resolveStatusOption(board, key)
   if (existing) return existing
   if (!durum.options) durum.options = []
-  const opt = { id: makeId(), label: STATUS_LABELS[key], colorIndex: durum.options.length % 9 }
+  const opt = { id: makeId(), label: nameOf(STATUS_NAMES[key]), colorIndex: durum.options.length % 9 }
   durum.options.push(opt)
   return opt.id
 }

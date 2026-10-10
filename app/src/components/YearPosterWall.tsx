@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useToast } from '../hooks/useToast'
 import { whiteLogo } from '../lib/whiteLogo'
 import { withLocative } from '../lib/turkce'
+import { getLang, tt, ttx } from '../lib/i18n'
 
 // Yıllık Özet'teki "izleme sıran" duvarı — kullanıcı "izleme sırama göre izlediğim şeylerin dikey
 // posterlerini veren bir görsel oluştursun, istersem indirebileyim" dedi. Sayfada küçük önizleme var;
@@ -74,7 +75,7 @@ async function drawWall(items: WallItem[], year: string, showNumbers: boolean): 
   ctx.fillText(year, PAD, PAD + 125)
   ctx.fillStyle = '#a3a3a3'
   ctx.font = `400 28px ${font}`
-  ctx.fillText(`${items.length} yapım · izleme sırasıyla`, PAD, PAD + 170)
+  ctx.fillText(tt('{0} yapım · izleme sırasıyla', items.length), PAD, PAD + 170)
 
   const [logo, images] = await Promise.all([whiteLogo(), Promise.all(items.map((it) => loadImage(it.poster)))])
   const top = PAD + header
@@ -166,9 +167,9 @@ export default function YearPosterWall({ items, year, onOpen, onStory }: { items
       a.click()
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 5000)
-      notify('Görsel indirildi — İndirilenler klasörüne bakabilirsin.')
+      notify(tt('Görsel indirildi — İndirilenler klasörüne bakabilirsin.'))
     } catch {
-      notify('Görsel oluşturulamadı.', 'danger')
+      notify(tt('Görsel oluşturulamadı.'), 'danger')
     } finally {
       setBusy(false)
     }
@@ -178,25 +179,25 @@ export default function YearPosterWall({ items, year, onOpen, onStory }: { items
     <section className="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <p className="text-lg font-bold text-neutral-50">İzleme sıran</p>
-          <p className="text-xs text-neutral-500">{withLocative(year)} izlediğin {items.length} yapım, ilk izlediğinden sonuncusuna</p>
+          <p className="text-lg font-bold text-neutral-50">{tt('İzleme sıran')}</p>
+          <p className="text-xs text-neutral-500">{ttx('{0} izlediğin {1} yapım, ilk izlediğinden sonuncusuna', getLang() === 'tr' ? withLocative(year) : String(year), items.length)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {onStory && (
             <button onClick={onStory} className="text-sm rounded-full px-4 py-1.5 border border-neutral-700 text-neutral-200 hover:border-[#8b5cf6] hover:text-[#c4b5fd] transition">
-              Hikâye kartları
+              {tt('Hikâye kartları')}
             </button>
           )}
           <label className="flex items-center gap-1.5 text-xs text-neutral-400 cursor-pointer select-none">
             <input type="checkbox" checked={showNumbers} onChange={(e) => setShowNumbers(e.target.checked)} className="accent-[#00c0fa]" />
-            Sıra numaraları
+            {tt('Sıra numaraları')}
           </label>
           <button
             onClick={download}
             disabled={busy}
             className="text-sm rounded-full px-4 py-1.5 border border-[#00c0fa] text-[#7fdcff] hover:bg-[#00c0fa] hover:text-neutral-950 transition disabled:opacity-50"
           >
-            {busy ? 'Hazırlanıyor…' : '↓ Posterleri indir'}
+            {busy ? tt('Hazırlanıyor…') : tt('↓ Posterleri indir')}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { PanelHeader, SettingsSection, choiceClass } from './SettingsUi'
 import ToggleSwitch from '../ToggleSwitch'
 import { useToast } from '../../hooks/useToast'
 import type { AppSettings } from '../../lib/desktopApp'
+import { LANGS, getLang, setLang, tt } from '../../lib/i18n'
 
 // Ayarlar › Uygulama Ayarları — kullanıcı "ana sayfa ayarlarının altına Windows ayarları gibi bir yer; bilgisayar
 // açılırken açılsın, kapatınca tepsiye küçülsün" dedi, sonra önerilenlerin hepsini istedi (bildirimler, yazı
@@ -45,133 +46,143 @@ export default function AppSettingsPanel() {
     try {
       const next = await bridge.setSettings(patch)
       setS(next)
-      if (patch.kisayol && !next.kisayolCalisiyor) notify('Ctrl+Alt+A başka bir program tarafından kullanılıyor, kısayol çalışmayacak.', 'danger')
+      if (patch.kisayol && !next.kisayolCalisiyor) notify(tt('Ctrl+Alt+A başka bir program tarafından kullanılıyor, kısayol çalışmayacak.'), 'danger')
       else notify(message)
     } catch {
-      notify('Ayar kaydedilemedi.', 'danger')
+      notify(tt('Ayar kaydedilemedi.'), 'danger')
     }
   }
 
   return (
     <div className="space-y-5">
-      <PanelHeader title="Uygulama Ayarları" description="ARGUS uygulamasının bu bilgisayarda nasıl açılıp kapanacağı, bildirimleri ve görünümü." />
+      <PanelHeader title={tt('Uygulama Ayarları')} description={tt('ARGUS uygulamasının bu bilgisayarda nasıl açılıp kapanacağı, bildirimleri ve görünümü.')} />
+      {/* Dil: tarayıcıda açıkken de değiştirilebilir. Seçenek adları her zaman kendi dilinde yazar. */}
+      <SettingsSection title={getLang() === 'tr' ? 'Dil · Language' : 'Language · Dil'}>
+        <Row title={tt('Arayüz dili')} description={tt('Menüler, yazılar ve bildirimler bu dilde olur. TMDB\'den yeni gelen bilgiler (özet, türler, başlıklar) de bu dilde gelir; arşivindeki mevcut kayıtlar değişmez.')}>
+          <div className="flex gap-1">
+            {LANGS.map((l) => (
+              <button key={l.id} onClick={() => l.id !== getLang() && setLang(l.id)} className={`text-xs rounded-lg border px-2.5 py-1.5 transition ${choiceClass(getLang() === l.id)}`}>
+                {l.label}
+              </button>
+            ))}
+          </div>
+        </Row>
+      </SettingsSection>
       {!bridge ? (
         <p className="text-sm text-neutral-400 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
-          Bu ayarlar ARGUS uygulamasında çalışır. Şu an ARGUS'u tarayıcıda açmışsın; masaüstündeki ARGUS simgesinden açınca buradan değiştirebilirsin.
+          {tt('Bu ayarlar ARGUS uygulamasında çalışır. Şu an ARGUS\'u tarayıcıda açmışsın; masaüstündeki ARGUS simgesinden açınca buradan değiştirebilirsin.')}
         </p>
       ) : !s ? (
-        <p className="text-sm text-neutral-500">Yükleniyor...</p>
+        <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
       ) : (
         <>
-          <SettingsSection title="Açılış" description="Bilgisayarını açtığında ve ARGUS'u açtığında ne olacağı.">
-            <Row title="Bilgisayar açılınca ARGUS'u da aç" description="Windows'a giriş yaptığında ARGUS kendiliğinden başlar.">
+          <SettingsSection title={tt('Açılış')} description={tt('Bilgisayarını açtığında ve ARGUS\'u açtığında ne olacağı.')}>
+            <Row title={tt('Bilgisayar açılınca ARGUS\'u da aç')} description={tt('Windows\'a giriş yaptığında ARGUS kendiliğinden başlar.')}>
               <ToggleSwitch
-                label="Bilgisayar açılınca ARGUS'u da aç"
+                label={tt('Bilgisayar açılınca ARGUS\'u da aç')}
                 checked={s.baslangic}
                 disabled={!s.exeVar}
-                onChange={(v) => update({ baslangic: v }, v ? 'ARGUS bilgisayar açılınca kendiliğinden başlayacak.' : 'ARGUS artık bilgisayar açılınca başlamayacak.')}
+                onChange={(v) => update({ baslangic: v }, v ? tt('ARGUS bilgisayar açılınca kendiliğinden başlayacak.') : tt('ARGUS artık bilgisayar açılınca başlamayacak.'))}
               />
             </Row>
             <Row
-              title="Pencereyi açmadan, tepside başlasın"
+              title={tt('Pencereyi açmadan, tepside başlasın')}
               description={
                 s.tepsi
-                  ? 'Bilgisayar açılınca ARGUS pencere açmadan saatin yanındaki simgelerde bekler; simgesine tıklayınca açılır.'
-                  : 'Bunun için aşağıdaki "Kapatınca tepsiye küçült" açık olmalı.'
+                  ? tt('Bilgisayar açılınca ARGUS pencere açmadan saatin yanındaki simgelerde bekler; simgesine tıklayınca açılır.')
+                  : tt('Bunun için aşağıdaki "Kapatınca tepsiye küçült" açık olmalı.')
               }
               dim={!s.baslangic || !s.tepsi}
             >
               <ToggleSwitch
-                label="Pencereyi açmadan, tepside başlasın"
+                label={tt('Pencereyi açmadan, tepside başlasın')}
                 checked={s.gizliBasla && s.tepsi}
                 disabled={!s.baslangic || !s.tepsi}
-                onChange={(v) => update({ gizliBasla: v }, v ? 'Bilgisayar açılınca ARGUS tepside başlayacak.' : 'Bilgisayar açılınca ARGUS penceresiyle açılacak.')}
+                onChange={(v) => update({ gizliBasla: v }, v ? tt('Bilgisayar açılınca ARGUS tepside başlayacak.') : tt('Bilgisayar açılınca ARGUS penceresiyle açılacak.'))}
               />
             </Row>
-            <Row title="Hep büyütülmüş pencereyle aç" description="ARGUS her açılışta ekranı kaplayan büyütülmüş pencereyle açılır.">
+            <Row title={tt('Hep büyütülmüş pencereyle aç')} description={tt('ARGUS her açılışta ekranı kaplayan büyütülmüş pencereyle açılır.')}>
               <ToggleSwitch
-                label="Hep büyütülmüş pencereyle aç"
+                label={tt('Hep büyütülmüş pencereyle aç')}
                 checked={s.buyukBasla}
-                onChange={(v) => update({ buyukBasla: v }, v ? 'ARGUS hep büyütülmüş açılacak.' : 'ARGUS son bıraktığın boyutta açılacak.')}
+                onChange={(v) => update({ buyukBasla: v }, v ? tt('ARGUS hep büyütülmüş açılacak.') : tt('ARGUS son bıraktığın boyutta açılacak.'))}
               />
             </Row>
           </SettingsSection>
 
-          <SettingsSection title="Kapatma ve tepsi" description="Pencerenin sağ üstündeki × düğmesine bastığında ne olacağı.">
+          <SettingsSection title={tt('Kapatma ve tepsi')} description={tt('Pencerenin sağ üstündeki × düğmesine bastığında ne olacağı.')}>
             <Row
-              title="Kapatınca tepsiye küçült"
+              title={tt('Kapatınca tepsiye küçült')}
               description={
                 <>
-                  Açıksa × ARGUS'u kapatmaz, saatin yanındaki simgelere (sistem tepsisi) küçültür; ARGUS arkada çalışmaya devam eder, otomatik yedekleme ve yeni bölüm
-                  kontrolleri de sürer. Simgeye tıklayınca açılır; sağ tıklayınca "Ne İzlesem?", "Takvim" ve "Bugün izlediğimi ekle" kısayolları ile "ARGUS'u kapat"
-                  çıkar. Kapalıysa × ARGUS'u tamamen kapatır.
+                  {tt('Açıksa × ARGUS\'u kapatmaz, saatin yanındaki simgelere (sistem tepsisi) küçültür; ARGUS arkada çalışmaya devam eder, otomatik yedekleme ve yeni bölüm kontrolleri de sürer. Simgeye tıklayınca açılır; sağ tıklayınca "Ne İzlesem?", "Takvim" ve "Bugün izlediğimi ekle" kısayolları ile "ARGUS\'u kapat" çıkar. Kapalıysa × ARGUS\'u tamamen kapatır.')}
                 </>
               }
             >
               <ToggleSwitch
-                label="Kapatınca tepsiye küçült"
+                label={tt('Kapatınca tepsiye küçült')}
                 checked={s.tepsi}
-                onChange={(v) => update({ tepsi: v }, v ? '× artık ARGUS\'u tepsiye küçültecek.' : '× artık ARGUS\'u tamamen kapatacak.')}
+                onChange={(v) => update({ tepsi: v }, v ? tt('× artık ARGUS\'u tepsiye küçültecek.') : tt('× artık ARGUS\'u tamamen kapatacak.'))}
               />
             </Row>
           </SettingsSection>
 
-          <SettingsSection title="Bildirimler">
+          <SettingsSection title={tt('Bildirimler')}>
             <Row
-              title="Yeni bölüm ve sezon haberlerini Windows bildirimi olarak göster"
-              description="Zildeki haberler (izlediğin diziye yeni bölüm geldi, yeni sezon açıklandı…) ekranın köşesinde Windows bildirimi olarak da çıkar — ARGUS tepsideyken bile. Bildirime tıklayınca o dizinin detayı açılır."
+              title={tt('Yeni bölüm ve sezon haberlerini Windows bildirimi olarak göster')}
+              description={tt('Zildeki haberler (izlediğin diziye yeni bölüm geldi, yeni sezon açıklandı…) ekranın köşesinde Windows bildirimi olarak da çıkar — ARGUS tepsideyken bile. Bildirime tıklayınca o dizinin detayı açılır.')}
             >
               <ToggleSwitch
-                label="Windows bildirimleri"
+                label={tt('Windows bildirimleri')}
                 checked={s.bildirim}
-                onChange={(v) => update({ bildirim: v }, v ? 'Yeni haberler Windows bildirimi olarak da çıkacak.' : 'Windows bildirimleri kapatıldı (zil yine çalışır).')}
+                onChange={(v) => update({ bildirim: v }, v ? tt('Yeni haberler Windows bildirimi olarak da çıkacak.') : tt('Windows bildirimleri kapatıldı (zil yine çalışır).'))}
               />
             </Row>
           </SettingsSection>
 
-          <SettingsSection title="Görünüm ve kısayollar">
-            <Row title="Yazı ve arayüz boyutu" description="Her şeyi biraz büyütür ya da küçültür. Klavyeden Ctrl + ve Ctrl − ile de değişir, Ctrl 0 ile %100'e döner.">
+          <SettingsSection title={tt('Görünüm ve kısayollar')}>
+            <Row title={tt('Yazı ve arayüz boyutu')} description={tt('Her şeyi biraz büyütür ya da küçültür. Klavyeden Ctrl + ve Ctrl − ile de değişir, Ctrl 0 ile %100\'e döner.')}>
               <div className="flex gap-1">
                 {ZOOMS.map(([z, label]) => (
-                  <button key={z} onClick={() => update({ zoom: z }, `Yazı ve arayüz boyutu: ${label}`)} className={`text-xs rounded-lg border px-2.5 py-1.5 transition ${choiceClass(s.zoom === z)}`}>
+                  <button key={z} onClick={() => update({ zoom: z }, tt('Yazı ve arayüz boyutu: {0}', label))} className={`text-xs rounded-lg border px-2.5 py-1.5 transition ${choiceClass(s.zoom === z)}`}>
                     {label}
                   </button>
                 ))}
               </div>
             </Row>
             <Row
-              title="Ctrl + Alt + A ile ARGUS'u öne getir"
+              title={tt('Ctrl + Alt + A ile ARGUS\'u öne getir')}
               description={
                 s.kisayol && !s.kisayolCalisiyor
-                  ? 'Bu tuş birleşimini başka bir program kullanıyor, şu an çalışmıyor.'
-                  : 'Hangi programda olursan ol, bu tuşlara basınca ARGUS öne gelir (tepsideyse açılır).'
+                  ? tt('Bu tuş birleşimini başka bir program kullanıyor, şu an çalışmıyor.')
+                  : tt('Hangi programda olursan ol, bu tuşlara basınca ARGUS öne gelir (tepsideyse açılır).')
               }
             >
               <ToggleSwitch
-                label="Ctrl + Alt + A kısayolu"
+                label={tt('Ctrl + Alt + A kısayolu')}
                 checked={s.kisayol}
-                onChange={(v) => update({ kisayol: v }, v ? 'Ctrl + Alt + A ile ARGUS öne gelecek.' : 'Kısayol kapatıldı.')}
+                onChange={(v) => update({ kisayol: v }, v ? tt('Ctrl + Alt + A ile ARGUS öne gelecek.') : tt('Kısayol kapatıldı.'))}
               />
             </Row>
           </SettingsSection>
 
-          <SettingsSection title="Güncellemeler">
+          <SettingsSection title={tt('Güncellemeler')}>
             <Row
-              title="Yeni sürüm çıkınca"
+              title={tt('Yeni sürüm çıkınca')}
               description={
                 s.guncelleme === 'sor'
-                  ? 'ARGUS açılırken yeni sürüm varsa açılış penceresinde sorar: "Güncelle" ya da "Şimdilik atla". Atlarsan ARGUS içinden "Şimdi Güncelle" ile sonra da güncelleyebilirsin.'
-                  : 'ARGUS açılırken yeni sürüm varsa kendiliğinden güncellenir.'
+                  ? tt('ARGUS açılırken yeni sürüm varsa açılış penceresinde sorar: "Güncelle" ya da "Şimdilik atla". Atlarsan ARGUS içinden "Şimdi Güncelle" ile sonra da güncelleyebilirsin.')
+                  : tt('ARGUS açılırken yeni sürüm varsa kendiliğinden güncellenir.')
               }
             >
               <div className="flex gap-1">
                 {(
                   [
-                    ['otomatik', 'Kendiliğinden güncelle'],
-                    ['sor', 'Önce sor'],
+                    ['otomatik', tt('Kendiliğinden güncelle')],
+                    ['sor', tt('Önce sor')],
                   ] as const
                 ).map(([k, label]) => (
-                  <button key={k} onClick={() => update({ guncelleme: k }, k === 'sor' ? 'Yeni sürüm çıkınca önce sorulacak.' : 'Yeni sürümler kendiliğinden yüklenecek.')} className={`text-xs rounded-lg border px-2.5 py-1.5 transition ${choiceClass(s.guncelleme === k)}`}>
+                  <button key={k} onClick={() => update({ guncelleme: k }, k === 'sor' ? tt('Yeni sürüm çıkınca önce sorulacak.') : tt('Yeni sürümler kendiliğinden yüklenecek.'))} className={`text-xs rounded-lg border px-2.5 py-1.5 transition ${choiceClass(s.guncelleme === k)}`}>
                     {label}
                   </button>
                 ))}

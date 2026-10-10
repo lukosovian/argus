@@ -13,6 +13,8 @@ import ToggleSwitch from '../components/ToggleSwitch'
 import FileDrop from '../components/FileDrop'
 import { SettingsTabs } from '../components/settings/SettingsUi'
 import Select from '../components/Select'
+import { tt, ttx } from '../lib/i18n'
+import { COLUMN_NAMES, STATUS_NAMES, isName, nameOf } from '../lib/names'
 
 function normalizeMatchText(s: string): string {
   return s
@@ -90,11 +92,10 @@ function ExistingBoardImagesPanel() {
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
       <p className="text-sm text-neutral-400">
-        Var olan bir arşivdeki kayıtlara toplu görsel ekler — görsel dosyasının adı (uzantısız), kaydın başlığıyla
-        birebir eşleşirse o kayda yüklenir. Yeni bir CSV'ye gerek yok, sadece görsel klasörünü seçmen yeterli.
+        {tt('Var olan bir arşivdeki kayıtlara toplu görsel ekler — görsel dosyasının adı (uzantısız), kaydın başlığıyla birebir eşleşirse o kayda yüklenir. Yeni bir CSV\'ye gerek yok, sadece görsel klasörünü seçmen yeterli.')}
       </p>
       <div>
-        <label className="block text-xs text-neutral-400 mb-1">Hangi arşive eklensin</label>
+        <label className="block text-xs text-neutral-400 mb-1">{tt('Hangi arşive eklensin')}</label>
         <Select
           value={boardId}
           onChange={(v) => {
@@ -102,43 +103,43 @@ function ExistingBoardImagesPanel() {
             setPropertyId('')
             setResult(null)
           }}
-          options={[{ value: '', label: 'Seçilmedi' }, ...boards.map((b) => ({ value: b.id, label: b.name }))]}
+          options={[{ value: '', label: tt('Seçilmedi') }, ...boards.map((b) => ({ value: b.id, label: b.name }))]}
         />
       </div>
       {board && (
         <div>
-          <label className="block text-xs text-neutral-400 mb-1">Hangi görsel sütununa eklensin</label>
+          <label className="block text-xs text-neutral-400 mb-1">{tt('Hangi görsel sütununa eklensin')}</label>
           <Select
             value={propertyId}
             onChange={setPropertyId}
-            options={[{ value: '', label: 'Seçilmedi' }, ...imageProps.map((p) => ({ value: p.id, label: p.name }))]}
+            options={[{ value: '', label: tt('Seçilmedi') }, ...imageProps.map((p) => ({ value: p.id, label: p.name }))]}
           />
-          {imageProps.length === 0 && <p className="text-xs text-amber-400 mt-1">Bu arşivde görsel tipinde bir sütun yok.</p>}
+          {imageProps.length === 0 && <p className="text-xs text-amber-400 mt-1">{tt('Bu arşivde görsel tipinde bir sütun yok.')}</p>}
         </div>
       )}
       {board && propertyId && (
         <>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1">Görsel klasörünü seç</label>
+            <label className="block text-xs text-neutral-400 mb-1">{tt('Görsel klasörünü seç')}</label>
             <FileDrop
               accept="image/*"
               multiple
-              title="Görselleri seç ya da buraya sürükle"
-              hint="Klasördeki görsellerin hepsini seçmek için Ctrl+A"
+              title={tt('Görselleri seç ya da buraya sürükle')}
+              hint={tt('Klasördeki görsellerin hepsini seçmek için Ctrl+A')}
               onFiles={(files) => handleFolder(files)}
             />
-            {imageFiles.size > 0 && <p className="text-sm text-emerald-400 mt-2">✓ {imageFiles.size} dosya bulundu.</p>}
+            {imageFiles.size > 0 && <p className="text-sm text-emerald-400 mt-2">{ttx('✓ {0} dosya bulundu.', imageFiles.size)}</p>}
             <p className="text-xs text-neutral-600 mt-1">
-              Ör. "Breaking Bad.jpg" adlı dosya, başlığı "Breaking Bad" olan kayda eşleşir.
+              {tt('Ör. "Breaking Bad.jpg" adlı dosya, başlığı "Breaking Bad" olan kayda eşleşir.')}
             </p>
           </div>
           <label className="flex items-center gap-2 text-sm text-neutral-400 cursor-pointer">
             <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
-            Zaten görseli olan kayıtların üzerine de yaz
+            {tt('Zaten görseli olan kayıtların üzerine de yaz')}
           </label>
           {importing ? (
             <p className="text-sm text-neutral-400">
-              Eşleştiriliyor... {progress}/{rows.length}
+              {ttx('Eşleştiriliyor... {0}/{1}', progress, rows.length)}
             </p>
           ) : (
             <button
@@ -147,16 +148,15 @@ function ExistingBoardImagesPanel() {
               style={primaryButtonStyle}
               className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
             >
-              Eşleştir ve Yükle
+              {tt('Eşleştir ve Yükle')}
             </button>
           )}
           {result && (
             <div className="text-sm">
-              <p className="text-emerald-400">{result.matched} kayda görsel eklendi.</p>
+              <p className="text-emerald-400">{ttx('{0} kayda görsel eklendi.', result.matched)}</p>
               {result.unmatched.length > 0 && (
                 <p className="text-amber-400 mt-1">
-                  {result.unmatched.length} dosya hiçbir kayıtla eşleşmedi (dosya adı ile başlık birebir uyuşmuyor
-                  olabilir).
+                  {ttx('{0} dosya hiçbir kayıtla eşleşmedi (dosya adı ile başlık birebir uyuşmuyor olabilir).', result.unmatched.length)}
                 </p>
               )}
             </div>
@@ -199,31 +199,32 @@ function commaShare(values: string[]) {
 function guessMapTo(header: string, values: string[], template: TemplateBase): string {
   const h = header.trim().toLocaleLowerCase('tr')
   const all = [template.title, ...template.rest]
-  const byName = (n: string) => all.find((p) => p.name === n)?.id
+  // Şablon sütunları seçili dilde açılıyor (bkz. lib/names.ts) — adla değil görev anahtarıyla bulunur
+  const byName = (k: keyof typeof COLUMN_NAMES) => all.find((p) => isName(p.name, COLUMN_NAMES[k]))?.id
   const exact = all.find((p) => p.name.trim().toLocaleLowerCase('tr') === h)
   const kinds = looksLikeKinds(values)
   if (exact) {
     // "Kategori" adlı sütunda türler yazıyorsa Tür'e, "Tür" adlı sütunda Film/Dizi yazıyorsa Kategori'ye
-    if (exact.name === 'Kategori' && !kinds && commaShare(values) > 0) return byName('Tür') ?? exact.id
-    if (exact.name === 'Tür' && kinds) return byName('Kategori') ?? exact.id
+    if (isName(exact.name, COLUMN_NAMES.kategori) && !kinds && commaShare(values) > 0) return byName('tur') ?? exact.id
+    if (isName(exact.name, COLUMN_NAMES.tur) && kinds) return byName('kategori') ?? exact.id
     return exact.id
   }
-  const rules: [RegExp, string | (() => string | undefined)][] = [
+  const rules: [RegExp, keyof typeof COLUMN_NAMES | (() => string | undefined)][] = [
     [/oluşturul|olusturul|created|last edited|düzenlenme|son düzenleme/, () => ''],
-    [/orijinal|orjinal|original/, 'Orjinal Adı'],
-    [/^(başlık|baslik|ad|adı|isim|name|title|film adı|dizi adı|yapım adı|türkçe ad)/, 'Türkçe Adı'],
-    [/durum|status/, 'Durum'],
-    [/puan|rating|score|yıldız|yildiz|değerlendirme/, 'Puan'],
-    [/izledi|izleme tarihi|izlenme|watched|watch date/, 'İzleme Tarihi'],
-    [/vizyon|^yıl$|^yil$|year|çıkış|cikis|release/, 'Vizyon Tarihi'],
-    [/yönetmen|yonetmen|director|yaratıcı/, 'Yönetmen'],
-    [/oyuncu|cast|actor|başrol/, 'Oyuncular'],
-    [/ülke|ulke|country/, 'Ülke'],
-    [/süre|sure|runtime|duration|dakika/, 'Süre'],
-    [/özet|ozet|sinopsis|synopsis|overview|konu/, 'Sinopsis'],
-    [/fragman|trailer|video/, 'Video'],
-    [/tür|genre|kategoriler|categories/, () => byName(kinds ? 'Kategori' : 'Tür')],
-    [/^tip$|^type$|kategori|category|film\s*\/\s*dizi|biçim/,() => byName(kinds || commaShare(values) === 0 ? 'Kategori' : 'Tür')],
+    [/orijinal|orjinal|original/, 'orjinalAdi'],
+    [/^(başlık|baslik|ad|adı|isim|name|title|film adı|dizi adı|yapım adı|türkçe ad)/, 'baslik'],
+    [/durum|status/, 'durum'],
+    [/puan|rating|score|yıldız|yildiz|değerlendirme/, 'puan'],
+    [/izledi|izleme tarihi|izlenme|watched|watch date/, 'izlemeTarihi'],
+    [/vizyon|^yıl$|^yil$|year|çıkış|cikis|release/, 'vizyon'],
+    [/yönetmen|yonetmen|director|yaratıcı|creator/, 'yonetmen'],
+    [/oyuncu|cast|actor|başrol/, 'oyuncular'],
+    [/ülke|ulke|country/, 'ulke'],
+    [/süre|sure|runtime|duration|dakika|minutes/, 'sure'],
+    [/özet|ozet|sinopsis|synopsis|overview|konu|summary|plot/, 'sinopsis'],
+    [/fragman|trailer|video/, 'video'],
+    [/tür|genre|kategoriler|categories/, () => byName(kinds ? 'kategori' : 'tur')],
+    [/^tip$|^type$|kategori|category|film\s*\/\s*dizi|biçim/,() => byName(kinds || commaShare(values) === 0 ? 'kategori' : 'tur')],
   ]
   for (const [re, target] of rules) {
     if (!re.test(h)) continue
@@ -249,27 +250,35 @@ function dedupePlans(plans: ColumnPlan[]): ColumnPlan[] {
 }
 
 // Şablon alanlarının yanında ne işe yaradıkları (eşleştirme listesinde)
-const FIELD_HINTS: Record<string, string> = {
-  'Türkçe Adı': 'kaydın adı',
-  'Orjinal Adı': 'TMDB aramasında kullanılır',
-  Durum: 'İzlendi / İzlenecek / İzleniyor / Yarım',
-  Kategori: 'Film / Dizi / Mini Dizi…',
-  Tür: 'Dram, Aksiyon, Komedi…',
-  Puan: "10 üzerinden — ⭐ yıldızlar, 8/10 çevrilir",
-  'Vizyon Tarihi': 'çıkış tarihi ya da yılı',
-  'İzleme Tarihi': 'ne zaman izlediğin (aralık olabilir)',
-  Ülke: 'yapım ülkesi',
-  Süre: 'dakika',
+// (Şablon seçili dilde açıldığı için sütun adıyla değil görev anahtarıyla eşlenir)
+const FIELD_HINT_KEYS: Partial<Record<keyof typeof COLUMN_NAMES, string>> = {
+  baslik: tt('kaydın adı'),
+  orjinalAdi: tt('TMDB aramasında kullanılır'),
+  durum: tt('İzlendi / İzlenecek / İzleniyor / Yarım'),
+  kategori: tt('Film / Dizi / Mini Dizi…'),
+  tur: tt('Dram, Aksiyon, Komedi…'),
+  puan: tt('10 üzerinden — ⭐ yıldızlar, 8/10 çevrilir'),
+  vizyon: tt('çıkış tarihi ya da yılı'),
+  izlemeTarihi: tt('ne zaman izlediğin (aralık olabilir)'),
+  ulke: tt('yapım ülkesi'),
+  sure: tt('dakika'),
 }
+const FIELD_HINTS = new Proxy({} as Record<string, string | undefined>, {
+  get: (_, name: string) => {
+    const key = (Object.keys(COLUMN_NAMES) as (keyof typeof COLUMN_NAMES)[]).find((k) => isName(name, COLUMN_NAMES[k]))
+    return key ? FIELD_HINT_KEYS[key] : undefined
+  },
+})
 
 // Notion'daki durum adlarını ARGUS'un durumlarına çevirme tahmini
-const STATUS_TARGETS = ['İzlendi', 'İzleniyor', 'Yarım', 'İzlenecek'] as const
+// Seçili dildeki Durum seçenekleri (şablon da bu dilde açılıyor)
+const statusTargets = () => [nameOf(STATUS_NAMES.izlendi), nameOf(STATUS_NAMES.izleniyor), nameOf(STATUS_NAMES.yarim), nameOf(STATUS_NAMES.izlenecek)]
 function guessStatus(value: string): string {
   const v = value.toLocaleLowerCase('tr')
-  if (/bitti|izlendi|izledim|watched|done|complete|tamam|seen|finished/.test(v)) return 'İzlendi'
-  if (/izliyorum|izleniyor|watching|devam|in progress|ongoing|current/.test(v)) return 'İzleniyor'
-  if (/bıraktım|biraktim|yarım|yarim|dropped|hold|beklemede|abandon|yarıda/.test(v)) return 'Yarım'
-  if (/listemde|izlenecek|izleyeceğim|plan|to watch|want|istek|sırada|sirada|watchlist|not started|başlanmadı/.test(v)) return 'İzlenecek'
+  if (/bitti|izlendi|izledim|watched|done|complete|tamam|seen|finished/.test(v)) return nameOf(STATUS_NAMES.izlendi)
+  if (/izliyorum|izleniyor|watching|devam|in progress|ongoing|current/.test(v)) return nameOf(STATUS_NAMES.izleniyor)
+  if (/bıraktım|biraktim|yarım|yarim|dropped|hold|beklemede|abandon|yarıda/.test(v)) return nameOf(STATUS_NAMES.yarim)
+  if (/listemde|izlenecek|izleyeceğim|plan|to watch|want|istek|sırada|sirada|watchlist|not started|başlanmadı/.test(v)) return nameOf(STATUS_NAMES.izlenecek)
   return '__keep__'
 }
 
@@ -290,7 +299,7 @@ export default function Import() {
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([])
   const [plans, setPlans] = useState<ColumnPlan[]>([])
   const [titleHeader, setTitleHeader] = useState('')
-  const [boardName, setBoardName] = useState('İçe Aktarım')
+  const [boardName, setBoardName] = useState(tt('İçe Aktarım'))
   const [imageFiles, setImageFiles] = useState<Map<string, File>>(new Map())
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -343,7 +352,7 @@ export default function Import() {
         const guessTitle =
           hs.find((h) => /ad[ıi]|isim|^name$|başlık/i.test(h)) ?? hs.find((_h, i) => inferredPlans[i].type === 'text') ?? hs[0]
         setTitleHeader(guessTitle ?? '')
-        setBoardName(cleanBoardName(file.name) || 'İçe Aktarım')
+        setBoardName(cleanBoardName(file.name) || tt('İçe Aktarım'))
       },
     })
   }
@@ -365,13 +374,13 @@ export default function Import() {
   const imagesReady = !hasImageColumn || imageFiles.size > 0 || skipImages
 
   // Durum alanına eşlenen sütunun farklı değerleri ve (tahminle doldurulmuş) karşılıkları
-  const statusProp = templateBase?.rest.find((p) => p.name === 'Durum')
+  const statusProp = templateBase?.rest.find((p) => isName(p.name, COLUMN_NAMES.durum))
   const statusPlan = useTemplate && statusProp ? plans.find((p) => p.include && p.mapTo === statusProp.id) : undefined
   const statusValues = statusPlan
     ? [...new Map(rawRows.map((r) => (r[statusPlan.header] ?? '').trim()).filter(Boolean).map((v) => [v, 0])).keys()].map((v) => ({
         value: v,
         count: rawRows.filter((r) => (r[statusPlan.header] ?? '').trim() === v).length,
-        target: statusMap[v] ?? (STATUS_TARGETS.includes(v as (typeof STATUS_TARGETS)[number]) ? v : guessStatus(v)),
+        target: statusMap[v] ?? (statusTargets().includes(v) ? v : guessStatus(v)),
       }))
     : []
 
@@ -400,7 +409,7 @@ export default function Import() {
 
       if (useTemplate && templateBase) {
         const titlePlan = included.find((p) => p.mapTo === templateBase.title.id)
-        if (!titlePlan) throw new Error(`Bir CSV sütununu "${templateBase.title.name}" alanına eşlemelisin.`)
+        if (!titlePlan) throw new Error(tt('Bir CSV sütununu "{0}" alanına eşlemelisin.', templateBase.title.name))
         titleProperty = templateBase.title
         columnForProperty.set(titleProperty.id, titlePlan.header)
 
@@ -432,7 +441,7 @@ export default function Import() {
         }
       } else {
         const titlePlan = included.find((p) => p.header === titleHeader)
-        if (!titlePlan) throw new Error('Başlık (ad) sütunu seçmelisin.')
+        if (!titlePlan) throw new Error(tt('Başlık (ad) sütunu seçmelisin.'))
         const restPlans = included.filter((p) => p.header !== titleHeader)
         titleProperty = { id: makeId(), name: titlePlan.header, type: 'text' }
         columnForProperty.set(titleProperty.id, titlePlan.header)
@@ -448,7 +457,7 @@ export default function Import() {
         useTemplate && templateBase ? (restProperties.find((p) => p.id === templateBase.titleImagePropertyId)?.id ?? null) : null
 
       const boardId = await createBoard({
-        name: boardName.trim() || 'Notion İçe Aktarımı',
+        name: boardName.trim() || tt('Notion İçe Aktarımı'),
         titlePropertyId: titleProperty.id,
         coverPropertyId: coverProperty?.id ?? null,
         titleImagePropertyId,
@@ -507,7 +516,7 @@ export default function Import() {
       setDoneBoardId(boardId)
     } catch (err) {
       if (createdBoardId) await deleteBoard(createdBoardId).catch(() => {})
-      setError(err instanceof Error ? err.message : 'İçe aktarım sırasında bir hata oluştu.')
+      setError(err instanceof Error ? err.message : tt('İçe aktarım sırasında bir hata oluştu.'))
     } finally {
       setImporting(false)
     }
@@ -520,18 +529,16 @@ export default function Import() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-10">
         <div className="bg-emerald-600/10 border border-emerald-600/30 rounded-xl p-6 text-center">
-          <p className="text-emerald-400 font-medium">{rawRows.length} kayıt yeni bir arşive aktarıldı 🎉</p>
+          <p className="text-emerald-400 font-medium">{ttx('{0} kayıt yeni bir arşive aktarıldı 🎉', rawRows.length)}</p>
           <p className="text-sm text-neutral-400 mt-3 max-w-md mx-auto">
-            Sırada: arşivi açıp üstteki <span className="text-neutral-200">Genel Güncelleme</span> ile eksikleri TMDB'den doldur. Önerimiz
-            bütün alanların gelmesi — posterler, logolar, fragmanlar ve oyuncularla ARGUS hem daha iyi çalışır hem çok daha güzel
-            görünür. Tablonda olmayan bir sütun varsa (ör. Kapak Adı) doldurmadan önce sana sorulur.
+            {tt('Sırada: arşivi açıp üstteki')}{' '}<span className="text-neutral-200">{tt('Genel Güncelleme')}</span>{' '}{tt('ile eksikleri TMDB\'den doldur. Önerimiz bütün alanların gelmesi — posterler, logolar, fragmanlar ve oyuncularla ARGUS hem daha iyi çalışır hem çok daha güzel görünür. Tablonda olmayan bir sütun varsa (ör. Kapak Adı) doldurmadan önce sana sorulur.')}
           </p>
           <Link
             to={`/board/${doneBoardId}`}
             style={primaryButtonStyle}
             className={`inline-block mt-4 text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
           >
-            Arşivi Aç
+            {tt('Arşivi Aç')}
           </Link>
         </div>
       </div>
@@ -552,26 +559,22 @@ export default function Import() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-xl font-semibold text-neutral-50 mb-2 flex items-center gap-2">
-        İçe Aktar
+        {tt('İçe Aktar')}
         <HelpHint>
           <p className="mb-2">
-            Bu bir Notion export'u (Notion'ın sağ üstündeki <strong>"..."</strong> menüsünden{' '}
-            <strong>Export → CSV</strong>) olabilir, ya da başka bir yerden gelen herhangi bir CSV dosyası — hangisi
-            olursa olsun, dosyayı aşağıdan seçince sütunları kendisi tanır, sen istersen düzeltirsin.
+            {tt('Bu bir Notion export\'u (Notion\'ın sağ üstündeki')}{' '}<strong>"..."</strong>{' '}{tt('menüsünden')}{' '}
+            <strong>{tt('Export → CSV')}</strong>{tt(') olabilir, ya da başka bir yerden gelen herhangi bir CSV dosyası — hangisi olursa olsun, dosyayı aşağıdan seçince sütunları kendisi tanır, sen istersen düzeltirsin.')}
           </p>
           <p className="mb-2">
-            Notion zip'inin içinde birbirine çok benzeyen iki CSV olabilir (ör. "Database ...csv" ve
-            "Database ..._all.csv") — aynı veri, sadece birini seç (emin değilsen "_all" ile bitenini tercih et).
+            {tt('Notion zip\'inin içinde birbirine çok benzeyen iki CSV olabilir (ör. "Database ...csv" ve "Database ..._all.csv") — aynı veri, sadece birini seç (emin değilsen "_all" ile bitenini tercih et).')}
           </p>
           <p>
-            Görseller aynı klasörde ayrı dosyalar hâlinde durur, onları aşağıda ayrıca seçeceksin — hepsini (CSV +
-            görseller) tek seferde tamamla, yarım bırakıp tekrar basarsan ikinci bir kopya arşiv oluşur.
+            {tt('Görseller aynı klasörde ayrı dosyalar hâlinde durur, onları aşağıda ayrıca seçeceksin — hepsini (CSV + görseller) tek seferde tamamla, yarım bırakıp tekrar basarsan ikinci bir kopya arşiv oluşur.')}
           </p>
         </HelpHint>
       </h1>
       <p className="text-sm text-neutral-500 mb-6">
-        Bir CSV dosyasından (Notion'dan ya da başka bir yerden) yeni bir arşiv oluştur, ya da var olan bir arşive
-        sonradan toplu görsel ekle.
+        {tt('Bir CSV dosyasından (Notion\'dan ya da başka bir yerden) yeni bir arşiv oluştur, ya da var olan bir arşive sonradan toplu görsel ekle.')}
       </p>
 
       <SettingsTabs
@@ -579,8 +582,8 @@ export default function Import() {
         onChange={setMode}
         tabs={
           [
-            ['yeni', 'Yeni Arşiv'],
-            ['gorsel', 'Var Olan Arşive Görsel Ekle'],
+            ['yeni', tt('Yeni Arşiv')],
+            ['gorsel', tt('Var Olan Arşive Görsel Ekle')],
           ] as const
         }
       />
@@ -591,40 +594,37 @@ export default function Import() {
         <>
       <div className="flex items-center justify-between gap-2.5 bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6">
         <span className="flex items-center gap-1.5 flex-1">
-          <span className="font-medium text-neutral-100 text-sm">Medya Arşivi şablonuyla eşleştir</span>
+          <span className="font-medium text-neutral-100 text-sm">{tt('Medya Arşivi şablonuyla eşleştir')}</span>
           <HelpHint>
-            Yeni arşiv, ARGUS'un vitrin, "Kim İzliyor", İstatistikler, TMDB otomatik doldurma gibi tüm özelliklerinin
-            kullandığı tam sütun setiyle (Banner, Poster, Puan, Oyuncular, Yaş Sınırı...) oluşturulur — aynı şablonu
-            Ayarlar → Veritabanı → Şablonlar'da da görebilirsin. CSV sütunlarını aşağıda bu sütunlarla eşleştirirsin,
-            eşlemediklerin ya da "yeni sütun olarak ekle" dediklerin olduğu gibi eklenir.
+            {tt('Yeni arşiv, ARGUS\'un vitrin, "Kim İzliyor", İstatistikler, TMDB otomatik doldurma gibi tüm özelliklerinin kullandığı tam sütun setiyle (Banner, Poster, Puan, Oyuncular, Yaş Sınırı...) oluşturulur — aynı şablonu Ayarlar → Veritabanı → Şablonlar\'da da görebilirsin. CSV sütunlarını aşağıda bu sütunlarla eşleştirirsin, eşlemediklerin ya da "yeni sütun olarak ekle" dediklerin olduğu gibi eklenir.')}
           </HelpHint>
         </span>
-        <ToggleSwitch checked={useTemplate} onChange={handleToggleTemplate} label="Medya Arşivi şablonuyla eşleştir" />
+        <ToggleSwitch checked={useTemplate} onChange={handleToggleTemplate} label={tt('Medya Arşivi şablonuyla eşleştir')} />
       </div>
 
       {rawRows.length === 0 ? (
         <FileDrop
           accept=".csv"
-          title="CSV dosyasını seç ya da buraya sürükle"
-          hint="Notion'dan, Excel'den ya da başka bir yerden dışa aktardığın .csv dosyası"
+          title={tt('CSV dosyasını seç ya da buraya sürükle')}
+          hint={tt('Notion\'dan, Excel\'den ya da başka bir yerden dışa aktardığın .csv dosyası')}
           onFiles={(files) => handleCsv(files[0])}
         />
       ) : (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-neutral-500">CSV yüklendi.</p>
+            <p className="text-sm text-neutral-500">{tt('CSV yüklendi.')}</p>
             <button onClick={resetImport} className="text-sm text-neutral-500 hover:text-neutral-300 underline">
-              Vazgeç, farklı dosya seç
+              {tt('Vazgeç, farklı dosya seç')}
             </button>
           </div>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1">Yeni arşivin adı</label>
+            <label className="block text-xs text-neutral-400 mb-1">{tt('Yeni arşivin adı')}</label>
             <input value={boardName} onChange={(e) => setBoardName(e.target.value)} className={inputClass} />
           </div>
 
           {!useTemplate && (
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">Hangi sütun başlık (kart adı) olsun?</label>
+              <label className="block text-xs text-neutral-400 mb-1">{tt('Hangi sütun başlık (kart adı) olsun?')}</label>
               <Select value={titleHeader} onChange={setTitleHeader} options={plans.map((p) => ({ value: p.header, label: p.header }))} />
             </div>
           )}
@@ -632,28 +632,27 @@ export default function Import() {
           {hasImageColumn && (
             <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-4">
               <label className="block text-sm text-amber-300 font-medium mb-1">
-                2. Adım (önemli): Görselleri seç
+                {tt('2. Adım (önemli): Görselleri seç')}
               </label>
               <p className="text-sm text-neutral-400 mb-2">
-                Aşağıya tıklayınca açılan pencerede görsellerin olduğu klasöre gir — sadece görseller listelenecek.
-                Hepsini seçmek için <strong>Ctrl+A</strong> yap, sonra "Aç"a bas.
+                {tt('Aşağıya tıklayınca açılan pencerede görsellerin olduğu klasöre gir — sadece görseller listelenecek. Hepsini seçmek için')}{' '}<strong>{tt('Ctrl+A')}</strong>{' '}{tt('yap, sonra "Aç"a bas.')}
               </p>
               <FileDrop
                 accept="image/*"
                 multiple
-                title="Görselleri seç ya da buraya sürükle"
-                hint="Klasördeki görsellerin hepsini seçmek için Ctrl+A"
+                title={tt('Görselleri seç ya da buraya sürükle')}
+                hint={tt('Klasördeki görsellerin hepsini seçmek için Ctrl+A')}
                 onFiles={(files) => {
                   handleFolder(files)
                   setSkipImages(false)
                 }}
               />
               {imageFiles.size > 0 ? (
-                <p className="text-sm text-emerald-400 mt-2">✓ {imageFiles.size} dosya bulundu, görseller eşleştirilecek.</p>
+                <p className="text-sm text-emerald-400 mt-2">{ttx('✓ {0} dosya bulundu, görseller eşleştirilecek.', imageFiles.size)}</p>
               ) : (
                 <label className="flex items-center gap-2 text-sm text-neutral-400 mt-3 cursor-pointer">
                   <input type="checkbox" checked={skipImages} onChange={(e) => setSkipImages(e.target.checked)} />
-                  Görselleri şimdilik atla, sadece verileri aktar (sonra tek tek kayıt düzenleyerek ekleyebilirsin)
+                  {tt('Görselleri şimdilik atla, sadece verileri aktar (sonra tek tek kayıt düzenleyerek ekleyebilirsin)')}
                 </label>
               )}
             </div>
@@ -663,12 +662,11 @@ export default function Import() {
             {useTemplate ? (
               <>
                 <p className="text-sm text-neutral-400 mb-2">
-                  {rawRows.length} satır bulundu — {plans.length} sütun tespit edildi. Her sütun için hangi şablon
-                  alanına gideceğini seç (adı benzer olanlar otomatik eşlendi), istemediğini "Aktarma" yap.{' '}
+                  {ttx('{0} satır bulundu — {1} sütun tespit edildi. Her sütun için hangi şablon alanına gideceğini seç (adı benzer olanlar otomatik eşlendi), istemediğini "Aktarma" yap.', rawRows.length, plans.length)}{' '}
                   <span className={templateTitleMapped ? 'text-emerald-400' : 'text-amber-400'}>
                     {templateTitleMapped
-                      ? '✓ Başlık (Türkçe Adı) eşlendi.'
-                      : `Bir sütunu "${templateBase?.title.name}" alanına eşlemelisin.`}
+                      ? tt('✓ Başlık (Türkçe Adı) eşlendi.')
+                      : tt('Bir sütunu "{0}" alanına eşlemelisin.', templateBase?.title.name)}
                   </span>
                 </p>
                 <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
@@ -677,10 +675,10 @@ export default function Import() {
                     const vals = rawRows.map((r) => r[p.header] ?? '')
                     const sample = vals.map((v) => v.trim()).filter(Boolean).slice(0, 2).join(' · ')
                     const warn =
-                      p.include && target?.name === 'Kategori' && commaShare(vals) > 0
-                        ? 'Bu sütunda virgüllü değerler (türler?) var — Kategori sadece Film / Dizi gibi yapım türü içindir, türler "Tür" alanına gitmeli.'
-                        : p.include && target?.name === 'Tür' && looksLikeKinds(vals)
-                          ? 'Bu sütunda Film / Dizi gibi değerler var — bunlar "Kategori" alanına gitmeli.'
+                      p.include && isName(target?.name, COLUMN_NAMES.kategori) && commaShare(vals) > 0
+                        ? tt('Bu sütunda virgüllü değerler (türler?) var — Kategori sadece Film / Dizi gibi yapım türü içindir, türler "Tür" alanına gitmeli.')
+                        : p.include && isName(target?.name, COLUMN_NAMES.tur) && looksLikeKinds(vals)
+                          ? tt('Bu sütunda Film / Dizi gibi değerler var — bunlar "Kategori" alanına gitmeli.')
                           : ''
                     return (
                       <div key={p.header} className="bg-neutral-800/60 rounded-lg px-2 py-1.5">
@@ -692,15 +690,15 @@ export default function Import() {
                           />
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm text-neutral-200 truncate">{p.header}</span>
-                            {sample && <span className="block text-[11px] text-neutral-500 truncate">ör. {sample}</span>}
+                            {sample && <span className="block text-[11px] text-neutral-500 truncate">{ttx('ör. {0}', sample)}</span>}
                           </span>
                           <Select
                             value={p.include ? p.mapTo : ''}
                             onChange={(v) => updatePlan(p.header, { mapTo: v, include: v !== '' })}
                             className="w-[48%] shrink-0"
                             options={[
-                              { value: '', label: '— Aktarma —' },
-                              { value: '__new__', label: '+ Yeni sütun olarak ekle' },
+                              { value: '', label: tt('— Aktarma —') },
+                              { value: '__new__', label: tt('+ Yeni sütun olarak ekle') },
                               ...templateOptions.map((tp) => ({ value: tp.id, label: FIELD_HINTS[tp.name] ? `${tp.name} (${FIELD_HINTS[tp.name]})` : tp.name })),
                             ]}
                           />
@@ -712,10 +710,9 @@ export default function Import() {
                 </div>
                 {statusValues.length > 0 && (
                   <div className="mt-4 rounded-lg border border-neutral-800 p-3">
-                    <p className="text-sm text-neutral-200">"{statusPlan?.header}" değerleri ARGUS'ta ne anlama geliyor?</p>
+                    <p className="text-sm text-neutral-200">{ttx('"{0}" değerleri ARGUS\'ta ne anlama geliyor?', statusPlan?.header)}</p>
                     <p className="text-xs text-neutral-500 mt-0.5 mb-2">
-                      İstatistikler, Ne İzlesem, Takvim ve Koleksiyon bir yapımı izleyip izlemediğini bu durumlara bakarak anlar. "Kendi adıyla
-                      kalsın" dersen etiket olarak durur ama izlendi / izlenecek sayılmaz.
+                      {tt('İstatistikler, Ne İzlesem, Takvim ve Koleksiyon bir yapımı izleyip izlemediğini bu durumlara bakarak anlar. "Kendi adıyla kalsın" dersen etiket olarak durur ama izlendi / izlenecek sayılmaz.')}
                     </p>
                     <div className="space-y-1.5">
                       {statusValues.map((sv) => (
@@ -729,8 +726,8 @@ export default function Import() {
                             onChange={(v) => setStatusMap((m) => ({ ...m, [sv.value]: v }))}
                             className="w-[48%] shrink-0"
                             options={[
-                              ...STATUS_TARGETS.map((t) => ({ value: t, label: t })),
-                              { value: '__keep__', label: `Kendi adıyla kalsın ("${sv.value}")` },
+                              ...statusTargets().map((t) => ({ value: t, label: t })),
+                              { value: '__keep__', label: tt('Kendi adıyla kalsın ("{0}")', sv.value) },
                             ]}
                           />
                         </div>
@@ -742,8 +739,7 @@ export default function Import() {
             ) : (
               <>
                 <p className="text-sm text-neutral-400 mb-2">
-                  {rawRows.length} satır bulundu — {plans.length} sütun tespit edildi. Tipleri gerekirse düzelt,
-                  istemediğin sütunun kutucuğunu kaldır.
+                  {ttx('{0} satır bulundu — {1} sütun tespit edildi. Tipleri gerekirse düzelt, istemediğin sütunun kutucuğunu kaldır.', rawRows.length, plans.length)}
                 </p>
                 <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
                   {plans.map((p) => (
@@ -772,7 +768,7 @@ export default function Import() {
           {error && <p className="text-rose-400 text-sm">{error}</p>}
 
           {importing ? (
-            <p className="text-sm text-neutral-400">İşleniyor... {progress}/{rawRows.length}</p>
+            <p className="text-sm text-neutral-400">{ttx('İşleniyor... {0}/{1}', progress, rawRows.length)}</p>
           ) : (
             <div>
               <button
@@ -781,11 +777,11 @@ export default function Import() {
                 style={primaryButtonStyle}
                 className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
               >
-                {rawRows.length} Kaydı İçe Aktar
+                {ttx('{0} Kaydı İçe Aktar', rawRows.length)}
               </button>
               {!imagesReady && (
                 <p className="text-xs text-amber-400 mt-2">
-                  Önce yukarıdan görselleri seç ya da "görselleri şimdilik atla" kutucuğunu işaretle.
+                  {tt('Önce yukarıdan görselleri seç ya da "görselleri şimdilik atla" kutucuğunu işaretle.')}
                 </p>
               )}
             </div>

@@ -24,6 +24,7 @@ import AgeRatingChip from '../components/AgeRatingChip'
 import { sortByOrder } from '../components/HomeSectionEditor'
 import { homeRowOrder } from '../lib/homeRows'
 import { PRIMARY_BUTTON, primaryButtonStyle, gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
+import { tt, ttx } from '../lib/i18n'
 
 function ChevronDownIcon() {
   return (
@@ -251,7 +252,7 @@ export function HomeCard({
             <span
               style={{ background: BRAND_GRADIENT }}
               className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full text-white"
-              title="Daha fazla bilgi"
+              title={tt('Daha fazla bilgi')}
             >
               <ChevronDownIcon />
             </span>
@@ -341,7 +342,7 @@ function FeaturedOverlay({
           </div>
         )}
         <button onClick={onMoreInfo} style={primaryButtonStyle} className={`mt-5 text-base px-5 py-2.5 rounded-lg ${PRIMARY_BUTTON}`}>
-          Daha Fazla Bilgi
+          {tt('Daha Fazla Bilgi')}
         </button>
       </div>
     </div>
@@ -500,7 +501,7 @@ function HomeRow({
         {canScrollLeft && (
           <button
             onClick={() => scroll(-1)}
-            title="Sola kaydır"
+            title={tt('Sola kaydır')}
             className="absolute left-1 top-1/2 -translate-y-1/2 z-10 text-white opacity-0 group-hover/row:opacity-100 hover:scale-110 transition"
             style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.9))' }}
           >
@@ -531,7 +532,7 @@ function HomeRow({
         {canScrollRight && (
           <button
             onClick={() => scroll(1)}
-            title="Sağa kaydır"
+            title={tt('Sağa kaydır')}
             className="absolute right-1 top-1/2 -translate-y-1/2 z-10 text-white opacity-0 group-hover/row:opacity-100 hover:scale-110 transition"
             style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.9))' }}
           >
@@ -574,8 +575,8 @@ function TopRatedRow({
   return (
     <div>
       <div className="flex items-baseline gap-3 mb-2">
-        <h2 className={titleClass}>Arşivindeki En İyi {top.length}</h2>
-        <span className="text-xs text-neutral-500">verdiğin puana göre</span>
+        <h2 className={titleClass}>{ttx('Arşivindeki En İyi {0}', top.length)}</h2>
+        <span className="text-xs text-neutral-500">{tt('verdiğin puana göre')}</span>
       </div>
       <div className="no-scrollbar flex gap-2 overflow-x-auto -mx-4 px-4 pt-2 pb-3">
         {top.map(({ r, avg }, i) => {
@@ -659,7 +660,7 @@ export default function AnaSayfa() {
         // resolveBuiltinMoods) burayı görünür bırakmak, kullanıcının bu özelliği fark etmesi
         // için önemli ("adam bu modların gelebileceğini nerden bilecek").
         enabled: true,
-        title: settings.moodRow?.title ?? 'Bunları da İzle',
+        title: settings.moodRow?.title ?? tt('Bunları da İzle'),
         position: settings.moodRow?.position ?? 1,
         moods: builtins,
         seeded: true,
@@ -701,7 +702,7 @@ export default function AnaSayfa() {
   const activeFilter = activeSection ?? adHocFilter
   const scopedRows = activeFilter ? rowsForFilter(activeFilter, visibleRows) : visibleRows
   const displayRows = [...scopedRows].reverse()
-  const sectionTitle = activeSection?.name ?? (adHocFilter ? 'Kayıtlar' : 'Tümü')
+  const sectionTitle = activeSection?.name ?? (adHocFilter ? tt('Kayıtlar') : tt('Tümü'))
 
   // "Tümü" kartları varsayılan olarak her girişte karışık sırada gelir — ama artık Ayarlar'dan
   // "Sıralı Getir" seçilebiliyor (bkz. HomeSettingsPanel.tsx'teki allSectionOrder), o zaman
@@ -836,7 +837,7 @@ export default function AnaSayfa() {
 
   // Profil seçilmeden ("Kim izliyor?" ekranı açıkken) arkada bitmeyen bir "Yükleniyor..." görünmesin
   if (!activeProfileId) return null
-  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
 
   if (!settings.boardId) {
     // İki farklı durum, iki farklı mesaj: hiç arşiv yoksa önce bir tane oluşturması lazım
@@ -844,24 +845,24 @@ export default function AnaSayfa() {
     const hasAnyBoard = boards.length > 0
     return (
       <div className="px-4 py-16 flex flex-col items-center text-center">
-        <h1 className="text-2xl font-semibold text-neutral-50 mb-2">Ana Sayfa</h1>
+        <h1 className="text-2xl font-semibold text-neutral-50 mb-2">{tt('Ana Sayfa')}</h1>
         <p className="text-neutral-500 text-sm max-w-md">
           {hasAnyBoard
-            ? "Ana sayfada hangi arşivin gösterileceğini henüz seçmedin. Ayarlar → Ana Sayfa Ayarları → Görünüm'den seçebilirsin."
-            : 'Henüz bir arşivin yok — burada bir şey göstermeden önce en az bir arşiv oluşturman lazım.'}
+            ? tt('Ana sayfada hangi arşivin gösterileceğini henüz seçmedin. Ayarlar → Ana Sayfa Ayarları → Görünüm\'den seçebilirsin.')
+            : tt('Henüz bir arşivin yok — burada bir şey göstermeden önce en az bir arşiv oluşturman lazım.')}
         </p>
         <Link to="/arsivlerim" style={primaryButtonStyle} className={`mt-6 text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
-          {hasAnyBoard ? 'Ayarlara Git' : 'Arşiv Oluştur'}
+          {hasAnyBoard ? tt('Ayarlara Git') : tt('Arşiv Oluştur')}
         </Link>
       </div>
     )
   }
 
-  if (boardLoading || rowsLoading) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (boardLoading || rowsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
   if (!board) {
     return (
       <div className="px-4 py-16 text-center">
-        <p className="text-neutral-500 text-sm">Seçili arşiv bulunamadı, Ana Sayfa Ayarları'ndan tekrar seç.</p>
+        <p className="text-neutral-500 text-sm">{tt('Seçili arşiv bulunamadı, Ana Sayfa Ayarları\'ndan tekrar seç.')}</p>
       </div>
     )
   }
@@ -889,7 +890,7 @@ export default function AnaSayfa() {
   const mainContentNode =
     scopedRows.length === 0 ? (
       <p key="main" className="text-neutral-500 text-sm px-3 sm:px-6">
-        {adHocFilter ? 'Bu değeri taşıyan başka kayıt yok.' : 'Bu arşivde henüz kayıt yok.'}
+        {adHocFilter ? tt('Bu değeri taşıyan başka kayıt yok.') : tt('Bu arşivde henüz kayıt yok.')}
       </p>
     ) : activeFilter ? (
       // Bir oyuncu/seçenek rozetine tıklayınca gelinen liste (adHocFilter) VE üstteki
@@ -1107,7 +1108,7 @@ export default function AnaSayfa() {
                 className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-lg px-3 py-1.5 transition"
               >
                 <CloseIcon />
-                {filterReturn?.returnTo ? 'Filtreyi Kaldır ve Geri Dön' : 'Filtreyi Kaldır'}
+                {filterReturn?.returnTo ? tt('Filtreyi Kaldır ve Geri Dön') : tt('Filtreyi Kaldır')}
               </button>
             </div>
             {filterOption?.subtitle && <p className="text-sm text-neutral-400 mt-1">{stripFlags(filterOption.subtitle)}</p>}

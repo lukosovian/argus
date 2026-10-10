@@ -5,6 +5,7 @@ import AnchoredMenu from './AnchoredMenu'
 import PropertyTypePicker from './PropertyTypePicker'
 import Checkbox from './Checkbox'
 import { useToast } from '../hooks/useToast'
+import { tt, ttx } from '../lib/i18n'
 
 function CriterionRow({
   criterion,
@@ -67,11 +68,11 @@ function OptionRow({
   return (
     <div className="mb-1.5">
       <div className="flex items-center gap-1">
-        {bulkMode && <Checkbox checked={Boolean(selected)} onChange={() => onToggleSelect?.()} label={`${option.label} seç`} />}
+        {bulkMode && <Checkbox checked={Boolean(selected)} onChange={() => onToggleSelect?.()} label={tt('{0} seç', option.label)} />}
         <button
           type="button"
           onClick={() => setPickingColor((v) => !v)}
-          title="Renk seç"
+          title={tt('Renk seç')}
           className={`h-4 w-4 rounded-full border shrink-0 ${OPTION_COLORS[option.colorIndex % OPTION_COLORS.length].bg} ${OPTION_COLORS[option.colorIndex % OPTION_COLORS.length].border}`}
         />
         <input
@@ -120,11 +121,11 @@ function NewCriterionInput({ onAdd }: { onAdd: (name: string) => string }) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), commit())}
-        placeholder="Yeni kriter..."
+        placeholder={tt('Yeni kriter...')}
         className="flex-1 min-w-0 rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1 text-neutral-100 text-xs outline-none focus:border-neutral-500"
       />
       <button type="button" onClick={commit} className="text-xs text-neutral-400 hover:text-neutral-50 shrink-0 px-1">
-        + Ekle
+        {tt('+ Ekle')}
       </button>
     </div>
   )
@@ -211,8 +212,8 @@ export default function ColumnMenu({
     const count = selectedIds.size
     if (count === 0) return
     const ok = await confirm({
-      message: `${count} seçeneği kalıcı olarak silmek istediğine emin misin?`,
-      confirmLabel: 'Sil',
+      message: tt('{0} seçeneği kalıcı olarak silmek istediğine emin misin?', count),
+      confirmLabel: tt('Sil'),
       tone: 'danger',
     })
     if (!ok) return
@@ -223,7 +224,7 @@ export default function ColumnMenu({
   return (
     <AnchoredMenu anchorRef={anchorRef} align="left" width={240} onClose={onClose}>
       <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl p-3 normal-case max-h-[70vh] overflow-y-auto">
-        <p className="text-[11px] text-neutral-500 mb-1">Sütun adı</p>
+        <p className="text-[11px] text-neutral-500 mb-1">{tt('Sütun adı')}</p>
         <input
           autoFocus
           value={name}
@@ -232,26 +233,26 @@ export default function ColumnMenu({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm mb-3 outline-none focus:border-neutral-500"
         />
-        <p className="text-[11px] text-neutral-500 mb-1.5">Tip</p>
+        <p className="text-[11px] text-neutral-500 mb-1.5">{tt('Tip')}</p>
         <PropertyTypePicker value={property.type} onChange={onChangeType} />
 
         {roleChoices.length > 0 && (
           <div className="mt-3 pt-3 border-t border-neutral-800">
-            <p className="text-[11px] text-neutral-500 mb-1">Görevi</p>
+            <p className="text-[11px] text-neutral-500 mb-1">{tt('Görevi')}</p>
             <Select
               value={currentRole}
               onChange={onChangeRole}
-              options={[{ value: '', label: 'Yok' }, ...roleChoices]}
+              options={[{ value: '', label: tt('Yok') }, ...roleChoices]}
             />
             <p className="text-[11px] text-neutral-600 mt-1">
-              Uygulama bu sütunu bu iş için kullanır (ör. Poster, Durum). Sütunun adını değiştirsen de görevi kalır.
+              {tt('Uygulama bu sütunu bu iş için kullanır (ör. Poster, Durum). Sütunun adını değiştirsen de görevi kalır.')}
             </p>
           </div>
         )}
 
         {statusChoices && statusChoices.length > 0 && onChangeStatusOption && (
           <div className="mt-3 pt-3 border-t border-neutral-800 space-y-1.5">
-            <p className="text-[11px] text-neutral-500">Seçeneklerin anlamı</p>
+            <p className="text-[11px] text-neutral-500">{tt('Seçeneklerin anlamı')}</p>
             {statusChoices.map((s) => (
               <div key={s.key} className="flex items-center gap-2">
                 <span className="text-xs text-neutral-400 w-20 shrink-0">{s.label}</span>
@@ -259,7 +260,7 @@ export default function ColumnMenu({
                   <Select
                     value={s.value}
                     onChange={(v) => onChangeStatusOption(s.key, v)}
-                    options={[{ value: '', label: 'Seçilmedi' }, ...(property.options ?? []).map((o) => ({ value: o.id, label: o.label }))]}
+                    options={[{ value: '', label: tt('Seçilmedi') }, ...(property.options ?? []).map((o) => ({ value: o.id, label: o.label }))]}
                   />
                 </div>
               </div>
@@ -276,7 +277,7 @@ export default function ColumnMenu({
                 isCover ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50'
               }`}
             >
-              {isCover ? '✓ Kapak Görseli' : 'Kapak Görseli Yap'}
+              {isCover ? tt('✓ Kapak Görseli') : tt('Kapak Görseli Yap')}
             </button>
             <button
               type="button"
@@ -285,11 +286,10 @@ export default function ColumnMenu({
                 isTitleImage ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50'
               }`}
             >
-              {isTitleImage ? '✓ Vitrin Başlık Görseli' : 'Vitrin Başlık Görseli Yap'}
+              {isTitleImage ? tt('✓ Vitrin Başlık Görseli') : tt('Vitrin Başlık Görseli Yap')}
             </button>
             <p className="text-[11px] text-neutral-600 px-2">
-              Bir kayıtta bu görsel doluysa vitrinde/detayda yazı yerine bu görsel gösterilir, boşsa başlık yazısına
-              dönülür.
+              {tt('Bir kayıtta bu görsel doluysa vitrinde/detayda yazı yerine bu görsel gösterilir, boşsa başlık yazısına dönülür.')}
             </p>
           </div>
         )}
@@ -297,13 +297,13 @@ export default function ColumnMenu({
         {hasOptions && (property.options?.length ?? 0) > 0 && (
           <div className="mt-3 pt-3 border-t border-neutral-800">
             <div className="flex items-center justify-between mb-1.5 gap-2">
-              <p className="text-[11px] text-neutral-500">Seçenekler (renk için soldaki noktaya tıkla)</p>
+              <p className="text-[11px] text-neutral-500">{tt('Seçenekler (renk için soldaki noktaya tıkla)')}</p>
               <button
                 type="button"
                 onClick={() => (bulkMode ? exitBulkMode() : setBulkMode(true))}
                 className="text-[11px] text-sky-400 hover:text-sky-300 shrink-0"
               >
-                {bulkMode ? 'Vazgeç' : 'Toplu Seç'}
+                {bulkMode ? tt('Vazgeç') : tt('Toplu Seç')}
               </button>
             </div>
             {property.options!.map((o) => (
@@ -325,15 +325,14 @@ export default function ColumnMenu({
                 disabled={selectedIds.size === 0}
                 className="w-full text-left text-xs text-rose-400 hover:text-rose-300 disabled:opacity-40 disabled:hover:text-rose-400 mt-1 pt-2 border-t border-neutral-800"
               >
-                Seçilenleri Sil ({selectedIds.size})
-              </button>
+                {ttx('Seçilenleri Sil ({0})', selectedIds.size)}</button>
             )}
           </div>
         )}
 
         {property.type === 'rating' && (
           <div className="mt-3 pt-3 border-t border-neutral-800">
-            <p className="text-[11px] text-neutral-500 mb-1.5">Puanlama kriterleri</p>
+            <p className="text-[11px] text-neutral-500 mb-1.5">{tt('Puanlama kriterleri')}</p>
             {(property.criteria ?? []).map((c) => (
               <CriterionRow
                 key={c.id}
@@ -352,10 +351,10 @@ export default function ColumnMenu({
               onClick={onClearColumn}
               className="w-full text-left text-amber-400 hover:text-amber-300 text-xs mt-3 pt-3 border-t border-neutral-800"
             >
-              Sütunu Temizle (tüm kayıtlarda boşalt)
+              {tt('Sütunu Temizle (tüm kayıtlarda boşalt)')}
             </button>
             <button onClick={onDelete} className="w-full text-left text-rose-400 hover:text-rose-300 text-xs mt-1.5">
-              Sütunu Sil
+              {tt('Sütunu Sil')}
             </button>
           </>
         )}

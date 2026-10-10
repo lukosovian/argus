@@ -10,6 +10,7 @@ import { useThemeMode } from '../hooks/useThemeMode'
 import HoverPreviewVideo from './HoverPreviewVideo'
 import { gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
 import { conditionsKey, filterConditions, rowMatchesConditions } from '../lib/filters'
+import { tt } from '../lib/i18n'
 
 // Uygulamayla gelen 10 varsayılan mod görseli koyu temada duracak şekilde (beyaz ikon,
 // saydam arka plan) hazırlandı. CSS `filter: invert()` denendi ama güvenilir çalışmadı
@@ -205,7 +206,7 @@ function MoodCard({
             <span
               style={{ background: BRAND_GRADIENT }}
               className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full text-white"
-              title="Daha fazla bilgi"
+              title={tt('Daha fazla bilgi')}
             >
               <ChevronDownIcon />
             </span>
@@ -341,7 +342,7 @@ export default function MoodRow({
         {canScrollLeft && (
           <button
             onClick={() => scroll(-1)}
-            title="Sola kaydır"
+            title={tt('Sola kaydır')}
             className="absolute left-1 top-1/2 -translate-y-1/2 z-30 text-white opacity-0 group-hover/row:opacity-100 hover:scale-110 transition"
             style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.9))' }}
           >
@@ -379,7 +380,7 @@ export default function MoodRow({
         {canScrollRight && (
           <button
             onClick={() => scroll(1)}
-            title="Sağa kaydır"
+            title={tt('Sağa kaydır')}
             className="absolute right-1 top-1/2 -translate-y-1/2 z-30 text-white opacity-0 group-hover/row:opacity-100 hover:scale-110 transition"
             style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.9))' }}
           >

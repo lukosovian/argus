@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import type { TmdbChoice } from '../lib/api'
 import { useEscape } from '../hooks/useEscape'
+import { tt } from '../lib/i18n'
 
 // Güncelle'ye basınca TMDB'de birden fazla yapım çıkarsa hangisi olduğunu kullanıcıya seçtiren pencere —
 // kullanıcı "birden fazla sonuç bulursa kendi birini mi seçiyor, ekrana getirsin ben seçeyim" dedi.
@@ -24,14 +25,14 @@ export default function TmdbChoiceModal({
       <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-neutral-50">Hangisi?</h2>
+            <h2 className="text-xl font-semibold text-neutral-50">{tt('Hangisi?')}</h2>
             <p className="text-sm text-neutral-500 mt-1">
-              TMDB'de "<span className="text-neutral-300">{query}</span>" için birden fazla yapım çıktı. Doğru olanı seç, bilgiler ondan doldurulsun.
+              {tt('TMDB\'de "')}<span className="text-neutral-300">{query}</span>{tt('" için birden fazla yapım çıktı. Doğru olanı seç, bilgiler ondan doldurulsun.')}
             </p>
           </div>
           <button
             onClick={onCancel}
-            aria-label="Kapat"
+            aria-label={tt('Kapat')}
             className="h-8 w-8 shrink-0 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-500 flex items-center justify-center text-neutral-400 hover:text-neutral-50 text-lg leading-none transition"
           >
             ×
@@ -49,14 +50,14 @@ export default function TmdbChoiceModal({
                   {c.poster ? (
                     <img src={c.poster} alt="" loading="lazy" className="h-24 w-16 shrink-0 rounded-md object-cover bg-neutral-800" />
                   ) : (
-                    <div className="h-24 w-16 shrink-0 rounded-md bg-neutral-800 flex items-center justify-center text-[10px] text-neutral-600">görsel yok</div>
+                    <div className="h-24 w-16 shrink-0 rounded-md bg-neutral-800 flex items-center justify-center text-[10px] text-neutral-600">{tt('görsel yok')}</div>
                   )}
                   <div className="min-w-0 flex-1 py-0.5">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-sm font-semibold text-neutral-50">{c.title || c.originalTitle}</span>
                       {c.year && <span className="text-xs text-neutral-400">{c.year}</span>}
-                      <span className="text-[11px] rounded border border-neutral-700 text-neutral-400 px-1.5 py-px">{c.mediaType === 'tv' ? 'Dizi' : 'Film'}</span>
-                      {c.exact && <span className="text-[11px] rounded border border-[#00c0fa]/50 text-[#7fdcff] bg-[#00c0fa]/10 px-1.5 py-px">adı tutuyor</span>}
+                      <span className="text-[11px] rounded border border-neutral-700 text-neutral-400 px-1.5 py-px">{c.mediaType === 'tv' ? tt('Dizi') : tt('Film')}</span>
+                      {c.exact && <span className="text-[11px] rounded border border-[#00c0fa]/50 text-[#7fdcff] bg-[#00c0fa]/10 px-1.5 py-px">{tt('adı tutuyor')}</span>}
                     </div>
                     {others.length > 0 && <p className="text-xs text-neutral-500 mt-0.5 truncate">{others.join(' · ')}</p>}
                     {c.overview && <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed line-clamp-2">{c.overview}</p>}
@@ -68,7 +69,7 @@ export default function TmdbChoiceModal({
         </ul>
         <div className="flex justify-end mt-4">
           <button onClick={onCancel} className="text-sm text-neutral-400 hover:text-neutral-50 px-3 py-1.5 transition">
-            Vazgeç
+            {tt('Vazgeç')}
           </button>
         </div>
       </div>

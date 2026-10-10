@@ -100,20 +100,46 @@ function todayIso() {
   const d = new Date()
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
 }
+// Arayüz dili (ARGUS'un data/ui-prefs.json'u, argus_lang) — tepsi menüsü ve bilgi balonu da bu dilde
+function uiLang() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(APP_DIR, '..', 'data', 'ui-prefs.json'), 'utf-8')).prefs?.argus_lang === 'en' ? 'en' : 'tr'
+  } catch {
+    return 'tr'
+  }
+}
+const DESKTOP_EN = {
+  "ARGUS'u aç": 'Open ARGUS',
+  'Ne İzlesem?': 'What Should I Watch?',
+  Takvim: 'Calendar',
+  'Bugün izlediğimi ekle': 'Add what I watched today',
+  "ARGUS'u kapat": 'Quit ARGUS',
+  'ARGUS arka planda çalışıyor': 'ARGUS is running in the background',
+  "Tekrar açmak için bu simgeye tıkla. Tamamen kapatmak için sağ tıkla › ARGUS'u kapat.": 'Click this icon to open it again. To quit completely, right-click › Quit ARGUS.',
+}
+const dt = (s) => (uiLang() === 'en' ? (DESKTOP_EN[s] ?? s) : s)
+let trayLang = null
+
 function applyTray() {
+  // Dil değiştiyse menü yeniden kurulur
+  if (tray && trayLang !== uiLang()) {
+    tray.destroy()
+    tray = null
+  }
   if (settings.tepsi && !tray) {
+    trayLang = uiLang()
     tray = new Tray(ICON)
     tray.setToolTip('ARGUS')
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: "ARGUS'u aç", click: showWindow },
+        { label: dt("ARGUS'u aç"), click: showWindow },
         { type: 'separator' },
-        { label: 'Ne İzlesem?', click: () => openInApp('ne-izlesem') },
-        { label: 'Takvim', click: () => openInApp('/takvim') },
-        { label: 'Bugün izlediğimi ekle', click: () => openInApp('/takvim?ay=' + todayIso().slice(0, 7) + '&gun=' + todayIso()) },
+        { label: dt('Ne İzlesem?'), click: () => openInApp('ne-izlesem') },
+        { label: dt('Takvim'), click: () => openInApp('/takvim') },
+        { label: dt('Bugün izlediğimi ekle'), click: () => openInApp('/takvim?ay=' + todayIso().slice(0, 7) + '&gun=' + todayIso()) },
         { type: 'separator' },
         {
-          label: "ARGUS'u kapat",
+          label: dt("ARGUS'u kapat"),
           click: () => {
             quitting = true
             app.quit()
@@ -335,6 +361,8 @@ function createWindow() {
   const hidden = process.env.ARGUS_ARKA_PLAN === '1' && settings.tepsi
   // Yazı ve arayüz boyutu her sayfa yüklemesinde uygulansın
   view.webContents.on('did-finish-load', applyZoom)
+  // Arayüzde dil değişince sayfa yeniden yüklenir — tepsi menüsü de yeni dile geçsin
+  view.webContents.on('did-finish-load', applyTray)
   view.webContents.once('did-finish-load', () => {
     layout()
     if (hidden) return
@@ -350,7 +378,7 @@ function createWindow() {
       e.preventDefault()
       win.hide()
       if (!settings.tepsiBilgisiGosterildi && tray) {
-        tray.displayBalloon({ title: 'ARGUS arka planda çalışıyor', content: 'Tekrar açmak için bu simgeye tıkla. Tamamen kapatmak için sağ tıkla › ARGUS\'u kapat.', iconType: 'info' })
+        tray.displayBalloon({ title: dt('ARGUS arka planda çalışıyor'), content: dt("Tekrar açmak için bu simgeye tıkla. Tamamen kapatmak için sağ tıkla › ARGUS'u kapat."), iconType: 'info' })
         settings.tepsiBilgisiGosterildi = true
         saveSettings()
       }

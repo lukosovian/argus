@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast'
 import Checkbox from './Checkbox'
 import AnchoredMenu from './AnchoredMenu'
 import DateChipEditor from './DateChipEditor'
+import { tt, ttx } from '../lib/i18n'
 
 function formatAirDate(v: string) {
   const [y, m, d] = v.split('-')
@@ -97,7 +98,7 @@ function EpisodeRow({
   return (
     <div className="flex gap-3">
       {editable && (
-        <Checkbox checked={watched} onChange={toggle} label="Bölümü izlendi olarak işaretle" className="mt-1.5 shrink-0" />
+        <Checkbox checked={watched} onChange={toggle} label={tt('Bölümü izlendi olarak işaretle')} className="mt-1.5 shrink-0" />
       )}
       <div className="w-28 sm:w-36 aspect-video rounded-md overflow-hidden bg-neutral-800 shrink-0">
         {stillUrl ? (
@@ -110,12 +111,11 @@ function EpisodeRow({
         <p className="text-sm text-neutral-200">
           <span className="text-neutral-500">{episodeNumber}.</span> {name}
         </p>
-        {airDate && <p className="text-[11px] text-neutral-500 mt-0.5">Yayın: {formatAirDate(airDate)}</p>}
+        {airDate && <p className="text-[11px] text-neutral-500 mt-0.5">{ttx('Yayın: {0}', formatAirDate(airDate))}</p>}
         {overview && <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{overview}</p>}
         {watched && (
           <p className="text-[11px] mt-1.5 font-medium" style={{ color: BRAND_TEXT }}>
-            ✓ İzlendi: {dates.slice().sort().map(formatShort).join(', ')}
-            {dates.length > 1 ? ` (${dates.length}x)` : ''}
+            {ttx('✓ İzlendi: {0}{1}', dates.slice().sort().map(formatShort).join(', '), dates.length > 1 ? ` (${dates.length}x)` : '')}
           </p>
         )}
         {editable && (
@@ -123,17 +123,17 @@ function EpisodeRow({
             ref={anchorRef}
             type="button"
             onClick={() => setOpen((v) => !v)}
-            title={watched ? 'Başka bir izleme tarihi ekle' : 'İzleme tarihi gir (geçmişe dönük olabilir)'}
+            title={watched ? tt('Başka bir izleme tarihi ekle') : tt('İzleme tarihi gir (geçmişe dönük olabilir)')}
             className="mt-1 inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-50 transition"
           >
             <PlusIcon />
-            {watched ? 'Tarih ekle' : 'Tarih gir'}
+            {watched ? tt('Tarih ekle') : tt('Tarih gir')}
           </button>
         )}
         {editable && open && (
           <AnchoredMenu anchorRef={anchorRef} onClose={() => setOpen(false)} width={230}>
             <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl p-3 normal-case">
-              <p className="text-[11px] text-neutral-500 mb-2">İzleme tarihleri</p>
+              <p className="text-[11px] text-neutral-500 mb-2">{tt('İzleme tarihleri')}</p>
               <DateChipEditor dates={dates} onChange={onSetDates} autoFocus />
             </div>
           </AnchoredMenu>
@@ -175,8 +175,8 @@ export default function SeasonsBrowser({
     if (!season) return
     if (seasonAllWatched) {
       const ok = await confirm({
-        message: `${season.name || `Sezon ${season.seasonNumber}`}'daki tüm bölümlerin izlenme tiklerini (ve varsa tekrar izleme tarihlerini) kaldırmak istediğine emin misin?`,
-        confirmLabel: 'İzlenmedi Yap',
+        message: tt('{0}\'daki tüm bölümlerin izlenme tiklerini (ve varsa tekrar izleme tarihlerini) kaldırmak istediğine emin misin?', season.name || tt('Sezon {0}', season.seasonNumber)),
+        confirmLabel: tt('İzlenmedi Yap'),
         tone: 'danger',
       })
       if (!ok) return
@@ -201,7 +201,7 @@ export default function SeasonsBrowser({
                   : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:border-[#00c0fa]/60'
               }`}
             >
-              {s.name || `Sezon ${s.seasonNumber}`}
+              {s.name || tt('Sezon {0}', s.seasonNumber)}
               {(() => {
                 const seen = s.episodes.filter((ep) => (watched[episodeKey(s.seasonNumber, ep.episodeNumber)] ?? []).length > 0).length
                 if (seen === 0) return null
@@ -218,7 +218,7 @@ export default function SeasonsBrowser({
           <button
             type="button"
             onClick={handleToggleSeason}
-            title={seasonAllWatched ? 'Sezonu izlenmedi olarak işaretle' : 'Sezonu izlendi olarak işaretle'}
+            title={seasonAllWatched ? tt('Sezonu izlenmedi olarak işaretle') : tt('Sezonu izlendi olarak işaretle')}
             className={`shrink-0 h-8 w-8 flex items-center justify-center rounded-lg border transition ${
               seasonAllWatched
                 ? 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10'

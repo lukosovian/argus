@@ -4,6 +4,7 @@ import type { Season } from '../types'
 import { useToast } from '../hooks/useToast'
 import SectionTitle from './SectionTitle'
 import Select from './Select'
+import { tt } from '../lib/i18n'
 
 // Detay penceresindeki "Müzikler": içerikte hangi dakikada hangi şarkı çaldı. Kullanıcı "Nook'un Hum'u
 // izlediğim dizilerin filmlerin içindeki müzikleri bulsun, hangi dakikada hangi müzik çaldığı detay
@@ -68,7 +69,7 @@ function AddSongForm({
         .flatMap((s) =>
           s.episodes.map((e) => ({
             value: epValue(s.seasonNumber, e.episodeNumber),
-            label: `${s.seasonNumber}. Sezon ${e.episodeNumber}. Bölüm${e.name ? ` · ${e.name}` : ''}`,
+            label: tt('{0}. Sezon {1}. Bölüm{2}', s.seasonNumber, e.episodeNumber, e.name ? ` · ${e.name}` : ''),
           })),
         ),
     [seasons],
@@ -77,21 +78,21 @@ function AddSongForm({
 
   async function submit() {
     const atMs = parseAt(at)
-    if (atMs === undefined) return notify('Dakikayı 12:34 ya da 1:02:03 gibi yaz.', 'danger')
-    if (!title.trim()) return notify('Şarkının adını yaz.', 'danger')
-    if (series && !ep) return notify('Hangi bölümde çaldığını seç.', 'danger')
+    if (atMs === undefined) return notify(tt('Dakikayı 12:34 ya da 1:02:03 gibi yaz.'), 'danger')
+    if (!title.trim()) return notify(tt('Şarkının adını yaz.'), 'danger')
+    if (series && !ep) return notify(tt('Hangi bölümde çaldığını seç.'), 'danger')
     const [season, episode] = series ? ep.split('-').map(Number) : [null, null]
     setSaving(true)
     try {
       const res = await api.addSong(rowId, { key: manualKey(title.trim(), artist.trim()), title: title.trim(), artist: artist.trim(), season, episode, atMs, manual: true })
-      if (res.duplicate) notify('Bu şarkı bu bölümde o dakikalarda zaten var.')
+      if (res.duplicate) notify(tt('Bu şarkı bu bölümde o dakikalarda zaten var.'))
       // Aynı bölüme art arda ekleyebilsin diye bölüm seçili kalır
       setAt('')
       setTitle('')
       setArtist('')
       onAdded()
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
     } finally {
       setSaving(false)
     }
@@ -105,19 +106,19 @@ function AddSongForm({
       }}
       className="mb-5 rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 space-y-2"
     >
-      {series && <Select value={ep} onChange={setEp} options={epOptions} placeholder="Hangi bölüm?" />}
+      {series && <Select value={ep} onChange={setEp} options={epOptions} placeholder={tt('Hangi bölüm?')} />}
       <div className="grid grid-cols-[88px_minmax(0,1fr)_minmax(0,1fr)] gap-2">
-        <input value={at} onChange={(e) => setAt(e.target.value)} placeholder="12:34" inputMode="numeric" title="Kaçıncı dakikada (boş bırakılabilir)" className={`${inputClass} tabular-nums`} />
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Şarkı adı" autoFocus className={inputClass} />
-        <input value={artist} onChange={(e) => setArtist(e.target.value)} placeholder="Sanatçı" className={inputClass} />
+        <input value={at} onChange={(e) => setAt(e.target.value)} placeholder="12:34" inputMode="numeric" title={tt('Kaçıncı dakikada (boş bırakılabilir)')} className={`${inputClass} tabular-nums`} />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tt('Şarkı adı')} autoFocus className={inputClass} />
+        <input value={artist} onChange={(e) => setArtist(e.target.value)} placeholder={tt('Sanatçı')} className={inputClass} />
       </div>
       <div className="flex items-center gap-2">
-        <p className="text-[11px] text-neutral-500 mr-auto">Dakika boş bırakılabilir.</p>
+        <p className="text-[11px] text-neutral-500 mr-auto">{tt('Dakika boş bırakılabilir.')}</p>
         <button type="button" onClick={onClose} className="text-sm text-neutral-400 hover:text-neutral-100 px-3 py-1.5 transition">
-          Kapat
+          {tt('Kapat')}
         </button>
         <button type="submit" disabled={saving} className="text-sm font-medium text-white bg-[#3fa9ff] hover:bg-[#5bb6ff] disabled:opacity-50 rounded-lg px-4 py-1.5 transition">
-          {saving ? 'Ekleniyor...' : 'Ekle'}
+          {saving ? tt('Ekleniyor...') : tt('Ekle')}
         </button>
       </div>
     </form>
@@ -141,7 +142,7 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: () => void }) {
   const [broken, setBroken] = useState(false)
   return (
     <li className="group flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 hover:bg-neutral-800/60 transition">
-      <span title={song.approx ? 'Yaklaşık dakika' : undefined} className="w-14 shrink-0 text-right text-sm tabular-nums font-medium text-[#3fa9ff]">{song.atMs !== null ? `${song.approx ? '~' : ''}${formatAt(song.atMs)}` : '—'}</span>
+      <span title={song.approx ? tt('Yaklaşık dakika') : undefined} className="w-14 shrink-0 text-right text-sm tabular-nums font-medium text-[#3fa9ff]">{song.atMs !== null ? `${song.approx ? '~' : ''}${formatAt(song.atMs)}` : '—'}</span>
       <span className="h-11 w-11 shrink-0 rounded-lg overflow-hidden bg-neutral-800 ring-1 ring-neutral-800 flex items-center justify-center text-neutral-500">
         {song.cover && !broken ? <img src={song.cover} alt="" loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover" /> : <NoteIcon />}
       </span>
@@ -156,7 +157,7 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: () => void }) {
           rel="noreferrer"
           className="text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-full px-2.5 py-1 transition"
         >
-          Spotify
+          {tt('Spotify')}
         </a>
         <a
           href={`https://www.youtube.com/results?search_query=${query(song)}`}
@@ -164,11 +165,11 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: () => void }) {
           rel="noreferrer"
           className="text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-full px-2.5 py-1 transition"
         >
-          YouTube
+          {tt('YouTube')}
         </a>
         <button
           onClick={onDelete}
-          title="Yanlış şarkı — sil"
+          title={tt('Yanlış şarkı — sil')}
           className="h-7 w-7 rounded-full text-neutral-500 hover:text-red-300 hover:bg-red-500/10 flex items-center justify-center transition"
         >
           ×
@@ -212,7 +213,7 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
       let g = out[out.length - 1]
       if (!g || g.key !== key) {
         const name = seasons?.find((x) => x.seasonNumber === s.season)?.episodes.find((e) => e.episodeNumber === s.episode)?.name
-        const label = s.season !== null ? `${s.season}. Sezon${s.episode !== null ? ` ${s.episode}. Bölüm` : ''}${name ? ` · ${name}` : ''}` : null
+        const label = s.season !== null ? tt('{0}. Sezon{1}{2}', s.season, s.episode !== null ? tt(' {0}. Bölüm', s.episode) : '', name ? ` · ${name}` : '') : null
         g = { key, label, items: [] }
         out.push(g)
       }
@@ -226,7 +227,7 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
     try {
       await api.deleteSong(rowId, song.id)
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Silinemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Silinemedi.'), 'danger')
       load()
     }
   }
@@ -247,7 +248,7 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
       onClick={() => setAdding(true)}
       className="text-xs text-neutral-300 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-full px-3 py-1 transition"
     >
-      + Müzik ekle
+      {tt('+ Müzik ekle')}
     </button>
   )
 
@@ -263,10 +264,10 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
 
   return (
     <section id="rd-muzikler">
-      <SectionTitle title="Müzikler" count={songs.length ? `${songs.length} şarkı` : undefined} right={addButton} />
+      <SectionTitle title={tt('Müzikler')} count={songs.length ? tt('{0} şarkı', songs.length) : undefined} right={addButton} />
       {adding && <AddSongForm rowId={rowId} seasons={seasons} defaultEp={defaultEp} onAdded={load} onClose={() => setAdding(false)} />}
       {songs.length === 0 && !adding && (
-        <p className="text-sm text-neutral-500">Henüz müzik yok. Nook izlerken çalan şarkıları bulup buraya yazar; sen de ekleyebilirsin.</p>
+        <p className="text-sm text-neutral-500">{tt('Henüz müzik yok. Nook izlerken çalan şarkıları bulup buraya yazar; sen de ekleyebilirsin.')}</p>
       )}
       <div className="space-y-5">
         {visible.map((g) => (
@@ -285,7 +286,7 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
           onClick={() => setShowAll((v) => !v)}
           className="mt-5 w-full text-sm text-neutral-300 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-xl py-2 transition"
         >
-          {showAll ? 'Daha az göster' : `Tümünü göster (${songs.length})`}
+          {showAll ? tt('Daha az göster') : tt('Tümünü göster ({0})', songs.length)}
         </button>
       )}
     </section>

@@ -18,6 +18,7 @@ import MultiFilterEditor from '../components/MultiFilterEditor'
 import RowDetailModal from '../components/RowDetailModal'
 import { useEscape } from '../hooks/useEscape'
 import { withLocative } from '../lib/turkce'
+import { tt, ttx, monthNames, dayNames, fmtDate, getLang, EP } from '../lib/i18n'
 
 // Takvim — kullanıcı "Notion'daki gibi takvim; günlerde ne izlemişsin görelim, ay ay" dedi ve şu
 // özellikleri onayladı: dizilerde bölüm bölüm kayıt, ileriye bakma (çıkacak bölümler ve vizyonlar),
@@ -26,8 +27,8 @@ import { withLocative } from '../lib/turkce'
 // Veriler: İzleme Tarihi sütunu (görevinden), bölüm tikleri (watched.json), bölüm yayın tarihleri
 // (episodes.json), Vizyon Tarihi.
 
-const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
-const TR_DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
+const TR_MONTHS = monthNames()
+const TR_DAYS = dayNames('short')
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -41,10 +42,14 @@ function shortDate(s: string): string {
   const [y, m, d] = s.split('-')
   return `${d}.${m}.${y ?? ''}`
 }
+// Haftanın günü olmadan ("12 Mart 2025" / "March 12, 2025")
+function dateOnly(s: string): string {
+  const d = parseYmd(s)
+  return fmtDate(d.getFullYear(), d.getMonth(), d.getDate())
+}
 function dayLabel(s: string): string {
   const d = parseYmd(s)
-  const wd = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][d.getDay()]
-  return `${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${wd}`
+  return fmtDate(d.getFullYear(), d.getMonth(), d.getDate(), { weekday: true })
 }
 
 type EventKind = 'watch' | 'episodes' | 'upcoming' | 'release'
@@ -68,12 +73,12 @@ function episodesLabel(eps: [number, number][], names?: Map<string, string>): st
   if (sorted.length === 1) {
     const [s, e] = sorted[0]
     const n = names?.get(`${s}-${e}`)
-    return `S${s}B${e}${n ? ` · ${n}` : ''}`
+    return `S${s}${EP()}${e}${n ? ` · ${n}` : ''}`
   }
   const [s1, e1] = sorted[0]
   const [s2, e2] = sorted[sorted.length - 1]
-  const range = s1 === s2 ? `S${s1} · B${e1}–B${e2}` : `S${s1}B${e1} – S${s2}B${e2}`
-  return `${sorted.length} bölüm · ${range}`
+  const range = s1 === s2 ? `S${s1} · ${EP()}${e1}–${EP()}${e2}` : `S${s1}${EP()}${e1} – S${s2}${EP()}${e2}`
+  return tt('{0} bölüm · {1}', sorted.length, range)
 }
 
 function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: EpisodesMap, today: string): CalEvent[] {
@@ -100,10 +105,10 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
         // Aralık (başladım → bitirdim): başladığın gün "Başladın", bitirdiğin gün "Bitirdin".
         const parts: { d: string; part: 'single' | 'start' | 'end'; sub: string }[] = end
           ? [
-              { d: start, part: 'start', sub: 'Başladın' },
-              { d: end, part: 'end', sub: rewatch ? 'Tekrar izledin · bitirdin' : 'Bitirdin' },
+              { d: start, part: 'start', sub: tt('Başladın') },
+              { d: end, part: 'end', sub: rewatch ? tt('Tekrar izledin · bitirdin') : tt('Bitirdin') },
             ]
-          : [{ d: start, part: 'single', sub: rewatch ? 'Tekrar izledin' : '' }]
+          : [{ d: start, part: 'single', sub: rewatch ? tt('Tekrar izledin') : '' }]
         for (const p of parts) {
           const ev: CalEvent = { key: `w:${row.id}:${p.d}:${i}:${p.part}`, date: p.d, row, kind: 'watch', sub: p.sub, rewatch, entry, part: p.part, finished: p.part === 'end' }
           if (p.part !== 'start' && !byKey.has(`${p.d}|${row.id}`)) byKey.set(`${p.d}|${row.id}`, ev)
@@ -132,7 +137,7 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
         const existing = byKey.get(`${d}|${row.id}`)
         if (existing && existing.kind === 'watch') {
           // Aynı gün hem bölüm izlenmiş hem izleme tarihi girilmiş: dizi o gün bitmiş.
-          existing.sub = `${label} · bitirdin`
+          existing.sub = tt('{0} · bitirdin', label)
           existing.episodeCount = eps.length
           existing.finished = true
         } else {
@@ -157,13 +162,13 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
           perDay.set(e.airDate, list)
         }
       }
-      for (const [d, eps] of perDay) out.push({ key: `u:${row.id}:${d}`, date: d, row, kind: 'upcoming', sub: `Yeni: ${episodesLabel(eps)}` })
+      for (const [d, eps] of perDay) out.push({ key: `u:${row.id}:${d}`, date: d, row, kind: 'upcoming', sub: tt('Yeni: {0}', episodesLabel(eps)) })
     }
 
     // 4) İzleneceklerin vizyon tarihleri (bugünden sonrası)
     if (vizyonProp && izlenecekId && statusId === izlenecekId) {
       const v = row.values[vizyonProp.id]
-      if (typeof v === 'string' && v >= today) out.push({ key: `r:${row.id}`, date: v, row, kind: 'release', sub: 'Vizyona giriyor' })
+      if (typeof v === 'string' && v >= today) out.push({ key: `r:${row.id}`, date: v, row, kind: 'release', sub: tt('Vizyona giriyor') })
     }
   }
   return out
@@ -187,8 +192,8 @@ function YearInput({ year, onYear }: { year: number; onYear: (y: number) => void
       value={draft}
       inputMode="numeric"
       maxLength={4}
-      aria-label="Yıl"
-      title="Yılı yazıp Enter'a bas"
+      aria-label={tt('Yıl')}
+      title={tt('Yılı yazıp Enter\'a bas')}
       onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
       onFocus={(e) => e.target.select()}
       onBlur={commit}
@@ -320,18 +325,18 @@ export default function Takvim() {
     return out
   })()
 
-  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
   if (boards.length === 0) {
     return (
       <div className="px-4 py-16 text-center">
-        <p className="text-neutral-500 text-sm mb-4">Takvim için önce bir arşivin olması lazım.</p>
+        <p className="text-neutral-500 text-sm mb-4">{tt('Takvim için önce bir arşivin olması lazım.')}</p>
         <Link to="/arsivlerim" style={primaryButtonStyle} className={`inline-block text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
-          Arşiv Oluştur
+          {tt('Arşiv Oluştur')}
         </Link>
       </div>
     )
   }
-  if (boardLoading || rowsLoading || !board) return <p className="text-neutral-500 text-sm p-6">Yükleniyor...</p>
+  if (boardLoading || rowsLoading || !board) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
 
   const hasDateProp = Boolean(resolveRole(board, 'izlemeTarihi'))
   // Adı izleme tarihine benzeyen ama tarih tipinde olmayan sütun (ör. içe aktarılmış, Metin kalmış 'İzlediğim Gün')
@@ -348,15 +353,15 @@ export default function Takvim() {
         </div>
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">Takvim</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">{tt('Takvim')}</h1>
             <p className="text-sm text-neutral-400 mt-1.5">
-              <span style={{ color: BRAND_TEXT }}>{board.name}</span> — ne zaman ne izledin, sırada neler var.
+              <span style={{ color: BRAND_TEXT }}>{board.name}</span>{' '}{tt('— ne zaman ne izledin, sırada neler var.')}
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
             {boards.length > 1 && (
               <div className="min-w-44">
-                <label className="block text-xs text-neutral-500 mb-1">Hangi arşiv?</label>
+                <label className="block text-xs text-neutral-500 mb-1">{tt('Hangi arşiv?')}</label>
                 <Select value={selectedBoardId ?? ''} onChange={setSelectedBoardId} options={boards.map((b) => ({ value: b.id, label: b.name }))} />
               </div>
             )}
@@ -367,7 +372,7 @@ export default function Takvim() {
                   conditions.length ? 'border-[#00c0fa]/60 text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
                 }`}
               >
-                Filtre{conditions.length ? ` · ${conditions.length}` : ''}
+                {ttx('Filtre{0}', conditions.length ? ` · ${conditions.length}` : '')}
               </button>
               {filterOpen && (
                 <>
@@ -378,7 +383,7 @@ export default function Takvim() {
                       conditions={conditions}
                       onChange={setConditions}
                       compact
-                      emptyText="Takvimde sadece istediklerin görünsün: bir tık ✓ gelsin, iki tık ✕ gelmesin."
+                      emptyText={tt('Takvimde sadece istediklerin görünsün: bir tık ✓ gelsin, iki tık ✕ gelmesin.')}
                     />
                   </div>
                 </>
@@ -391,7 +396,7 @@ export default function Takvim() {
                   onClick={() => go({ gorunum: v })}
                   className={`px-3 rounded-lg transition ${view === v ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:text-neutral-100'}`}
                 >
-                  {v === 'ay' ? 'Ay' : 'Yıl'}
+                  {v === 'ay' ? tt('Ay') : tt('Yıl')}
                 </button>
               ))}
             </div>
@@ -403,14 +408,11 @@ export default function Takvim() {
         <p className="text-sm text-amber-400 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
           {textDateProp ? (
             <>
-              Takvim, izleme tarihlerini "{textDateProp.name}" sütunundan okuyabilir ama bu sütun şu an tarih değil, yazı olarak duruyor. Arşiv
-              tablosunda sütun başlığına tıklayıp tipini <strong>Çoklu Tarih</strong> yap — içindeki tarihler (aralıklar dahil) tarihe çevrilir,
-              takvimde görünür.
+              {ttx('Takvim, izleme tarihlerini "{0}" sütunundan okuyabilir ama bu sütun şu an tarih değil, yazı olarak duruyor. Arşiv tablosunda sütun başlığına tıklayıp tipini {1} yap — içindeki tarihler (aralıklar dahil) tarihe çevrilir, takvimde görünür.', textDateProp.name, <strong>{tt('Çoklu Tarih')}</strong>)}
             </>
           ) : (
             <>
-              Bu arşivde izleme tarihlerinin tutulduğu bir sütun yok — takvimde sadece bölüm işaretlerin ve ileriye dönük tarihler görünür. Arşiv
-              tablosuna tipi <strong>Çoklu Tarih</strong> olan bir "İzleme Tarihi" sütunu ekleyebilirsin.
+              {ttx('Bu arşivde izleme tarihlerinin tutulduğu bir sütun yok — takvimde sadece bölüm işaretlerin ve ileriye dönük tarihler görünür. Arşiv tablosuna tipi {0} olan bir "İzleme Tarihi" sütunu ekleyebilirsin.', <strong>{tt('Çoklu Tarih')}</strong>)}
             </>
           )}
         </p>
@@ -504,18 +506,16 @@ export default function Takvim() {
             setWatched(await api.getWatched())
             notifyDataChanged(board.id)
             const tp = board.properties.find((p) => p.id === board.titlePropertyId)
-            const name = tp ? titleText(tp, row.values[tp.id]) : 'Kayıt'
-            notify(`"${name}"${eps.length ? ` (${eps.length} bölüm)` : ''} ${dayLabel(day).split(',')[0]} tarihine eklendi.`)
+            const name = tp ? titleText(tp, row.values[tp.id]) : tt('Kayıt')
+            notify(tt('"{0}"{1} {2} tarihine eklendi.', name, eps.length ? tt(' ({0} bölüm)', eps.length) : '', dateOnly(day)))
           }}
           onRemove={async (ev) => {
             const day = ev.date
             const tp = board.properties.find((p) => p.id === board.titlePropertyId)
-            const name = tp ? titleText(tp, ev.row.values[tp.id]) : 'Kayıt'
+            const name = tp ? titleText(tp, ev.row.values[tp.id]) : tt('Kayıt')
             const ok = await confirm({
-              message: `"${name}" ${dayLabel(day).split(',')[0]} tarihinden kaldırılsın mı?${
-                ev.part === 'start' ? ` Bu izleme ${dayLabel(parseEntry(ev.entry!).end!).split(',')[0]} tarihine kadar sürüyordu, tamamı kalkar.` : ev.part === 'end' ? ' Sadece bitiş günü kalkar, başladığın gün kalır.' : ''
-              }${ev.episodeCount ? ` O gün işaretlediğin ${ev.episodeCount} bölümün işareti de kalkar.` : ''} Kaydın kendisi silinmez.`,
-              confirmLabel: 'Kaldır',
+              message: tt('"{0}" {1} tarihinden kaldırılsın mı?{2}{3} Kaydın kendisi silinmez.', name, dateOnly(day), ev.part === 'start' ? tt(' Bu izleme {0} tarihine kadar sürüyordu, tamamı kalkar.', dayLabel(parseEntry(ev.entry!).end!).split(',')[0]) : ev.part === 'end' ? tt(' Sadece bitiş günü kalkar, başladığın gün kalır.') : '', ev.episodeCount ? tt(' O gün işaretlediğin {0} bölümün işareti de kalkar.', ev.episodeCount) : ''),
+              confirmLabel: tt('Kaldır'),
             })
             if (!ok) return
             // O günün bölüm işaretleri
@@ -550,7 +550,7 @@ export default function Takvim() {
             }
             setWatched(await api.getWatched())
             notifyDataChanged(board.id)
-            notify(`"${name}" bu günden kaldırıldı.`)
+            notify(tt('"{0}" bu günden kaldırıldı.', name))
           }}
         />
       )}
@@ -583,7 +583,7 @@ function rowLook(board: Board) {
   const kategoriProp = resolveRole(board, 'kategori')
   const sureProp = resolveRole(board, 'sure')
   return {
-    title: (row: Row) => (titleProp ? titleText(titleProp, row.values[titleProp.id]) : '') || 'İsimsiz',
+    title: (row: Row) => (titleProp ? titleText(titleProp, row.values[titleProp.id]) : '') || tt('İsimsiz'),
     poster: (row: Row) =>
       ((posterProp && (row.values[posterProp.id] as string)) || (bannerProp && (row.values[bannerProp.id] as string)) || '') as string,
     kategori: (row: Row) => (kategoriProp ? kategoriProp.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '' : ''),
@@ -677,28 +677,28 @@ function MonthView({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button onClick={onPrev} aria-label="Önceki ay" className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-neutral-50 transition">
+          <button onClick={onPrev} aria-label={tt('Önceki ay')} className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-neutral-50 transition">
             ‹
           </button>
           <h2 className="text-xl sm:text-2xl font-semibold text-neutral-50 min-w-[10rem] text-center">
             {TR_MONTHS[month]} {year}
           </h2>
-          <button onClick={onNext} aria-label="Sonraki ay" className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-neutral-50 transition">
+          <button onClick={onNext} aria-label={tt('Sonraki ay')} className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-neutral-50 transition">
             ›
           </button>
           {!today.startsWith(monthPrefix) && (
             <button onClick={onToday} className="ml-1 text-sm text-[#00c0fa] hover:underline">
-              Bugün
+              {tt('Bugün')}
             </button>
           )}
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          <SummaryPill value={films.length} label="film" />
-          <SummaryPill value={episodeCount} label="bölüm" />
-          {finishedSeries > 0 && <SummaryPill value={finishedSeries} label="dizi bitirdin" />}
-          {filmMinutes > 0 && <SummaryPill value={Math.round(filmMinutes / 60)} label="saat film" />}
-          <SummaryPill value={activeDays} label="gün izleme" />
-          {upcoming > 0 && <SummaryPill value={upcoming} label="yaklaşan" accent />}
+          <SummaryPill value={films.length} label={tt('film')} />
+          <SummaryPill value={episodeCount} label={tt('bölüm')} />
+          {finishedSeries > 0 && <SummaryPill value={finishedSeries} label={tt('dizi bitirdin')} />}
+          {filmMinutes > 0 && <SummaryPill value={Math.round(filmMinutes / 60)} label={tt('saat film')} />}
+          <SummaryPill value={activeDays} label={tt('gün izleme')} />
+          {upcoming > 0 && <SummaryPill value={upcoming} label={tt('yaklaşan')} accent />}
         </div>
       </div>
 
@@ -734,7 +734,7 @@ function MonthView({
                   </button>
                   <button
                     onClick={() => onOpenDay(d)}
-                    title="Bu güne ekle / günü aç"
+                    title={tt('Bu güne ekle / günü aç')}
                     className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded-md text-neutral-500 hover:text-neutral-50 hover:bg-neutral-800 transition"
                   >
                     +
@@ -753,7 +753,7 @@ function MonthView({
 
       {/* Telefon: gün gün liste */}
       <div className="md:hidden space-y-3">
-        {agendaDays.length === 0 && <p className="text-sm text-neutral-500 text-center py-8">Bu ay için kayıt yok.</p>}
+        {agendaDays.length === 0 && <p className="text-sm text-neutral-500 text-center py-8">{tt('Bu ay için kayıt yok.')}</p>}
         {agendaDays.map((d) => (
           <div key={d} className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3">
             <button onClick={() => onOpenDay(d)} className={`text-sm font-semibold mb-2 ${d === today ? 'text-[#00c0fa]' : 'text-neutral-200'}`}>
@@ -771,20 +771,19 @@ function MonthView({
       {/* Kullanıcı "bitirdin sadece dizide mi, filmde de varsa onu da yaz" dedi — işaretlerin hepsi film ve dizide ortak */}
       <div className="text-xs text-neutral-500 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3 grid gap-1.5 sm:grid-cols-2">
         <span>
-          <span className="text-neutral-300">Başladın</span> / <span className="text-emerald-400">Bitirdin</span>: bir filmi ya da diziyi birkaç günde
-          izlediysen (izleme tarihi "başladım → bitirdim" aralığıysa) başladığın ve bitirdiğin gün.
+          <span className="text-neutral-300">{tt('Başladın')}</span> / <span className="text-emerald-400">{tt('Bitirdin')}</span>{tt(': bir filmi ya da diziyi birkaç günde izlediysen (izleme tarihi "başladım → bitirdim" aralığıysa) başladığın ve bitirdiğin gün.')}
         </span>
         <span>
-          <span className="text-emerald-400">· bitirdin</span> (bölümlerin yanında): o gün son bölümleri izleyip diziyi bitirdin.
+          <span className="text-emerald-400">{tt('· bitirdin')}</span>{' '}{tt('(bölümlerin yanında): o gün son bölümleri izleyip diziyi bitirdin.')}
         </span>
         <span>
-          <span className="text-amber-400">↻ Tekrar izledin</span>: daha önce izlediğin bir filmi yeniden izlediğin gün.
+          <span className="text-amber-400">{tt('↻ Tekrar izledin')}</span>{tt(': daha önce izlediğin bir filmi yeniden izlediğin gün.')}
         </span>
         <span>
           <span className="inline-block h-2.5 w-5 align-middle rounded border border-dashed border-neutral-600 mr-1" />
-          Kesik çizgili: yaklaşan — yeni bölüm ya da vizyon tarihi.
+          {tt('Kesik çizgili: yaklaşan — yeni bölüm ya da vizyon tarihi.')}
         </span>
-        <span className="sm:col-span-2 text-neutral-600">Bir güne izlediğin bir şeyi eklemek için günün numarasına tıkla.</span>
+        <span className="sm:col-span-2 text-neutral-600">{tt('Bir güne izlediğin bir şeyi eklemek için günün numarasına tıkla.')}</span>
       </div>
     </div>
   )
@@ -868,21 +867,21 @@ function YearView({
           </button>
           {!today.startsWith(String(year)) && (
             <button onClick={onToday} className="ml-1 text-sm text-[#00c0fa] hover:underline">
-              Bugün
+              {tt('Bugün')}
             </button>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <YearTile label="İzleme yaptığın gün" value={String(active.length)} />
-        <YearTile label="Toplam izleme" value={String(total)} sub="içerik + bölüm" />
-        <YearTile label="En uzun seri" value={best ? `${best} gün` : '—'} sub={best > 1 ? `${withLocative(dayLabel(bestEnd).split(',')[0])} bitti` : undefined} />
-        <YearTile label="Şu anki seri" value={current ? `${current} gün` : '—'} sub={current ? 'devam ediyor 🔥' : 'bugün bir şey izle'} />
+        <YearTile label={tt('İzleme yaptığın gün')} value={String(active.length)} />
+        <YearTile label={tt('Toplam izleme')} value={String(total)} sub={tt('içerik + bölüm')} />
+        <YearTile label={tt('En uzun seri')} value={best ? tt('{0} gün', best) : '—'} sub={best > 1 ? (getLang() === 'tr' ? `${withLocative(dayLabel(bestEnd).split(',')[0])} bitti` : tt('{0} bitti', fmtDate(parseYmd(bestEnd).getFullYear(), parseYmd(bestEnd).getMonth(), parseYmd(bestEnd).getDate()))) : undefined} />
+        <YearTile label={tt('Şu anki seri')} value={current ? tt('{0} gün', current) : '—'} sub={current ? tt('devam ediyor 🔥') : tt('bugün bir şey izle')} />
         <YearTile
-          label="En yoğun"
+          label={tt('En yoğun')}
           value={total ? TR_MONTHS[busiestMonth] : '—'}
-          sub={busiest ? `en dolu gün: ${dayLabel(busiest).split(',')[0]}` : undefined}
+          sub={busiest ? tt('en dolu gün: {0}', dateOnly(busiest)) : undefined}
         />
       </div>
 
@@ -908,7 +907,7 @@ function YearView({
                     <button
                       key={d}
                       onClick={() => onPickDay(d)}
-                      title={`${dayLabel(d)}${w ? ` — ${w} izleme` : ''}`}
+                      title={`${dayLabel(d)}${w ? tt(' — {0} izleme', w) : ''}`}
                       className={`aspect-square rounded-[4px] ${levelBg[level(w)]} ${d === today ? 'ring-2 ring-[#00c0fa] ring-offset-1 ring-offset-neutral-900' : ''} hover:ring-1 hover:ring-neutral-400 transition`}
                     />
                   )
@@ -919,11 +918,11 @@ function YearView({
         })}
       </div>
       <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-        Az
+        {tt('Az')}
         {levelBg.map((c, i) => (
           <span key={i} className={`h-3 w-3 rounded-[3px] ${c}`} />
         ))}
-        Çok · Bir güne tıklayınca o ayın takviminde açılır.
+        {tt('Çok · Bir güne tıklayınca o ayın takviminde açılır.')}
       </div>
     </div>
   )
@@ -1054,18 +1053,18 @@ function DayPanel({
     if (series) {
       let last: { d: string; k: string } | null = null
       for (const [k, ds] of Object.entries(watched[r.id] ?? {})) for (const d of ds ?? []) if (!last || d > last.d) last = { d, k }
-      if (!last) return 'Dizi · henüz bölüm işaretlemedin'
+      if (!last) return tt('Dizi · henüz bölüm işaretlemedin')
       const [sn, en] = last.k.split('-')
-      return `Dizi · en son S${sn}B${en} (${shortDate(last.d)})`
+      return tt('Dizi · en son S{0}B{1} ({2})', sn, en, shortDate(last.d))
     }
     const v = dateProp ? r.values[dateProp.id] : undefined
     const all = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean)
     const dates = all.filter(isFullDate).map(entryEnd).sort()
-    if (all.length === 0) return 'Henüz izlemedin'
-    const onDay = toEntries(v).some((x) => entryTouches(x, date)) ? ' · bu gün zaten ekli' : ''
-    const times = all.length === 1 ? 'İzledin' : `${all.length} kez izledin`
-    if (dates.length === 0) return `${times} (tarihi bilinmiyor)${onDay}`
-    return `${times}, en son ${shortDate(dates[dates.length - 1])}${onDay}`
+    if (all.length === 0) return tt('Henüz izlemedin')
+    const onDay = toEntries(v).some((x) => entryTouches(x, date)) ? tt(' · bu gün zaten ekli') : ''
+    const times = all.length === 1 ? tt('İzledin') : tt('{0} kez izledin', all.length)
+    if (dates.length === 0) return tt('{0} (tarihi bilinmiyor){1}', times, onDay)
+    return tt('{0}, en son {1}{2}', times, shortDate(dates[dates.length - 1]), onDay)
   }
 
   function rowButton(r: Row) {
@@ -1084,7 +1083,7 @@ function DayPanel({
           <span className="block text-sm text-neutral-200 truncate">{look.title(r)}</span>
           <span className="block text-[11px] text-neutral-500 truncate">{watchInfo(r)}</span>
         </span>
-        <span className="text-xs text-[#00c0fa] shrink-0">{series ? 'Bölüm seç ›' : '+ Ekle'}</span>
+        <span className="text-xs text-[#00c0fa] shrink-0">{series ? tt('Bölüm seç ›') : tt('+ Ekle')}</span>
       </button>
     )
   }
@@ -1110,10 +1109,10 @@ function DayPanel({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs text-neutral-500">{date === today ? 'Bugün' : date > today ? 'İleride' : 'Geçmiş'}</p>
+            <p className="text-xs text-neutral-500">{date === today ? tt('Bugün') : date > today ? tt('İleride') : tt('Geçmiş')}</p>
             <h2 className="text-lg font-semibold text-neutral-50">{dayLabel(date)}</h2>
           </div>
-          <button onClick={onClose} aria-label="Kapat" className="h-8 w-8 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-500 text-neutral-400 hover:text-neutral-50">
+          <button onClick={onClose} aria-label={tt('Kapat')} className="h-8 w-8 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-500 text-neutral-400 hover:text-neutral-50">
             ×
           </button>
         </div>
@@ -1131,8 +1130,8 @@ function DayPanel({
                     <button
                       disabled={busy}
                       onClick={() => run(() => onRemove(ev))}
-                      title="Bu günden kaldır"
-                      aria-label="Bu günden kaldır"
+                      title={tt('Bu günden kaldır')}
+                      aria-label={tt('Bu günden kaldır')}
                       className="h-9 w-9 shrink-0 rounded-lg border border-neutral-800 text-neutral-500 hover:text-rose-400 hover:border-rose-500/50 transition disabled:opacity-50"
                     >
                       ×
@@ -1143,13 +1142,13 @@ function DayPanel({
             })}
           </div>
         ) : (
-          <p className="text-sm text-neutral-500">Bu gün için bir şey yok.</p>
+          <p className="text-sm text-neutral-500">{tt('Bu gün için bir şey yok.')}</p>
         )}
 
         {canAdd && filmChoice && (
           <div className="rounded-xl border border-[#00c0fa]/30 bg-neutral-950/40 p-3 space-y-2.5">
             <p className="text-sm text-neutral-100">
-              <span className="font-medium">{look.title(filmChoice.row)}</span> — {shortDate(parseEntry(filmChoice.entry).start)} tarihinde başlamışsın.
+              {ttx('{0} — {1} tarihinde başlamışsın.', <span className="font-medium">{look.title(filmChoice.row)}</span>, shortDate(parseEntry(filmChoice.entry).start))}
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -1164,8 +1163,7 @@ function DayPanel({
                 style={primaryButtonStyle}
                 className={`text-xs px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}
               >
-                Bu gün bitirdim ({shortDate(parseEntry(filmChoice.entry).start)} → {shortDate(date)})
-              </button>
+                {ttx('Bu gün bitirdim ({0} → {1})', shortDate(parseEntry(filmChoice.entry).start), shortDate(date))}</button>
               <button
                 disabled={busy}
                 onClick={() =>
@@ -1177,10 +1175,10 @@ function DayPanel({
                 }
                 className="text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-300 hover:border-neutral-500"
               >
-                Yeni bir izleme
+                {tt('Yeni bir izleme')}
               </button>
               <button onClick={() => setFilmChoice(null)} className="text-xs text-neutral-500 hover:text-neutral-200 px-2">
-                Vazgeç
+                {tt('Vazgeç')}
               </button>
             </div>
           </div>
@@ -1188,27 +1186,27 @@ function DayPanel({
 
         {canAdd && !picked && !filmChoice && (
           <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3 space-y-2.5">
-            <p className="text-sm font-medium text-neutral-100">Bu gün şunu izledim</p>
+            <p className="text-sm font-medium text-neutral-100">{tt('Bu gün şunu izledim')}</p>
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Arşivinde ara..."
+              placeholder={tt('Arşivinde ara...')}
               className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500"
             />
             {hasDurum && (
               <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
                 <input type="checkbox" checked={markStatus} onChange={(e) => setMarkStatus(e.target.checked)} />
-                Durumunu da güncelle (film: İzlendi · dizi: İzleniyor, bitirdiysen İzlendi)
+                {tt('Durumunu da güncelle (film: İzlendi · dizi: İzleniyor, bitirdiysen İzlendi)')}
               </label>
             )}
             {!q.trim() && recent.length > 0 && (
               <div>
-                <p className="text-[11px] text-neutral-500 mb-1">Son izlediklerin — tek tıkla seç</p>
+                <p className="text-[11px] text-neutral-500 mb-1">{tt('Son izlediklerin — tek tıkla seç')}</p>
                 <div className="space-y-1">{recent.map(rowButton)}</div>
               </div>
             )}
             {results.length > 0 && <div className="space-y-1">{results.map(rowButton)}</div>}
-            {q.trim() && results.length === 0 && <p className="text-xs text-neutral-500">Arşivinde bulunamadı.</p>}
+            {q.trim() && results.length === 0 && <p className="text-xs text-neutral-500">{tt('Arşivinde bulunamadı.')}</p>}
           </div>
         )}
 
@@ -1220,10 +1218,10 @@ function DayPanel({
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-neutral-100 truncate">{look.title(picked)}</p>
-                <p className="text-xs text-neutral-500">Bu gün hangi bölümleri izledin? ✓ olanları daha önce de izlemişsin, yine eklenebilir.</p>
+                <p className="text-xs text-neutral-500">{tt('Bu gün hangi bölümleri izledin? ✓ olanları daha önce de izlemişsin, yine eklenebilir.')}</p>
               </div>
               <button onClick={() => setPicked(null)} className="text-xs text-neutral-500 hover:text-neutral-100">
-                ‹ Geri
+                {tt('‹ Geri')}
               </button>
             </div>
 
@@ -1238,7 +1236,7 @@ function DayPanel({
                       season === s.seasonNumber ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-700 text-neutral-400 hover:text-neutral-100'
                     }`}
                   >
-                    {s.seasonNumber}. sezon{n ? ` · ${n}` : ''}
+                    {ttx('{0}. sezon{1}', s.seasonNumber, n ? ` · ${n}` : '')}
                   </button>
                 )
               })}
@@ -1259,7 +1257,7 @@ function DayPanel({
                   }
                   className="text-xs text-[#00c0fa] hover:underline mb-1.5"
                 >
-                  {allSeasonChosen ? 'Bu sezonun seçimini kaldır' : 'Bu sezonun hepsini seç'}
+                  {allSeasonChosen ? tt('Bu sezonun seçimini kaldır') : tt('Bu sezonun hepsini seç')}
                 </button>
                 <div className="max-h-64 overflow-y-auto space-y-0.5 pr-1">
                   {currentSeason.episodes.map((e) => {
@@ -1271,9 +1269,9 @@ function DayPanel({
                         className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-neutral-800 ${future ? 'opacity-50' : ''}`}
                       >
                         <input type="checkbox" checked={chosen.has(k)} onChange={() => toggleEp(k)} />
-                        <span className="text-neutral-500 tabular-nums w-8 shrink-0">B{e.episodeNumber}</span>
+                        <span className="text-neutral-500 tabular-nums w-8 shrink-0">{ttx('B{0}', e.episodeNumber)}</span>
                         <span className="text-neutral-200 truncate flex-1">{e.name}</span>
-                        {future && <span className="text-[10px] text-neutral-500 shrink-0">henüz çıkmamıştı</span>}
+                        {future && <span className="text-[10px] text-neutral-500 shrink-0">{tt('henüz çıkmamıştı')}</span>}
                         {(() => {
                           const ds = (watched[picked!.id]?.[k] ?? []).slice().sort()
                           if (ds.length === 0) return null
@@ -1281,9 +1279,9 @@ function DayPanel({
                           return (
                             <span
                               className={`text-[10px] shrink-0 ${today0 ? 'text-[#7fdcff]' : 'text-emerald-400'}`}
-                              title={`İzlediğin tarihler: ${ds.map(shortDate).join(', ')}`}
+                              title={tt('İzlediğin tarihler: {0}', ds.map(shortDate).join(', '))}
                             >
-                              {today0 ? 'bu gün işaretli' : `✓ ${shortDate(ds[ds.length - 1])}${ds.length > 1 ? ` +${ds.length - 1}` : ''}`}
+                              {today0 ? tt('bu gün işaretli') : `✓ ${shortDate(ds[ds.length - 1])}${ds.length > 1 ? ` +${ds.length - 1}` : ''}`}
                             </span>
                           )
                         })()}
@@ -1297,13 +1295,13 @@ function DayPanel({
             {dateProp && (
               <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer">
                 <input type="checkbox" checked={finished} onChange={(e) => setFinished(e.target.checked)} />
-                Diziyi bu gün bitirdim (izleme tarihi olarak da eklensin)
+                {tt('Diziyi bu gün bitirdim (izleme tarihi olarak da eklensin)')}
               </label>
             )}
 
             <div className="flex items-center justify-end gap-2">
               <button onClick={() => setPicked(null)} className="text-sm text-neutral-400 hover:text-neutral-100 px-3 py-1.5">
-                Vazgeç
+                {tt('Vazgeç')}
               </button>
               <button
                 disabled={busy || (chosen.size === 0 && !finished)}
@@ -1325,7 +1323,7 @@ function DayPanel({
                 style={primaryButtonStyle}
                 className={`text-sm px-4 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}
               >
-                {chosen.size ? `${chosen.size} bölümü ekle` : 'Ekle'}
+                {chosen.size ? tt('{0} bölümü ekle', chosen.size) : tt('Ekle')}
               </button>
             </div>
           </div>

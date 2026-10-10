@@ -3,6 +3,7 @@ import { GizliSutunVisual, GuncelleVisual, KesfetVisual, KoleksiyonVisual, Sagli
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useToast } from '../hooks/useToast'
+import { tt, ttx } from '../lib/i18n'
 
 // Küçük rozet-ikon (başlığın yanındaki) — büyük "wireframe" görselden ayrı, sadece o bölümü
 // tek bakışta tanımak için. Gradyanlı kare arka plan + beyaz stroke ikon, hepsi aynı 24x24
@@ -407,7 +408,7 @@ function BildirimWireframe() {
 
 // Profil menüsü + sağ alttaki güncelleme bildirimi.
 function MenuWireframe() {
-  const items = ['Ayarlar', 'İstatistikler', 'Yardım Merkezi', 'Yama Notları', 'Açık / Koyu Tema']
+  const items = [tt('Ayarlar'), tt('İstatistikler'), tt('Yardım Merkezi'), tt('Yama Notları'), tt('Açık / Koyu Tema')]
   return (
     <WireframeCard>
       <circle cx={268} cy={16} r={9} fill={WF_FILL} stroke={BRAND_TEXT} strokeWidth={1.5} />
@@ -449,11 +450,11 @@ function VisualCard({ children }: { children: ReactNode }) {
 type Group = 'baslarken' | 'ana-sayfa' | 'arsiv' | 'kesfet' | 'diger'
 
 const GROUPS: { id: Group; label: string; hint: string }[] = [
-  { id: 'baslarken', label: 'Başlarken', hint: 'Profiller ve ana sayfaya ilk bakış' },
-  { id: 'ana-sayfa', label: 'Ana Sayfa', hint: 'Vitrin, satırlar ve mod satırı' },
-  { id: 'arsiv', label: 'Arşiv', hint: 'Veritabanı, tablo, TMDB, Keşfet, Sağlık Kontrolü' },
-  { id: 'kesfet', label: 'Keşfet ve İzle', hint: 'Arama, Ne İzlesem ve kayıt detayı' },
-  { id: 'diger', label: 'Diğer', hint: 'İstatistikler, tema ve güncellemeler' },
+  { id: 'baslarken', label: tt('Başlarken'), hint: tt('Profiller ve ana sayfaya ilk bakış') },
+  { id: 'ana-sayfa', label: tt('Ana Sayfa'), hint: tt('Vitrin, satırlar ve mod satırı') },
+  { id: 'arsiv', label: tt('Arşiv'), hint: tt('Veritabanı, tablo, TMDB, Keşfet, Sağlık Kontrolü') },
+  { id: 'kesfet', label: tt('Keşfet ve İzle'), hint: tt('Arama, Ne İzlesem ve kayıt detayı') },
+  { id: 'diger', label: tt('Diğer'), hint: tt('İstatistikler, tema ve güncellemeler') },
 ]
 
 interface Topic {
@@ -473,53 +474,53 @@ const TOPICS: Topic[] = [
   {
     group: 'baslarken',
     icon: <ProfileIcon />,
-    title: 'Kim izliyor?',
-    where: 'Açılışta · Sağ üstteki profil resmi',
-    text: "ARGUS'u açtığında ilk gördüğün ekran. Evdeki herkes kendi profiliyle girer; arşivler, ana sayfa ayarları ve TMDB anahtarı her profilde ayrıdır, kimsenin listesi birbirine karışmaz.",
+    title: tt('Kim izliyor?'),
+    where: tt('Açılışta · Sağ üstteki profil resmi'),
+    text: tt('ARGUS\'u açtığında ilk gördüğün ekran. Evdeki herkes kendi profiliyle girer; arşivler, ana sayfa ayarları ve TMDB anahtarı her profilde ayrıdır, kimsenin listesi birbirine karışmaz.'),
     tips: [
-      'Sağ üstteki profil resmine tıklayıp açılan menüden başka bir profile anında geçebilirsin.',
-      'Profil eklemek, adını ya da resmini değiştirmek için: Ayarlar › Profil Ayarları.',
+      tt('Sağ üstteki profil resmine tıklayıp açılan menüden başka bir profile anında geçebilirsin.'),
+      tt('Profil eklemek, adını ya da resmini değiştirmek için: Ayarlar › Profil Ayarları.'),
     ],
     visual: <KimIzliyorWireframe />,
   },
   {
     group: 'baslarken',
     icon: <HomeIcon />,
-    title: 'Ana Sayfa',
-    where: 'Üst menü › Ana Sayfa',
-    text: 'En üstte öne çıkan bir vitrin, altında "Tümü" ve eklediğin diğer satırlar sırayla dizilir. Bir kartın üzerine gelince kısa bir önizleme ve bilgileri çıkar; tıklayınca o kaydın detay penceresi açılır.',
+    title: tt('Ana Sayfa'),
+    where: tt('Üst menü › Ana Sayfa'),
+    text: tt('En üstte öne çıkan bir vitrin, altında "Tümü" ve eklediğin diğer satırlar sırayla dizilir. Bir kartın üzerine gelince kısa bir önizleme ve bilgileri çıkar; tıklayınca o kaydın detay penceresi açılır.'),
     tips: [
-      'Vitrindeki fragman sessiz başlar; sağ alttaki düğmelerle sesini açabilir ya da durdurabilirsin.',
-      'Üst menüye eklediğin sayfalar (Diziler, Filmler gibi) tıklayınca kendi listesini açar.',
-      'Satırlarda sağa sola kaydırmak için fareyle satırın üzerine gelip kenardaki oklara bas.',
+      tt('Vitrindeki fragman sessiz başlar; sağ alttaki düğmelerle sesini açabilir ya da durdurabilirsin.'),
+      tt('Üst menüye eklediğin sayfalar (Diziler, Filmler gibi) tıklayınca kendi listesini açar.'),
+      tt('Satırlarda sağa sola kaydırmak için fareyle satırın üzerine gelip kenardaki oklara bas.'),
     ],
     visual: <AnaSayfaWireframe />,
   },
   {
     group: 'ana-sayfa',
     icon: <GearIcon />,
-    title: 'Vitrin ve görünüm',
-    where: 'Ayarlar › Ana Sayfa Ayarları › Görünüm',
-    text: 'Ana sayfanın nasıl görüneceğini buradan seçersin: kartların Yatay ya da Dikey olması ve boyutu, satır başlıklarının büyüklüğü ve vitrinin görünümü.',
+    title: tt('Vitrin ve görünüm'),
+    where: tt('Ayarlar › Ana Sayfa Ayarları › Görünüm'),
+    text: tt('Ana sayfanın nasıl görüneceğini buradan seçersin: kartların Yatay ya da Dikey olması ve boyutu, satır başlıklarının büyüklüğü ve vitrinin görünümü.'),
     tips: [
-      'Vitrin görünümü: Klasik (fragmanlı, kenarlardan içeride), Sinema (ekranı kenardan kenara kaplar) ya da Slayt (fragman yok, birkaç içerik 8 saniyede bir değişir).',
-      'Vitrinde hangi içeriklerin çıkacağını bir türe ya da kategoriye göre daraltabilirsin.',
-      '"Kart bilgilerini her zaman göster" açıkken kartların altındaki bilgi şeridi fareyle üzerine gelmeden de görünür.',
+      tt('Vitrin görünümü: Klasik (fragmanlı, kenarlardan içeride), Sinema (ekranı kenardan kenara kaplar) ya da Slayt (fragman yok, birkaç içerik 8 saniyede bir değişir).'),
+      tt('Vitrinde hangi içeriklerin çıkacağını bir türe ya da kategoriye göre daraltabilirsin.'),
+      tt('"Kart bilgilerini her zaman göster" açıkken kartların altındaki bilgi şeridi fareyle üzerine gelmeden de görünür.'),
     ],
     visual: <AyarlarWireframe />,
   },
   {
     group: 'ana-sayfa',
     icon: <PlayCircleIcon />,
-    title: 'Satırlar: Yeni Bölümler, En İyi 10 ve daha fazlası',
-    where: 'Ayarlar › Ana Sayfa Ayarları › Görünüm › Satırlar',
-    text: 'Vitrinin altındaki satırları açıp kapatabilir, bazılarının kaçıncı sırada duracağını seçebilirsin.',
+    title: tt('Satırlar: Yeni Bölümler, En İyi 10 ve daha fazlası'),
+    where: tt('Ayarlar › Ana Sayfa Ayarları › Görünüm › Satırlar'),
+    text: tt('Vitrinin altındaki satırları açıp kapatabilir, bazılarının kaçıncı sırada duracağını seçebilirsin.'),
     tips: [
-      'Yeni Bölümler: durumu "İzleniyor" olan dizilerin yeni çıkan ve bu hafta çıkacak bölümleri.',
-      'Arşivindeki En İyi 10: en yüksek puan verdiğin 10 içerik, yanlarında büyük sıra numaralarıyla.',
-      'Otomatik doldur: en altta her girişte rastgele satırlar (bir tür, bir ülke…) çıkar; kaç tane geleceğini ve hangilerinin gelip hangilerinin gelmeyeceğini (✓ gelsin / ✕ gelmesin) seçebilirsin.',
-      '"Tümü" satırını kapatabilir, kartlarını karışık ya da sıralı getirebilirsin; kapak görseli olmayan kayıtları gizleyebilirsin.',
-      'Kendi listelerin için: Ayarlar › Ana Sayfa Ayarları › Sayfalar — bir türe ya da duruma göre liste oluşturup üst menüye ya da ana sayfanın gövdesine eklersin.',
+      tt('Yeni Bölümler: durumu "İzleniyor" olan dizilerin yeni çıkan ve bu hafta çıkacak bölümleri.'),
+      tt('Arşivindeki En İyi 10: en yüksek puan verdiğin 10 içerik, yanlarında büyük sıra numaralarıyla.'),
+      tt('Otomatik doldur: en altta her girişte rastgele satırlar (bir tür, bir ülke…) çıkar; kaç tane geleceğini ve hangilerinin gelip hangilerinin gelmeyeceğini (✓ gelsin / ✕ gelmesin) seçebilirsin.'),
+      tt('"Tümü" satırını kapatabilir, kartlarını karışık ya da sıralı getirebilirsin; kapak görseli olmayan kayıtları gizleyebilirsin.'),
+      tt('Kendi listelerin için: Ayarlar › Ana Sayfa Ayarları › Sayfalar — bir türe ya da duruma göre liste oluşturup üst menüye ya da ana sayfanın gövdesine eklersin.'),
     ],
     visual: (
       <VisualCard>
@@ -530,45 +531,45 @@ const TOPICS: Topic[] = [
   {
     group: 'ana-sayfa',
     icon: <MoodFaceIcon />,
-    title: 'Mod satırı',
-    where: 'Ayarlar › Ana Sayfa Ayarları › Modlar',
-    text: '"İzlenecek" listenden, ruh haline (moduna) göre öneriler gösteren özel satır. Her modun kendi görseli ve tür filtresi vardır; her mod günde bir kez yeni bir öneriye geçer.',
+    title: tt('Mod satırı'),
+    where: tt('Ayarlar › Ana Sayfa Ayarları › Modlar'),
+    text: tt('"İzlenecek" listenden, ruh haline (moduna) göre öneriler gösteren özel satır. Her modun kendi görseli ve tür filtresi vardır; her mod günde bir kez yeni bir öneriye geçer.'),
     tips: [
-      '10 hazır modla başlarsın; açıp kapatabilir, düzenleyebilir ya da yenisini ekleyebilirsin.',
-      'Satırın adını ve ana sayfada kaçıncı sırada duracağını da aynı yerden seçersin.',
+      tt('10 hazır modla başlarsın; açıp kapatabilir, düzenleyebilir ya da yenisini ekleyebilirsin.'),
+      tt('Satırın adını ve ana sayfada kaçıncı sırada duracağını da aynı yerden seçersin.'),
     ],
     visual: <ModWireframe />,
   },
   {
     group: 'arsiv',
     icon: <DatabaseIcon />,
-    title: 'Veritabanı',
-    where: 'Ayarlar › Veritabanı',
-    text: 'Bütün kayıtlarının durduğu yer. Dört bölümden oluşur: Arşivler, Şablonlar, İçe Aktar ve API.',
+    title: tt('Veritabanı'),
+    where: tt('Ayarlar › Veritabanı'),
+    text: tt('Bütün kayıtlarının durduğu yer. Dört bölümden oluşur: Arşivler, Şablonlar, İçe Aktar ve API.'),
     tips: [
-      'Arşivler: birden fazla arşiv açabilirsin (filmler, kitaplar, oyunlar…); her birinin kendi sütunları olur. Ana sayfada gösterilen arşivin yanında "Ana sayfada" yazar.',
-      'Şablonlar: hazır ya da kendi oluşturduğun bir sütun setiyle tek tıkla yeni arşiv açarsın.',
-      'İçe Aktar: bir CSV dosyasından (Notion dışa aktarımı ya da başka bir liste) kayıt getirirsin.',
-      'API: TMDB\'den otomatik doldurma için kendi ücretsiz anahtarını girersin (bkz. "TMDB ile doldurma").',
+      tt('Arşivler: birden fazla arşiv açabilirsin (filmler, kitaplar, oyunlar…); her birinin kendi sütunları olur. Ana sayfada gösterilen arşivin yanında "Ana sayfada" yazar.'),
+      tt('Şablonlar: hazır ya da kendi oluşturduğun bir sütun setiyle tek tıkla yeni arşiv açarsın.'),
+      tt('İçe Aktar: bir CSV dosyasından (Notion dışa aktarımı ya da başka bir liste) kayıt getirirsin.'),
+      tt('API: TMDB\'den otomatik doldurma için kendi ücretsiz anahtarını girersin (bkz. "TMDB ile doldurma").'),
     ],
     visual: <VeritabaniWireframe />,
   },
   {
     group: 'arsiv',
     icon: <DatabaseIcon />,
-    title: 'Arşiv tablosu',
-    where: 'Ayarlar › Veritabanı › bir arşive tıkla',
-    text: 'Kayıtlarını bir tablo olarak düzenlediğin yer. Sağ üstteki araçlarla arayabilir, filtreleyebilir (birden fazla sütun; bir tık ✓ gelsin, iki tık ✕ gelmesin), sıralayabilir ve istemediğin sütunları gizleyebilirsin. Tablonun sağ üstündeki "i" düğmesi her şeyi çizimlerle anlatan kısa bir rehber açar.',
+    title: tt('Arşiv tablosu'),
+    where: tt('Ayarlar › Veritabanı › bir arşive tıkla'),
+    text: tt('Kayıtlarını bir tablo olarak düzenlediğin yer. Sağ üstteki araçlarla arayabilir, filtreleyebilir (birden fazla sütun; bir tık ✓ gelsin, iki tık ✕ gelmesin), sıralayabilir ve istemediğin sütunları gizleyebilirsin. Tablonun sağ üstündeki "i" düğmesi her şeyi çizimlerle anlatan kısa bir rehber açar.'),
     tips: [
-      'Tablonun üstündeki düğmelerle (Hepsi · İzlendi · İzlenecek…) tek tıkla duruma göre süzersin; başlığın altında kaç kayıt olduğu yazar.',
-      'Sağa kaydırınca kaydın adı ve küçük afişi solda sabit kalır. Hücreye sığmayan etiketler için "+2" gibi bir sayı çıkar, üzerine gelince hepsi görünür.',
-      'Satır simgesiyle (üç çizgi) Rahat ve Sıkı görünüm arasında geçersin; araç çubuğundaki simgelerin üzerine gelince ne işe yaradıkları yazar.',
-      'Bir hücreye tıklayıp değerini değiştirirsin; açılan kutuyu "Kapat" ile kapatırsın. Puan kutusunda × ile tek kriteri, "Puanı kaldır" ile hepsini silersin.',
-      'Satırın solundaki altı nokta: Güncelle, Altına Satır Ekle, Çoğalt, Sil; altında kaydın ne zaman eklendiği, en son ne zaman değiştiği ve son değişiklikleri yazar. Göz ikonu o kaydın detayını açar.',
-      'Araç çubuğundaki "Geçmiş" (saat) düğmesi arşivdeki her eklemeyi, değişikliği ve silmeyi gün gün gösterir; yanlışlıkla sildiğini "Geri getir"le, bir değişikliği "Geri al"la geri alırsın, istersen bütün arşivi bir günün başındaki haline döndürürsün. Geçmiş için 5 GB yer ayrılır, dolunca sana sorulur; sınırı pencerenin "⚙ Alan ayarları" bölümünden değiştirirsin.',
-      'Sütun başlığını sürükleyip yerini değiştirebilirsin; başlığa tıklayınca adını, tipini, görevini değiştirebilir, sütunu temizleyebilir ya da silebilirsin.',
-      'Satırların başındaki kutucuklarla birden fazla kaydı seçip toplu silebilirsin.',
-      'Sütunların bir "görevi" vardır (Poster, Durum, Tür…): adını istediğin gibi değiştirsen de poster, istatistikler ya da TMDB doldurma bozulmaz.',
+      tt('Tablonun üstündeki düğmelerle (Hepsi · İzlendi · İzlenecek…) tek tıkla duruma göre süzersin; başlığın altında kaç kayıt olduğu yazar.'),
+      tt('Sağa kaydırınca kaydın adı ve küçük afişi solda sabit kalır. Hücreye sığmayan etiketler için "+2" gibi bir sayı çıkar, üzerine gelince hepsi görünür.'),
+      tt('Satır simgesiyle (üç çizgi) Rahat ve Sıkı görünüm arasında geçersin; araç çubuğundaki simgelerin üzerine gelince ne işe yaradıkları yazar.'),
+      tt('Bir hücreye tıklayıp değerini değiştirirsin; açılan kutuyu "Kapat" ile kapatırsın. Puan kutusunda × ile tek kriteri, "Puanı kaldır" ile hepsini silersin.'),
+      tt('Satırın solundaki altı nokta: Güncelle, Altına Satır Ekle, Çoğalt, Sil; altında kaydın ne zaman eklendiği, en son ne zaman değiştiği ve son değişiklikleri yazar. Göz ikonu o kaydın detayını açar.'),
+      tt('Araç çubuğundaki "Geçmiş" (saat) düğmesi arşivdeki her eklemeyi, değişikliği ve silmeyi gün gün gösterir; yanlışlıkla sildiğini "Geri getir"le, bir değişikliği "Geri al"la geri alırsın, istersen bütün arşivi bir günün başındaki haline döndürürsün. Geçmiş için 5 GB yer ayrılır, dolunca sana sorulur; sınırı pencerenin "⚙ Alan ayarları" bölümünden değiştirirsin.'),
+      tt('Sütun başlığını sürükleyip yerini değiştirebilirsin; başlığa tıklayınca adını, tipini, görevini değiştirebilir, sütunu temizleyebilir ya da silebilirsin.'),
+      tt('Satırların başındaki kutucuklarla birden fazla kaydı seçip toplu silebilirsin.'),
+      tt('Sütunların bir "görevi" vardır (Poster, Durum, Tür…): adını istediğin gibi değiştirsen de poster, istatistikler ya da TMDB doldurma bozulmaz.'),
     ],
     visual: (
       <VisualCard>
@@ -579,17 +580,17 @@ const TOPICS: Topic[] = [
   {
     group: 'arsiv',
     icon: <GearIcon />,
-    title: 'TMDB ile doldurma',
-    where: 'Tabloda altı nokta › Güncelle · Seçim çubuğu › Seçilenleri Güncelle · Araç çubuğu › Genel Güncelleme',
-    text: "Bir kaydın sadece adını yazman yeterli: poster, yatay görsel, logo, özet, tür, ülke, yönetmen, oyuncular, süre, yaş sınırı, fragman ve dizilerde sezon/bölüm listesi TMDB'den gelir. Önce Ayarlar › Veritabanı › API'ye ücretsiz TMDB anahtarını girmen gerekir.",
+    title: tt('TMDB ile doldurma'),
+    where: tt('Tabloda altı nokta › Güncelle · Seçim çubuğu › Seçilenleri Güncelle · Araç çubuğu › Genel Güncelleme'),
+    text: tt('Bir kaydın sadece adını yazman yeterli: poster, yatay görsel, logo, özet, tür, ülke, yönetmen, oyuncular, süre, yaş sınırı, fragman ve dizilerde sezon/bölüm listesi TMDB\'den gelir. Önce Ayarlar › Veritabanı › API\'ye ücretsiz TMDB anahtarını girmen gerekir.'),
     tips: [
-      'Tek bir kayıt için: satırdaki altı nokta › Güncelle (detay penceresinde de aynı düğme var).',
-      'Hepsi için: araç çubuğundaki Genel Güncelleme, eksik görünen kayıtları sırayla doldurur; tablonun üstünde o an ne yaptığını görürsün. Durdurduğunda "▶ Devam et" ile kaldığı yerden sürdürürsün.',
-      'Sadece bazıları için: satırları seçip üstteki çubuktan "Seçilenleri Güncelle"ye bas. Ya da bir filtre/arama yapıp Genel Güncelleme menüsünde "Görünen kayıtlar"ı seç.',
-      'Yeni bölümler için: Genel Güncelleme menüsünde "Sadece bölümleri yenile" sadece dizilerin sezon/bölüm listesini yeniler, başka hiçbir şeye dokunmaz (ör. İzleniyor filtresiyle sadece izlediğin diziler). Seçtiğin diziler için çubuktaki "Bölümlerini Yenile" de aynı işi yapar.',
-      'Dişli simgesinden (TMDB\'den neler gelsin?) hangi alanların çekileceğini seçersin; her alanın altında hangi sütununa yazacağı yazar — sütunun adı farklıysa (ör. "Özet") oradan seçersin, hiç yoksa yeni sütun eklersin. "Dolu alanları da güncelle" açıkken dolu alanların üzerine de yazılır.',
-      'Önerimiz bütün alanların gelmesi. Tablonda olmayan bir sütun (ör. Kapak Adı) ya da kapattığın bir alan varsa Genel Güncelleme\'den önce sana sorulur.',
-      "Türkçe adını bilmiyorsan İngilizce ya da orijinal adıyla yazman yeterli; Kategori'yi Film/Dizi seçersen eşleşme daha isabetli olur.",
+      tt('Tek bir kayıt için: satırdaki altı nokta › Güncelle (detay penceresinde de aynı düğme var).'),
+      tt('Hepsi için: araç çubuğundaki Genel Güncelleme, eksik görünen kayıtları sırayla doldurur; tablonun üstünde o an ne yaptığını görürsün. Durdurduğunda "▶ Devam et" ile kaldığı yerden sürdürürsün.'),
+      tt('Sadece bazıları için: satırları seçip üstteki çubuktan "Seçilenleri Güncelle"ye bas. Ya da bir filtre/arama yapıp Genel Güncelleme menüsünde "Görünen kayıtlar"ı seç.'),
+      tt('Yeni bölümler için: Genel Güncelleme menüsünde "Sadece bölümleri yenile" sadece dizilerin sezon/bölüm listesini yeniler, başka hiçbir şeye dokunmaz (ör. İzleniyor filtresiyle sadece izlediğin diziler). Seçtiğin diziler için çubuktaki "Bölümlerini Yenile" de aynı işi yapar.'),
+      tt('Dişli simgesinden (TMDB\'den neler gelsin?) hangi alanların çekileceğini seçersin; her alanın altında hangi sütununa yazacağı yazar — sütunun adı farklıysa (ör. "Özet") oradan seçersin, hiç yoksa yeni sütun eklersin. "Dolu alanları da güncelle" açıkken dolu alanların üzerine de yazılır.'),
+      tt('Önerimiz bütün alanların gelmesi. Tablonda olmayan bir sütun (ör. Kapak Adı) ya da kapattığın bir alan varsa Genel Güncelleme\'den önce sana sorulur.'),
+      tt('Türkçe adını bilmiyorsan İngilizce ya da orijinal adıyla yazman yeterli; Kategori\'yi Film/Dizi seçersen eşleşme daha isabetli olur.'),
     ],
     visual: (
       <VisualCard>
@@ -600,12 +601,12 @@ const TOPICS: Topic[] = [
   {
     group: 'arsiv',
     icon: <SearchIcon />,
-    title: 'Keşfet',
-    where: 'Arşiv tablosu › sağ üstteki pusula',
-    text: "Arşivinde olmayan filmleri ve dizileri TMDB'den getirir: film ya da dizi, tür, kaç tane ve sıralama seçersin.",
+    title: tt('Keşfet'),
+    where: tt('Arşiv tablosu › sağ üstteki pusula'),
+    text: tt('Arşivinde olmayan filmleri ve dizileri TMDB\'den getirir: film ya da dizi, tür, kaç tane ve sıralama seçersin.'),
     tips: [
-      '"+ İzlenecek" ile listene eklersin; izlediysen "İzledim" deyip tarih ve puan verirsin (tarihi hatırlamıyorsan boş bırakabilirsin).',
-      'İstemediğin bir öneriyi gizlersen bir daha karşına çıkmaz.',
+      tt('"+ İzlenecek" ile listene eklersin; izlediysen "İzledim" deyip tarih ve puan verirsin (tarihi hatırlamıyorsan boş bırakabilirsin).'),
+      tt('İstemediğin bir öneriyi gizlersen bir daha karşına çıkmaz.'),
     ],
     visual: (
       <VisualCard>
@@ -616,13 +617,13 @@ const TOPICS: Topic[] = [
   {
     group: 'arsiv',
     icon: <PlayCircleIcon />,
-    title: 'Sağlık Kontrolü',
-    where: 'Arşiv tablosu › sağ üstteki kalp atışı simgesi',
-    text: 'Arşivindeki sorunlu kayıtları tek listede toplar: kapak görseli olmayanlar, eksik bilgisi olanlar (yönetmen, fragman…) ve görseli bilgisayardan silinmiş olanlar. Her kaydın yanında tam olarak neyinin eksik olduğu yazar.',
+    title: tt('Sağlık Kontrolü'),
+    where: tt('Arşiv tablosu › sağ üstteki kalp atışı simgesi'),
+    text: tt('Arşivindeki sorunlu kayıtları tek listede toplar: kapak görseli olmayanlar, eksik bilgisi olanlar (yönetmen, fragman…) ve görseli bilgisayardan silinmiş olanlar. Her kaydın yanında tam olarak neyinin eksik olduğu yazar.'),
     tips: [
-      'Üstteki düğmelerle "Video yok", "Yönetmen yok" gibi tek bir soruna göre süzebilirsin.',
-      'Gerçekten olmayan bir şey için (ör. hiç fragmanı olmayan bir film) × ile "bu kayıtta bir daha sorma" diyebilirsin.',
-      'Fikrini değiştirirsen "Sorulmayanlar" listesinden ↺ ile o alan yine sorulur.',
+      tt('Üstteki düğmelerle "Video yok", "Yönetmen yok" gibi tek bir soruna göre süzebilirsin.'),
+      tt('Gerçekten olmayan bir şey için (ör. hiç fragmanı olmayan bir film) × ile "bu kayıtta bir daha sorma" diyebilirsin.'),
+      tt('Fikrini değiştirirsen "Sorulmayanlar" listesinden ↺ ile o alan yine sorulur.'),
     ],
     visual: (
       <VisualCard>
@@ -633,13 +634,13 @@ const TOPICS: Topic[] = [
   {
     group: 'arsiv',
     icon: <PlayCircleIcon />,
-    title: 'Yedekleme',
-    where: 'Ayarlar › Veritabanı › Yedekleme',
-    text: 'Arşivlerinin, ayarlarının ve görsellerinin bir kopyasını seçtiğin klasöre alır. OneDrive ya da Google Drive klasörünü seçersen yedekler kendiliğinden buluta da gider; bilgisayarına bir şey olsa bile arşivin kaybolmaz.',
+    title: tt('Yedekleme'),
+    where: tt('Ayarlar › Veritabanı › Yedekleme'),
+    text: tt('Arşivlerinin, ayarlarının ve görsellerinin bir kopyasını seçtiğin klasöre alır. OneDrive ya da Google Drive klasörünü seçersen yedekler kendiliğinden buluta da gider; bilgisayarına bir şey olsa bile arşivin kaybolmaz.'),
     tips: [
-      '"Şimdi yedek al" ile hemen alırsın; "Her gün" ya da "Her hafta" seçersen ARGUS açıkken kendisi alır.',
-      "İlk yedek görseller yüzünden uzun sürebilir; sonrakilerde sadece yeni görseller kopyalandığı için kısa sürer. Bu arada ARGUS'u kullanmaya devam edebilirsin.",
-      'Listedeki bir yedeğin yanındaki "Geri yükle" ile o güne dönersin; şu anki verin silinmez, kenara alınır.',
+      tt('"Şimdi yedek al" ile hemen alırsın; "Her gün" ya da "Her hafta" seçersen ARGUS açıkken kendisi alır.'),
+      tt('İlk yedek görseller yüzünden uzun sürebilir; sonrakilerde sadece yeni görseller kopyalandığı için kısa sürer. Bu arada ARGUS\'u kullanmaya devam edebilirsin.'),
+      tt('Listedeki bir yedeğin yanındaki "Geri yükle" ile o güne dönersin; şu anki verin silinmez, kenara alınır.'),
     ],
     visual: (
       <VisualCard>
@@ -650,13 +651,13 @@ const TOPICS: Topic[] = [
   {
     group: 'diger',
     icon: <PlayCircleIcon />,
-    title: 'Koleksiyon',
-    where: 'Profil menüsü › Koleksiyon',
-    text: 'İzlediğin (izlemekte olduğun, yarım bıraktığın) her yapımın sergilendiği sayfa. Aynı seriden olanlar kendi rafında durur; her yapımın sembolü yoksa logosu görünür.',
+    title: tt('Koleksiyon'),
+    where: tt('Profil menüsü › Koleksiyon'),
+    text: tt('İzlediğin (izlemekte olduğun, yarım bıraktığın) her yapımın sergilendiği sayfa. Aynı seriden olanlar kendi rafında durur; her yapımın sembolü yoksa logosu görünür.'),
     tips: [
-      'Bir yapıma tıklayınca sembolünü değiştirirsin: görseli sürükle-bırak, Ctrl+V ile yapıştır ya da internetteki görselin adresini gir ("Resim adresini kopyala"). Düz arka planlı görsellerde "Arka planı temizle" kendiliğinden açık gelir.',
-      'Rafın büyük sembolüne tıklayınca rafın sembolünü ve adını değiştirirsin. Bir yapımın penceresindeki "Hangi rafta?" ile onu başka rafa taşır ya da yeni bir raf açarsın.',
-      'Film serileri ilk açılışta TMDB\'den öğrenilir; raflar bir iki dakika içinde tamamlanır.',
+      tt('Bir yapıma tıklayınca sembolünü değiştirirsin: görseli sürükle-bırak, Ctrl+V ile yapıştır ya da internetteki görselin adresini gir ("Resim adresini kopyala"). Düz arka planlı görsellerde "Arka planı temizle" kendiliğinden açık gelir.'),
+      tt('Rafın büyük sembolüne tıklayınca rafın sembolünü ve adını değiştirirsin. Bir yapımın penceresindeki "Hangi rafta?" ile onu başka rafa taşır ya da yeni bir raf açarsın.'),
+      tt('Film serileri ilk açılışta TMDB\'den öğrenilir; raflar bir iki dakika içinde tamamlanır.'),
     ],
     visual: (
       <VisualCard>
@@ -667,83 +668,83 @@ const TOPICS: Topic[] = [
   {
     group: 'kesfet',
     icon: <SearchIcon />,
-    title: 'Arama ve Ne İzlesem?',
-    where: 'Sağ üstteki büyüteç ve yanındaki kart simgesi',
-    text: 'Büyüteç her yerden ulaşabileceğin genel arama: başlık, oyuncu, tür ya da ülke adına göre sonuç getirir, başlığa tam uyanlar en üstte çıkar. Yanındaki kart simgesi "Ne İzlesem?": kararsız kaldığında rastgele bir şey seçer.',
+    title: tt('Arama ve Ne İzlesem?'),
+    where: tt('Sağ üstteki büyüteç ve yanındaki kart simgesi'),
+    text: tt('Büyüteç her yerden ulaşabileceğin genel arama: başlık, oyuncu, tür ya da ülke adına göre sonuç getirir, başlığa tam uyanlar en üstte çıkar. Yanındaki kart simgesi "Ne İzlesem?": kararsız kaldığında rastgele bir şey seçer.'),
     tips: [
-      'Klavyeden "/" tuşuna basınca arama kutusu açılır. Aradığın isim bir oyuncuya, türe ya da ülkeye uyuyorsa sonuçların en üstünde fotoğraflı olarak çıkar; tıklayınca onun listesi açılır.',
-      'Ne İzlesem animasyonunu yarıda kesmek için sağ üstteki "Vazgeç"e ya da Esc tuşuna bas. Sonuç ekranında içeriği ekleyebilir, durumunu işaretleyebilir ya da "↻ Tekrar getir" ile yenisini çekebilirsin.',
-      "Ne İzlesem arşivinden ya da TMDB'den (arşivinde olmayanlardan) seçebilir: Ayarlar › Ana Sayfa Ayarları › Ne İzlesem?",
-      'Aynı yerden hangi kayıtlar arasından seçileceğini, kaç kartın döneceğini ve kartların dikey mi yatay mı olacağını ayarlarsın.',
-      'TMDB\'den seçtiğinde çıkan pencereden tek tıkla İzlenecek\'e ekleyebilir ya da "bir daha gösterme" diyebilirsin.',
+      tt('Klavyeden "/" tuşuna basınca arama kutusu açılır. Aradığın isim bir oyuncuya, türe ya da ülkeye uyuyorsa sonuçların en üstünde fotoğraflı olarak çıkar; tıklayınca onun listesi açılır.'),
+      tt('Ne İzlesem animasyonunu yarıda kesmek için sağ üstteki "Vazgeç"e ya da Esc tuşuna bas. Sonuç ekranında içeriği ekleyebilir, durumunu işaretleyebilir ya da "↻ Tekrar getir" ile yenisini çekebilirsin.'),
+      tt('Ne İzlesem arşivinden ya da TMDB\'den (arşivinde olmayanlardan) seçebilir: Ayarlar › Ana Sayfa Ayarları › Ne İzlesem?'),
+      tt('Aynı yerden hangi kayıtlar arasından seçileceğini, kaç kartın döneceğini ve kartların dikey mi yatay mı olacağını ayarlarsın.'),
+      tt('TMDB\'den seçtiğinde çıkan pencereden tek tıkla İzlenecek\'e ekleyebilir ya da "bir daha gösterme" diyebilirsin.'),
     ],
     visual: <AramaWireframe />,
   },
   {
     group: 'kesfet',
     icon: <PlayCircleIcon />,
-    title: 'Kayıt detayı',
-    where: 'Bir karta ya da tablodaki göz ikonuna tıkla',
-    text: "Kaydın bütün bilgileri tek pencerede: fragman, özet, oyuncu kadrosu (rolleriyle), dizilerde sezon ve bölüm listesi, Türkiye'de hangi platformda izlenebildiği (Nerede İzlenir) ve benzer içerikler.",
+    title: tt('Kayıt detayı'),
+    where: tt('Bir karta ya da tablodaki göz ikonuna tıkla'),
+    text: tt('Kaydın bütün bilgileri tek pencerede: fragman, özet, oyuncu kadrosu (rolleriyle), dizilerde sezon ve bölüm listesi, Türkiye\'de hangi platformda izlenebildiği (Nerede İzlenir) ve benzer içerikler.'),
     tips: [
-      'Sağdaki bilgi sütunu sen aşağı kaydırırken yanında kalır: "Puanın" kartında kriter kriter puanların, "İzleme" kartında izleme tarihlerin ve dizilerde kaç bölüm izlediğin, altında da bilgiler ve Nerede İzlenir görünür.',
-      'Bir oyuncuya ya da Bilgiler\'deki yönetmen adına tıklayınca kişinin sayfası açılır: arşivindeki yapımları ve arşivinde olmayan en bilinen işleri; tek tıkla İzlenecek\'e eklersin. "Arşivindekileri listele" ile tabloyu o kişiye göre süzersin.',
-      'Film bir serinin parçasıysa detayda serinin bütün filmleri sırasıyla çıkar: kaçını izlediğin, sıradaki hangisi; eksikleri tek tıkla eklersin.',
-      'Bir şeyi İzlendi yaptığında puanı boşsa sağ altta "Kaç puan verirsin?" kartı çıkar.',
-      'Benzer İçerikler\'de bir afişe tıklayınca o içeriğin önizlemesi açılır; "+ İzlenecek" ile tek tıkla eklersin.',
-      "Tablodan (göz ikonuyla) açtığında izlediğin bölümleri işaretleyebilir, yeni izleme tarihi ekleyebilir ve Güncelle ile TMDB'den yenileyebilirsin.",
+      tt('Sağdaki bilgi sütunu sen aşağı kaydırırken yanında kalır: "Puanın" kartında kriter kriter puanların, "İzleme" kartında izleme tarihlerin ve dizilerde kaç bölüm izlediğin, altında da bilgiler ve Nerede İzlenir görünür.'),
+      tt('Bir oyuncuya ya da Bilgiler\'deki yönetmen adına tıklayınca kişinin sayfası açılır: arşivindeki yapımları ve arşivinde olmayan en bilinen işleri; tek tıkla İzlenecek\'e eklersin. "Arşivindekileri listele" ile tabloyu o kişiye göre süzersin.'),
+      tt('Film bir serinin parçasıysa detayda serinin bütün filmleri sırasıyla çıkar: kaçını izlediğin, sıradaki hangisi; eksikleri tek tıkla eklersin.'),
+      tt('Bir şeyi İzlendi yaptığında puanı boşsa sağ altta "Kaç puan verirsin?" kartı çıkar.'),
+      tt('Benzer İçerikler\'de bir afişe tıklayınca o içeriğin önizlemesi açılır; "+ İzlenecek" ile tek tıkla eklersin.'),
+      tt('Tablodan (göz ikonuyla) açtığında izlediğin bölümleri işaretleyebilir, yeni izleme tarihi ekleyebilir ve Güncelle ile TMDB\'den yenileyebilirsin.'),
     ],
     visual: <DetayWireframe />,
   },
   {
     group: 'diger',
     icon: <HomeIcon />,
-    title: 'İstatistikler',
-    where: 'Profil menüsü › İstatistikler',
-    text: 'Arşivinin özeti: toplam kayıt, izlenen ve izlenecek sayısı, bu yıl izlediklerin, toplam izleme süresi ve ortalama puan; son 12 ayda aylara göre izlediklerin, kategori ve durum dağılımı, en çok geçen türler ve ülkeler, vizyon yılına ve verdiğin puanlara göre dağılım ve en çok karşına çıkan oyuncular. Grafiklerin üzerine gelince tam sayılar görünür.',
+    title: tt('İstatistikler'),
+    where: tt('Profil menüsü › İstatistikler'),
+    text: tt('Arşivinin özeti: toplam kayıt, izlenen ve izlenecek sayısı, bu yıl izlediklerin, toplam izleme süresi ve ortalama puan; son 12 ayda aylara göre izlediklerin, kategori ve durum dağılımı, en çok geçen türler ve ülkeler, vizyon yılına ve verdiğin puanlara göre dağılım ve en çok karşına çıkan oyuncular. Grafiklerin üzerine gelince tam sayılar görünür.'),
     visual: <IstatistikWireframe />,
   },
   {
     group: 'diger',
     icon: <ProfileIcon />,
-    title: 'Bildirimler',
-    where: 'Üst menüdeki zil',
-    text: 'Önemli şeyler burada birikir: bir dizinin çıkmış bütün bölümlerini işaretleyince durumu kendiliğinden İzlendi yapılır, izlediğin bir diziye yeni bölüm gelince İzleniyor\'a alınır, yeni sezonun tarihi açıklanınca haber verilir. Zilin üstünde okunmamış sayısı yazar.',
+    title: tt('Bildirimler'),
+    where: tt('Üst menüdeki zil'),
+    text: tt('Önemli şeyler burada birikir: bir dizinin çıkmış bütün bölümlerini işaretleyince durumu kendiliğinden İzlendi yapılır, izlediğin bir diziye yeni bölüm gelince İzleniyor\'a alınır, yeni sezonun tarihi açıklanınca haber verilir. Zilin üstünde okunmamış sayısı yazar.'),
     tips: [
-      'Bir bildirime tıklayınca o kaydın detayı açılır.',
-      'Bitmiş bir dizide bir bölümün işaretini kaldırırsan durumu İzleniyor\'a geri alınır.',
-      '"Hepsini okundu say" ile işaretler, "Temizle" ile listeyi boşaltırsın.',
-      'Detay penceresinde dizilerin yanında TMDB\'ye göre durumu yazar: "Dizi bitti", "Yeni sezon bekleniyor" ya da tarih belliyse "4. sezon: 12 Mart".',
+      tt('Bir bildirime tıklayınca o kaydın detayı açılır.'),
+      tt('Bitmiş bir dizide bir bölümün işaretini kaldırırsan durumu İzleniyor\'a geri alınır.'),
+      tt('"Hepsini okundu say" ile işaretler, "Temizle" ile listeyi boşaltırsın.'),
+      tt('Detay penceresinde dizilerin yanında TMDB\'ye göre durumu yazar: "Dizi bitti", "Yeni sezon bekleniyor" ya da tarih belliyse "4. sezon: 12 Mart".'),
     ],
     visual: <BildirimWireframe />,
   },
   {
     group: 'diger',
     icon: <HomeIcon />,
-    title: 'Takvim',
-    where: 'Profil menüsü › Takvim',
+    title: tt('Takvim'),
+    where: tt('Profil menüsü › Takvim'),
     visual: <TakvimWireframe />,
-    text: 'Hangi gün ne izlediğin, ay ay takvimde: posterleriyle, bir günde ne kadar çok şey varsa o gün o kadar uzar. Dizilerde işaretlediğin bölümler de görünür; izlediğin dizilerin çıkacak bölümleri ve izleneceklerinin vizyon tarihleri de kesik çizgiyle ileriki günlerde yer alır.',
+    text: tt('Hangi gün ne izlediğin, ay ay takvimde: posterleriyle, bir günde ne kadar çok şey varsa o gün o kadar uzar. Dizilerde işaretlediğin bölümler de görünür; izlediğin dizilerin çıkacak bölümleri ve izleneceklerinin vizyon tarihleri de kesik çizgiyle ileriki günlerde yer alır.'),
     tips: [
-      'Bir günün numarasına tıklayınca o gün yanda açılır; "Bu gün şunu izledim" ile arşivinden bir şeyi o güne ekleyebilirsin. Dizilerde hangi bölümleri izlediğini de seçersin.',
-      'O günün listesinde her kaydın yanındaki × ile onu o günden kaldırırsın (dizilerde o gün işaretlenen bölümler de kalkar); kaydın kendisi silinmez.',
-      'Yazmadan önce en son izlediğin 4 içerik hazır durur; daha önce izlediklerin (film ya da bölüm) tarihiyle görünür ama yine de başka bir gün için eklenebilir.',
-      'Takvimden açtığın detay penceresinde bölüm işaretleyebilir, tekrar izleme tarihi ekleyebilirsin.',
-      'Yıl görünümünde bütün yıl renkli kutucuklarla görünür; en uzun serin ve şu anki serin de orada.',
-      'Başladığın ve bitirdiğin gün farklıysa (ör. "dün başladım, bugün bitirdim") İzleme Tarihi\'nde "Bitiş tarihi" anahtarını açıp önce başladığın, sonra bitirdiğin güne tıklarsın; takvimde başladığın gün "Başladın", bitirdiğin gün "Bitirdin" görünür.',
-      'Filtre ile sadece istediklerini gösterebilirsin (ör. sadece diziler).',
-      "İstatistikler'deki aylık grafikte bir aya tıklayınca takvim o ayda açılır. Ana sayfadaki \"Geçmiş yıllarda bugün\" satırı da buradan beslenir.",
+      tt('Bir günün numarasına tıklayınca o gün yanda açılır; "Bu gün şunu izledim" ile arşivinden bir şeyi o güne ekleyebilirsin. Dizilerde hangi bölümleri izlediğini de seçersin.'),
+      tt('O günün listesinde her kaydın yanındaki × ile onu o günden kaldırırsın (dizilerde o gün işaretlenen bölümler de kalkar); kaydın kendisi silinmez.'),
+      tt('Yazmadan önce en son izlediğin 4 içerik hazır durur; daha önce izlediklerin (film ya da bölüm) tarihiyle görünür ama yine de başka bir gün için eklenebilir.'),
+      tt('Takvimden açtığın detay penceresinde bölüm işaretleyebilir, tekrar izleme tarihi ekleyebilirsin.'),
+      tt('Yıl görünümünde bütün yıl renkli kutucuklarla görünür; en uzun serin ve şu anki serin de orada.'),
+      tt('Başladığın ve bitirdiğin gün farklıysa (ör. "dün başladım, bugün bitirdim") İzleme Tarihi\'nde "Bitiş tarihi" anahtarını açıp önce başladığın, sonra bitirdiğin güne tıklarsın; takvimde başladığın gün "Başladın", bitirdiğin gün "Bitirdin" görünür.'),
+      tt('Filtre ile sadece istediklerini gösterebilirsin (ör. sadece diziler).'),
+      tt('İstatistikler\'deki aylık grafikte bir aya tıklayınca takvim o ayda açılır. Ana sayfadaki "Geçmiş yıllarda bugün" satırı da buradan beslenir.'),
     ],
   },
   {
     group: 'diger',
     icon: <ProfileIcon />,
-    title: 'Tema, güncellemeler ve Yama Notları',
-    where: 'Profil menüsü',
-    text: "Sağ üstteki profil resmine tıklayınca açılan menüden Ayarlar'a, İstatistikler'e, Takvim'e, bu sayfaya ve Yama Notları'na ulaşırsın; açık ve koyu tema arasında da buradan geçersin.",
+    title: tt('Tema, güncellemeler ve Yama Notları'),
+    where: tt('Profil menüsü'),
+    text: tt('Sağ üstteki profil resmine tıklayınca açılan menüden Ayarlar\'a, İstatistikler\'e, Takvim\'e, bu sayfaya ve Yama Notları\'na ulaşırsın; açık ve koyu tema arasında da buradan geçersin.'),
     tips: [
-      'Yeni bir sürüm çıkınca sağ altta bildirim belirir; "Şimdi Güncelle"ye basman yeterli.',
-      "Her sürümde nelerin değiştiğini çizimleriyle birlikte Yama Notları'nda görebilirsin.",
+      tt('Yeni bir sürüm çıkınca sağ altta bildirim belirir; "Şimdi Güncelle"ye basman yeterli.'),
+      tt('Her sürümde nelerin değiştiğini çizimleriyle birlikte Yama Notları\'nda görebilirsin.'),
     ],
     visual: <MenuWireframe />,
   },
@@ -751,32 +752,32 @@ const TOPICS: Topic[] = [
 
 const FAQ: { q: string; a: string }[] = [
   {
-    q: 'Verilerim nerede saklanıyor?',
-    a: 'Hepsi kendi bilgisayarında, ARGUS klasörünün içinde: kayıtlar ve ayarlar "data", görseller "medya" klasöründe. Hiçbir buluta ya da sunucuya gönderilmez; internete sadece TMDB\'den bilgi çekerken çıkılır.',
+    q: tt('Verilerim nerede saklanıyor?'),
+    a: tt('Hepsi kendi bilgisayarında, ARGUS klasörünün içinde: kayıtlar ve ayarlar "data", görseller "medya" klasöründe. Hiçbir buluta ya da sunucuya gönderilmez; internete sadece TMDB\'den bilgi çekerken çıkılır.'),
   },
   {
-    q: 'TMDB API anahtarını nasıl alırım?',
-    a: "themoviedb.org'da ücretsiz bir hesap aç, hesap ayarlarındaki API bölümünden anahtarını oluştur ve Ayarlar › Veritabanı › API'ye yapıştır. Oradaki adımlar da aynı şeyi anlatıyor.",
+    q: tt('TMDB API anahtarını nasıl alırım?'),
+    a: tt('themoviedb.org\'da ücretsiz bir hesap aç, hesap ayarlarındaki API bölümünden anahtarını oluştur ve Ayarlar › Veritabanı › API\'ye yapıştır. Oradaki adımlar da aynı şeyi anlatıyor.'),
   },
   {
-    q: 'Bir sütunun adını değiştirirsem bir şey bozulur mu?',
-    a: 'Hayır. Sütunların bir görevi vardır (Poster, Durum, Tür…) ve uygulama sütunu adıyla değil göreviyle bulur. Görevini sütun başlığına tıklayınca açılan menüden görebilir ve değiştirebilirsin.',
+    q: tt('Bir sütunun adını değiştirirsem bir şey bozulur mu?'),
+    a: tt('Hayır. Sütunların bir görevi vardır (Poster, Durum, Tür…) ve uygulama sütunu adıyla değil göreviyle bulur. Görevini sütun başlığına tıklayınca açılan menüden görebilir ve değiştirebilirsin.'),
   },
   {
-    q: 'Yanlışlıkla sildiğim bir şeyi geri getirebilir miyim?',
-    a: 'Silme kalıcıdır, geri alınamaz. Bu yüzden her silmede tıkladığın yerin hemen yanında "emin misin?" diye sorulur.',
+    q: tt('Yanlışlıkla sildiğim bir şeyi geri getirebilir miyim?'),
+    a: tt('Silme kalıcıdır, geri alınamaz. Bu yüzden her silmede tıkladığın yerin hemen yanında "emin misin?" diye sorulur.'),
   },
   {
-    q: 'Başka bir yerden (Notion, Excel, bir liste) kayıt aktarabilir miyim?',
-    a: "Evet: listeni CSV olarak kaydet ve Ayarlar › Veritabanı › İçe Aktar ile getir. Başlıklar geldikten sonra tablodaki Genel Güncelleme ile eksik bilgileri TMDB'den doldurabilirsin.",
+    q: tt('Başka bir yerden (Notion, Excel, bir liste) kayıt aktarabilir miyim?'),
+    a: tt('Evet: listeni CSV olarak kaydet ve Ayarlar › Veritabanı › İçe Aktar ile getir. Başlıklar geldikten sonra tablodaki Genel Güncelleme ile eksik bilgileri TMDB\'den doldurabilirsin.'),
   },
   {
-    q: 'Bir sütunu gizledim, verileri kaybolur mu?',
-    a: 'Hayır. Gizlemek sadece görünümü değiştirir; sütun ve içindeki bilgiler yerinde durur, istediğin an yeniden gösterebilirsin.',
+    q: tt('Bir sütunu gizledim, verileri kaybolur mu?'),
+    a: tt('Hayır. Gizlemek sadece görünümü değiştirir; sütun ve içindeki bilgiler yerinde durur, istediğin an yeniden gösterebilirsin.'),
   },
   {
-    q: 'Güncellemeler nasıl geliyor?',
-    a: 'Yeni bir sürüm çıkınca sağ altta bildirim çıkar, "Şimdi Güncelle"ye basman yeterli. Nelerin değiştiğini Yama Notları\'nda görürsün; kurulu sürümün numarası da orada yazar.',
+    q: tt('Güncellemeler nasıl geliyor?'),
+    a: tt('Yeni bir sürüm çıkınca sağ altta bildirim çıkar, "Şimdi Güncelle"ye basman yeterli. Nelerin değiştiğini Yama Notları\'nda görürsün; kurulu sürümün numarası da orada yazar.'),
   },
 ]
 
@@ -851,7 +852,7 @@ export default function YardimMerkezi() {
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
   function handleClose() {
-    notify("Yardım Merkezi'ne istediğin zaman sağ üstteki profil menüsünden ulaşabilirsin.")
+    notify(tt('Yardım Merkezi\'ne istediğin zaman sağ üstteki profil menüsünden ulaşabilirsin.'))
     navigate('/')
   }
 
@@ -874,13 +875,13 @@ export default function YardimMerkezi() {
           style={{ background: BRAND_GRADIENT }}
         />
         <div className="relative flex flex-col items-center text-center">
-          <img src="/logoblue.png" alt="ARGUS" className="h-14 w-14 mb-4 drop-shadow-[0_0_24px_rgba(0,192,250,0.35)]" />
-          {isFirstVisit && <p className="text-xs font-semibold tracking-wide text-[#00c0fa] mb-2">👋 HOŞ GELDİN</p>}
-          <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">ARGUS Nasıl Çalışır?</h1>
+          <img src="/logoblue.png" alt={tt('ARGUS')} className="h-14 w-14 mb-4 drop-shadow-[0_0_24px_rgba(0,192,250,0.35)]" />
+          {isFirstVisit && <p className="text-xs font-semibold tracking-wide text-[#00c0fa] mb-2">{tt('👋 HOŞ GELDİN')}</p>}
+          <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">{tt('ARGUS Nasıl Çalışır?')}</h1>
           <p className="text-neutral-400 text-sm mt-2 max-w-md">
             {isFirstVisit
-              ? 'Başlamadan önce uygulamanın bölümlerine hızlıca bir göz at — istersen aşağı kaydırıp oku, istersen direkt geç.'
-              : 'Merak ettiğin bir şey olursa buradan hatırlayabilirsin — aşağıdan bir konu seç ya da ara.'}
+              ? tt('Başlamadan önce uygulamanın bölümlerine hızlıca bir göz at — istersen aşağı kaydırıp oku, istersen direkt geç.')
+              : tt('Merak ettiğin bir şey olursa buradan hatırlayabilirsin — aşağıdan bir konu seç ya da ara.')}
           </p>
           <div className="relative w-full max-w-md mt-6">
             <svg
@@ -897,7 +898,7 @@ export default function YardimMerkezi() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Bir konu ara… (ör. fragman, TMDB, puan)"
+              placeholder={tt('Bir konu ara… (ör. fragman, TMDB, puan)')}
               className="w-full rounded-xl bg-neutral-950/70 border border-neutral-700 focus:border-[#00c0fa]/60 pl-10 pr-4 py-2.5 text-sm text-neutral-100 outline-none transition"
             />
           </div>
@@ -920,14 +921,14 @@ export default function YardimMerkezi() {
               onClick={() => jump('sss')}
               className="shrink-0 text-xs font-medium rounded-full px-3 py-1.5 border border-[#00c0fa]/40 text-[#00c0fa] bg-[#00c0fa]/10 transition"
             >
-              Sık Sorulanlar
+              {tt('Sık Sorulanlar')}
             </button>
           </div>
         </div>
       )}
 
       {q && topics.length === 0 && faq.length === 0 && (
-        <p className="text-center text-sm text-neutral-500 py-10">"{query}" ile ilgili bir şey bulamadım — başka bir kelimeyle dene.</p>
+        <p className="text-center text-sm text-neutral-500 py-10">{ttx('"{0}" ile ilgili bir şey bulamadım — başka bir kelimeyle dene.', query)}</p>
       )}
 
       <div className="space-y-12">
@@ -950,7 +951,7 @@ export default function YardimMerkezi() {
         {faq.length > 0 && (
           <section id="yardim-sss" className="scroll-mt-32">
             <div className="flex items-baseline gap-3 mb-4">
-              <h2 className="text-2xl font-bold text-neutral-50 tracking-tight">Sık Sorulanlar</h2>
+              <h2 className="text-2xl font-bold text-neutral-50 tracking-tight">{tt('Sık Sorulanlar')}</h2>
             </div>
             <div className="rounded-3xl border border-neutral-800 bg-neutral-900/40 divide-y divide-neutral-800">
               {faq.map((f, i) => {
@@ -978,7 +979,7 @@ export default function YardimMerkezi() {
       {isFirstVisit && (
         <div className="flex justify-center mt-14">
           <button onClick={handleClose} style={primaryButtonStyle} className={`text-sm px-5 py-2.5 rounded-lg ${PRIMARY_BUTTON}`}>
-            Anladım, Kapat
+            {tt('Anladım, Kapat')}
           </button>
         </div>
       )}

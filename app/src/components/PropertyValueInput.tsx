@@ -5,6 +5,7 @@ import OptionBadge from './OptionBadge'
 import DateChipEditor from './DateChipEditor'
 import { api } from '../lib/api'
 import { useToast } from '../hooks/useToast'
+import { tt, ttx } from '../lib/i18n'
 
 const inputClass =
   'w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500 text-sm'
@@ -38,7 +39,7 @@ export default function PropertyValueInput({
         value={(value as string) ?? ''}
         onChange={(e) => onChange(e.target.value)}
         rows={4}
-        placeholder="Bir iki cümlelik kısa bir özet..."
+        placeholder={tt('Bir iki cümlelik kısa bir özet...')}
         className={`${inputClass} resize-none`}
       />
     )
@@ -49,7 +50,7 @@ export default function PropertyValueInput({
       <input
         value={(value as string) ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="https://..."
+        placeholder={tt('https://...')}
         className={inputClass}
       />
     )
@@ -79,7 +80,7 @@ export default function PropertyValueInput({
     return (
       <label className="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
         <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />
-        Evet
+        {tt('Evet')}
       </label>
     )
   }
@@ -115,7 +116,7 @@ export default function PropertyValueInput({
     return (
       <div className="space-y-3">
         {criteria.length === 0 && (
-          <p className="text-xs text-neutral-500">Henüz kriter yok — aşağıdan ekle (ör. Senaryo, Oyunculuk).</p>
+          <p className="text-xs text-neutral-500">{tt('Henüz kriter yok — aşağıdan ekle (ör. Senaryo, Oyunculuk).')}</p>
         )}
         {criteria.map((c) => (
           <div key={c.id}>
@@ -129,7 +130,7 @@ export default function PropertyValueInput({
                   <button
                     type="button"
                     onClick={() => clearScore(c.id)}
-                    title="Bu puanı kaldır"
+                    title={tt('Bu puanı kaldır')}
                     className="text-neutral-500 hover:text-rose-400 text-sm leading-none transition"
                   >
                     ×
@@ -158,7 +159,7 @@ export default function PropertyValueInput({
                 e.preventDefault()
                 addCriterion()
               }}
-              placeholder="Yeni kriter..."
+              placeholder={tt('Yeni kriter...')}
               className={`${inputClass} text-xs py-1.5`}
             />
             <button
@@ -166,21 +167,21 @@ export default function PropertyValueInput({
               onClick={addCriterion}
               className="text-xs bg-neutral-800 border border-neutral-700 rounded-lg px-3 text-neutral-300 hover:text-neutral-50 transition shrink-0"
             >
-              Ekle
+              {tt('Ekle')}
             </button>
           </div>
         )}
         {avg !== null && (
           <div className="flex items-center justify-between gap-2 pt-2 border-t border-neutral-800">
             <p className="text-xs text-neutral-400">
-              Ortalama: <span className="font-semibold text-neutral-50">{avg.toFixed(1)}</span> / 10
+              {tt('Ortalama:')}{' '}<span className="font-semibold text-neutral-50">{avg.toFixed(1)}</span> / 10
             </p>
             <button
               type="button"
               onClick={() => onChange({})}
               className="text-xs text-neutral-500 hover:text-rose-400 transition"
             >
-              Puanı kaldır
+              {tt('Puanı kaldır')}
             </button>
           </div>
         )}
@@ -245,7 +246,7 @@ export default function PropertyValueInput({
             if (matches[0] && query) pick(matches[0].id)
             else handleCreate()
           }}
-          placeholder="Ara ya da yeni seçenek yaz..."
+          placeholder={tt('Ara ya da yeni seçenek yaz...')}
           className={`${inputClass} text-sm`}
         />
         {(matches.length > 0 || (query && !exactMatch && onAddOption)) && (
@@ -266,7 +267,7 @@ export default function PropertyValueInput({
                 onClick={handleCreate}
                 className="text-xs bg-neutral-800 border border-dashed border-neutral-600 rounded-full px-2.5 py-1 text-neutral-300 hover:text-neutral-50 transition"
               >
-                + "{newOption.trim()}" ekle
+                {ttx('+ "{0}" ekle', newOption.trim())}
               </button>
             )}
           </div>
@@ -297,7 +298,7 @@ function ImageValueInput({ value, onChange }: { value: string; onChange: (v: str
       const { filename } = await api.uploadMedya(file)
       onChange(`/medya/${filename}`)
     } catch (err) {
-      notify(err instanceof Error ? err.message : 'Dosya yüklenemedi', 'danger')
+      notify(err instanceof Error ? err.message : tt('Dosya yüklenemedi'), 'danger')
     } finally {
       setBusy(false)
     }
@@ -311,12 +312,12 @@ function ImageValueInput({ value, onChange }: { value: string; onChange: (v: str
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Görsel/video URL'si ya da medya/ içindeki dosya adı..."
+        placeholder={tt('Görsel/video URL\'si ya da medya/ içindeki dosya adı...')}
         className={inputClass}
       />
       <div className="flex items-center gap-3">
         <label className="inline-block text-xs text-neutral-400 hover:text-neutral-200 cursor-pointer">
-          {busy ? 'Yükleniyor...' : 'bilgisayardan seç (medya/ klasörüne kaydedilir)'}
+          {busy ? tt('Yükleniyor...') : tt('bilgisayardan seç (medya/ klasörüne kaydedilir)')}
           <input
             type="file"
             accept="image/*,video/*"
@@ -332,12 +333,12 @@ function ImageValueInput({ value, onChange }: { value: string; onChange: (v: str
           onClick={() => setShowPicker((v) => !v)}
           className="text-xs text-neutral-400 hover:text-neutral-200"
         >
-          medya/ klasöründen seç
+          {tt('medya/ klasöründen seç')}
         </button>
       </div>
       {showPicker && (
         <div className="max-h-40 overflow-y-auto border border-neutral-700 rounded-lg divide-y divide-neutral-800">
-          {files.length === 0 && <p className="text-xs text-neutral-500 px-2 py-2">medya/ klasörü boş.</p>}
+          {files.length === 0 && <p className="text-xs text-neutral-500 px-2 py-2">{tt('medya/ klasörü boş.')}</p>}
           {files.map((f) => (
             <button
               key={f}

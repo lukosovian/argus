@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from './Select'
+import { tt, ttx } from '../lib/i18n'
 
 export interface FillField {
   key: string
@@ -49,27 +50,24 @@ export default function TmdbFillAdviceModal({
     <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={() => onDone(null)}>
       <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-lg font-semibold text-neutral-50">TMDB'den doldurmadan önce</h2>
+          <h2 className="text-lg font-semibold text-neutral-50">{tt('TMDB\'den doldurmadan önce')}</h2>
           <p className="text-sm text-neutral-400 mt-1.5">
-            {overwrite ? `${count} kaydın tamamı` : `Eksik görünen ${count} kayıt`} TMDB'den doldurulacak. Kayıt sayısına göre biraz
-            sürebilir, istediğin an "Durdur"a basabilirsin.
+            {ttx('{0} TMDB\'den doldurulacak. Kayıt sayısına göre biraz sürebilir, istediğin an "Durdur"a basabilirsin.', overwrite ? tt('{0} kaydın tamamı', count) : tt('Eksik görünen {0} kayıt', count))}
           </p>
           {overwrite && (
-            <p className="text-sm text-amber-400 mt-1.5">"Dolu alanları da güncelle" açık — dolu alanların üzerine de TMDB'nin verisi yazılacak.</p>
+            <p className="text-sm text-amber-400 mt-1.5">{tt('"Dolu alanları da güncelle" açık — dolu alanların üzerine de TMDB\'nin verisi yazılacak.')}</p>
           )}
         </div>
 
         <div className="rounded-xl border border-[#00c0fa]/25 bg-[#00c0fa]/5 p-3.5 text-sm text-neutral-300 leading-relaxed">
-          💡 <span className="font-medium text-neutral-100">Önerimiz: hepsi gelsin.</span> Vitrin, detay penceresi, Ne İzlesem,
-          İstatistikler ve Sağlık Kontrolü bu bilgilerle çalışıyor — alanların hepsi dolu olunca ARGUS hem daha iyi çalışır hem
-          çok daha güzel görünür (büyük görseller, logolar, fragmanlar, oyuncu fotoğrafları...).
+          💡 <span className="font-medium text-neutral-100">{tt('Önerimiz: hepsi gelsin.')}</span>{' '}{tt('Vitrin, detay penceresi, Ne İzlesem, İstatistikler ve Sağlık Kontrolü bu bilgilerle çalışıyor — alanların hepsi dolu olunca ARGUS hem daha iyi çalışır hem çok daha güzel görünür (büyük görseller, logolar, fragmanlar, oyuncu fotoğrafları...).')}
         </div>
 
         {missing.length > 0 && (
           <div>
             <FieldGroup
-              title="Bu alanların sütununu bulamadım — onlar da gelsin mi?"
-              hint="İşaretli kalanlar doldurulur. Tablonda aynı bilgi başka adla duruyorsa aşağıdan o sütunu seç; seçmezsen yeni sütun açılır."
+              title={tt('Bu alanların sütununu bulamadım — onlar da gelsin mi?')}
+              hint={tt('İşaretli kalanlar doldurulur. Tablonda aynı bilgi başka adla duruyorsa aşağıdan o sütunu seç; seçmezsen yeni sütun açılır.')}
               fields={missing}
               wanted={wanted}
               onToggle={toggle}
@@ -86,8 +84,8 @@ export default function TmdbFillAdviceModal({
                         value={columns[f.key] ?? ''}
                         onChange={(v) => setColumns((c) => ({ ...c, [f.key]: v }))}
                         options={[
-                          { value: '', label: '+ Yeni sütun açılsın' },
-                          ...f.candidates!.map((c) => ({ value: c.id, label: `"${c.name}" sütununa yaz` })),
+                          { value: '', label: tt('+ Yeni sütun açılsın') },
+                          ...f.candidates!.map((c) => ({ value: c.id, label: tt('"{0}" sütununa yaz', c.name) })),
                         ]}
                         className="flex-1 min-w-0"
                       />
@@ -99,8 +97,8 @@ export default function TmdbFillAdviceModal({
         )}
         {closed.length > 0 && (
           <FieldGroup
-            title="Bunları kapatmışsın — açılsın mı?"
-            hint="Dişli menüsünden (API'den hangi alanlar çekilsin) kapattığın alanlar."
+            title={tt('Bunları kapatmışsın — açılsın mı?')}
+            hint={tt('Dişli menüsünden (API\'den hangi alanlar çekilsin) kapattığın alanlar.')}
             fields={closed}
             wanted={wanted}
             onToggle={toggle}
@@ -109,12 +107,12 @@ export default function TmdbFillAdviceModal({
 
         <label className="flex items-center gap-2 text-xs text-neutral-500 cursor-pointer">
           <input type="checkbox" checked={mute} onChange={(e) => setMute(e.target.checked)} />
-          Bu arşivde bir daha sorma
+          {tt('Bu arşivde bir daha sorma')}
         </label>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button onClick={() => onDone(null)} className="text-sm text-neutral-400 hover:text-neutral-100 px-3 py-2 transition">
-            Vazgeç
+            {tt('Vazgeç')}
           </button>
           <button
             onClick={() =>
@@ -123,7 +121,7 @@ export default function TmdbFillAdviceModal({
             style={primaryButtonStyle}
             className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}
           >
-            {skip.length === 0 ? 'Hepsiyle doldur' : `Doldur (${skip.length} alan hariç)`}
+            {skip.length === 0 ? tt('Hepsiyle doldur') : tt('Doldur ({0} alan hariç)', skip.length)}
           </button>
         </div>
       </div>

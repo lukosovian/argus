@@ -6,6 +6,7 @@ import ToggleSwitch from './ToggleSwitch'
 import { api } from '../lib/api'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { tt } from '../lib/i18n'
 
 // "+ Mod Ekle" düğmesinin ikonu — yuvarlak bir gülen yüz, sağ kenarında (çemberin tam
 // üzerinde, dikey ortalanmış) dolu bir "+" rozeti. Kullanıcı önce "artının dik çizgisi
@@ -49,7 +50,7 @@ function MoodImageInput({ value, onChange }: { value: string; onChange: (v: stri
       const { filename } = await api.uploadMedya(file)
       onChange(`/medya/${filename}`)
     } catch (err) {
-      notify(err instanceof Error ? err.message : 'Görsel yüklenemedi', 'danger')
+      notify(err instanceof Error ? err.message : tt('Görsel yüklenemedi'), 'danger')
     } finally {
       setBusy(false)
     }
@@ -61,11 +62,11 @@ function MoodImageInput({ value, onChange }: { value: string; onChange: (v: stri
         <img src={value} alt="" className="h-16 w-16 object-contain rounded-md bg-neutral-900 border border-neutral-700" />
       ) : (
         <div className="h-16 w-16 rounded-md border border-dashed border-neutral-700 flex items-center justify-center text-[10px] text-neutral-600 text-center px-1">
-          Görsel yok
+          {tt('Görsel yok')}
         </div>
       )}
       <label className="text-xs text-sky-400 hover:underline cursor-pointer">
-        {busy ? 'Yükleniyor...' : value ? 'Değiştir' : 'PNG yükle'}
+        {busy ? tt('Yükleniyor...') : value ? tt('Değiştir') : tt('PNG yükle')}
         <input
           type="file"
           accept="image/png"
@@ -178,35 +179,34 @@ export default function MoodRowEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-neutral-300">İzlenecek listemden, ruh halime göre bir satır göster</span>
+        <span className="text-sm text-neutral-300">{tt('İzlenecek listemden, ruh halime göre bir satır göster')}</span>
         <ToggleSwitch
           checked={settings.enabled}
           onChange={(v) => onChange({ ...settings, enabled: v })}
-          label="Mod satırını göster"
+          label={tt('Mod satırını göster')}
         />
       </div>
 
-      {settings.enabled && !board && <p className="text-xs text-neutral-600 pl-1">Önce yukarıdan bir arşiv seç.</p>}
+      {settings.enabled && !board && <p className="text-xs text-neutral-600 pl-1">{tt('Önce yukarıdan bir arşiv seç.')}</p>}
 
       {settings.enabled && board && (
         <div className="pl-1 space-y-3">
           <div>
-            <label className="block text-xs text-neutral-400 mb-1">Satırın başlığı</label>
+            <label className="block text-xs text-neutral-400 mb-1">{tt('Satırın başlığı')}</label>
             <input
               value={settings.title}
               onChange={(e) => onChange({ ...settings, title: e.target.value })}
-              placeholder="ör. Bunları da İzle"
+              placeholder={tt('ör. Bunları da İzle')}
               className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
             />
           </div>
 
           {/* Satırın ana sayfadaki yeri artık tek listeden: Görünüm › Satırların sırası (bkz. lib/homeRows.ts) */}
-          <p className="text-xs text-neutral-500">Ana sayfada kaçıncı satır olacağını Görünüm sekmesindeki "Satırların sırası"ndan değiştirebilirsin.</p>
+          <p className="text-xs text-neutral-500">{tt('Ana sayfada kaçıncı satır olacağını Görünüm sekmesindeki "Satırların sırası"ndan değiştirebilirsin.')}</p>
 
           <div className="flex items-start justify-between gap-3 mb-2">
             <label className="block text-xs text-neutral-400">
-              Modlar (hepsi TEK bir satırda yan yana görünür — her modun görseli, o moda uyan bir içeriğin dikey
-              kartıyla yan yana durur; içerik 24 saatte bir değişir)
+              {tt('Modlar (hepsi TEK bir satırda yan yana görünür — her modun görseli, o moda uyan bir içeriğin dikey kartıyla yan yana durur; içerik 24 saatte bir değişir)')}
             </label>
             {!formOpen && (
               <button
@@ -214,7 +214,7 @@ export default function MoodRowEditor({
                 className="inline-flex items-center gap-1.5 text-sm text-sky-400 hover:text-sky-300 border border-sky-500/30 hover:border-sky-400/60 rounded-lg pl-1.5 pr-3 py-1 shrink-0 transition"
               >
                 <AddMoodIcon />
-                Mod Ekle
+                {tt('Mod Ekle')}
               </button>
             )}
           </div>
@@ -230,7 +230,7 @@ export default function MoodRowEditor({
                     enabled ? '' : 'opacity-50'
                   }`}
                 >
-                  <ToggleSwitch checked={enabled} onChange={() => toggleMoodEnabled(m.id)} label={`${m.name} modunu göster`} />
+                  <ToggleSwitch checked={enabled} onChange={() => toggleMoodEnabled(m.id)} label={tt('{0} modunu göster', m.name)} />
                   {m.image ? (
                     <img src={m.image} alt="" className="h-8 w-8 object-contain shrink-0" />
                   ) : (
@@ -243,13 +243,13 @@ export default function MoodRowEditor({
                         sadece henüz uygun bir filtresi yok. Kullanıcı "sen hepsini getir uygun
                         filtre olmadığı için görünmez falan de" dedi. */}
                     {!hasActiveFilter(m) && (
-                      <span className="block text-[10px] text-amber-500/80 truncate">uygun tür bulunamadı, düzenle</span>
+                      <span className="block text-[10px] text-amber-500/80 truncate">{tt('uygun tür bulunamadı, düzenle')}</span>
                     )}
                   </button>
                   <button
                     onClick={() => startEdit(m)}
                     className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 transition"
-                    title="Düzenle"
+                    title={tt('Düzenle')}
                   >
                     ✎
                   </button>
@@ -257,7 +257,7 @@ export default function MoodRowEditor({
                     onClick={() => moveMood(m.id, -1)}
                     disabled={i === 0}
                     className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent transition"
-                    title="Yukarı taşı"
+                    title={tt('Yukarı taşı')}
                   >
                     ↑
                   </button>
@@ -265,14 +265,14 @@ export default function MoodRowEditor({
                     onClick={() => moveMood(m.id, 1)}
                     disabled={i === settings.moods.length - 1}
                     className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent transition"
-                    title="Aşağı taşı"
+                    title={tt('Aşağı taşı')}
                   >
                     ↓
                   </button>
                   <button
                     onClick={() => removeMood(m.id)}
                     className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-rose-400 hover:bg-neutral-700 transition"
-                    title="Sil"
+                    title={tt('Sil')}
                   >
                     ×
                   </button>
@@ -289,7 +289,7 @@ export default function MoodRowEditor({
               {!editingMoodId && availableBuiltins.length > 0 && (
                 <div>
                   <label className="block text-[11px] text-neutral-400 mb-1.5">
-                    Hazır modlarımızdan ekle (tıklayınca doğrudan eklenir)
+                    {tt('Hazır modlarımızdan ekle (tıklayınca doğrudan eklenir)')}
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {availableBuiltins.map((tpl) => (
@@ -303,21 +303,21 @@ export default function MoodRowEditor({
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] text-neutral-600 mt-1.5">ya da aşağıdan sıfırdan kendi modunu oluştur</p>
+                  <p className="text-[11px] text-neutral-600 mt-1.5">{tt('ya da aşağıdan sıfırdan kendi modunu oluştur')}</p>
                 </div>
               )}
               <div>
-                <label className="block text-[11px] text-neutral-400 mb-1">Modun adı</label>
+                <label className="block text-[11px] text-neutral-400 mb-1">{tt('Modun adı')}</label>
                 <input
                   autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ör. Enerjik"
+                  placeholder={tt('ör. Enerjik')}
                   className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-neutral-400 mb-1">Modun görseli (PNG)</label>
+                <label className="block text-[11px] text-neutral-400 mb-1">{tt('Modun görseli (PNG)')}</label>
                 <MoodImageInput value={image} onChange={setImage} />
                 {/* Kendi görsel yüklemek istemeyen (ör. bizim ikonlardan birini kendi modunda
                     da kullanmak isteyen — "adam belki aynı görseli kendi modunda da kullanmak
@@ -328,7 +328,7 @@ export default function MoodRowEditor({
                       key={tpl.name}
                       type="button"
                       onClick={() => setImage(tpl.image)}
-                      title={`${tpl.name} görselini kullan`}
+                      title={tt('{0} görselini kullan', tpl.name)}
                       className={`h-8 w-8 rounded-md p-0.5 border transition ${
                         image === tpl.image ? 'border-sky-400' : 'border-transparent hover:border-neutral-600'
                       }`}
@@ -339,7 +339,7 @@ export default function MoodRowEditor({
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] text-neutral-400 mb-1">Neye göre filtrelensin</label>
+                <label className="block text-[11px] text-neutral-400 mb-1">{tt('Neye göre filtrelensin')}</label>
                 <MultiFilterEditor board={board} conditions={conditions} onChange={setConditions} />
               </div>
               <div className="flex gap-2">
@@ -349,10 +349,10 @@ export default function MoodRowEditor({
                   style={primaryButtonStyle}
                   className={`text-xs rounded-md px-3 py-1.5 ${PRIMARY_BUTTON}`}
                 >
-                  {editingMoodId ? 'Kaydet' : 'Ekle'}
+                  {editingMoodId ? tt('Kaydet') : tt('Ekle')}
                 </button>
                 <button onClick={resetForm} className="text-xs text-neutral-400 hover:text-neutral-200 px-3 py-1.5">
-                  Vazgeç
+                  {tt('Vazgeç')}
                 </button>
               </div>
             </div>

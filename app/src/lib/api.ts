@@ -2,6 +2,7 @@ import type { Board, CastMap, EpisodesMap, HomeSettings, Profile, Row, Template,
 import type { HistoryDay, HistoryEntry } from './history'
 import { pingNotifications, type AppNotification, type ShowInfo } from './notifications'
 import { notifyDataChanged } from './dataEvents'
+import { tt } from './i18n'
 
 // İçerikte çalan bir şarkı — Nook'un Hum'u izlerken bulup yazıyor (bkz. server/index.js songs uç noktaları).
 // season/episode: dizide hangi bölüm (filmde null); atMs: içeriğin kaçıncı ms'sinde (bilinmiyorsa null).
@@ -148,7 +149,7 @@ export interface NewEpisodeItem {
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)
   if (!res.ok) {
-    let message = `Sunucu isteği başarısız oldu (${res.status}). Yerel sunucu çalışıyor mu?`
+    let message = tt('Sunucu isteği başarısız oldu ({0}). Yerel sunucu çalışıyor mu?', res.status)
     try {
       const body = (await res.json()) as { error?: string }
       if (body?.error) message = body.error
@@ -186,7 +187,7 @@ export function setApiProfileId(id: string | null) {
 }
 
 function profilePath(suffix: string): string {
-  if (!activeProfileId) throw new Error('Aktif bir profil seçilmeden bu işlem yapılamaz.')
+  if (!activeProfileId) throw new Error(tt('Aktif bir profil seçilmeden bu işlem yapılamaz.'))
   return `/api/profiles/${activeProfileId}${suffix}`
 }
 
@@ -366,7 +367,7 @@ export const api = {
     const form = new FormData()
     form.append('file', file)
     const res = await fetch('/api/medya/upload', { method: 'POST', body: form })
-    if (!res.ok) throw new Error(`Dosya yüklenemedi (${res.status})`)
+    if (!res.ok) throw new Error(tt('Dosya yüklenemedi ({0})', res.status))
     return res.json()
   },
 }

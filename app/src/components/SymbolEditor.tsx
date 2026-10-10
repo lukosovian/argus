@@ -6,15 +6,16 @@ import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from './Select'
 import { useEscape } from '../hooks/useEscape'
+import { tt } from '../lib/i18n'
 
 // Koleksiyon'da bir yapımın ya da rafın sembolünü değiştirme penceresi. Sembol: bilgisayardan dosya
 // (sürükle-bırak da olur), panodan yapıştırma (Ctrl+V), internetteki bir görselin adresi ya da
 // ARGUS'la gelen hazır sembollerden biri. Düz arka planlı görsellerde "Arka planı temizle" önerilir.
 export const STARTER_SYMBOLS: { src: string; label: string }[] = [
-  { src: '/semboller/delta.svg', label: 'Starfleet deltası' },
-  { src: '/semboller/olum-yadigarlari.svg', label: 'Ölüm Yadigarları' },
-  { src: '/semboller/tek-yuzuk.svg', label: 'Tek Yüzük' },
-  { src: '/semboller/tron.svg', label: 'TRON diski' },
+  { src: '/semboller/delta.svg', label: tt('Starfleet deltası') },
+  { src: '/semboller/olum-yadigarlari.svg', label: tt('Ölüm Yadigarları') },
+  { src: '/semboller/tek-yuzuk.svg', label: tt('Tek Yüzük') },
+  { src: '/semboller/tron.svg', label: tt('TRON diski') },
 ]
 
 type Source = { kind: 'file'; file: File; preview: string } | { kind: 'path'; path: string }
@@ -112,7 +113,7 @@ export default function SymbolEditor({
 
   function pickFile(file: File) {
     if (!file.type.startsWith('image/')) {
-      notify('Bu bir görsel dosyası değil.', 'danger')
+      notify(tt('Bu bir görsel dosyası değil.'), 'danger')
       return
     }
     setRemoved(false)
@@ -127,7 +128,7 @@ export default function SymbolEditor({
       setRemoved(false)
       setSource({ kind: 'path', path: `/medya/${filename}` })
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Görsel getirilemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Görsel getirilemedi.'), 'danger')
     } finally {
       setBusy(null)
     }
@@ -155,7 +156,7 @@ export default function SymbolEditor({
       })
       onClose()
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Kaydedilemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
     } finally {
       setBusy(null)
     }
@@ -164,7 +165,7 @@ export default function SymbolEditor({
   return createPortal(
     <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-8 px-4" onClick={onClose}>
       <div className="relative w-full max-w-2xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} aria-label="Kapat" className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
+        <button onClick={onClose} aria-label={tt('Kapat')} className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
           ×
         </button>
         <h2 className="text-xl font-bold text-neutral-50 pr-10">{heading}</h2>
@@ -180,16 +181,16 @@ export default function SymbolEditor({
               {shown ? (
                 <img src={shown} alt="" className={`max-h-full max-w-full object-contain ${previewSrc ? 'drop-shadow-[0_0_18px_rgba(255,255,255,0.18)]' : 'opacity-60'}`} />
               ) : (
-                <span className="text-sm text-neutral-600">Sembol yok</span>
+                <span className="text-sm text-neutral-600">{tt('Sembol yok')}</span>
               )}
             </div>
-            <p className="text-[11px] text-neutral-500 mt-2 text-center">{previewSrc ? (source ? 'Yeni sembol (kaydedince yerleşir)' : 'Şu anki sembol') : 'Sembol yok — logosu görünüyor'}</p>
+            <p className="text-[11px] text-neutral-500 mt-2 text-center">{previewSrc ? (source ? tt('Yeni sembol (kaydedince yerleşir)') : tt('Şu anki sembol')) : tt('Sembol yok — logosu görünüyor')}</p>
             {flat && source && (
               <label className="mt-2 flex items-start gap-2 text-xs text-neutral-300 cursor-pointer select-none">
                 <input type="checkbox" checked={cleanBg} onChange={(e) => setCleanBg(e.target.checked)} className="mt-0.5 accent-[#00c0fa]" />
                 <span>
-                  Arka planı temizle
-                  <span className="block text-neutral-500">Görselin düz bir arka planı var; kaydederken silinir.</span>
+                  {tt('Arka planı temizle')}
+                  <span className="block text-neutral-500">{tt('Görselin düz bir arka planı var; kaydederken silinir.')}</span>
                 </span>
               </label>
             )}
@@ -201,7 +202,7 @@ export default function SymbolEditor({
                 }}
                 className="mt-2 w-full text-xs text-red-400 hover:text-red-300"
               >
-                Sembolü kaldır
+                {tt('Sembolü kaldır')}
               </button>
             )}
           </div>
@@ -229,8 +230,8 @@ export default function SymbolEditor({
               onClick={() => fileRef.current?.click()}
               className={`rounded-xl border-2 border-dashed px-4 py-5 text-center cursor-pointer transition ${dragOver ? 'border-[#00c0fa] bg-[#00c0fa]/10' : 'border-neutral-700 hover:border-neutral-500'}`}
             >
-              <p className="text-sm text-neutral-200">Görseli buraya sürükle ya da tıklayıp seç</p>
-              <p className="text-xs text-neutral-500 mt-1">Kopyaladığın bir görseli Ctrl+V ile de yapıştırabilirsin</p>
+              <p className="text-sm text-neutral-200">{tt('Görseli buraya sürükle ya da tıklayıp seç')}</p>
+              <p className="text-xs text-neutral-500 mt-1">{tt('Kopyaladığın bir görseli Ctrl+V ile de yapıştırabilirsin')}</p>
               <input
                 ref={fileRef}
                 type="file"
@@ -245,24 +246,24 @@ export default function SymbolEditor({
             </div>
 
             <div>
-              <p className="text-xs text-neutral-400 mb-1.5">ya da internetteki görselin adresi</p>
+              <p className="text-xs text-neutral-400 mb-1.5">{tt('ya da internetteki görselin adresi')}</p>
               <div className="flex gap-2">
                 <input
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchUrl()}
-                  placeholder="https://.../sembol.png"
+                  placeholder={tt('https://.../sembol.png')}
                   className="flex-1 min-w-0 rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
                 />
                 <button onClick={() => fetchUrl()} disabled={!url.trim() || busy === 'url'} className="text-sm rounded-lg px-3 border border-neutral-700 text-neutral-200 hover:border-[#00c0fa] disabled:opacity-40">
-                  {busy === 'url' ? 'Getiriliyor…' : 'Getir'}
+                  {busy === 'url' ? tt('Getiriliyor…') : tt('Getir')}
                 </button>
               </div>
-              <p className="text-[11px] text-neutral-600 mt-1">Görsele sağ tıklayıp "Resim adresini kopyala" dediğin adres.</p>
+              <p className="text-[11px] text-neutral-600 mt-1">{tt('Görsele sağ tıklayıp "Resim adresini kopyala" dediğin adres.')}</p>
             </div>
 
             <div>
-              <p className="text-xs text-neutral-400 mb-1.5">ya da hazır sembollerden</p>
+              <p className="text-xs text-neutral-400 mb-1.5">{tt('ya da hazır sembollerden')}</p>
               <div className="flex flex-wrap gap-2">
                 {STARTER_SYMBOLS.map((s) => (
                   <button
@@ -282,7 +283,7 @@ export default function SymbolEditor({
 
             {name && (
               <div>
-                <p className="text-xs text-neutral-400 mb-1.5">Raf adı</p>
+                <p className="text-xs text-neutral-400 mb-1.5">{tt('Raf adı')}</p>
                 <input
                   value={nameValue}
                   onChange={(e) => setNameValue(e.target.value)}
@@ -294,14 +295,14 @@ export default function SymbolEditor({
 
             {shelf && (
               <div>
-                <p className="text-xs text-neutral-400 mb-1.5">Hangi rafta?</p>
-                <Select value={shelfValue} onChange={setShelfValue} options={[...shelf.options, { value: '__yeni', label: '+ Yeni raf…' }]} />
+                <p className="text-xs text-neutral-400 mb-1.5">{tt('Hangi rafta?')}</p>
+                <Select value={shelfValue} onChange={setShelfValue} options={[...shelf.options, { value: '__yeni', label: tt('+ Yeni raf…') }]} />
                 {shelfValue === '__yeni' && (
                   <input
                     autoFocus
                     value={newShelf}
                     onChange={(e) => setNewShelf(e.target.value)}
-                    placeholder="Yeni rafın adı (ör. Marvel)"
+                    placeholder={tt('Yeni rafın adı (ör. Marvel)')}
                     className="mt-2 w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
                   />
                 )}
@@ -313,7 +314,7 @@ export default function SymbolEditor({
         <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
           {onOpenDetail ? (
             <button onClick={onOpenDetail} className="text-sm text-[#00c0fa] hover:underline">
-              Detayını aç
+              {tt('Detayını aç')}
             </button>
           ) : onDelete ? (
             <button
@@ -323,7 +324,7 @@ export default function SymbolEditor({
                   await onDelete.run()
                   onClose()
                 } catch (e) {
-                  notify(e instanceof Error ? e.message : 'Kaldırılamadı.', 'danger')
+                  notify(e instanceof Error ? e.message : tt('Kaldırılamadı.'), 'danger')
                 } finally {
                   setBusy(null)
                 }
@@ -338,7 +339,7 @@ export default function SymbolEditor({
           )}
           <div className="flex gap-2">
             <button onClick={onClose} className="text-sm rounded-lg px-4 py-2 text-neutral-300 hover:bg-neutral-800">
-              Vazgeç
+              {tt('Vazgeç')}
             </button>
             <button
               onClick={save}
@@ -346,7 +347,7 @@ export default function SymbolEditor({
               style={primaryButtonStyle}
               className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}
             >
-              {busy === 'save' ? 'Kaydediliyor…' : 'Kaydet'}
+              {busy === 'save' ? tt('Kaydediliyor…') : tt('Kaydet')}
             </button>
           </div>
         </div>

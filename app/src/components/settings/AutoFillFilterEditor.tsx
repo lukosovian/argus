@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AutoFillSettings, Board } from '../../types'
 import { AUTO_FILL_MAX_OPTIONS } from '../../types'
 import OptionBadge from '../OptionBadge'
+import { tt, ttx } from '../../lib/i18n'
 
 // "En altta otomatik satırlar" için gelsin / gelmesin filtresi. Kullanıcı "şunlar gelsin şunlar
 // gelmesin, ikisinden de birden fazla seçebileyim" dedi: bir değere her tıklayışta
@@ -52,13 +53,13 @@ export default function AutoFillFilterEditor({
   return (
     <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-neutral-300">Hangi satırlar gelsin, hangileri gelmesin</p>
+        <p className="text-xs font-medium text-neutral-300">{tt('Hangi satırlar gelsin, hangileri gelmesin')}</p>
         {hasAny && (
           <button
             onClick={() => onChange({ ...value, include: [], exclude: [], excludeProps: [] })}
             className="text-[11px] text-neutral-500 hover:text-neutral-200 transition"
           >
-            Filtreyi temizle
+            {tt('Filtreyi temizle')}
           </button>
         )}
       </div>
@@ -68,7 +69,7 @@ export default function AutoFillFilterEditor({
         <div className="space-y-2">
           {includedOpts.length > 0 && (
             <SummaryRow
-              title="✓ Sadece bunlar gelsin"
+              title={tt('✓ Sadece bunlar gelsin')}
               tone="text-emerald-400"
               items={includedOpts}
               onRemove={(id) => onChange({ ...value, include: include.filter((x) => x !== id) })}
@@ -76,7 +77,7 @@ export default function AutoFillFilterEditor({
           )}
           {excludedOpts.length > 0 && (
             <SummaryRow
-              title="✕ Bunlar gelmesin"
+              title={tt('✕ Bunlar gelmesin')}
               tone="text-red-400"
               items={excludedOpts}
               onRemove={(id) => onChange({ ...value, exclude: exclude.filter((x) => x !== id) })}
@@ -100,7 +101,7 @@ export default function AutoFillFilterEditor({
                 >
                   <span className={`text-[10px] text-neutral-500 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
                   <span className="truncate">{p.name}</span>
-                  {picked > 0 && !off && <span className="text-[11px] text-neutral-500">{picked} seçili</span>}
+                  {picked > 0 && !off && <span className="text-[11px] text-neutral-500">{ttx('{0} seçili', picked)}</span>}
                 </button>
                 <button
                   onClick={() => toggleProp(p.id)}
@@ -109,14 +110,14 @@ export default function AutoFillFilterEditor({
                       ? 'border-red-500/40 text-red-300 bg-red-500/10 hover:bg-red-500/20'
                       : 'border-neutral-700 text-neutral-400 hover:text-neutral-100 hover:border-neutral-500'
                   }`}
-                  title={off ? 'Bu sütundan yine satır gelebilsin' : 'Bu sütundan hiç satır gelmesin'}
+                  title={off ? tt('Bu sütundan yine satır gelebilsin') : tt('Bu sütundan hiç satır gelmesin')}
                 >
-                  {off ? 'Hiç gelmiyor · aç' : 'Hiç gelmesin'}
+                  {off ? tt('Hiç gelmiyor · aç') : tt('Hiç gelmesin')}
                 </button>
               </div>
               {open && (
                 <div className="mt-2.5 pl-5">
-                  <p className="text-[11px] text-neutral-500 mb-2">Tıkla: ✓ gelsin → tekrar tıkla: ✕ gelmesin → tekrar tıkla: seçimi kaldır</p>
+                  <p className="text-[11px] text-neutral-500 mb-2">{tt('Tıkla: ✓ gelsin → tekrar tıkla: ✕ gelmesin → tekrar tıkla: seçimi kaldır')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {(p.options ?? []).map((o) => {
                       const state = include.includes(o.id) ? 'in' : exclude.includes(o.id) ? 'out' : 'none'
@@ -153,7 +154,7 @@ export default function AutoFillFilterEditor({
         })}
       </div>
       <p className="text-[11px] text-neutral-600">
-        Hiçbir şey seçmezsen bütün değerlerden rastgele gelir. "Gelsin" seçtiklerin varsa satırlar yalnızca onlardan seçilir.
+        {tt('Hiçbir şey seçmezsen bütün değerlerden rastgele gelir. "Gelsin" seçtiklerin varsa satırlar yalnızca onlardan seçilir.')}
       </p>
     </div>
   )
@@ -175,7 +176,7 @@ function SummaryRow({
       <p className={`text-[11px] font-medium mb-1 ${tone}`}>{title}</p>
       <div className="flex flex-wrap gap-1.5">
         {items.map((o) => (
-          <button key={o.id} onClick={() => onRemove(o.id)} title={`${o.propName} · kaldırmak için tıkla`} className="group inline-flex items-center gap-0.5">
+          <button key={o.id} onClick={() => onRemove(o.id)} title={tt('{0} · kaldırmak için tıkla', o.propName)} className="group inline-flex items-center gap-0.5">
             <OptionBadge label={o.label} colorIndex={o.colorIndex} image={o.image} dim={false} />
             <span className="text-neutral-600 group-hover:text-neutral-200 text-xs transition">×</span>
           </button>

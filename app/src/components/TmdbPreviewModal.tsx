@@ -9,6 +9,7 @@ import { WatchProviderList } from './TmdbExtras'
 import { WatchedForm } from './DiscoverModal'
 import ShowcaseBanner from './ShowcaseBanner'
 import { parseYouTubeUrl } from '../lib/youtube'
+import { tt } from '../lib/i18n'
 
 // Ne İzlesem'in TMDB modunda kazanan içerik arşivde olmadığı için normal detay penceresi
 // açılamıyor — bunun yerine bu önizleme: görsel, özet, türler, Türkiye'de nerede izlenir ve
@@ -56,10 +57,10 @@ export default function TmdbPreviewModal({
       notifyDataChanged(boardId)
       setWatchedForm(false)
       onAdded?.()
-      setDone(status === 'izlendi' ? 'İzlediklerine eklendi' : 'İzlenecekler listene eklendi')
-      notify(status === 'izlendi' ? `"${res.title}" izlediklerine eklendi.` : `"${res.title}" izlenecekler listene eklendi.`)
+      setDone(status === 'izlendi' ? tt('İzlediklerine eklendi') : tt('İzlenecekler listene eklendi'))
+      notify(status === 'izlendi' ? tt('"{0}" izlediklerine eklendi.', res.title) : tt('"{0}" izlenecekler listene eklendi.', res.title))
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
     } finally {
       setBusy(false)
     }
@@ -68,7 +69,7 @@ export default function TmdbPreviewModal({
   async function dismiss() {
     try {
       await api.dismissTmdb({ tmdbId: card.tmdbId, mediaType: card.mediaType })
-      notify(`"${card.title}" bir daha önerilmeyecek.`)
+      notify(tt('"{0}" bir daha önerilmeyecek.', card.title))
     } catch {
       // kaydedilemese de pencere kapansın
     }
@@ -78,10 +79,10 @@ export default function TmdbPreviewModal({
   const shown = item ?? card
   const trailerYt = item?.trailer ? parseYouTubeUrl(item.trailer) : null
   const metaBits = [
-    card.mediaType === 'tv' ? 'Dizi' : 'Film',
+    card.mediaType === 'tv' ? tt('Dizi') : tt('Film'),
     shown.year,
     item?.runtime ? formatRuntime(item.runtime) : '',
-    item?.seasons ? `${item.seasons} Sezon` : '',
+    item?.seasons ? tt('{0} Sezon', item.seasons) : '',
     ...(item?.genres.slice(0, 3) ?? []),
   ].filter(Boolean)
 
@@ -105,7 +106,7 @@ export default function TmdbPreviewModal({
           />
           {!card.inArchive && !item?.inArchive && (
             <span className="absolute top-3 right-14 z-10 text-[11px] font-semibold text-white bg-black/60 rounded px-2 py-1">
-              Arşivinde yok · TMDB'den öneri
+              {tt('Arşivinde yok · TMDB\'den öneri')}
             </span>
           )}
           <button
@@ -130,7 +131,7 @@ export default function TmdbPreviewModal({
             {shown.overview && <p className="text-neutral-300 text-base leading-relaxed">{shown.overview}</p>}
 
             {card.inArchive || item?.inArchive || done ? (
-              <p className="text-sm text-emerald-500 pt-1">✓ {done ?? 'Zaten arşivinde'}</p>
+              <p className="text-sm text-emerald-500 pt-1">✓ {done ?? tt('Zaten arşivinde')}</p>
             ) : watchedForm ? (
               <div className="max-w-xs">
                 <WatchedForm busy={busy} onCancel={() => setWatchedForm(false)} onSave={(date, rating) => add('izlendi', date, rating)} />
@@ -142,27 +143,27 @@ export default function TmdbPreviewModal({
                   disabled={busy}
                   className="text-sm rounded-lg bg-[#00c0fa] text-white font-semibold px-4 py-2 disabled:opacity-50"
                 >
-                  {busy ? 'Ekleniyor...' : '+ İzlenecek'}
+                  {busy ? tt('Ekleniyor...') : tt('+ İzlenecek')}
                 </button>
                 <button
                   onClick={() => setWatchedForm(true)}
                   disabled={busy}
                   className="text-sm rounded-lg border border-neutral-700 hover:border-emerald-500 text-neutral-300 hover:text-emerald-500 px-4 py-2 transition"
                 >
-                  ✓ İzledim
+                  {tt('✓ İzledim')}
                 </button>
                 <button
                   onClick={dismiss}
                   disabled={busy}
                   className="text-sm rounded-lg border border-neutral-700 hover:border-rose-500 text-neutral-400 hover:text-rose-400 px-4 py-2 transition"
                 >
-                  Bir daha gösterme
+                  {tt('Bir daha gösterme')}
                 </button>
               </div>
             )}
             {onPickAgain && (
               <button onClick={onPickAgain} className="text-xs text-neutral-500 hover:text-neutral-50 transition">
-                ↻ Başka bir şey seç
+                {tt('↻ Başka bir şey seç')}
               </button>
             )}
           </div>
@@ -172,20 +173,20 @@ export default function TmdbPreviewModal({
           <div className="pt-5 border-t border-neutral-800">
             <div className="flex items-baseline justify-between gap-3 mb-3">
               <p className="text-sm font-bold" style={{ color: BRAND_TEXT }}>
-                Nerede İzlenir
+                {tt('Nerede İzlenir')}
               </p>
               {item?.providers?.link && (
                 <a href={item.providers.link} target="_blank" rel="noreferrer" className="text-xs text-neutral-500 hover:text-neutral-50 transition">
-                  Tüm seçenekler ↗
+                  {tt('Tüm seçenekler ↗')}
                 </a>
               )}
             </div>
             {item ? (
               <WatchProviderList providers={item.providers} />
             ) : failed ? (
-              <p className="text-sm text-neutral-500">Bu bilgi şu an alınamadı. ARGUS'u kapatıp yeniden açmayı dene.</p>
+              <p className="text-sm text-neutral-500">{tt('Bu bilgi şu an alınamadı. ARGUS\'u kapatıp yeniden açmayı dene.')}</p>
             ) : (
-              <p className="text-sm text-neutral-500">Yükleniyor...</p>
+              <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
             )}
           </div>
         </div>

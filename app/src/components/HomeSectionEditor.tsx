@@ -4,6 +4,7 @@ import MultiFilterEditor from './MultiFilterEditor'
 import { filterConditions, withConditions, type FilterCondition } from '../lib/filters'
 import ToggleSwitch from './ToggleSwitch'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { tt } from '../lib/i18n'
 
 // order dizisindeki sıraya göre diz; order'da olmayanlar (eski kayıtlar) kendi aralarındaki
 // sıra korunarak sona eklenir.
@@ -34,7 +35,7 @@ function SectionList({
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4">
       <p className="text-sm font-semibold text-neutral-100">{title}</p>
-      <p className="text-xs text-neutral-500 mb-3">{items.length ? `${items.length} sayfa · okla sırasını değiştir` : 'Henüz yok'}</p>
+      <p className="text-xs text-neutral-500 mb-3">{items.length ? tt('{0} sayfa · okla sırasını değiştir', items.length) : tt('Henüz yok')}</p>
       <div className="space-y-1.5">
         {items.map((s, i) => (
           <div
@@ -42,13 +43,13 @@ function SectionList({
             className="flex items-center gap-1.5 text-sm bg-neutral-800/70 border border-neutral-700/70 rounded-xl pl-3 pr-1.5 py-1.5 text-neutral-200 hover:border-neutral-600 transition"
           >
             <span className="h-5 w-5 shrink-0 rounded-md bg-[#00c0fa]/15 text-[#00c0fa] text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
-            <button onClick={() => onEdit(s)} className="flex-1 truncate text-left hover:text-neutral-50 transition" title="Düzenle">
+            <button onClick={() => onEdit(s)} className="flex-1 truncate text-left hover:text-neutral-50 transition" title={tt('Düzenle')}>
               {s.name}
             </button>
             <button
               onClick={() => onEdit(s)}
               className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 transition"
-              title="Düzenle"
+              title={tt('Düzenle')}
             >
               ✎
             </button>
@@ -56,7 +57,7 @@ function SectionList({
               onClick={() => onMove(s.id, -1)}
               disabled={i === 0}
               className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent transition"
-              title="Yukarı taşı"
+              title={tt('Yukarı taşı')}
             >
               ↑
             </button>
@@ -64,11 +65,11 @@ function SectionList({
               onClick={() => onMove(s.id, 1)}
               disabled={i === items.length - 1}
               className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent transition"
-              title="Aşağı taşı"
+              title={tt('Aşağı taşı')}
             >
               ↓
             </button>
-            <button onClick={() => onDelete(s.id)} className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-rose-400 hover:bg-neutral-700 transition" title="Sil">
+            <button onClick={() => onDelete(s.id)} className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-rose-400 hover:bg-neutral-700 transition" title={tt('Sil')}>
               ×
             </button>
           </div>
@@ -147,53 +148,52 @@ export default function HomeSectionEditor({
   const bodySections = sortByOrder(sections.filter((s) => s.showInBody !== false), bodyOrder)
 
   if (!board) {
-    return <p className="text-xs text-neutral-600">Sayfa eklemek için önce yukarıdan bir arşiv seç.</p>
+    return <p className="text-xs text-neutral-600">{tt('Sayfa eklemek için önce yukarıdan bir arşiv seç.')}</p>
   }
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <p className="text-sm text-neutral-400 max-w-lg">
-          Bir türe, duruma ya da kategoriye göre kendi listelerini oluştur: üst menüye ayrı bir sekme olarak ya da ana sayfanın
-          gövdesine bir satır olarak eklenir.
+          {tt('Bir türe, duruma ya da kategoriye göre kendi listelerini oluştur: üst menüye ayrı bir sekme olarak ya da ana sayfanın gövdesine bir satır olarak eklenir.')}
         </p>
         {!formOpen && (
           <button onClick={startAdd} style={primaryButtonStyle} className={`shrink-0 text-sm px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}>
-            + Sayfa Ekle
+            {tt('+ Sayfa Ekle')}
           </button>
         )}
       </div>
 
       {formOpen && (
         <div className="rounded-2xl border border-[#00c0fa]/30 bg-neutral-900/70 p-4 space-y-3 mb-4">
-          <p className="text-sm font-semibold text-neutral-100">{editingId ? 'Sayfayı düzenle' : 'Yeni sayfa'}</p>
+          <p className="text-sm font-semibold text-neutral-100">{editingId ? tt('Sayfayı düzenle') : tt('Yeni sayfa')}</p>
           <div>
-            <label className="block text-[11px] text-neutral-400 mb-1">Sayfanın adı</label>
+            <label className="block text-[11px] text-neutral-400 mb-1">{tt('Sayfanın adı')}</label>
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="ör. Aksiyon Filmleri"
+              placeholder={tt('ör. Aksiyon Filmleri')}
               className="w-full rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1.5 text-neutral-100 text-sm outline-none focus:border-neutral-500"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] text-neutral-400 mb-1">Neye göre filtrelensin</label>
+            <label className="block text-[11px] text-neutral-400 mb-1">{tt('Neye göre filtrelensin')}</label>
             <MultiFilterEditor board={board} conditions={conditions} onChange={setConditions} />
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-neutral-300">Üstte, "Ana Sayfa"nın yanına ayrı bir sekme olarak ekle</span>
-              <ToggleSwitch checked={pinnedToNav} onChange={setPinnedToNav} label="Üstte sekme olarak ekle" />
+              <span className="text-xs text-neutral-300">{tt('Üstte, "Ana Sayfa"nın yanına ayrı bir sekme olarak ekle')}</span>
+              <ToggleSwitch checked={pinnedToNav} onChange={setPinnedToNav} label={tt('Üstte sekme olarak ekle')} />
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-neutral-300">Altta, ana sayfa gövdesinde bir satır olarak ekle</span>
-              <ToggleSwitch checked={showInBody} onChange={setShowInBody} label="Altta satır olarak ekle" />
+              <span className="text-xs text-neutral-300">{tt('Altta, ana sayfa gövdesinde bir satır olarak ekle')}</span>
+              <ToggleSwitch checked={showInBody} onChange={setShowInBody} label={tt('Altta satır olarak ekle')} />
             </div>
             {!pinnedToNav && !showInBody && (
-              <p className="text-[11px] text-amber-500">En az birini seçmelisin.</p>
+              <p className="text-[11px] text-amber-500">{tt('En az birini seçmelisin.')}</p>
             )}
           </div>
 
@@ -204,18 +204,18 @@ export default function HomeSectionEditor({
               style={primaryButtonStyle}
               className={`text-xs rounded-md px-3 py-1.5 ${PRIMARY_BUTTON}`}
             >
-              {editingId ? 'Kaydet' : 'Ekle'}
+              {editingId ? tt('Kaydet') : tt('Ekle')}
             </button>
             <button onClick={reset} className="text-xs text-neutral-400 hover:text-neutral-200 px-3 py-1.5">
-              Vazgeç
+              {tt('Vazgeç')}
             </button>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <SectionList title="Üstte, menüde" items={navSections} onMove={onMoveNav} onDelete={onDelete} onEdit={startEdit} />
-        <SectionList title="Altta, ana sayfa gövdesinde" items={bodySections} onMove={onMoveBody} onDelete={onDelete} onEdit={startEdit} />
+        <SectionList title={tt('Üstte, menüde')} items={navSections} onMove={onMoveNav} onDelete={onDelete} onEdit={startEdit} />
+        <SectionList title={tt('Altta, ana sayfa gövdesinde')} items={bodySections} onMove={onMoveBody} onDelete={onDelete} onEdit={startEdit} />
       </div>
     </div>
   )

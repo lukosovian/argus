@@ -1,3 +1,4 @@
+import { tt, ttx } from '../lib/i18n'
 // Genel Güncelleme sürerken (ve durdurulunca) tablonun üstünde duran ayrıntı kutusu. Kullanıcı
 // "genel güncelleme yaparken daha fazla detay görebiliyosak görelim, o an ne yapıyo" ve
 // "durdurup sonra kaldığı yerden devam ettirme" istedi.
@@ -51,23 +52,23 @@ export default function BulkUpdatePanel({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex-1 min-w-[14rem]">
           <p className="text-sm font-semibold text-neutral-100">
-            {state.label ?? 'Genel Güncelleme'} {state.running ? 'sürüyor' : left > 0 ? 'durduruldu' : 'bitti'}
+            {state.label ?? tt('Genel Güncelleme')} {state.running ? tt('sürüyor') : left > 0 ? tt('durduruldu') : tt('bitti')}
             <span className="ml-2 font-normal text-neutral-400 tabular-nums">
               {state.done}/{state.total} · %{pct}
             </span>
           </p>
           <p className="text-xs text-neutral-500 mt-0.5">
-            <span className="text-emerald-400">{state.updated} güncellendi</span>
-            {state.failed > 0 && <span className="text-rose-400"> · {state.failed} bulunamadı/hata</span>}
-            {left > 0 && <span> · {left} kaldı</span>}
-            {eta !== null && <span> · yaklaşık {formatEta(eta)}</span>}
-            {!state.running && left > 0 && <span> · istediğin zaman kaldığın yerden devam edebilirsin</span>}
+            <span className="text-emerald-400">{ttx('{0} güncellendi', state.updated)}</span>
+            {state.failed > 0 && <span className="text-rose-400"> {' '}{ttx('· {0} bulunamadı/hata', state.failed)}</span>}
+            {left > 0 && <span> {' '}{ttx('· {0} kaldı', left)}</span>}
+            {eta !== null && <span>{' '}{ttx('· yaklaşık {0}', formatEta(eta))}</span>}
+            {!state.running && left > 0 && <span>{' '}{tt('· istediğin zaman kaldığın yerden devam edebilirsin')}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {state.running ? (
             <button onClick={onStop} className="text-sm rounded-lg border border-rose-500/50 text-rose-300 hover:bg-rose-500/10 px-3 py-1.5 transition">
-              ⏸ Durdur
+              {tt('⏸ Durdur')}
             </button>
           ) : (
             <>
@@ -76,11 +77,11 @@ export default function BulkUpdatePanel({
                   onClick={onResume}
                   className="text-sm font-semibold rounded-lg text-white px-3.5 py-1.5 bg-gradient-to-r from-[#00c0fa] to-[#015eea] hover:opacity-90 transition"
                 >
-                  ▶ Devam et ({left} kaldı)
+                  {ttx('▶ Devam et ({0} kaldı)', left)}
                 </button>
               )}
               <button onClick={onDiscard} className="text-sm text-neutral-400 hover:text-neutral-100 px-2 py-1.5 transition">
-                {left > 0 ? 'Vazgeç' : 'Kapat'}
+                {left > 0 ? tt('Vazgeç') : tt('Kapat')}
               </button>
             </>
           )}
@@ -98,8 +99,8 @@ export default function BulkUpdatePanel({
             <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00c0fa]" />
           </span>
           <span className="truncate">
-            Şu an: <span className="text-neutral-50 font-medium">{state.current}</span>
-            <span className="text-neutral-500"> — TMDB'de aranıyor, bilgileri ve görselleri indiriliyor</span>
+            {tt('Şu an:')}{' '}<span className="text-neutral-50 font-medium">{state.current}</span>
+            <span className="text-neutral-500">{' '}{tt('— TMDB\'de aranıyor, bilgileri ve görselleri indiriliyor')}</span>
           </span>
         </p>
       )}

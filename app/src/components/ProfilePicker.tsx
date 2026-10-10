@@ -3,6 +3,7 @@ import type { Profile } from '../types'
 import { useProfiles } from '../hooks/useProfiles'
 import { useToast } from '../hooks/useToast'
 import ProfileSetupModal from './ProfileSetupModal'
+import { tt } from '../lib/i18n'
 
 // Netflix'teki "Kim izliyor?" ekranı — birden fazla profil arasından seçim yapılır.
 // `onClose` verilmezse (App.tsx'teki zorunlu ilk-açılış kapısı gibi) kapatma butonu
@@ -44,22 +45,22 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
     if (!editing || editing === 'new') return
     const profile = editing
     const ok = await confirm({
-      message: `"${profile.username}" profilini silmek istediğine emin misin? Bu profile ait tüm arşivler ve kayıtlar da silinir.`,
-      confirmLabel: 'Sil',
+      message: tt('"{0}" profilini silmek istediğine emin misin? Bu profile ait tüm arşivler ve kayıtlar da silinir.', profile.username),
+      confirmLabel: tt('Sil'),
       tone: 'danger',
     })
     if (!ok) return
     await removeProfile(profile.id)
     setEditing(null)
-    notify(`"${profile.username}" profili silindi.`, 'success')
+    notify(tt('"{0}" profili silindi.', profile.username), 'success')
   }
 
   const content = (
     <>
       {!embedded && (
         <>
-          <img src="/logoblue.png" alt="ARGUS" className="h-16 w-16 mb-6" />
-          <h1 className="text-3xl md:text-4xl font-semibold text-neutral-50 mb-8">Kim izliyor?</h1>
+          <img src="/logoblue.png" alt={tt('ARGUS')} className="h-16 w-16 mb-6" />
+          <h1 className="text-3xl md:text-4xl font-semibold text-neutral-50 mb-8">{tt('Kim izliyor?')}</h1>
         </>
       )}
 
@@ -84,7 +85,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
               )}
               {managing && (
                 <span className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-sm font-medium">
-                  Düzenle
+                  {tt('Düzenle')}
                 </span>
               )}
             </div>
@@ -96,7 +97,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
           <div className="h-36 w-36 rounded-xl bg-neutral-900 border-2 border-dashed border-neutral-700 flex items-center justify-center text-neutral-500 text-5xl group-hover:border-neutral-500 group-hover:text-neutral-300 transition">
             +
           </div>
-          <span className="text-base text-neutral-400">Profil Ekle</span>
+          <span className="text-base text-neutral-400">{tt('Profil Ekle')}</span>
         </button>
       </div>
 
@@ -105,11 +106,11 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
           onClick={() => setManaging((v) => !v)}
           className="text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-lg px-4 py-2 transition"
         >
-          {managing ? 'Bitti' : 'Profilleri Yönet'}
+          {managing ? tt('Bitti') : tt('Profilleri Yönet')}
         </button>
         {onClose && (
           <button onClick={onClose} className="text-sm text-neutral-500 hover:text-neutral-300 px-2">
-            Vazgeç
+            {tt('Vazgeç')}
           </button>
         )}
       </div>
