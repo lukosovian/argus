@@ -18,6 +18,8 @@ export interface Song {
   atMs: number | null
   // atMs tahmini (oynatıcı konum vermedi, izlenen süreden)
   approx?: boolean
+  // Elle eklendi (Nook bulmadı)
+  manual?: boolean
   foundAt: number
 }
 
@@ -244,6 +246,8 @@ export const api = {
   getEpisodes: () => request<EpisodesMap>(profilePath('/episodes')),
   getWatched: () => request<WatchedMap>(profilePath('/watched')),
   getSongs: (rowId: string) => request<Song[]>(profilePath(`/songs/${rowId}`)),
+  addSong: (rowId: string, song: { key: string; title: string; artist: string; season: number | null; episode: number | null; atMs: number | null; manual: true }) =>
+    request<{ ok: true; duplicate: boolean; song: Song }>(profilePath(`/songs/${rowId}`), { method: 'POST', ...json(song) }),
   deleteSong: (rowId: string, songId: string) => request<{ ok: true }>(profilePath(`/songs/${rowId}/${songId}`), { method: 'DELETE' }),
   // Sunucu, dizinin çıkmış bütün bölümleri işaretlenince durumu kendiliğinden İzlendi yapıyor
   // (autoWatched) — o zaman açık ekranlar yenilensin ve zil baksın.

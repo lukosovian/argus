@@ -3,11 +3,13 @@ import { api, type Song } from '../lib/api'
 import type { Season } from '../types'
 import { useToast } from '../hooks/useToast'
 import SectionTitle from './SectionTitle'
+import Select from './Select'
 
 // Detay penceresindeki "Müzikler": içerikte hangi dakikada hangi şarkı çaldı. Kullanıcı "Nook'un Hum'u
 // izlediğim dizilerin filmlerin içindeki müzikleri bulsun, hangi dakikada hangi müzik çaldığı detay
-// penceresinde yazsın" dedi — şarkıları Nook izlerken bulup yazıyor (bkz. server/index.js songs). Hiç
-// şarkı yoksa bölüm hiç görünmüyor. Pencere açıkken Nook yeni bir şarkı yazabilir: arada bir yenileniyor.
+// penceresinde yazsın" dedi — şarkıları Nook izlerken bulup yazıyor (bkz. server/index.js songs). Kullanıcı
+// "argustan da manuel olarak ekleyebilmek istiyorum" dedi: "+ Müzik ekle" ile bölüm, dakika, ad, sanatçı
+// yazılarak eklenir. Pencere açıkken Nook yeni bir şarkı yazabilir: arada bir yenileniyor.
 
 const PREVIEW = 8
 const POLL_MS = 15_000
@@ -19,6 +21,107 @@ function formatAt(ms: number) {
   const m = Math.floor((t % 3600) / 60)
   const s = String(t % 60).padStart(2, '0')
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
+}
+
+// "12:34" / "1:02:03" / "12" (dakika) → ms; boş → null; yanlış yazıldıysa undefined
+function parseAt(text: string): number | null | undefined {
+  const t = text.trim()
+  if (!t) return null
+  if (!/^\d{1,3}(:\d{1,2}){0,2}$/.test(t)) return undefined
+  const parts = t.split(':').map(Number)
+  if (parts.slice(1).some((n) => n > 59)) return undefined
+  const [h, m, s] = parts.length === 3 ? parts : parts.length === 2 ? [0, ...parts] : [0, parts[0], 0]
+  return ((h * 60 + m) * 60 + s) * 1000
+}
+
+// Elle eklenen şarkının kimliği: aynı ad + sanatçı aynı bölümde iki kez eklenmesin
+const manualKey = (title: string, artist: string) => `el:${`${artist}|${title}`.toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim()}`.slice(0, 64)
+
+const epValue = (season: number, episode: number) => `${season}-${episode}`
+
+const inputClass =
+  'w-full rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-600 focus:border-neutral-500 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 outline-none transition'
+
+function AddSongForm({
+  rowId,
+  seasons,
+  defaultEp,
+  onAdded,
+  onClose,
+}: {
+  rowId: string
+  seasons: Season[] | undefined
+  defaultEp: string
+  onAdded: () => void
+  onClose: () => void
+}) {
+  const { notify } = useToast()
+  const [ep, setEp] = useState(defaultEp)
+  const [at, setAt] = useState('')
+  const [title, setTitle] = useState('')
+  const [artist, setArtist] = useState('')
+  const [saving, setSaving] = useState(false)
+  const epOptions = useMemo(
+    () =>
+      (seasons ?? [])
+        .filter((s) => s.seasonNumber >= 1)
+        .flatMap((s) =>
+          s.episodes.map((e) => ({
+            value: epValue(s.seasonNumber, e.episodeNumber),
+            label: `${s.seasonNumber}. Sezon ${e.episodeNumber}. Bölüm${e.name ? ` · ${e.name}` : ''}`,
+          })),
+        ),
+    [seasons],
+  )
+  const series = epOptions.length > 0
+
+  async function submit() {
+    const atMs = parseAt(at)
+    if (atMs === undefined) return notify('Dakikayı 12:34 ya da 1:02:03 gibi yaz.', 'danger')
+    if (!title.trim()) return notify('Şarkının adını yaz.', 'danger')
+    if (series && !ep) return notify('Hangi bölümde çaldığını seç.', 'danger')
+    const [season, episode] = series ? ep.split('-').map(Number) : [null, null]
+    setSaving(true)
+    try {
+      const res = await api.addSong(rowId, { key: manualKey(title.trim(), artist.trim()), title: title.trim(), artist: artist.trim(), season, episode, atMs, manual: true })
+      if (res.duplicate) notify('Bu şarkı bu bölümde o dakikalarda zaten var.')
+      // Aynı bölüme art arda ekleyebilsin diye bölüm seçili kalır
+      setAt('')
+      setTitle('')
+      setArtist('')
+      onAdded()
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Eklenemedi.', 'danger')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        void submit()
+      }}
+      className="mb-5 rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 space-y-2"
+    >
+      {series && <Select value={ep} onChange={setEp} options={epOptions} placeholder="Hangi bölüm?" />}
+      <div className="grid grid-cols-[88px_minmax(0,1fr)_minmax(0,1fr)] gap-2">
+        <input value={at} onChange={(e) => setAt(e.target.value)} placeholder="12:34" inputMode="numeric" title="Kaçıncı dakikada (boş bırakılabilir)" className={`${inputClass} tabular-nums`} />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Şarkı adı" autoFocus className={inputClass} />
+        <input value={artist} onChange={(e) => setArtist(e.target.value)} placeholder="Sanatçı" className={inputClass} />
+      </div>
+      <div className="flex items-center gap-2">
+        <p className="text-[11px] text-neutral-500 mr-auto">Dakika boş bırakılabilir.</p>
+        <button type="button" onClick={onClose} className="text-sm text-neutral-400 hover:text-neutral-100 px-3 py-1.5 transition">
+          Kapat
+        </button>
+        <button type="submit" disabled={saving} className="text-sm font-medium text-white bg-[#3fa9ff] hover:bg-[#5bb6ff] disabled:opacity-50 rounded-lg px-4 py-1.5 transition">
+          {saving ? 'Ekleniyor...' : 'Ekle'}
+        </button>
+      </div>
+    </form>
+  )
 }
 
 const query = (s: Song) => encodeURIComponent(`${s.artist} ${s.title}`)
@@ -79,11 +182,16 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
   const { notify } = useToast()
   const [songs, setSongs] = useState<Song[]>([])
   const [showAll, setShowAll] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [adding, setAdding] = useState(false)
 
   const load = useCallback(() => {
     api
       .getSongs(rowId)
-      .then(setSongs)
+      .then((list) => {
+        setSongs(list)
+        setLoaded(true)
+      })
       .catch(() => {})
   }, [rowId])
 
@@ -123,7 +231,25 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
     }
   }
 
-  if (songs.length === 0) return null
+  if (!loaded) return null
+
+  // Formda önce seçili bölüm: en son şarkı eklenen bölüm, yoksa ilk bölüm
+  const last = songs.reduce<Song | null>((a, b) => (b.season !== null && (!a || b.foundAt > a.foundAt) ? b : a), null)
+  const firstSeason = seasons?.find((s) => s.seasonNumber >= 1 && s.episodes.length > 0)
+  const defaultEp =
+    last?.season != null && last.episode != null
+      ? epValue(last.season, last.episode)
+      : firstSeason
+        ? epValue(firstSeason.seasonNumber, firstSeason.episodes[0].episodeNumber)
+        : ''
+  const addButton = !adding && (
+    <button
+      onClick={() => setAdding(true)}
+      className="text-xs text-neutral-300 hover:text-neutral-50 border border-neutral-700 hover:border-neutral-500 rounded-full px-3 py-1 transition"
+    >
+      + Müzik ekle
+    </button>
+  )
 
   // Önizlemede ilk PREVIEW şarkı (grupları bölmeden kısaltır)
   let left = showAll ? Infinity : PREVIEW
@@ -137,7 +263,11 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
 
   return (
     <section id="rd-muzikler">
-      <SectionTitle title="Müzikler" count={`${songs.length} şarkı`} right={<span className="text-[11px] text-neutral-600">Nook'un Hum'u buldu</span>} />
+      <SectionTitle title="Müzikler" count={songs.length ? `${songs.length} şarkı` : undefined} right={addButton} />
+      {adding && <AddSongForm rowId={rowId} seasons={seasons} defaultEp={defaultEp} onAdded={load} onClose={() => setAdding(false)} />}
+      {songs.length === 0 && !adding && (
+        <p className="text-sm text-neutral-500">Henüz müzik yok. Nook izlerken çalan şarkıları bulup buraya yazar; sen de ekleyebilirsin.</p>
+      )}
       <div className="space-y-5">
         {visible.map((g) => (
           <div key={g.key}>

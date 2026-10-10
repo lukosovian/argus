@@ -691,6 +691,8 @@ app.post('/api/profiles/:profileId/songs/:rowId', (req, res) => {
     atMs,
     // Oynatıcı konum vermediyse dakika, izlenen süreden tahmin (ekranda "~" ile)
     approx: atMs !== null && b.approx === true,
+    // Kullanıcı ARGUS'ta elle ekledi (Nook bulmadı)
+    manual: b.manual === true,
     foundAt: Date.now(),
   }
   all[req.params.rowId] = [...list, song]

@@ -54,6 +54,7 @@ import {
   TarihBilinmiyorVisual,
   SaglikTarihVisual,
   MuziklerVisual,
+  MuzikEkleVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 interface PatchEntry {
@@ -67,6 +68,19 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.14.1',
+    date: '10 Ekim 2026',
+    title: 'Müzikleri elle de ekle',
+    items: [
+      'Detay penceresindeki Müzikler\'de "+ Müzik ekle" var: dizide hangi bölümde çaldığını seç, dakikasını (ör. 12:34 ya da 1:02:03), şarkının adını ve sanatçısını yaz, Ekle\'ye bas. Dakikayı bilmiyorsan boş bırakabilirsin.',
+      'Form ekledikten sonra açık kalıyor, bölüm de seçili duruyor: aynı bölümün şarkılarını art arda ekleyebilirsin. Aynı şarkıyı aynı bölüme iki kez eklemen engelleniyor.',
+      'Müzikler bölümü artık hiç şarkısı olmayan dizi ve filmlerde de görünüyor (ekleyebilmen için).',
+    ],
+    visuals: [
+      { caption: '1 + Müzik ekle · 2 bölüm, dakika, şarkı adı, sanatçı · 3 dakikasıyla listede', Visual: MuzikEkleVisual },
+    ],
+  },
   {
     version: 'v1.14',
     date: '10 Ekim 2026',

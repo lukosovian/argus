@@ -2194,3 +2194,53 @@ export function MuziklerVisual() {
     </Frame>
   )
 }
+
+// Müzikler'e elle şarkı ekleme: + Müzik ekle → bölüm, dakika, ad, sanatçı → Ekle.
+export function MuzikEkleVisual() {
+  const field = (x: number, w: number, t: string, filled = true) => (
+    <g>
+      <rect x={x} y={70} width={w} height={16} rx={3} className="fill-neutral-800 stroke-neutral-600" strokeWidth={0.6} />
+      <text x={x + 5} y={81} fontSize={6.5} className={filled ? 'fill-neutral-100' : 'fill-neutral-500'} style={{ fontFamily: 'inherit' }}>
+        {t}
+      </text>
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} strong />
+      <Label x={18} y={28} size={10}>Müzikler</Label>
+      <rect x={240} y={17} width={62} height={15} rx={7.5} fill="none" stroke={ACCENT} strokeWidth={1} />
+      <text x={271} y={27} fontSize={6.5} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        + Müzik ekle
+      </text>
+      <Pin x={304} y={14} n={1} />
+      <Box x={16} y={40} w={288} h={70} r={6} />
+      <rect x={24} y={48} width={272} height={16} rx={3} className="fill-neutral-800 stroke-neutral-600" strokeWidth={0.6} />
+      <text x={29} y={59} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        1. Sezon 5. Bölüm · Işıklar Söndü
+      </text>
+      {field(24, 40, '42:05')}
+      {field(68, 112, 'Take On Me')}
+      {field(184, 112, 'a-ha')}
+      <Pin x={22} y={66} n={2} />
+      <rect x={266} y={92} width={30} height={13} rx={3} fill={ACCENT} />
+      <text x={281} y={101} fontSize={6.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        Ekle
+      </text>
+      <Label x={24} y={102} size={5.5} muted>dakika boş bırakılabilir</Label>
+      <Label x={18} y={128} size={5.5} muted>1. SEZON 5. BÖLÜM</Label>
+      <text x={46} y={146} fontSize={7} textAnchor="end" fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        42:05
+      </text>
+      <rect x={52} y={135} width={16} height={16} rx={3} className="fill-neutral-700" />
+      <text x={74} y={142} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        Take On Me
+      </text>
+      <text x={74} y={150} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        a-ha
+      </text>
+      <NewTag x={122} y={137} />
+      <Pin x={160} y={140} n={3} />
+    </Frame>
+  )
+}
