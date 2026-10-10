@@ -1002,10 +1002,23 @@ async function getTrailerUrl(mediaType, tmdbId, apiKey) {
   return null
 }
 
+// TMDB logoların bir kısmını SVG olarak veriyor (İngilizce logolarda sık); aynı dilde PNG varsa o seçiliyor.
 function pickLogo(images) {
   const logos = images?.logos ?? []
   if (logos.length === 0) return null
-  return logos.find((l) => l.iso_639_1 === serverLang()) ?? logos.find((l) => l.iso_639_1 === 'en') ?? logos[0]
+  const pref = (list) => list.find((l) => !/\.svg$/i.test(l.file_path)) ?? list[0]
+  return pref(logos.filter((l) => l.iso_639_1 === serverLang())) ?? pref(logos.filter((l) => l.iso_639_1 === 'en')) ?? pref(logos)
+}
+
+// Eskiden SVG logolar da .png adıyla kaydediliyordu, tarayıcı açamıyordu (kırık görsel). Böyle bir dosya
+// boş sayılıyor ki Güncelle onu yeniden indirsin.
+function isBrokenLogo(value) {
+  if (typeof value !== 'string' || !/^\/medya\/[^/]+\.png$/i.test(value)) return false
+  try {
+    return fs.readFileSync(path.join(MEDYA_DIR, value.slice('/medya/'.length))).subarray(0, 256).toString('utf-8').trimStart().startsWith('<')
+  } catch {
+    return false
+  }
 }
 
 // Yaş sınırı hep aynı Türkçe biçimde yazılsın — TMDB bazen Türkiye'nin ("13+", "Genel İzleyici Kitlesi"), bazen
@@ -1371,10 +1384,11 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (kapakAdiProp && (ow || !row.values[kapakAdiProp.id]) && !exclude.has('kapakAdi')) {
+    if (kapakAdiProp && (ow || !row.values[kapakAdiProp.id] || isBrokenLogo(row.values[kapakAdiProp.id])) && !exclude.has('kapakAdi')) {
       const logo = pickLogo(details.images)
       if (logo) {
-        const filename = `tmdb_logo_${row.id}_${result.id}.png`
+        const filename = `tmdb_logo_${row.id}_${result.id}${/\.svg$/i.test(logo.file_path) ? '.svg' : '.png'}`
+        if (isBrokenLogo(`/medya/${filename}`)) fs.rmSync(path.join(MEDYA_DIR, filename), { force: true })
         if (await downloadTmdbImage(`${TMDB_IMG_BASE}/w500${logo.file_path}`, path.join(MEDYA_DIR, filename))) {
           row.values[kapakAdiProp.id] = `/medya/${filename}`
           filled.push(stt('Kapak Adı'))

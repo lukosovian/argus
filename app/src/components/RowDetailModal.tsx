@@ -27,14 +27,12 @@ import CollectionSection from './CollectionSection'
 import SongsSection from './SongsSection'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { useEscape } from '../hooks/useEscape'
-import { tt, ttx } from '../lib/i18n'
+import { isoDate, tt, ttx } from '../lib/i18n'
 
 const CAST_PREVIEW = 12
 
 function formatDate(v: string) {
-  const [y, m, d] = v.split('-')
-  if (!y || !m || !d) return v
-  return `${d}.${m}.${y}`
+  return isoDate(v) ?? v
 }
 
 function RefreshIcon({ spinning }: { spinning?: boolean }) {

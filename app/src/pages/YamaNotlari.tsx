@@ -71,6 +71,16 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.14.4',
+    date: tt('10 Ekim 2026'),
+    title: tt('Düzeltme: başlık logoları ve tarihler'),
+    items: [
+      tt('Düzeltme: bazı içeriklerin Kapak Adı logosu kırık görünüyordu (TMDB bazı logoları farklı bir biçimde veriyor, özellikle İngilizcede). Artık doğru biçimdeki logo seçiliyor; kırık logolu kayıtlar "Güncelle" ile düzeliyor.'),
+      tt('İngilizcede detay penceresindeki "Nerede İzlenir" başlığı bölgen ne olursa olsun "Türkiye" yazıyordu; artık ayarlı bölgen yazıyor.'),
+      tt('İngilizcede tarihler (bölüm yayın tarihleri, izleme tarihleri, tablodaki tarih sütunları, koleksiyondaki çıkış tarihleri) artık "Jul 15, 2016" biçiminde.'),
+    ],
+  },
+  {
     version: 'v1.14.3',
     date: tt('10 Ekim 2026'),
     title: tt('Düzeltme: TMDB\'den güncelleme'),

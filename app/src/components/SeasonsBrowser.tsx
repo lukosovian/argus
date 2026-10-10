@@ -6,18 +6,14 @@ import { useToast } from '../hooks/useToast'
 import Checkbox from './Checkbox'
 import AnchoredMenu from './AnchoredMenu'
 import DateChipEditor from './DateChipEditor'
-import { tt, ttx } from '../lib/i18n'
+import { isoDate, tt, ttx } from '../lib/i18n'
 
 function formatAirDate(v: string) {
-  const [y, m, d] = v.split('-')
-  if (!y || !m || !d) return v
-  return `${d}.${m}.${y}`
+  return isoDate(v) ?? v
 }
 
 function formatShort(v: string) {
-  const [y, m, d] = v.split('-')
-  if (!y || !m || !d) return v
-  return `${d}.${m}.${y}`
+  return isoDate(v) ?? v
 }
 
 function PlusIcon() {

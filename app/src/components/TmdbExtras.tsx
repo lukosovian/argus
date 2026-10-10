@@ -6,7 +6,7 @@ import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import SectionTitle from './SectionTitle'
-import { tt } from '../lib/i18n'
+import { regionName, tt } from '../lib/i18n'
 
 // Detay penceresinin altındaki iki bölüm: "Nerede İzlenir" (Türkiye'de hangi platformda var)
 // ve "Benzer İçerikler" (TMDB önerileri, tek tıkla "İzlenecek" olarak arşive eklenebilir).
@@ -86,7 +86,7 @@ export default function TmdbExtras({
         <SectionTitle
           title={tt('Nerede İzlenir')}
           small={part === 'providers'}
-          count={tt('Türkiye')}
+          count={regionName()}
           right={
             p?.link ? (
               <a href={p.link} target="_blank" rel="noreferrer" className="text-xs text-neutral-500 hover:text-neutral-50 transition">

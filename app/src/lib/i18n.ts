@@ -95,6 +95,22 @@ export function setLang(lang: Lang) {
     .finally(() => location.reload())
 }
 
+/** İzleme platformlarının bölgesinin adı arayüz dilinde ("Türkiye", "United States"…) */
+export function regionName() {
+  let code = current === 'tr' ? 'TR' : 'US'
+  try {
+    const r = localStorage.getItem('argus_region')
+    if (r && /^[A-Z]{2}$/.test(r)) code = r
+  } catch {
+    /* kapalı */
+  }
+  try {
+    return new Intl.DisplayNames([locale()], { type: 'region' }).of(code) ?? code
+  } catch {
+    return code
+  }
+}
+
 /** Tarih/sayı biçimleri için (toLocaleDateString vb.) */
 export function locale() {
   return LANGS.find((l) => l.id === current)!.locale
@@ -151,6 +167,14 @@ export function ttx(text: string, ...args: ReactNode[]): ReactNode {
   const marked = tt(text, ...args.map((a, i) => (typeof a === 'number' ? a : `${MARK}${i}${MARK}`)))
   const parts = marked.split(/\u0001(\d+)\u0001/)
   return createElement(Fragment, null, ...parts.map((p, i) => (i % 2 ? createElement(Fragment, { key: i }, args[Number(p)]) : p)))
+}
+
+/** "YYYY-MM-DD" → Türkçede "15.07.2016" (eskisi gibi), İngilizcede "Jul 15, 2016" */
+export function isoDate(iso: string): string | null {
+  const [y, m, d] = iso.split('-')
+  if (!y || !m || !d) return null
+  if (current === 'tr') return `${d}.${m}.${y}`
+  return new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(Number(y), Number(m) - 1, Number(d)))
 }
 
 /** Ay adları seçili dilde (Ocak… / January…); short: Oca… / Jan… */

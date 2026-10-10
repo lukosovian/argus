@@ -4,7 +4,7 @@ import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
 import SectionTitle from './SectionTitle'
 import TmdbPreviewModal from './TmdbPreviewModal'
-import { tt } from '../lib/i18n'
+import { isoDate, tt } from '../lib/i18n'
 
 // Detay penceresinde "Seri" — kullanıcı film serilerini (Harry Potter 1–8 gibi) takip etmek istedi:
 // serinin kaçını izledin, sıradaki hangisi, arşivinde olmayanları tek tıkla İzlenecek'e ekle.
@@ -83,7 +83,7 @@ export default function CollectionSection({ boardId, rowId, onOpenRow }: { board
                 ) : null}
               </button>
               <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{p.title}</p>
-              <p className="text-[11px] text-neutral-500">{p.released ? p.year : tt('Yakında{0}', p.releaseDate ? ' · ' + p.releaseDate.split('-').reverse().join('.') : '')}</p>
+              <p className="text-[11px] text-neutral-500">{p.released ? p.year : tt('Yakında{0}', p.releaseDate ? ' · ' + (isoDate(p.releaseDate) ?? p.releaseDate) : '')}</p>
               {!inArch && (
                 <button
                   onClick={() => add(p)}

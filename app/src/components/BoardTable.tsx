@@ -14,7 +14,7 @@ import ColumnMenu from './ColumnMenu'
 import CellEditor from './CellEditor'
 import InlineValueEditor from './InlineValueEditor'
 import { entryEnd, formatEntry } from '../lib/dateRange'
-import { tt } from '../lib/i18n'
+import { isoDate, tt } from '../lib/i18n'
 
 const TITLE_DEFAULT_WIDTH = 220
 const ACTIONS_COLUMN_WIDTH = 44
@@ -356,10 +356,8 @@ function buildOptionMaps(properties: PropertyDef[]): OptionMaps {
 // 'date' ve 'multidate' aynı ISO ("YYYY-MM-DD") biçimini aynı kısa "gg.aa.yy" görünümüne
 // çeviriyor — iki yerde ayrı ayrı yazmak yerine tek yerden.
 function formatDateShort(iso: string): string | null {
-  const [y, m, d] = iso.split('-')
-  if (!y || !m || !d) return null
   // Yıl tam yazılır (kullanıcı "yılları tam yaz" dedi — "23.09.94" hangi yüzyıl belli değildi)
-  return `${d}.${m}.${y}`
+  return isoDate(iso)
 }
 
 // Bir hücreye sığmayan etiketleri/tarihleri kesmek yerine sığanları gösterip kalanı için "+N" yazar
