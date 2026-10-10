@@ -108,7 +108,7 @@ function formatTotalMinutes(mins: number): { value: string; rest: string } {
   const days = Math.floor(mins / (60 * 24))
   const hours = Math.floor((mins % (60 * 24)) / 60)
   if (days > 0) return { value: tt('{0} gün', days), rest: hours ? tt('+ {0} saat · ', hours) : '' }
-  return { value: `${hours} saat`, rest: '' }
+  return { value: tt('{0} saat', hours), rest: '' }
 }
 
 const TR_MONTHS_SHORT = monthNames('short')
@@ -569,7 +569,7 @@ export default function Istatistikler() {
         <StatTile
           label={tt('Toplam süre')}
           value={stats.hasSureProp ? formatTotalMinutes(stats.totalMinutes).value : '—'}
-          sub={stats.hasSureProp ? `${formatTotalMinutes(stats.totalMinutes).rest}izlediklerinin` : undefined}
+          sub={stats.hasSureProp ? tt('{0}izlediklerinin', formatTotalMinutes(stats.totalMinutes).rest) : undefined}
           hint={
             stats.hasSureProp
               ? tt('Sadece "İzlendi" durumundaki kayıtların süresi toplanıyor. Şu an yalnızca filmlerin süresi TMDB\'den otomatik doluyor — dizilerin bölüm süreleri bu sayıya dahil değil.')
@@ -632,8 +632,8 @@ export default function Istatistikler() {
               palette={palette}
               data={stats.decadeBreakdown.map(([decade, count]) => ({
                 key: String(decade),
-                label: `${String(decade).slice(2)}'ler`,
-                tipTitle: `${decade}'ler`,
+                label: tt("{0}'ler", String(decade).slice(2)),
+                tipTitle: tt("{0}'ler", decade),
                 count,
               }))}
             />

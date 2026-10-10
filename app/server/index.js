@@ -1537,8 +1537,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
           if (person) {
             const parts = []
             if (person.birthday) {
-              const [y, m, d] = person.birthday.split('-')
-              parts.push(`${parseInt(d, 10)} ${TR_MONTHS[parseInt(m, 10)]} ${y}`)
+              parts.push(langDate(person.birthday))
             }
             if (person.place_of_birth) parts.push(person.place_of_birth)
             if (parts.length) newOpt.subtitle = parts.join(' · ')

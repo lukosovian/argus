@@ -319,7 +319,7 @@ const CARDS: CardDef[] = [
       ctx.fill()
       text(ctx, tt('Bu sürede Uluslararası Uzay İstasyonu'), L + 50, 1310, 500, 36, 'rgba(255,255,255,0.75)', W - L * 2 - 100)
       text(ctx, tt('Dünya\'nın etrafında'), L + 50, 1360, 500, 36, 'rgba(255,255,255,0.75)')
-      text(ctx, `${orbits.toLocaleString(locale())} tur`, L + 50, 1470, 900, 100, '#ffffff', W - L * 2 - 100)
+      text(ctx, tt('{0} tur', orbits.toLocaleString(locale())), L + 50, 1470, 900, 100, '#ffffff', W - L * 2 - 100)
       text(ctx, tt('atardı.'), L + 50, 1520, 500, 36, 'rgba(255,255,255,0.75)')
       text(ctx, tt('{0} film · {1} bölüm', d.films, d.episodes), L, 1680, 700, 44, 'rgba(255,255,255,0.85)')
     },

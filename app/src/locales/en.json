@@ -2277,5 +2277,18 @@
  "İngilizcede TMDB'den gelen yeni bilgiler (özet, türler, başlıklar, ülke adları) de İngilizce gelir; tarihler \"March 12, 2026\", bölümler \"S1E5\" diye yazılır. Arşivindeki mevcut kayıtlar değişmez.": "In English, new info coming from TMDB (synopses, genres, titles, country names) also comes in English; dates are written like \"March 12, 2026\" and episodes like \"S1E5\". The existing entries in your archive don't change.",
  "İngilizce yeni bir arşiv açınca sütunlar ve durumlar da İngilizce açılır (Status, Watched, Watchlist…). Dil değiştirsen de eski arşivin çalışmaya devam eder: ARGUS sütunları ve durumları iki dildeki adıyla da tanır.": "When you create a new archive in English, its columns and statuses are in English too (Status, Watched, Watchlist…). Your old archive keeps working even if you switch languages: ARGUS recognizes columns and statuses by their names in both languages.",
  "İlk kez kurulan ARGUS bilgisayarın dilinde açılır; şu an kullananlar Türkçe'de kalır. Tepsi menüsü, açılış penceresi ve kurulum betiği de seçilen (ilk kurulumda Windows'un) dilde.": "A freshly installed ARGUS opens in your computer's language; current users stay in Turkish. The tray menu, startup window and setup script also use the chosen language (Windows' language on first install).",
- "1 Ayarlar › Uygulama Ayarları › Dil · Language · 2 tarihler ve bölümler İngilizce biçimde · 3 bildirimler de seçilen dilde": "1 Settings › App Settings › Dil · Language · 2 dates and episodes in English format · 3 notifications in the chosen language too"
+ "1 Ayarlar › Uygulama Ayarları › Dil · Language · 2 tarihler ve bölümler İngilizce biçimde · 3 bildirimler de seçilen dilde": "1 Settings › App Settings › Dil · Language · 2 dates and episodes in English format · 3 notifications in the chosen language too",
+ "{0} sn": "{0} s",
+ "{0} dk": "{0} min",
+ "{0} sa {1} dk": "{0} h {1} min",
+ "{0} tur": "{0}",
+ "{0} izleme": "{0} watch|{0} watches",
+ "{0} saat": "{0} hour|{0} hours",
+ "{0}'ler": "{0}s",
+ "{0}izlediklerinin": "{0}of what you watched",
+ "{0} raf": "{0} shelf|{0} shelves",
+ "{0} sembol": "{0} symbol|{0} symbols",
+ "Düzeltme: TMDB'den güncelleme": "Fix: updating from TMDB",
+ "Düzeltme: v1.14.2'de \"Güncelle\", \"Genel Güncelleme\" ve Keşfet'ten ekleme, yeni bir oyuncu eklenirken yarıda kalıp hata veriyordu. Artık eskisi gibi bütün bilgiler (oyuncuların doğum tarihleri dahil) geliyor.": "Fix: in v1.14.2, \"Update\", \"Global Update\" and adding from Discover stopped with an error while adding a new actor. Now all the info (including actors' birth dates) comes in as before.",
+ "İngilizcede kalan birkaç Türkçe yazı (toplam süre, Genel Güncelleme'nin kalan süresi, onyıllar, raf ve sembol sayıları) da çevrildi.": "A few Turkish texts left in English (total time, Global Update's remaining time, decades, shelf and symbol counts) were translated too."
 }

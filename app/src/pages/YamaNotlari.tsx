@@ -71,6 +71,15 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.14.3',
+    date: tt('10 Ekim 2026'),
+    title: tt('Düzeltme: TMDB\'den güncelleme'),
+    items: [
+      tt('Düzeltme: v1.14.2\'de "Güncelle", "Genel Güncelleme" ve Keşfet\'ten ekleme, yeni bir oyuncu eklenirken yarıda kalıp hata veriyordu. Artık eskisi gibi bütün bilgiler (oyuncuların doğum tarihleri dahil) geliyor.'),
+      tt('İngilizcede kalan birkaç Türkçe yazı (toplam süre, Genel Güncelleme\'nin kalan süresi, onyıllar, raf ve sembol sayıları) da çevrildi.'),
+    ],
+  },
+  {
     version: 'v1.14.2',
     date: tt('10 Ekim 2026'),
     title: tt('ARGUS artık İngilizce de: Dil · Language seçimi'),

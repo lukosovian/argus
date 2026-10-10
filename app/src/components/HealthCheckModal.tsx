@@ -154,7 +154,7 @@ export default function HealthCheckModal({
     const dates = resolveRole(board, 'izlemeTarihi')
     const dv = dates ? row.values[dates.id] : null
     const n = Array.isArray(dv) ? dv.length : dv ? 1 : 0
-    if (n > 0) parts.push(`${n} izleme`)
+    if (n > 0) parts.push(tt('{0} izleme', n))
     const puan = resolveRole(board, 'puan')
     const pv = puan ? row.values[puan.id] : null
     if (pv && typeof pv === 'object' && Object.keys(pv).length > 0) parts.push(tt('puanlı'))

@@ -25,10 +25,10 @@ export interface BulkState {
 
 function formatEta(ms: number): string {
   const s = Math.round(ms / 1000)
-  if (s < 60) return `${s} sn`
+  if (s < 60) return tt('{0} sn', s)
   const m = Math.round(s / 60)
-  if (m < 60) return `${m} dk`
-  return `${Math.floor(m / 60)} sa ${m % 60} dk`
+  if (m < 60) return tt('{0} dk', m)
+  return tt('{0} sa {1} dk', Math.floor(m / 60), m % 60)
 }
 
 export default function BulkUpdatePanel({

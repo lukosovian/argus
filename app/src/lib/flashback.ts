@@ -87,7 +87,7 @@ export function fmtDuration(min: number): string {
   const hours = total % 24
   if (days && hours) return tt('{0} gün {1} saat', days, hours)
   if (days) return tt('{0} gün', days)
-  return `${total} saat`
+  return tt('{0} saat', total)
 }
 
 const PERSONAS = [
@@ -239,7 +239,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
     const dec = Math.floor(t.releaseYear! / 10) * 10
     decadeMap.set(dec, (decadeMap.get(dec) ?? 0) + 1)
   }
-  const decades = [...decadeMap.entries()].sort((a, b) => a[0] - b[0]).map(([d, c]) => ({ label: `${d}'ler`, count: c }))
+  const decades = [...decadeMap.entries()].sort((a, b) => a[0] - b[0]).map(([d, c]) => ({ label: tt("{0}'ler", d), count: c }))
   const newShare = withYear.length ? withYear.filter((t) => t.releaseYear! >= Y - 1).length / withYear.length : 0
   const classicShare = withYear.length ? withYear.filter((t) => t.releaseYear! <= Y - 20).length / withYear.length : 0
   const oldest = withYear.length ? withYear.reduce((a, b) => (b.releaseYear! < a.releaseYear! ? b : a)) : null

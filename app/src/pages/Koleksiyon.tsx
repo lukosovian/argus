@@ -244,7 +244,7 @@ export default function Koleksiyon() {
     setImage({
       shelves: filteredShelves.filter((s) => s.shown.length).map((s) => ({ name: s.name, symbol: s.symbol, items: s.shown.map(toImg) })),
       loose: filteredLoose.map(toImg),
-      stats: [tt('{0} yapım', items.length), `${shelves.filter((s) => s.items.length).length} raf`, symbolCount ? `${symbolCount} sembol` : ''].filter(Boolean).join(' · '),
+      stats: [tt('{0} yapım', items.length), tt('{0} raf', shelves.filter((s) => s.items.length).length), symbolCount ? tt('{0} sembol', symbolCount) : ''].filter(Boolean).join(' · '),
       filtered: !noFilter,
     })
   }
