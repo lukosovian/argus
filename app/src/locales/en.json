@@ -2294,5 +2294,17 @@
  "Düzeltme: başlık logoları ve tarihler": "Fix: title logos and dates",
  "Düzeltme: bazı içeriklerin Kapak Adı logosu kırık görünüyordu (TMDB bazı logoları farklı bir biçimde veriyor, özellikle İngilizcede). Artık doğru biçimdeki logo seçiliyor; kırık logolu kayıtlar \"Güncelle\" ile düzeliyor.": "Fix: some entries' Title Logo showed as a broken image (TMDB serves some logos in a different format, especially in English). Argus now picks a logo in the right format; entries with a broken logo get fixed with \"Update\".",
  "İngilizcede detay penceresindeki \"Nerede İzlenir\" başlığı bölgen ne olursa olsun \"Türkiye\" yazıyordu; artık ayarlı bölgen yazıyor.": "In English, \"Where to Watch\" in the details window always said \"Turkey\" whatever your region was; it now shows your region.",
- "İngilizcede tarihler (bölüm yayın tarihleri, izleme tarihleri, tablodaki tarih sütunları, koleksiyondaki çıkış tarihleri) artık \"Jul 15, 2016\" biçiminde.": "In English, dates (episode air dates, watch dates, date columns in the table, release dates in the collection) are now written like \"Jul 15, 2016\"."
+ "İngilizcede tarihler (bölüm yayın tarihleri, izleme tarihleri, tablodaki tarih sütunları, koleksiyondaki çıkış tarihleri) artık \"Jul 15, 2016\" biçiminde.": "In English, dates (episode air dates, watch dates, date columns in the table, release dates in the collection) are now written like \"Jul 15, 2016\".",
+ "1. SEZON": "SEASON 1",
+ "1. Bölüm": "Episode 1",
+ "2. Bölüm": "Episode 2",
+ "3. Bölüm": "Episode 3",
+ "4. Bölüm": "Episode 4",
+ "ARGUS ya da Nook": "ARGUS or Nook",
+ "OTOMATİK": "AUTOMATIC",
+ "12 Ekim 2026": "October 12, 2026",
+ "Bölüm işaretleyince durum İzleniyor oluyor": "Marking an episode now sets the status to Watching",
+ "Bir dizinin bölümüne izleme tarihi girince (ARGUS'ta ya da Nook'ta) durumu boşsa, İzlenecek ya da Yarım ise kendiliğinden İzleniyor oluyor. Önceden durum olduğu gibi kalıyordu.": "When you add a watch date to an episode of a show (in ARGUS or in Nook) and its status is empty, Watchlist or Dropped, it now switches to Watching on its own. Before, the status stayed as it was.",
+ "Sadece yakın zamanlı tarihler (son 2 hafta) durumu değiştirir — eski bir bölüme geçmişe dönük tarih yazınca durum değişmez.": "Only recent dates (the last 2 weeks) change the status — adding an old, backdated date to an episode leaves it alone.",
+ "1 bir bölüme izleme tarihi girildi · 2 durum kendiliğinden İzleniyor oldu": "1 a watch date is added to an episode · 2 the status switches to Watching on its own"
 }

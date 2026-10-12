@@ -626,6 +626,7 @@ app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
   try {
     autoWatched = autoMarkSeriesWatched(req.params.profileId, req.params.rowId, req.body ?? {})
     if (!autoWatched) autoWatching = autoUnmarkSeriesWatched(req.params.profileId, req.params.rowId, before, req.body ?? {})
+    if (!autoWatched && !autoWatching) autoWatching = autoStartWatching(req.params.profileId, req.params.rowId, before, req.body ?? {})
   } catch (e) {
     console.error('otomatik durum hata:', e)
   }
@@ -757,6 +758,37 @@ function autoUnmarkSeriesWatched(profileId, rowId, before, after) {
       text: stt('Bir bölümün işaretini kaldırdın, artık bütün bölümler izlenmiş değil — durumu İzleniyor\'a alındı.'),
     })
     return { title, boardId: board.id }
+  }
+  return null
+}
+
+// Kullanıcı "Avatar: Seven Havens'a Nook'tan izleme tarihi girdim, İzleniyor'a çekmedi" dedi: bir
+// bölüme yeni izleme tarihi girilince durum İzlendi/İzleniyor değilse (boş, İzlenecek, Yarım…) İzleniyor yapılır. Sadece
+// yeni tarih son 14 gün içindeyse — geçmişe dönük eski bir tarih girmek (ör. Yarım bırakılmış Dark'a
+// 2021'deki bölümü yazmak) durumu değiştirmesin. Bu kural sunucuda — ARGUS'un detay penceresi de Nook da
+// aynı yoldan geçer.
+function autoStartWatching(profileId, rowId, before, after) {
+  const cut = new Date()
+  cut.setDate(cut.getDate() - 14)
+  const recent = localDay(cut)
+  const added = Object.entries(after).some(([k, ds]) => Array.isArray(ds) && ds.some((d) => !(before[k] ?? []).includes(d) && String(d) >= recent))
+  if (!added) return null
+  const boards = readJson(profileBoardsFile(profileId), [])
+  for (const board of boards) {
+    const rowsFile = profileRowsFile(profileId, board.id)
+    const rows = readJson(rowsFile, [])
+    const row = rows.find((r) => r.id === rowId)
+    if (!row) continue
+    const durumProp = resolveRole(board, 'durum')
+    const izlendi = resolveStatusOption(board, 'izlendi')
+    const izleniyor = resolveStatusOption(board, 'izleniyor')
+    const cur = durumProp ? row.values[durumProp.id] : null
+    if (!durumProp || !izleniyor || cur === izleniyor || cur === izlendi) return null
+    row.values = { ...row.values, [durumProp.id]: izleniyor }
+    row.updatedAt = Date.now()
+    writeJson(rowsFile, rows)
+    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+    return { title: String((tp && row.values[tp.id]) || stt('Dizi')), boardId: board.id }
   }
   return null
 }

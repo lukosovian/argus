@@ -56,6 +56,7 @@ import {
   MuziklerVisual,
   MuzikEkleVisual,
   DilVisual,
+  OtomatikIzleniyorVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -70,6 +71,16 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.15',
+    date: tt('12 Ekim 2026'),
+    title: tt('Bölüm işaretleyince durum İzleniyor oluyor'),
+    items: [
+      tt('Bir dizinin bölümüne izleme tarihi girince (ARGUS\'ta ya da Nook\'ta) durumu boşsa, İzlenecek ya da Yarım ise kendiliğinden İzleniyor oluyor. Önceden durum olduğu gibi kalıyordu.'),
+      tt('Sadece yakın zamanlı tarihler (son 2 hafta) durumu değiştirir — eski bir bölüme geçmişe dönük tarih yazınca durum değişmez.'),
+    ],
+    visuals: [{ caption: tt('1 bir bölüme izleme tarihi girildi · 2 durum kendiliğinden İzleniyor oldu'), Visual: OtomatikIzleniyorVisual }],
+  },
   {
     version: 'v1.14.4',
     date: tt('10 Ekim 2026'),

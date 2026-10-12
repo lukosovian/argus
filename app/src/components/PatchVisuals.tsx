@@ -2309,3 +2309,48 @@ export function DilVisual() {
     </Frame>
   )
 }
+
+// v1.15: Bir bölüme (ARGUS'tan ya da Nook'tan) yeni izleme tarihi girilince durum kendiliğinden İzleniyor olur.
+export function OtomatikIzleniyorVisual() {
+  const ep = (y: number, n: string, date: string, isNew = false) => (
+    <g>
+      <rect x={24} y={y} width={10} height={10} rx={2} fill={date ? ACCENT : 'none'} className={date ? undefined : 'stroke-neutral-600'} strokeWidth={0.8} />
+      <text x={40} y={y + 8} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {n}
+      </text>
+      <text x={150} y={y + 8} fontSize={6} textAnchor="end" fill={isNew ? ACCENT : undefined} className={isNew ? undefined : 'fill-neutral-500'} style={{ fontFamily: 'inherit', fontWeight: isNew ? 600 : 400 }}>
+        {date}
+      </text>
+    </g>
+  )
+  const badge = (x: number, y: number, t: string, on: boolean) => (
+    <g>
+      <rect x={x} y={y} width={70} height={15} rx={7.5} fill={on ? ACCENT : 'none'} fillOpacity={on ? 0.2 : undefined} stroke={on ? ACCENT : undefined} className={on ? undefined : 'stroke-neutral-600'} strokeWidth={0.8} />
+      <text x={x + 35} y={y + 10.5} fontSize={7} textAnchor="middle" fill={on ? ACCENT : undefined} className={on ? undefined : 'fill-neutral-400'} style={{ fontFamily: 'inherit', fontWeight: on ? 600 : 400 }}>
+        {t}
+      </text>
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <ArrowDef id="pv-arrow-oi" />
+      <Box x={8} y={8} w={152} h={164} r={8} strong />
+      <Label x={18} y={28} size={8.5}>Avatar: Seven Havens</Label>
+      <Label x={18} y={44} size={5.5} muted>{tt('1. SEZON')}</Label>
+      {ep(54, tt('1. Bölüm'), '10.10')}
+      {ep(70, tt('2. Bölüm'), '12.10')}
+      {ep(86, tt('3. Bölüm'), tt('bugün'), true)}
+      {ep(102, tt('4. Bölüm'), '')}
+      <Pin x={154} y={88} n={1} />
+      <Label x={18} y={140} size={5.5} muted>{tt('ARGUS ya da Nook')}</Label>
+      <path d="M164 92 h40" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-oi)" />
+      <Box x={210} y={40} w={102} h={104} r={8} />
+      <Label x={220} y={58} size={6} muted>{tt('Durum')}</Label>
+      {badge(226, 68, tt('İzlenecek'), false)}
+      <path d="M261 86 v14" stroke={ACCENT} strokeWidth={1.1} markerEnd="url(#pv-arrow-oi)" />
+      {badge(226, 106, tt('İzleniyor'), true)}
+      <NewTag x={240} y={126} text={tt('OTOMATİK')} />
+      <Pin x={302} y={110} n={2} />
+    </Frame>
+  )
+}
