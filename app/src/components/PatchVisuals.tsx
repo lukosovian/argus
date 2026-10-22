@@ -2354,3 +2354,37 @@ export function OtomatikIzleniyorVisual() {
     </Frame>
   )
 }
+
+export function BolumNumarasiVisual() {
+  const ep = (y: number, n: string, date: string, isNew = false) => (
+    <g>
+      <rect x={220} y={y} width={10} height={10} rx={2} fill={date ? ACCENT : 'none'} className={date ? undefined : 'stroke-neutral-600'} strokeWidth={0.8} />
+      <text x={236} y={y + 8} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {n}
+      </text>
+      <text x={304} y={y + 8} fontSize={6} textAnchor="end" fill={isNew ? ACCENT : undefined} className={isNew ? undefined : 'fill-neutral-500'} style={{ fontFamily: 'inherit', fontWeight: isNew ? 600 : 400 }}>
+        {date}
+      </text>
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <ArrowDef id="pv-arrow-bn" />
+      <Box x={8} y={50} w={150} h={70} r={8} />
+      <Label x={18} y={68} size={5.5} muted>{tt('YouTube / tabii başlığı')}</Label>
+      <Label x={18} y={86} size={7.5}>Mehmed: Fetihler Sultanı</Label>
+      <text x={18} y={104} fontSize={8} fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('87. Bölüm')}
+      </text>
+      <Pin x={148} y={60} n={1} />
+      <path d="M162 86 h38" stroke={ACCENT} strokeWidth={1.3} markerEnd="url(#pv-arrow-bn)" />
+      <Box x={206} y={30} w={106} h={120} r={8} strong />
+      <Label x={216} y={48} size={5.5} muted>{tt('4. SEZON')}</Label>
+      {ep(58, tt('3. Bölüm'), '01.10')}
+      {ep(76, tt('4. Bölüm'), tt('bugün'), true)}
+      {ep(94, tt('5. Bölüm'), '')}
+      <NewTag x={222} y={124} text={tt('DÜZELTME')} />
+      <Pin x={302} y={80} n={2} />
+    </Frame>
+  )
+}

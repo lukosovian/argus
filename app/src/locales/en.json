@@ -2306,5 +2306,14 @@
  "Bölüm işaretleyince durum İzleniyor oluyor": "Marking an episode now sets the status to Watching",
  "Bir dizinin bölümüne izleme tarihi girince (ARGUS'ta ya da Nook'ta) durumu boşsa, İzlenecek ya da Yarım ise kendiliğinden İzleniyor oluyor. Önceden durum olduğu gibi kalıyordu.": "When you add a watch date to an episode of a show (in ARGUS or in Nook) and its status is empty, Watchlist or Dropped, it now switches to Watching on its own. Before, the status stayed as it was.",
  "Sadece yakın zamanlı tarihler (son 2 hafta) durumu değiştirir — eski bir bölüme geçmişe dönük tarih yazınca durum değişmez.": "Only recent dates (the last 2 weeks) change the status — adding an old, backdated date to an episode leaves it alone.",
- "1 bir bölüme izleme tarihi girildi · 2 durum kendiliğinden İzleniyor oldu": "1 a watch date is added to an episode · 2 the status switches to Watching on its own"
+ "1 bir bölüme izleme tarihi girildi · 2 durum kendiliğinden İzleniyor oldu": "1 a watch date is added to an episode · 2 the status switches to Watching on its own",
+ "22 Ekim 2026": "October 22, 2026",
+ "Düzeltme: baştan sayılan bölüm numaraları": "Fix: episode numbers counted from the start",
+ "Düzeltme: bazı diziler bölümleri baştan sayıyor (YouTube ya da tabii'de \"87. Bölüm\" gibi). Nook böyle bir bölümü işaretleyince olmayan bir bölüme (\"4. sezon 87. bölüm\") yazılıyordu; takvimde görünüyor ama detay penceresinde tarih çıkmıyordu. Artık doğru sezon ve bölüme (4. sezon 4. bölüm) yazılıyor.": "Fix: some shows number their episodes from the very start (like \"Episode 87\" on YouTube or tabii). When Nook marked such an episode, it was saved to an episode that does not exist (\"season 4 episode 87\"): it showed up in the calendar but not in the detail window. Now it is saved to the right season and episode (season 4 episode 4).",
+ "1 başlıkta baştan sayılmış numara · 2 ARGUS doğru sezon ve bölüme yazıyor": "1 an episode number counted from the start in the title · 2 ARGUS saves it to the right season and episode",
+ "YouTube / tabii başlığı": "YouTube / tabii title",
+ "87. Bölüm": "Episode 87",
+ "4. SEZON": "SEASON 4",
+ "5. Bölüm": "Episode 5",
+ "DÜZELTME": "FIX"
 }

@@ -57,6 +57,7 @@ import {
   MuzikEkleVisual,
   DilVisual,
   OtomatikIzleniyorVisual,
+  BolumNumarasiVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -71,6 +72,15 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.16',
+    date: tt('22 Ekim 2026'),
+    title: tt('Düzeltme: baştan sayılan bölüm numaraları'),
+    items: [
+      tt('Düzeltme: bazı diziler bölümleri baştan sayıyor (YouTube ya da tabii\'de "87. Bölüm" gibi). Nook böyle bir bölümü işaretleyince olmayan bir bölüme ("4. sezon 87. bölüm") yazılıyordu; takvimde görünüyor ama detay penceresinde tarih çıkmıyordu. Artık doğru sezon ve bölüme (4. sezon 4. bölüm) yazılıyor.'),
+    ],
+    visuals: [{ caption: tt('1 başlıkta baştan sayılmış numara · 2 ARGUS doğru sezon ve bölüme yazıyor'), Visual: BolumNumarasiVisual }],
+  },
   {
     version: 'v1.15',
     date: tt('12 Ekim 2026'),

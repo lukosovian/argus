@@ -606,10 +606,47 @@ app.get('/api/profiles/:profileId/watched', (req, res) => {
   res.json(readJson(profileWatchedFile(req.params.profileId), {}))
 })
 
+// Kullanıcı "Mehmed: Fetihler Sultanı'na Nook'tan bölüm ekledim, takvimde var ama detay penceresinde
+// tarih yok; bir yerde 1 2 3 4. bölüm diyor bir yerde 84 85 86" dedi: Nook YouTube/tabii başlığındaki
+// baştan sayılmış numarayı ("87. Bölüm") olduğu gibi "4-87" diye yazmıştı. Listede olmayan bir bölüm,
+// numarası önceki sezonların toplamından büyükse baştan sayılmış kabul edilip doğru sezon/bölüme çevrilir
+// (87 → 4. sezon 4. bölüm). Henüz TMDB'ye girmemiş yeni bir bölüm ("4-8") küçük numaralı olduğundan dokunulmaz.
+function fixAbsoluteEpisodes(profileId, rowId, body) {
+  const seasons = (readJson(profileEpisodesFile(profileId), {})[rowId] ?? [])
+    .filter((s) => s.seasonNumber > 0)
+    .sort((a, b) => a.seasonNumber - b.seasonNumber)
+  if (!seasons.length || !body || typeof body !== 'object') return body
+  const known = new Set(seasons.flatMap((s) => (s.episodes ?? []).map((e) => `${s.seasonNumber}-${e.episodeNumber}`)))
+  const out = {}
+  for (const [k, ds] of Object.entries(body)) {
+    let key = k
+    const m = /^(\d+)-(\d+)$/.exec(k)
+    if (m && !known.has(k)) {
+      const sn = Number(m[1])
+      let n = Number(m[2])
+      const offset = seasons.filter((s) => s.seasonNumber < sn).reduce((t, s) => t + (s.episodes?.length ?? 0), 0)
+      if (offset > 0 && n > offset) {
+        key = `${sn}-${n - offset}`
+        for (const s of seasons) {
+          const c = s.episodes?.length ?? 0
+          if (n <= c) {
+            if (s.seasonNumber >= sn) key = `${s.seasonNumber}-${s.episodes[n - 1].episodeNumber}`
+            break
+          }
+          n -= c
+        }
+      }
+    }
+    out[key] = Array.isArray(out[key]) && Array.isArray(ds) ? [...new Set([...out[key], ...ds])].sort() : ds
+  }
+  return out
+}
+
 app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
   const file = profileWatchedFile(req.params.profileId)
   const all = readJson(file, {})
   const before = all[req.params.rowId] ?? {}
+  req.body = fixAbsoluteEpisodes(req.params.profileId, req.params.rowId, req.body)
   all[req.params.rowId] = req.body
   writeJson(file, all)
   try {
