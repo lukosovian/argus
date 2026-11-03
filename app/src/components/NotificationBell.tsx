@@ -29,6 +29,8 @@ const TYPE_ICON: Record<string, { icon: string; cls: string }> = {
   newSeason: { icon: '▶', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
   announce: { icon: '📅', cls: 'bg-amber-500/15 text-amber-300' },
   feature: { icon: '★', cls: 'bg-fuchsia-500/15 text-fuchsia-300' },
+  platform: { icon: '📺', cls: 'bg-violet-500/15 text-violet-300' },
+  collection: { icon: '🎞', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
 }
 
 function BellIcon() {

@@ -19,6 +19,7 @@ import HoverPreviewVideo from '../components/HoverPreviewVideo'
 import MoodRow from '../components/MoodRow'
 import NewEpisodesRow from '../components/NewEpisodesRow'
 import OnThisDayRow from '../components/OnThisDayRow'
+import ForgottenRow from '../components/ForgottenRow'
 import { stripFlags } from '../components/OptionDetailModal'
 import AgeRatingChip from '../components/AgeRatingChip'
 import { sortByOrder } from '../components/HomeSectionEditor'
@@ -960,6 +961,8 @@ export default function AnaSayfa() {
   bodySections.forEach((s, i) => rowNodes.set(`section:${s.id}`, bodyRowNodes[i]))
   rowNodes.set('new-episodes', <NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   rowNodes.set('on-this-day', <OnThisDayRow key="on-this-day" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+  if (settings.forgotten?.enabled ?? true)
+    rowNodes.set('forgotten', <ForgottenRow key="forgotten" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.topRated?.enabled)
     rowNodes.set('top-rated', <TopRatedRow key="top-rated" board={board} rows={visibleRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (moodEnabled && settings.moodRow)

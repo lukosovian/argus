@@ -84,6 +84,9 @@ export interface TmdbChoice {
   exact: boolean
 }
 
+// Keşfet / Ne İzlesem sıralaması: popüler, en yüksek puanlı, yeni çıkanlar, gizli kalmışlar, her şeyden
+export type TmdbSort = 'popular' | 'top' | 'new' | 'gem' | 'any'
+
 export interface TmdbCard {
   tmdbId: number
   mediaType: 'movie' | 'tv'
@@ -291,7 +294,15 @@ export const api = {
     request<TmdbExtras>(profilePath(`/tmdb-extras/${boardId}/${rowId}`)),
   addFromTmdb: (
     boardId: string,
-    item: { tmdbId: number; mediaType: 'movie' | 'tv'; status: 'izlenecek' | 'izlendi'; watchedDate?: string; rating?: number; exclude?: string[] },
+    item: {
+      tmdbId: number
+      mediaType: 'movie' | 'tv'
+      status: 'izlenecek' | 'izlendi'
+      watchedDate?: string
+      rating?: number
+      scores?: Record<string, number>
+      exclude?: string[]
+    },
   ) => request<{ ok: true; rowId: string; title: string; filled: boolean }>(profilePath(`/tmdb-add/${boardId}`), { method: 'POST', ...json(item) }),
   getTmdbGenres: (type: 'movie' | 'tv') =>
     request<{ genres: { id: number; name: string }[]; needsApiKey?: boolean }>(profilePath(`/tmdb-genres?type=${type}`)),
@@ -302,8 +313,13 @@ export const api = {
       genreIds: number[]
       excludeGenreIds?: number[]
       count: number
-      sort: 'popular' | 'top' | 'new'
+      sort: TmdbSort
       random?: boolean
+      yearFrom?: number | null
+      yearTo?: number | null
+      skip?: string[]
+      maxMinutes?: number | null
+      platforms?: number[]
     },
   ) =>
     request<{ items: TmdbCard[] }>(profilePath(`/tmdb-discover/${boardId}`), { method: 'POST', ...json(query) }),
@@ -349,6 +365,14 @@ export const api = {
     request<{ collection: { id: number; name: string; backdrop: string | null } | null; parts?: (ArchiveCard & { released: boolean; releaseDate: string })[] }>(
       profilePath(`/collection/${boardId}/${rowId}`),
     ),
+  getCollectionByTmdb: (boardId: string, tmdbId: number) =>
+    request<{ collection: { id: number; name: string; backdrop: string | null } | null; parts?: (ArchiveCard & { released: boolean; releaseDate: string })[] }>(
+      profilePath(`/collection-tmdb/${boardId}/${tmdbId}`),
+    ),
+  getRowPlatforms: (boardId: string) => request<{ ready: boolean; platforms: Record<string, number[]> }>(profilePath(`/row-platforms/${boardId}`)),
+  getPlatforms: () => request<{ items: { id: number; name: string; logo: string | null }[]; needsApiKey?: boolean }>(profilePath('/tmdb-platforms')),
+  getReleases: (boardId: string, from: string, to: string) =>
+    request<{ items: (ArchiveCard & { releaseDate: string })[]; needsApiKey?: boolean }>(profilePath(`/tmdb-releases/${boardId}?from=${from}&to=${to}`)),
   getPerson: (boardId: string, name: string, role: 'acting' | 'directing') =>
     request<{ person: PersonInfo | null; inArchive: ArchiveCard[]; notInArchive: ArchiveCard[]; needsApiKey?: boolean }>(
       profilePath(`/person/${boardId}?name=${encodeURIComponent(name)}&role=${role}`),

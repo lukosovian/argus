@@ -2388,3 +2388,297 @@ export function BolumNumarasiVisual() {
     </Frame>
   )
 }
+
+// ---- v1.17 ---------------------------------------------------------------------------------
+
+// Ne İzlesem'in içinden açılan Filtreler paneli (yıl aralığıyla)
+export function NeIzlesemFiltreVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Poster x={22} y={46} w={52} />
+      <Line x={86} y={56} w={80} />
+      <Line x={86} y={68} w={60} light />
+      <Line x={86} y={80} w={70} light />
+      <MiniButton x={168} y={10} w={40} text={tt('Filtreler')} accent />
+      <MiniButton x={212} y={10} w={46} text={tt('↻ Tekrar getir')} />
+      <MiniButton x={262} y={10} w={50} text={tt('Kapat')} />
+      <Pin x={188} y={8} n={1} />
+      <Box x={196} y={28} w={116} h={142} r={6} strong />
+      <Label x={204} y={42} size={6.5}>{tt('Nereden seçilsin')}</Label>
+      <MiniButton x={204} y={48} w={46} text={tt('Arşivimden')} />
+      <MiniButton x={254} y={48} w={50} text="TMDB" />
+      <Label x={204} y={76} size={5.5} muted>{tt('Tür')}</Label>
+      <Chip x={204} y={80} w={32} color={ACCENT} />
+      <Chip x={240} y={80} w={28} color="#737373" />
+      <Label x={204} y={108} size={5.5} muted>{tt('Yıl')}</Label>
+      <Box x={204} y={112} w={34} h={14} r={3} />
+      <Label x={221} y={122} size={6.5} anchor="middle">1990</Label>
+      <Label x={243} y={122} size={6.5} muted>–</Label>
+      <Box x={250} y={112} w={34} h={14} r={3} />
+      <Label x={267} y={122} size={6.5} anchor="middle">1999</Label>
+      <NewTag x={288} y={112} />
+      <Pin x={302} y={104} n={2} />
+      <MiniButton x={204} y={150} w={100} text={tt('Bu filtreyle getir')} accent />
+    </Frame>
+  )
+}
+
+// Yeni sıralamalar: popüler / en yüksek puanlı yanında gizli kalmışlar, yeni çıkanlar, her şeyden
+export function NeIzlesemSiralamaVisual() {
+  const opts: [string, boolean][] = [
+    [tt('Popüler olanlar'), false],
+    [tt('En yüksek puanlılar'), false],
+    [tt('Gizli kalmışlar'), true],
+    [tt('Yeni çıkanlar'), true],
+    [tt('Her şeyden'), true],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={20} y={22} w={280} h={136} r={8} />
+      <Label x={34} y={42} size={7} muted>{tt('Hangileri')}</Label>
+      {opts.map(([t, isNew], i) => (
+        <g key={t}>
+          <MiniButton x={34 + (i % 3) * 88} y={52 + Math.floor(i / 3) * 24} w={82} text={t} accent={isNew} />
+        </g>
+      ))}
+      <Pin x={290} y={56} n={1} />
+      <Label x={34} y={118} size={6.5} muted>{tt('Son gelenler bir süre yine gelmez')}</Label>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Poster key={i} x={34 + i * 22} y={124} w={16} dim={i < 3} />
+      ))}
+      <path d="M34 140 l12 -12 M56 140 l12 -12 M78 140 l12 -12" stroke={ACCENT} strokeWidth={1} />
+      <Pin x={150} y={132} n={2} />
+    </Frame>
+  )
+}
+
+// Seri film: kaçıncı film rozeti + serinin diğer filmleri; izlenmemiş ilk film önce gelir
+export function SeriFilmVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Poster x={14} y={14} w={46} />
+      <Line x={70} y={22} w={90} />
+      <rect x={70} y={32} width={62} height={11} rx={5.5} fill={ACCENT} fillOpacity={0.2} stroke={ACCENT} strokeOpacity={0.6} />
+      <text x={101} y={40} fontSize={6} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }} {...fit(tt('Serinin 1. filmi'), 6, 58)}>
+        {tt('Serinin 1. filmi')}
+      </text>
+      <Pin x={142} y={37} n={1} />
+      <Label x={70} y={58} size={6} muted>{tt('2. film çıktı, 1. filmi izlemedin')}</Label>
+      <Label x={14} y={104} size={7}>{tt('Serinin filmleri')}</Label>
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i}>
+          <rect x={14 + i * 40} y={112} width={32} height={48} rx={3} className={i === 0 ? undefined : 'fill-neutral-700'} fill={i === 0 ? '#1f2937' : undefined} stroke={i === 0 ? ACCENT : 'none'} strokeWidth={1.4} />
+          <text x={19 + i * 40} y={121} fontSize={6} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+            {i + 1}
+          </text>
+        </g>
+      ))}
+      <Pin x={176} y={136} n={2} />
+      <NewTag x={250} y={14} />
+    </Frame>
+  )
+}
+
+// İzledim: tarih + kriter kriter puan
+export function DetayliPuanVisual() {
+  const crit = [tt('Senaryo'), tt('Oyunculuk'), tt('Görsellik'), tt('Müzik')]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={60} y={12} w={200} h={156} r={8} strong />
+      <Label x={72} y={30} size={6} muted>{tt('İzleme tarihi')}</Label>
+      <Box x={72} y={35} w={176} h={13} r={3} />
+      <Label x={78} y={44} size={6.5}>03.11.2026</Label>
+      <Label x={72} y={64} size={6} muted>{tt('Puan')}</Label>
+      <text x={248} y={64} fontSize={7} textAnchor="end" fill="#fbbf24" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        ★ 8.1
+      </text>
+      {crit.map((c, i) => (
+        <g key={c}>
+          <Label x={72} y={78 + i * 18} size={6}>{c}</Label>
+          <rect x={72} y={82 + i * 18} width={176} height={2.5} rx={1.2} className="fill-neutral-700" />
+          <rect x={72} y={82 + i * 18} width={176 * [0.8, 0.9, 0.75, 0.8][i]} height={2.5} rx={1.2} fill={ACCENT} />
+          <circle cx={72 + 176 * [0.8, 0.9, 0.75, 0.8][i]} cy={83.2 + i * 18} r={3} fill={ACCENT} />
+        </g>
+      ))}
+      <Pin x={258} y={96} n={1} />
+      <MiniButton x={72} y={152} w={120} text={tt('Kaydet')} accent />
+      <NewTag x={226} y={20} />
+    </Frame>
+  )
+}
+
+// Takvim: özet kutucuğuna tıklayınca liste
+export function TakvimOzetVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {[tt('3 film'), tt('12 bölüm'), tt('1 dizi bitirdin')].map((t, i) => (
+        <g key={t}>
+          <rect x={14 + i * 64} y={14} width={58} height={14} rx={7} fill={i === 0 ? ACCENT : 'none'} fillOpacity={i === 0 ? 0.2 : 1} stroke={i === 0 ? ACCENT : '#525252'} strokeWidth={0.8} />
+          <text x={43 + i * 64} y={24} fontSize={6.5} textAnchor="middle" className="fill-neutral-200" style={{ fontFamily: 'inherit' }} {...fit(t, 6.5, 52)}>
+            {t}
+          </text>
+        </g>
+      ))}
+      <Pin x={70} y={14} n={1} />
+      <path d="M43 30 v14" stroke={ACCENT} strokeWidth={1.2} />
+      <Box x={14} y={46} w={200} h={122} r={8} strong />
+      <Label x={24} y={62} size={7}>{tt('Bu ay izlediğin filmler')}</Label>
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <Label x={24} y={78 + i * 30} size={5.5} muted>{['2', '14', '27'][i] + ' ' + tt('Kasım')}</Label>
+          <rect x={24} y={82 + i * 30} width={180} height={18} rx={3} className="fill-neutral-800" />
+          <rect x={27} y={84 + i * 30} width={9} height={14} rx={1.5} className="fill-neutral-600" />
+          <Line x={42} y={89 + i * 30} w={80} />
+        </g>
+      ))}
+      <Pin x={214} y={92} n={2} />
+      <Label x={226} y={96} size={6} muted>{tt('tıkla → detay')}</Label>
+    </Frame>
+  )
+}
+
+// Takvim: vizyona girecek filmler
+export function VizyonTakvimVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={196} y={10} width={112} height={15} rx={7.5} fill="#fbbf24" fillOpacity={0.12} stroke="#fbbf24" strokeOpacity={0.6} />
+      <text x={252} y={20.5} fontSize={6.5} textAnchor="middle" fill="#fcd34d" style={{ fontFamily: 'inherit' }} {...fit('🎬 ' + tt('Vizyondakiler'), 6.5, 104)}>
+        🎬 {tt('Vizyondakiler')}
+      </text>
+      <Pin x={194} y={12} n={1} />
+      {[0, 1, 2, 3, 4, 5, 6].map((c) =>
+        [0, 1].map((r) => <rect key={`${c}-${r}`} x={12 + c * 43} y={34 + r * 68} width={41} height={66} className="fill-neutral-900 stroke-neutral-800" strokeWidth={0.6} />),
+      )}
+      {[
+        [1, 0],
+        [2, 0],
+        [2, 1],
+        [4, 1],
+      ].map(([c, r], i) => (
+        <g key={i}>
+          <rect x={15 + c * 43} y={48 + r * 68 + (i === 2 ? 0 : 0)} width={35} height={18} rx={2.5} fill="none" stroke="#fbbf24" strokeOpacity={0.7} strokeDasharray="2 1.5" strokeWidth={0.8} />
+          <rect x={17 + c * 43} y={50 + r * 68} width={8} height={14} rx={1} className="fill-neutral-600" />
+          <rect x={28 + c * 43} y={53 + r * 68} width={18} height={3} rx={1} className="fill-neutral-400" />
+          <rect x={28 + c * 43} y={59 + r * 68} width={12} height={2.5} rx={1} fill="#fbbf24" fillOpacity={0.8} />
+        </g>
+      ))}
+      <Pin x={150} y={58} n={2} />
+    </Frame>
+  )
+}
+
+// Zildeki yeni bildirimler: platforma geldi, vizyon tarihi değişti, seriye yeni film
+export function TakipBildirimVisual() {
+  const rows: [string, string, string, string][] = [
+    ['📺', '#8b5cf6', tt('Bıçaklar Çekildi'), tt('Artık şu platformda: Netflix')],
+    ['📅', '#f59e0b', tt('Açlık Oyunları'), tt('Vizyon tarihi ertelendi')],
+    ['🎞', ACCENT, tt('Yıldız Savaşları serisi'), tt('Seriye yeni bir film eklendi')],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={70} y={14} w={180} h={152} r={8} strong />
+      <Label x={82} y={32} size={7}>{tt('Bildirimler')}</Label>
+      {rows.map(([icon, color, title, text], i) => (
+        <g key={i}>
+          <rect x={80} y={42 + i * 40} width={160} height={34} rx={5} className="fill-neutral-800" />
+          <circle cx={95} cy={59 + i * 40} r={8} fill={color} fillOpacity={0.25} />
+          <text x={95} y={62 + i * 40} fontSize={8} textAnchor="middle" style={{ fontFamily: 'inherit' }}>
+            {icon}
+          </text>
+          <text x={108} y={55 + i * 40} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }} {...fit(title, 6.5, 126)}>
+            {title}
+          </text>
+          <text x={108} y={66 + i * 40} fontSize={5.8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }} {...fit(text, 5.8, 126)}>
+            {text}
+          </text>
+        </g>
+      ))}
+      <Pin x={250} y={59} n={1} />
+      <Pin x={250} y={99} n={2} />
+      <Pin x={250} y={139} n={3} />
+    </Frame>
+  )
+}
+
+// Ne İzlesem: süre ve platformlarım
+export function SurePlatformVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={40} y={16} w={240} h={148} r={8} />
+      <Label x={54} y={36} size={6.5} muted>{tt('Ne kadar vaktin var')}</Label>
+      <MiniButton x={54} y={42} w={50} text={tt('Fark etmez')} />
+      <MiniButton x={108} y={42} w={50} text={tt('90 dk')} />
+      <MiniButton x={162} y={42} w={50} text={tt('2 saat')} accent />
+      <MiniButton x={216} y={42} w={50} text={tt('2,5 saat')} />
+      <Pin x={272} y={40} n={1} />
+      <Label x={54} y={80} size={6.5} muted>{tt('Sadece platformlarımda')}</Label>
+      <rect x={256} y={73} width={10} height={10} rx={2} fill={ACCENT} />
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i}>
+          <rect x={54 + i * 54} y={90} width={48} height={16} rx={4} fill={i < 2 ? ACCENT : 'none'} fillOpacity={i < 2 ? 0.18 : 1} stroke={i < 2 ? ACCENT : '#525252'} strokeWidth={0.8} />
+          <rect x={57 + i * 54} y={93} width={10} height={10} rx={2} className="fill-neutral-600" />
+          <rect x={71 + i * 54} y={96.5} width={26} height={3} rx={1} className="fill-neutral-400" />
+        </g>
+      ))}
+      <Pin x={272} y={98} n={2} />
+      <MiniButton x={54} y={136} w={110} text={tt('Bu filtreyle getir')} accent />
+      <NewTag x={226} y={136} />
+    </Frame>
+  )
+}
+
+// Ana sayfada "Unuttukların"
+export function UnuttuklarinVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Label x={14} y={30} size={8}>{tt('Unuttukların')}</Label>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={14 + i * 60} y={40} width={52} height={78} rx={4} className="fill-neutral-700" />
+          <rect x={17 + i * 60} y={43} width={40} height={10} rx={2} fill={i < 2 ? '#fbbf24' : '#000'} fillOpacity={i < 2 ? 1 : 0.6} />
+          <text x={37 + i * 60} y={50.5} fontSize={5} textAnchor="middle" fill={i < 2 ? '#0a0a0a' : '#e5e5e5'} style={{ fontFamily: 'inherit', fontWeight: 600 }} {...fit(i < 2 ? tt('3 aydır') : tt('8 aydır'), 5, 36)}>
+            {i < 2 ? tt('3 aydır') : tt('8 aydır')}
+          </text>
+          <MiniButton x={14 + i * 60} y={124} w={25} text={i < 2 ? tt('Devam') : tt('Bak')} />
+          <MiniButton x={41 + i * 60} y={124} w={25} text={i < 2 ? tt('Bırak') : tt('Gizle')} />
+        </g>
+      ))}
+      <Pin x={66} y={44} n={1} />
+      <Pin x={246} y={44} n={2} />
+      <NewTag x={110} y={20} />
+    </Frame>
+  )
+}
+
+// İstatistikler: Puan zevkin
+export function PuanZevkiVisual() {
+  const crit: [string, number][] = [
+    [tt('Senaryo'), 7.9],
+    [tt('Oyunculuk'), 7.7],
+    [tt('Görsellik'), 7.6],
+    [tt('Müzik'), 7.0],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={10} y={14} w={300} h={152} r={8} />
+      <Label x={22} y={32} size={7.5}>{tt('Puan zevkin')}</Label>
+      {crit.map(([c, v], i) => (
+        <g key={c}>
+          <Label x={22} y={56 + i * 22} size={6}>{c}</Label>
+          <rect x={72} y={50 + i * 22} width={80} height={8} rx={2} className="fill-neutral-800" />
+          <rect x={72} y={50 + i * 22} width={v * 8} height={8} rx={2} fill={ACCENT} />
+        </g>
+      ))}
+      <Pin x={160} y={66} n={1} />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <rect x={178} y={48 + i * 26} width={6} height={6} rx={3} fill={ACCENT} />
+          <Line x={190} y={50 + i * 26} w={100} />
+          <Line x={190} y={58 + i * 26} w={70} light />
+        </g>
+      ))}
+      <Pin x={300} y={52} n={2} />
+      <NewTag x={250} y={20} />
+    </Frame>
+  )
+}

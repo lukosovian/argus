@@ -21,9 +21,35 @@ const durum = (kod) => {
   }
 }
 
-console.log('Arayüz hazırlanıyor...')
-durum('build')
-const build = spawnSync('npx vite build --logLevel warn', { cwd: here, stdio: 'inherit', shell: true })
+// Kullanıcı "ARGUS yavaş açılıyor" dedi: paketleme her açılışta ~3 sn sürüyordu. Arayüzün kaynaklarında
+// (src, public, index.html, ayarlar) son paketten beri bir değişiklik yoksa (güncelleme gelmediyse) paket
+// olduğu gibi kullanılıyor; Git'in güncellediği dosyaların tarihi yenilendiği için güncellemeden sonra yine paketlenir.
+const dist = path.join(here, 'dist', 'index.html')
+function newest(p) {
+  try {
+    const st = fs.statSync(p)
+    if (!st.isDirectory()) return st.mtimeMs
+    return fs.readdirSync(p).reduce((m, f) => Math.max(m, newest(path.join(p, f))), st.mtimeMs)
+  } catch {
+    return 0
+  }
+}
+function upToDate() {
+  try {
+    const built = fs.statSync(dist).mtimeMs
+    const inputs = ['src', 'public', 'index.html', 'vite.config.ts', 'package-lock.json', 'tsconfig.app.json']
+    return inputs.every((f) => newest(path.join(here, f)) < built)
+  } catch {
+    return false
+  }
+}
+
+let build = { status: 0 }
+if (!upToDate()) {
+  console.log('Arayüz hazırlanıyor...')
+  durum('build')
+  build = spawnSync('npx vite build --logLevel warn', { cwd: here, stdio: 'inherit', shell: true })
+}
 
 durum('server')
 if (build.status === 0) {

@@ -6,7 +6,7 @@ import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useToast } from '../hooks/useToast'
 import { useProfiles } from '../hooks/useProfiles'
-import { api } from '../lib/api'
+import { api, type ArchiveCard } from '../lib/api'
 import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { rowMatchesConditions, type FilterCondition } from '../lib/filters'
@@ -16,6 +16,7 @@ import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '
 import Select from '../components/Select'
 import MultiFilterEditor from '../components/MultiFilterEditor'
 import RowDetailModal from '../components/RowDetailModal'
+import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import { useEscape } from '../hooks/useEscape'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, dayNames, fmtDate, getLang, EP } from '../lib/i18n'
@@ -651,6 +652,13 @@ function MonthView({
   onOpenRow: (r: Row) => void
 }) {
   const look = rowLook(board)
+  // Kullanıcı "takvimde üstte yazan izlemelere tıklayınca ilgili içerikleri açsın" dedi: özet kutucuğuna
+  // tıklayınca o sayının içindekiler (ör. bu ay izlenen filmler) liste olarak açılır, birine tıklayınca detayı.
+  const [list, setList] = useState<{ title: string; events: CalEvent[] } | null>(null)
+  // Vizyona girecek filmler (TMDB) — açık/kapalı tercihi hatırlanır
+  const [showReleases, setShowReleases] = useState(() => localStorage.getItem('argus_takvim_vizyon') === '1')
+  const [releases, setReleases] = useState<ReleaseCard[]>([])
+  const [preview, setPreview] = useState<ReleaseCard | null>(null)
   const first = new Date(year, month, 1)
   const start = new Date(year, month, 1 - ((first.getDay() + 6) % 7))
   const last = new Date(year, month + 1, 0)
@@ -671,7 +679,30 @@ function MonthView({
   const activeDays = new Set(past.map((e) => e.date)).size
   const upcoming = monthEvents.filter((e) => e.kind === 'upcoming' || e.kind === 'release').length
 
-  const agendaDays = days.filter((d) => d.startsWith(monthPrefix) && (byDay.get(d)?.length ?? 0) > 0)
+  const finishedList = past.filter((e) => e.kind === 'watch' && e.part !== 'start' && isSeries(e.row))
+  const episodeList = past.filter((e) => (e.episodeCount ?? 0) > 0)
+  const upcomingList = monthEvents.filter((e) => e.kind === 'upcoming' || e.kind === 'release')
+  const byDate = (a: CalEvent, b: CalEvent) => a.date.localeCompare(b.date)
+
+  const gridFrom = days[0]
+  const gridTo = days[days.length - 1]
+  useEffect(() => {
+    localStorage.setItem('argus_takvim_vizyon', showReleases ? '1' : '0')
+    if (!showReleases) return
+    let alive = true
+    api
+      .getReleases(board.id, gridFrom, gridTo)
+      // Arşivindekiler zaten (İzlenecek'se) "Vizyona giriyor" olarak görünüyor — iki kez çıkmasın
+      .then((d) => alive && setReleases(d.items.filter((c) => !c.inArchive)))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [showReleases, board.id, gridFrom, gridTo])
+  const releasesByDay = new Map<string, ReleaseCard[]>()
+  if (showReleases) for (const c of releases) releasesByDay.set(c.releaseDate, [...(releasesByDay.get(c.releaseDate) ?? []), c])
+
+  const agendaDays = days.filter((d) => d.startsWith(monthPrefix) && ((byDay.get(d)?.length ?? 0) > 0 || releasesByDay.has(d)))
 
   return (
     <div className="space-y-4">
@@ -693,12 +724,25 @@ function MonthView({
           )}
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          <SummaryPill value={films.length} label={tt('film')} />
-          <SummaryPill value={episodeCount} label={tt('bölüm')} />
-          {finishedSeries > 0 && <SummaryPill value={finishedSeries} label={tt('dizi bitirdin')} />}
-          {filmMinutes > 0 && <SummaryPill value={Math.round(filmMinutes / 60)} label={tt('saat film')} />}
-          <SummaryPill value={activeDays} label={tt('gün izleme')} />
-          {upcoming > 0 && <SummaryPill value={upcoming} label={tt('yaklaşan')} accent />}
+          <SummaryPill value={films.length} label={tt('film')} onClick={() => setList({ title: tt('Bu ay izlediğin filmler'), events: [...films].sort(byDate) })} />
+          <SummaryPill value={episodeCount} label={tt('bölüm')} onClick={() => setList({ title: tt('Bu ay izlediğin bölümler'), events: [...episodeList].sort(byDate) })} />
+          {finishedSeries > 0 && (
+            <SummaryPill value={finishedSeries} label={tt('dizi bitirdin')} onClick={() => setList({ title: tt('Bu ay bitirdiğin diziler'), events: [...finishedList].sort(byDate) })} />
+          )}
+          {filmMinutes > 0 && (
+            <SummaryPill value={Math.round(filmMinutes / 60)} label={tt('saat film')} onClick={() => setList({ title: tt('Bu ay izlediğin filmler'), events: [...films].sort(byDate) })} />
+          )}
+          <SummaryPill value={activeDays} label={tt('gün izleme')} onClick={() => setList({ title: tt('Bu ay izlediklerin'), events: [...past].filter((e) => e.part !== 'start').sort(byDate) })} />
+          {upcoming > 0 && <SummaryPill value={upcoming} label={tt('yaklaşan')} accent onClick={() => setList({ title: tt('Bu ay yaklaşanlar'), events: [...upcomingList].sort(byDate) })} />}
+          <button
+            onClick={() => setShowReleases((v) => !v)}
+            title={tt('Bu ay vizyona girecek popüler filmleri takvimde göster')}
+            className={`rounded-full border px-3 py-1.5 transition ${
+              showReleases ? 'border-amber-400/60 bg-amber-400/10 text-amber-300' : 'border-neutral-800 bg-neutral-900/60 text-neutral-400 hover:border-neutral-600 hover:text-neutral-200'
+            }`}
+          >
+            🎬 {tt('Vizyondakiler')}
+          </button>
         </div>
       </div>
 
@@ -744,6 +788,7 @@ function MonthView({
                   {list.map((ev) => (
                     <EventItem key={ev.key} ev={ev} look={look} onClick={() => onOpenRow(ev.row)} />
                   ))}
+                  {inMonth && releasesByDay.get(d)?.map((c) => <ReleaseItem key={c.tmdbId} card={c} onClick={() => setPreview(c)} />)}
                 </div>
               </div>
             )
@@ -763,6 +808,7 @@ function MonthView({
               {(byDay.get(d) ?? []).map((ev) => (
                 <EventItem key={ev.key} ev={ev} look={look} onClick={() => onOpenRow(ev.row)} big />
               ))}
+              {releasesByDay.get(d)?.map((c) => <ReleaseItem key={c.tmdbId} card={c} onClick={() => setPreview(c)} big />)}
             </div>
           </div>
         ))}
@@ -783,17 +829,125 @@ function MonthView({
           <span className="inline-block h-2.5 w-5 align-middle rounded border border-dashed border-neutral-600 mr-1" />
           {tt('Kesik çizgili: yaklaşan — yeni bölüm ya da vizyon tarihi.')}
         </span>
+        {showReleases && (
+          <span>
+            <span className="inline-block h-2.5 w-5 align-middle rounded border border-dashed border-amber-400/60 mr-1" />
+            {tt('Sarı: bu ay vizyona giren, arşivinde olmayan popüler filmler (TMDB). Tıklayınca fragmanı ve ekleme seçenekleri açılır.')}
+          </span>
+        )}
         <span className="sm:col-span-2 text-neutral-600">{tt('Bir güne izlediğin bir şeyi eklemek için günün numarasına tıkla.')}</span>
       </div>
+
+      {list && (
+        <SummaryListModal
+          title={list.title}
+          events={list.events}
+          look={look}
+          onClose={() => setList(null)}
+          onOpenRow={(r) => {
+            setList(null)
+            onOpenRow(r)
+          }}
+        />
+      )}
+      {preview && (
+        <TmdbPreviewModal
+          boardId={board.id}
+          card={preview}
+          onClose={() => setPreview(null)}
+          onAdded={() => setReleases((rs) => rs.filter((c) => c.tmdbId !== preview.tmdbId))}
+        />
+      )}
     </div>
   )
 }
 
-function SummaryPill({ value, label, accent = false }: { value: number; label: string; accent?: boolean }) {
+function SummaryPill({ value, label, accent = false, onClick }: { value: number; label: string; accent?: boolean; onClick?: () => void }) {
   return (
-    <span className={`rounded-full border px-3 py-1.5 ${accent ? 'border-[#00c0fa]/40 bg-[#00c0fa]/10 text-[#7fdcff]' : 'border-neutral-800 bg-neutral-900/60 text-neutral-400'}`}>
+    <button
+      onClick={onClick}
+      disabled={!onClick || value === 0}
+      className={`rounded-full border px-3 py-1.5 transition enabled:hover:border-neutral-500 enabled:cursor-pointer disabled:cursor-default ${
+        accent ? 'border-[#00c0fa]/40 bg-[#00c0fa]/10 text-[#7fdcff]' : 'border-neutral-800 bg-neutral-900/60 text-neutral-400'
+      }`}
+    >
       <span className={`font-semibold tabular-nums ${accent ? '' : 'text-neutral-100'}`}>{value}</span> {label}
-    </span>
+    </button>
+  )
+}
+
+type ReleaseCard = ArchiveCard & { releaseDate: string }
+
+function ReleaseItem({ card, onClick, big = false }: { card: ReleaseCard; onClick: () => void; big?: boolean }) {
+  // Arşivdeki kayıtlarla aynı dil: tarihi gelmediyse "Vizyona giriyor", geçtiyse "Vizyona girdi"
+  const label = card.releaseDate > ymd(new Date()) ? tt('Vizyona giriyor') : tt('Vizyona girdi')
+  return (
+    <button
+      onClick={onClick}
+      title={`${card.title} — ${label}`}
+      className={`w-full flex items-center gap-2 rounded-lg text-left transition min-w-0 border border-dashed border-amber-400/40 hover:border-amber-300 opacity-80 hover:opacity-100 ${big ? 'p-2' : 'p-1'}`}
+    >
+      <span className={`relative shrink-0 rounded overflow-hidden bg-neutral-800 ${big ? 'h-16 w-11' : 'h-9 w-6'}`}>
+        {card.poster && <img src={card.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate font-medium text-neutral-100 ${big ? 'text-sm' : 'text-[11px] leading-tight'}`}>{card.title}</span>
+        <span className={`block truncate text-amber-300/90 ${big ? 'text-xs mt-0.5' : 'text-[10px] leading-tight'}`}>🎬 {label}</span>
+      </span>
+    </button>
+  )
+}
+
+// Özet kutucuğunun listesi: gün gün, her satır tıklanınca kaydın detayı açılır
+function SummaryListModal({
+  title,
+  events,
+  look,
+  onClose,
+  onOpenRow,
+}: {
+  title: string
+  events: CalEvent[]
+  look: ReturnType<typeof rowLook>
+  onClose: () => void
+  onOpenRow: (r: Row) => void
+}) {
+  useEscape(true, onClose)
+  const groups: [string, CalEvent[]][] = []
+  for (const ev of events) {
+    const last = groups[groups.length - 1]
+    if (last && last[0] === ev.date) last[1].push(ev)
+    else groups.push([ev.date, [ev]])
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg max-h-[80vh] flex flex-col rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl shadow-black/60"
+      >
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-neutral-800">
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-50">{title}</h3>
+            <p className="text-xs text-neutral-500">{tt('{0} kayıt · birine tıklayınca detayı açılır', events.length)}</p>
+          </div>
+          <button onClick={onClose} aria-label={tt('Kapat')} className="h-8 w-8 rounded-lg bg-neutral-800 border border-neutral-700 hover:border-neutral-500 text-neutral-400 hover:text-neutral-50">
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {groups.map(([d, evs]) => (
+            <div key={d}>
+              <p className="text-xs font-medium text-neutral-500 mb-1.5">{dayLabel(d)}</p>
+              <div className="space-y-1.5">
+                {evs.map((ev) => (
+                  <EventItem key={ev.key} ev={ev} look={look} onClick={() => onOpenRow(ev.row)} big />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 

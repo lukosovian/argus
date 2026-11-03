@@ -8,15 +8,13 @@ import {
   type ShowcaseStyle,
   type HomeSection,
   type MoodRowSettings,
-  type RandomPickerTmdbSettings,
   type HomeSettings,
 } from '../../types'
-import { api } from '../../lib/api'
 import { homeRowOrder, withOrder } from '../../lib/homeRows'
 import HomeSectionEditor from '../HomeSectionEditor'
 import MoodRowEditor from '../MoodRowEditor'
 import MultiFilterEditor from '../MultiFilterEditor'
-import GenreTriPicker from '../GenreTriPicker'
+import PickerPoolEditor from '../PickerPool'
 import { filterConditions, withConditions } from '../../lib/filters'
 import AutoFillFilterEditor from './AutoFillFilterEditor'
 import ToggleSwitch from '../ToggleSwitch'
@@ -24,101 +22,6 @@ import Select from '../Select'
 import { BRAND_TEXT } from '../../lib/theme'
 import { PanelHeader, SettingsSection, SettingsTabs, choiceClass } from './SettingsUi'
 import { tt } from '../../lib/i18n'
-
-function ChoiceButtons<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (v: T) => void
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          className={`text-xs rounded-lg border px-3 py-1.5 transition ${choiceClass(value === o.value)}`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// Ne İzlesem'in TMDB modu ayarları: film/dizi/karışık, tür, sıralama. Türler TMDB'den (Türkçe)
-// çekiliyor; "karışık"ta film ve dizi tür listeleri farklı olduğu için tür seçimi yok.
-function TmdbPickerSettings({ value, onChange }: { value: RandomPickerTmdbSettings; onChange: (v: RandomPickerTmdbSettings) => void }) {
-  const [genres, setGenres] = useState<{ id: number; name: string }[]>([])
-  const [needsApiKey, setNeedsApiKey] = useState(false)
-
-  useEffect(() => {
-    if (value.type === 'mixed') return
-    let cancelled = false
-    api
-      .getTmdbGenres(value.type)
-      .then((d) => {
-        if (cancelled) return
-        setGenres(d.genres)
-        setNeedsApiKey(Boolean(d.needsApiKey))
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [value.type])
-
-
-  if (needsApiKey) {
-    return <p className="text-sm text-amber-500">{tt('Bunun için önce Ayarlar → Veritabanı → API\'den TMDB anahtarını girmelisin.')}</p>
-  }
-
-  return (
-    <div className="space-y-3 rounded-xl border border-neutral-800 p-3">
-      <div>
-        <label className="block text-xs text-neutral-400 mb-1.5">{tt('Ne')}</label>
-        <ChoiceButtons
-          value={value.type}
-          // Tür id'leri film ve dizi için farklı — tür değişince seçili türler sıfırlanıyor.
-          onChange={(type) => onChange({ ...value, type, genreIds: [], excludeGenreIds: [] })}
-          options={[
-            { value: 'movie', label: tt('Film') },
-            { value: 'tv', label: tt('Dizi') },
-            { value: 'mixed', label: tt('Karışık') },
-          ]}
-        />
-      </div>
-      {value.type !== 'mixed' && (
-        <div>
-          <label className="block text-xs text-neutral-400 mb-1.5">{tt('Tür — bir tık ✓ gelsin, iki tık ✕ gelmesin (hiçbiri seçilmezse hepsi)')}</label>
-          <GenreTriPicker
-            genres={genres}
-            include={value.genreIds}
-            exclude={value.excludeGenreIds ?? []}
-            onChange={(genreIds, excludeGenreIds) => onChange({ ...value, genreIds, excludeGenreIds })}
-          />
-        </div>
-      )}
-      <div>
-        <label className="block text-xs text-neutral-400 mb-1.5">{tt('Hangileri')}</label>
-        <ChoiceButtons
-          value={value.sort}
-          onChange={(sort) => onChange({ ...value, sort })}
-          options={[
-            { value: 'popular', label: tt('Popüler olanlar') },
-            { value: 'top', label: tt('En yüksek puanlılar') },
-          ]}
-        />
-      </div>
-      <p className="text-[11px] text-neutral-600">
-        {tt('Kazanan çıkınca önizlemesi açılır: izlenecekler listene ekleyebilir, izlediysen tarih ve puanla kaydedebilir ya da bir daha gösterilmemesini seçebilirsin.')}
-      </p>
-    </div>
-  )
-}
 
 const TABS = [
   { id: 'gorunum', label: tt('Görünüm') },
@@ -320,6 +223,7 @@ const ROW_HINTS: Record<string, string> = {
   'on-this-day': tt('o gün için bir şey yoksa görünmez'),
   'new-episodes': tt('yeni bölüm yoksa görünmez'),
   'top-rated': tt('puanlı içerik 3\'ten azsa görünmez'),
+  forgotten: tt('hatırlatılacak bir şey yoksa görünmez'),
 }
 
 // "Satırların sırası": açık olan bütün satırlar tek listede (bkz. lib/homeRows.ts). ↑ ↓ ya da sürükle-bırak.
@@ -747,6 +651,22 @@ export default function HomeSettingsPanel() {
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">
+                  {tt('"Unuttukların" satırını göster')}
+                  <span className="block text-xs text-neutral-600 mt-0.5">
+                    {tt("İzleniyor'da olup 2 aydır izlemediklerin ve İzlenecek listende 6 aydan uzun bekleyenler.")}
+                  </span>
+                </span>
+                <ToggleSwitch
+                  checked={settings.forgotten?.enabled ?? true}
+                  onChange={(v) => saveSettings({ ...settings, forgotten: { position: settings.forgotten?.position ?? 2, enabled: v } })}
+                  label={tt('Unuttukların satırını göster')}
+                />
+              </div>
+            </div>
           </SettingsSection>
 
           <SettingsSection
@@ -838,37 +758,7 @@ export default function HomeSettingsPanel() {
             {tt('Üstteki arama kutusunun yanındaki kart düğmesi — kararsız kaldığında tıklarsın, aşağıdaki havuzdan rastgele bir şey seçip detayını açar.')}
           </p>
           <SettingsSection title={tt('Nereden seçilsin')} description={tt('Kendi arşivinden mi, yoksa TMDB\'de olup arşivinde olmayanlardan mı.')}>
-          <div>
-            <ChoiceButtons
-              value={settings.randomPickerSource ?? 'arsiv'}
-              onChange={(v) => saveSettings({ ...settings, randomPickerSource: v })}
-              options={[
-                { value: 'arsiv', label: tt('Arşivimden') },
-                { value: 'tmdb', label: tt('TMDB\'den (arşivimde olmayanlar)') },
-              ]}
-            />
-          </div>
-
-          {(settings.randomPickerSource ?? 'arsiv') === 'arsiv' ? (
-            <div>
-              <label className="block text-xs text-neutral-400 mb-1">
-                {tt('Hangi havuzdan seçilsin (hiçbir filtre seçilmezse arşivdeki her şeyden rastgele seçilir)')}
-              </label>
-              <MultiFilterEditor
-                board={board}
-                conditions={filterConditions(settings.randomPickerFilter)}
-                emptyText={tt('Filtre yok — arşivin tamamından rastgele.')}
-                onChange={(c) =>
-                  saveSettings({ ...settings, randomPickerFilter: withConditions(settings.randomPickerFilter ?? { propertyId: null, optionIds: [] }, c) })
-                }
-              />
-            </div>
-          ) : (
-            <TmdbPickerSettings
-              value={settings.randomPickerTmdb ?? { type: 'movie', genreIds: [], sort: 'popular' }}
-              onChange={(randomPickerTmdb) => saveSettings({ ...settings, randomPickerTmdb })}
-            />
-          )}
+          <PickerPoolEditor board={board} settings={settings} onSave={saveSettings} />
           </SettingsSection>
 
           <SettingsSection title={tt('Animasyon')} description={tt('Seçim yapılırken ekranda dağılan posterler.')}>

@@ -489,6 +489,15 @@ export interface HomeSettings {
   // (TMDB'de olup arşivde OLMAYAN içeriklerden — randomPickerTmdb ayarlarıyla).
   randomPickerSource?: 'arsiv' | 'tmdb'
   randomPickerTmdb?: RandomPickerTmdbSettings
+  randomPickerYears?: YearRange
+  // Ne İzlesem: en fazla kaç dakika ("bu akşam 2 saatim var"); boşsa sınır yok
+  randomPickerMaxMinutes?: number | null
+  // Ne İzlesem: sadece "Platformlarım"da izlenebilenler
+  randomPickerOnlyMine?: boolean
+  // Abone olunan platformlar (TMDB platform id'leri) — Ne İzlesem filtresi ve "platforma geldi" bildirimleri
+  myPlatforms?: number[]
+  // "Unuttukların" satırı: uzun süredir dokunulmayan diziler ve listede en uzun bekleyenler. Yoksa açık, 2. sırada.
+  forgotten?: { enabled: boolean; position: number }
 }
 
 export interface RandomPickerTmdbSettings {
@@ -498,7 +507,14 @@ export interface RandomPickerTmdbSettings {
   genreIds: number[]
   // "Gelmesin" dediği türler. Eski kayıtlarda yok.
   excludeGenreIds?: number[]
-  sort: 'popular' | 'top'
+  sort: 'popular' | 'top' | 'gem' | 'any' | 'new'
+}
+
+// Ne İzlesem'in yıl aralığı (vizyon yılı) — kullanıcı "filtrelemelerine yıl da eklensin" dedi. İki kaynakta da
+// (arşiv ve TMDB) geçerli; boş uç sınırsız demek.
+export interface YearRange {
+  from: number | null
+  to: number | null
 }
 
 export const emptyHomeSettings: HomeSettings = {

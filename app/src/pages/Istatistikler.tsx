@@ -490,6 +490,105 @@ function MappingPanel({ board, onSave }: { board: Board; onSave: (patch: Partial
   )
 }
 
+// "Puan zevkin" — kullanıcı önerilen "puan zevki özeti"ni istedi: kriter kriter ortalamalar (hangi kritere en
+// cömert / en sert puan veriyorsun) ve türlere göre öne çıkanlar ("Bilim Kurgu'da Görsellik ortalaman 8,7").
+// Sadece kriter kriter puanlanmış kayıtlar sayılır; bir türün sayılması için en az 5 puanlı kaydı olmalı.
+function fmt1(n: number) {
+  return n.toLocaleString(getLang() === 'tr' ? 'tr-TR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+}
+
+function RatingTasteCard({ board, rows, palette }: { board: Board; rows: Row[]; palette: Palette }) {
+  const data = useMemo(() => {
+    const puanProp = resolveRole(board, 'puan')
+    const turProp = resolveRole(board, 'tur')
+    const criteria = puanProp?.criteria ?? []
+    if (!puanProp || criteria.length === 0) return null
+    const scoresOf = (r: Row) => {
+      const v = r.values[puanProp.id]
+      return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, number>) : {}
+    }
+    const avgFor = (list: Row[], cid: string) => {
+      const ns = list.map((r) => scoresOf(r)[cid]).filter((n): n is number => typeof n === 'number')
+      return ns.length ? { avg: ns.reduce((a, b) => a + b, 0) / ns.length, n: ns.length } : null
+    }
+    const scored = rows.filter((r) => criteria.some((c) => typeof scoresOf(r)[c.id] === 'number'))
+    if (scored.length < 5) return null
+    const perCriterion = criteria
+      .map((c) => ({ id: c.id, name: c.name, ...(avgFor(scored, c.id) ?? { avg: 0, n: 0 }) }))
+      .filter((c) => c.n > 0)
+    // Tür × kriter: genel ortalamasından en çok ayrışan (yukarı) eşleşmeler
+    const insights: { genre: string; criterion: string; avg: number; diff: number; n: number }[] = []
+    if (turProp) {
+      for (const opt of turProp.options ?? []) {
+        const inGenre = scored.filter((r) => Array.isArray(r.values[turProp.id]) && (r.values[turProp.id] as string[]).includes(opt.id))
+        if (inGenre.length < 5) continue
+        for (const c of perCriterion) {
+          const a = avgFor(inGenre, c.id)
+          if (a && a.n >= 5) insights.push({ genre: opt.label, criterion: c.name, avg: a.avg, diff: a.avg - c.avg, n: a.n })
+        }
+      }
+    }
+    const seen = new Set<string>()
+    const top = insights
+      .sort((a, b) => b.diff - a.diff)
+      .filter((x) => x.diff > 0.2 && !seen.has(x.genre) && seen.add(x.genre))
+      .slice(0, 5)
+    // Türlere göre genel ortalama: en beğendiğin ve en az beğendiğin tür
+    const genreAvg: { genre: string; avg: number }[] = []
+    if (turProp) {
+      for (const opt of turProp.options ?? []) {
+        const vals = scored
+          .filter((r) => Array.isArray(r.values[turProp.id]) && (r.values[turProp.id] as string[]).includes(opt.id))
+          .map((r) => ratingAverage(r.values[puanProp.id], puanProp))
+          .filter((n): n is number => n !== null)
+        if (vals.length >= 5) genreAvg.push({ genre: opt.label, avg: vals.reduce((a, b) => a + b, 0) / vals.length })
+      }
+      genreAvg.sort((a, b) => b.avg - a.avg)
+    }
+    return { count: scored.length, perCriterion, top, bestGenre: genreAvg[0], worstGenre: genreAvg.length > 1 ? genreAvg[genreAvg.length - 1] : undefined }
+  }, [board, rows])
+
+  if (!data) return null
+  const sorted = [...data.perCriterion].sort((a, b) => b.avg - a.avg)
+  const generous = sorted[0]
+  const strict = sorted[sorted.length - 1]
+  return (
+    <Card title={tt('Puan zevkin')} subtitle={tt('Kriter kriter verdiğin puanlara göre · {0} kayıt', data.count)}>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2.5">
+          {sorted.map((c) => (
+            <div key={c.id} className="flex items-center gap-3">
+              <span className="text-sm text-neutral-300 w-28 sm:w-36 truncate shrink-0">{c.name}</span>
+              <div className="flex-1 h-5 rounded bg-neutral-800/60 overflow-hidden">
+                <div className="h-full rounded-r" style={{ width: `${(c.avg / 10) * 100}%`, background: palette.sequential }} />
+              </div>
+              <span className="text-sm font-semibold text-neutral-100 w-9 text-right tabular-nums shrink-0">{fmt1(c.avg)}</span>
+            </div>
+          ))}
+        </div>
+        <ul className="space-y-2.5 text-sm text-neutral-300">
+          {generous && strict && generous.id !== strict.id && (
+            <li>
+              {ttx('En cömert olduğun kriter {0} ({1}), en sert olduğun {2} ({3}).', <strong className="text-neutral-50">{generous.name}</strong>, fmt1(generous.avg), <strong className="text-neutral-50">{strict.name}</strong>, fmt1(strict.avg))}
+            </li>
+          )}
+          {data.bestGenre && (
+            <li>
+              {ttx('En yüksek puanı verdiğin tür {0} (ortalama {1}).', <strong className="text-neutral-50">{data.bestGenre.genre}</strong>, fmt1(data.bestGenre.avg))}
+              {data.worstGenre && <> {ttx('En düşük: {0} ({1}).', <strong className="text-neutral-50">{data.worstGenre.genre}</strong>, fmt1(data.worstGenre.avg))}</>}
+            </li>
+          )}
+          {data.top.map((x) => (
+            <li key={x.genre}>
+              {ttx('{0} yapımlarda {1} ortalaman {2} — genelinden {3} puan yüksek.', <strong className="text-neutral-50">{x.genre}</strong>, x.criterion, fmt1(x.avg), fmt1(x.diff))}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Card>
+  )
+}
+
 export default function Istatistikler() {
   const { settings, loading: settingsLoading } = useHomeSettings()
   const { boards, loading: boardsLoading } = useBoards()
@@ -653,6 +752,8 @@ export default function Istatistikler() {
           </Card>
         )}
       </div>
+
+      <RatingTasteCard board={board} rows={rows} palette={palette} />
 
       {stats.actorBreakdown.top.length > 0 && (
         <Card title={tt('En çok karşına çıkan oyuncular')} subtitle={tt('En çok kayıtta rol aldığı ilk 10')}>

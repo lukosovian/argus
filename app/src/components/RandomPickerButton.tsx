@@ -10,7 +10,8 @@ import { useToast } from '../hooks/useToast'
 import { api, type TmdbCard } from '../lib/api'
 import RowDetailModal from './RowDetailModal'
 import TmdbPreviewModal from './TmdbPreviewModal'
-import PickResult from './PickResult'
+import PickResult, { type SeriesSwap } from './PickResult'
+import PickerPoolEditor, { DEFAULT_PICKER_TMDB, filterByYears } from './PickerPool'
 import { tt } from '../lib/i18n'
 
 // İki üst üste binen "poster kartı" — biri düz, biri hafif çapraz (kullanıcı: "yan yana duran
@@ -75,6 +76,40 @@ function probeShape(url: string): Promise<'dikey' | 'yatay' | null> {
 
 type ImageColumn = { id: string; shape: 'dikey' | 'yatay' }
 
+// Son kazananlar — kullanıcı "hep aynı şeyler geliyor" dedi. Son 60 kazanan bir sonraki seçimlerde (havuzda
+// başka seçenek kaldıkça) kazanamıyor; TMDB modunda hiç getirilmiyor.
+const RECENT_KEY = 'argus_pick_recent'
+function recentPicks(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+function rememberPick(key: string) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([key, ...recentPicks().filter((k) => k !== key)].slice(0, 60)))
+  } catch {
+    /* önemsiz */
+  }
+}
+
+// Seri filmler: kullanıcı "seri bir film gelirse ilk film gelsin izlemediysem" dedi. Kazanan bir serinin
+// filmiyse ve serinin daha önceki (çıkmış) bir filmini izlemediyse, kazanan izlenmemiş en erken film olur.
+// Seri bilgisi gelmezse (TMDB yavaş/yok) 2,5 sn sonra vazgeçilir, kazanan aynen kalır.
+async function seriesStart(boardId: string, entry: { row?: Row; tmdb?: TmdbCard }) {
+  if (entry.tmdb && entry.tmdb.mediaType !== 'movie') return null
+  const ask = entry.row ? api.getCollection(boardId, entry.row.id) : api.getCollectionByTmdb(boardId, entry.tmdb!.tmdbId)
+  const data = await Promise.race([ask.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 2500))])
+  const parts = data?.parts?.filter((p) => p.released) ?? []
+  const at = parts.findIndex((p) => (entry.row ? p.rowId === entry.row.id : p.tmdbId === entry.tmdb!.tmdbId))
+  if (at <= 0) return null
+  const first = parts.findIndex((p) => !p.watched)
+  if (first < 0 || first >= at) return null
+  return { part: parts[first], index: first, pickedIndex: at }
+}
+
 async function classifyImageColumns(board: Board, rows: Row[]): Promise<ImageColumn[]> {
   const props = board.properties.filter((p) => p.type === 'image' && p.id !== board.titleImagePropertyId)
   const result: ImageColumn[] = []
@@ -129,7 +164,7 @@ type Candidate = {
 // (api.ts üzerinden) tek seferlik çekiliyor — her sayfa geçişinde arka planda gereksiz bir
 // arşiv isteği atılmasın diye.
 export default function RandomPickerButton() {
-  const { settings } = useHomeSettings()
+  const { settings, saveSettings } = useHomeSettings()
   const { notify } = useToast()
   const [loading, setLoading] = useState(false)
   const [board, setBoard] = useState<Board | null>(null)
@@ -138,8 +173,10 @@ export default function RandomPickerButton() {
   const [phase, setPhase] = useState<'idle' | 'entering' | 'eliminating' | 'growing' | 'fading' | 'result'>('idle')
   // Kazanan: animasyon bitince detay penceresi yerine aynı mavi ışıklı ekranda sonuç gösteriliyor.
   const [result, setResult] = useState<Candidate | null>(null)
+  const [swap, setSwap] = useState<SeriesSwap | null>(null)
   const [openRow, setOpenRow] = useState<Row | null>(null)
   const [openTmdb, setOpenTmdb] = useState<TmdbCard | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   // Hangi posterlerin görseli GERÇEKTEN yüklenip çözüldü — her poster kendi görseli hazır
   // olduğu anda "dağılma" animasyonuna başlıyor (bkz. aşağıdaki iki effect), sabit bir
   // zamanlayıcıyla değil. Bu hem "kartlar boş gelmesin" isteğini karşılıyor hem de 60 görselin
@@ -186,9 +223,26 @@ export default function RandomPickerButton() {
       if (current.randomPickerSource === 'tmdb') {
         // TMDB modu: arşivde OLMAYAN (ve daha önce "bir daha gösterme" denmemiş) içerikler.
         // Her tıklamada farklı gelsin diye rastgele sayfalardan toplanıyor (random: true).
-        const t = current.randomPickerTmdb ?? { type: 'movie', genreIds: [], sort: 'popular' }
+        const t = current.randomPickerTmdb ?? DEFAULT_PICKER_TMDB
+        const mine = current.randomPickerOnlyMine ? (current.myPlatforms ?? []) : []
+        const years = current.randomPickerYears
+        const skip = recentPicks().filter((k) => k.startsWith('tmdb:')).map((k) => k.slice(5))
         const ask = (type: 'movie' | 'tv', n: number, genreIds: number[], excludeGenreIds: number[] = []) =>
-          api.discoverTmdb(b.id, { type, genreIds, excludeGenreIds, count: n, sort: t.sort, random: true }).then((r) => r.items)
+          api
+            .discoverTmdb(b.id, {
+              type,
+              genreIds,
+              excludeGenreIds,
+              count: n,
+              sort: t.sort,
+              random: true,
+              yearFrom: years?.from,
+              yearTo: years?.to,
+              skip,
+              maxMinutes: current.randomPickerMaxMinutes ?? null,
+              platforms: mine,
+            })
+            .then((r) => r.items)
         const cards =
           t.type === 'mixed'
             ? shuffle((await Promise.all([ask('movie', Math.ceil(count / 2), []), ask('tv', Math.ceil(count / 2), [])])).flat())
@@ -217,7 +271,21 @@ export default function RandomPickerButton() {
           const v = vizyonProp ? r.values[vizyonProp.id] : null
           return !(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && v.slice(0, 10) > today)
         })
-        const base = filter && hasActiveFilter(filter) ? rowsForFilter(filter, released) : released
+        let base = filterByYears(b, filter && hasActiveFilter(filter) ? rowsForFilter(filter, released) : released, current.randomPickerYears)
+        // Süre: Süre sütunu dolu ve sınırdan uzun olanlar çıkar (dizilerde genelde boş, kalırlar)
+        const maxMin = current.randomPickerMaxMinutes
+        const sureProp = resolveRole(b, 'sure')
+        if (maxMin && sureProp) base = base.filter((r) => !(typeof r.values[sureProp.id] === 'number' && (r.values[sureProp.id] as number) > maxMin))
+        // Platformlarım: izlenmemiş kayıtların platformları arka planda günde bir öğreniliyor (bkz. server checkWatchlist)
+        const mineIds = current.randomPickerOnlyMine ? (current.myPlatforms ?? []) : []
+        if (mineIds.length) {
+          const { ready, platforms } = await api.getRowPlatforms(b.id)
+          base = base.filter((r) => platforms[r.id]?.some((id) => mineIds.includes(id)))
+          if (base.length === 0 && !ready) {
+            notify(tt('Platform bilgileri henüz toplanıyor (ARGUS açıldıktan birkaç dakika sonra hazır olur). Biraz sonra tekrar dene.'), 'danger')
+            return
+          }
+        }
         // Poster olmadan dağılma animasyonu boş kutulara döner — bu yüzden sadece seçili şekilde
         // bir görseli olan kayıtlar havuza giriyor.
         const columns = await classifyImageColumns(b, allRows)
@@ -233,7 +301,29 @@ export default function RandomPickerButton() {
         }
       }
 
-      const winner = pool[Math.floor(Math.random() * pool.length)]
+      const recent = new Set(recentPicks())
+      const notRecent = pool.filter((e) => !recent.has(e.key))
+      const from = notRecent.length ? notRecent : pool
+      let winner: Entry = from[Math.floor(Math.random() * from.length)]
+      rememberPick(winner.key)
+      let swap: SeriesSwap | null = null
+      const start = await seriesStart(b.id, winner)
+      if (start) {
+        const row = start.part.rowId ? allRows.find((r) => r.id === start.part.rowId) : undefined
+        const img = row ? pickImage(row, await classifyImageColumns(b, allRows), pref) : null
+        const cover = img?.url || start.part.poster || ''
+        if (cover && (row || !start.part.inArchive)) {
+          swap = { pickedTitle: winner.tmdb?.title ?? '', pickedNumber: start.pickedIndex + 1, number: start.index + 1 }
+          if (winner.row) {
+            const tp = b.properties.find((p) => p.id === b.titlePropertyId)
+            swap.pickedTitle = tp ? String(winner.row.values[tp.id] ?? '') : ''
+          }
+          winner = row
+            ? { key: row.id, row, cover, landscape: Boolean(img?.landscape) }
+            : { key: `tmdb:movie:${start.part.tmdbId}`, tmdb: start.part, cover, landscape: false }
+        }
+      }
+      setSwap(swap)
       const rest = shuffle(pool.filter((e) => e.key !== winner.key)).slice(0, count - 1)
       // `rest`in sırası zaten karışık — bu sıra aynı zamanda "kimin ne zaman kaybolacağını" da
       // belirliyor, ayrıca bir eleme sırası üretmeye gerek yok.
@@ -387,16 +477,19 @@ export default function RandomPickerButton() {
     setPhase('idle')
     setCandidates([])
     setResult(null)
+    setFiltersOpen(false)
   }
   useEffect(() => {
     if (phase === 'idle' || openRow || openTmdb) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') cancelPick()
+      if (e.key !== 'Escape') return
+      if (filtersOpen) setFiltersOpen(false)
+      else cancelPick()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, openRow, openTmdb])
+  }, [phase, openRow, openTmdb, filtersOpen])
 
   const captionText =
     phase === 'entering' ? tt('Karıştırılıyor...') : phase === 'eliminating' ? tt('Eleniyor...') : phase === 'growing' ? tt('Bu nasıl?') : ''
@@ -446,6 +539,16 @@ export default function RandomPickerButton() {
               <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
                 {phase === 'result' && (
                   <button
+                    onClick={() => setFiltersOpen((o) => !o)}
+                    className={`text-sm font-medium rounded-full px-4 py-2 border transition ${
+                      filtersOpen ? 'border-neutral-300 bg-neutral-100 text-black' : 'border-neutral-600 text-neutral-200 bg-neutral-900/80 hover:border-neutral-300'
+                    }`}
+                  >
+                    {tt('Filtreler')}
+                  </button>
+                )}
+                {phase === 'result' && (
+                  <button
                     onClick={() => handleClick(true)}
                     disabled={loading}
                     className="text-sm font-medium rounded-full px-4 py-2 border border-[#00c0fa] text-[#00c0fa] bg-neutral-900/80 hover:bg-[#00c0fa] hover:text-black transition disabled:opacity-50"
@@ -468,11 +571,34 @@ export default function RandomPickerButton() {
                   tmdb={result.tmdb}
                   cover={result.cover}
                   landscape={result.landscape}
+                  swap={swap}
                   onAgain={() => handleClick(true)}
                   // Sonuç ekranı arkada açık kalıyor — pencere kapanınca aynı sonuca geri dönülür.
                   onOpenRow={(r) => setOpenRow(r)}
                   onOpenTmdb={(c) => setOpenTmdb(c)}
                 />
+              )}
+              {/* Kullanıcı "Ne İzlesem'in filtrelemeleri Ne İzlesem'in içinden de yapılabilsin" dedi: sağda açılan
+                  panel, Ayarlar'daki havuz ayarlarının aynısı; değişiklik hemen kaydedilir, "Bu filtreyle getir" yeniden seçer. */}
+              {phase === 'result' && filtersOpen && (
+                <div className="absolute top-20 right-6 bottom-6 z-40 w-[min(26rem,calc(100vw-3rem))] flex flex-col rounded-2xl border border-neutral-800 bg-neutral-950/95 backdrop-blur-md shadow-2xl shadow-black/60">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    <p className="text-sm font-semibold text-neutral-100">{tt('Nereden seçilsin')}</p>
+                    <PickerPoolEditor board={board ?? undefined} settings={settings} onSave={saveSettings} />
+                  </div>
+                  <div className="p-3 border-t border-neutral-800">
+                    <button
+                      onClick={() => {
+                        setFiltersOpen(false)
+                        handleClick(true)
+                      }}
+                      disabled={loading}
+                      className="w-full text-sm font-semibold rounded-full px-4 py-2 bg-[#00c0fa] text-black hover:brightness-110 transition disabled:opacity-50"
+                    >
+                      {tt('Bu filtreyle getir')}
+                    </button>
+                  </div>
+                </div>
               )}
               {candidates.map((c) => {
                 const isWinner = c.key === winnerId

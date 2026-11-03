@@ -31,6 +31,9 @@ static class Program
     [System.Runtime.InteropServices.DllImport("shell32.dll")]
     static extern int SetCurrentProcessExplicitAppUserModelID([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string id);
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool AllowSetForegroundWindow(int processId);
+
     public static string Root, App, StatusFile;
 
     [STAThread]
@@ -58,6 +61,11 @@ static class Program
             if (arkaPlan && zatenAcik) return;
             if (zatenAcik)
             {
+                // Kullanıcı "ARGUS açıkken tekrar açınca ARGUS zaten açık demesin" dedi: açılış penceresi hiç
+                // çıkmıyor, açık pencere doğrudan öne geliyor (ikinci Electron, ilkine haber verip kapanır —
+                // bkz. app\desktop\main.cjs 'second-instance'). AllowSetForegroundWindow: Windows öne gelmeyi
+                // engelleyip sadece görev çubuğunu yakıp söndürmesin.
+                AllowSetForegroundWindow(-1);
                 string exe = Path.Combine(App, @"node_modules\electron\dist\electron.exe");
                 try
                 {
@@ -65,6 +73,7 @@ static class Program
                     else Process.Start("http://localhost:5173/");
                 }
                 catch { }
+                return;
             }
             else
             {

@@ -120,6 +120,9 @@ echo.
 goto :do_install
 
 :quick_install
+REM Kullanici "ARGUS yavas aciliyor" dedi: npm install her acilista ~3-4 sn suruyordu. Paket listesi
+REM (package-lock.json) son kurulumdan beri degismediyse (guncelleme yeni paket getirmediyse) atlanir.
+if exist "app\node_modules\.argus-lock" fc /b "app\package-lock.json" "app\node_modules\.argus-lock" >nul 2>nul && goto :modules_ok
 if defined ARGUS_EN (echo Checking...) else (echo Kontrol ediliyor...)
 echo.
 
@@ -129,6 +132,8 @@ call npm install
 set INSTALL_SONUC=!errorlevel!
 popd
 if not "!INSTALL_SONUC!"=="0" goto :install_failed
+copy /y "app\package-lock.json" "app\node_modules\.argus-lock" >nul 2>nul
+:modules_ok
 REM ARGUS artik kendi penceresinde acilan bir uygulama (Electron). Uygulama motoru npm install sirasinda
 REM inmediyse (npm bazen paketlerin kurulum adimini atliyor) burada bir kereye mahsus indirilir.
 if not exist "app\node_modules\electron\dist\electron.exe" if exist "app\node_modules\electron\install.js" (

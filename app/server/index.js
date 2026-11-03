@@ -399,11 +399,28 @@ app.post('/api/profiles/:profileId/boards/:id/merge-rows', (req, res) => {
   res.json({ ok: true, row: keep, movedFields: board.properties.filter((p) => moved.has(p.id)).map((p) => p.name) })
 })
 
+// Kullanıcı "ileri tarihli bir içerik eklendiğinde otomatik olarak İzlenecek yapabilir" dedi: Durum'u boş bir
+// kaydın Vizyon Tarihi bugünden sonraysa (henüz çıkmamış) Durum kendiliğinden İzlenecek olur. Kullanıcının
+// seçtiği bir durum hiç değiştirilmez. Yeni kayıtta, TMDB'den doldurmada ve vizyon tarihi elle girilince çalışır.
+function planIfUpcoming(board, row, before = null) {
+  if (!board || !row?.values) return false
+  const durumProp = resolveRole(board, 'durum')
+  const vizyonProp = resolveRole(board, 'vizyon')
+  const izlenecek = resolveStatusOption(board, 'izlenecek')
+  if (!durumProp || !vizyonProp || !izlenecek || row.values[durumProp.id]) return false
+  const v = row.values[vizyonProp.id]
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(v) || v.slice(0, 10) <= localDay()) return false
+  if (before && before.values?.[vizyonProp.id] === v) return false
+  row.values = { ...row.values, [durumProp.id]: izlenecek }
+  return true
+}
+
 app.post('/api/profiles/:profileId/boards/:id/rows', (req, res) => {
   const rowsFile = profileRowsFile(req.params.profileId, req.params.id)
   const rows = readJson(rowsFile, [])
   const id = makeId()
   const row = { ...req.body, id }
+  planIfUpcoming(findBoardCached(req.params.profileId, req.params.id), row)
   rows.unshift(row)
   writeJson(rowsFile, rows)
   res.json(row)
@@ -435,6 +452,7 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   // Tablodaki sürükleyerek verilen sıra (sortKey): kaydı bilmeden kaydeden yerler (hücre düzenleme,
   // detay penceresi…) onu göndermiyor — silinmesin, korunuyor.
   if (before && before.sortKey !== undefined && !('sortKey' in req.body)) saved.sortKey = before.sortKey
+  planIfUpcoming(findBoardCached(req.params.profileId, req.params.id), saved, before)
   if (idx === -1) rows.unshift(saved)
   else rows[idx] = saved
   writeJson(rowsFile, rows)
@@ -1645,6 +1663,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
+    planIfUpcoming(board, row)
     writeJson(boardsFile, boards)
     writeJson(rowsFilePath, rows)
 
@@ -1811,29 +1830,90 @@ app.get('/api/profiles/:profileId/collection/:boardId/:rowId', async (req, res) 
       ref.collection = c ? { id: c.id, name: c.name } : null
     }
     if (!ref.collection) return res.json({ collection: null })
-    let col = collectionCache.get(ref.collection.id)
-    if (!col || Date.now() - col.at > 6 * 3600e3) {
-      const d = await tmdbGet(`/collection/${ref.collection.id}`, { language: tmdbLang() }, apiKey)
-      if (!d) return res.json({ collection: null })
-      col = { at: Date.now(), data: d }
-      collectionCache.set(ref.collection.id, col)
-    }
-    const loaded = loadBoardAndRows(profileId, boardId)
-    if (!loaded) return res.json({ collection: null })
-    const look = archiveLookup(profileId, loaded.board, loaded.rows)
-    const today = localDay()
-    const parts = (col.data.parts ?? [])
-      .filter((p) => p.release_date || p.id === ref.id)
-      .sort((a, b) => (a.release_date || '9999').localeCompare(b.release_date || '9999'))
-      .map((p) => ({ ...look(toCard(p, 'movie')), released: Boolean(p.release_date && p.release_date <= today), releaseDate: p.release_date || '' }))
-    if (parts.length < 2) return res.json({ collection: null })
-    res.json({
-      collection: { id: col.data.id, name: col.data.name, backdrop: col.data.backdrop_path ? `${TMDB_IMG_BASE}/w780${col.data.backdrop_path}` : null },
-      parts,
-    })
+    res.json(await collectionParts(profileId, boardId, apiKey, ref.collection.id, ref.id))
   } catch (e) {
     console.error('seri hata:', e)
     res.json({ collection: null })
+  }
+})
+
+// Arşivde olmayan bir TMDB filminin serisi (Ne İzlesem'in TMDB modunda: "seri bir film gelirse diğer filmleri
+// de göstersin, kaçıncı film olduğunu yazsın").
+app.get('/api/profiles/:profileId/collection-tmdb/:boardId/:tmdbId', async (req, res) => {
+  try {
+    const { profileId, boardId } = req.params
+    const tmdbId = Number(req.params.tmdbId)
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey || !Number.isInteger(tmdbId)) return res.json({ collection: null })
+    const d = await tmdbGet(`/movie/${tmdbId}`, { language: tmdbLang() }, apiKey)
+    const c = d?.belongs_to_collection
+    if (!c) return res.json({ collection: null })
+    res.json(await collectionParts(profileId, boardId, apiKey, c.id, tmdbId))
+  } catch (e) {
+    console.error('seri hata:', e)
+    res.json({ collection: null })
+  }
+})
+
+async function collectionParts(profileId, boardId, apiKey, collectionId, movieId) {
+    let col = collectionCache.get(collectionId)
+    if (!col || Date.now() - col.at > 6 * 3600e3) {
+      const d = await tmdbGet(`/collection/${collectionId}`, { language: tmdbLang() }, apiKey)
+      if (!d) return { collection: null }
+      col = { at: Date.now(), data: d }
+      collectionCache.set(collectionId, col)
+    }
+    const loaded = loadBoardAndRows(profileId, boardId)
+    if (!loaded) return { collection: null }
+    const look = archiveLookup(profileId, loaded.board, loaded.rows)
+    const today = localDay()
+    const parts = (col.data.parts ?? [])
+      .filter((p) => p.release_date || p.id === movieId)
+      .sort((a, b) => (a.release_date || '9999').localeCompare(b.release_date || '9999'))
+      .map((p) => ({ ...look(toCard(p, 'movie')), released: Boolean(p.release_date && p.release_date <= today), releaseDate: p.release_date || '' }))
+    if (parts.length < 2) return { collection: null }
+    return {
+      collection: { id: col.data.id, name: col.data.name, backdrop: col.data.backdrop_path ? `${TMDB_IMG_BASE}/w780${col.data.backdrop_path}` : null },
+      parts,
+    }
+}
+
+// Takvimde vizyona girecek filmler — kullanıcı "vizyona girecek filmleri gösterebileceği bir yer ekleyebiliriz
+// takvime" dedi. İstenen tarih aralığında (bir ay) ilk kez gösterime girecek en popüler 20 film (takvim kalabalıklaşmasın); 6 saat önbellekte.
+const releasesCache = new Map()
+app.get('/api/profiles/:profileId/tmdb-releases/:boardId', async (req, res) => {
+  try {
+    const { profileId, boardId } = req.params
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) return res.json({ needsApiKey: true, items: [] })
+    const from = String(req.query.from ?? '')
+    const to = String(req.query.to ?? '')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return res.status(400).json({ error: stt('Geçersiz tarih') })
+    const cacheKey = `${tmdbLang()}|${from}|${to}`
+    let cached = releasesCache.get(cacheKey)
+    if (!cached || Date.now() - cached.at > 6 * 3600e3) {
+      const params = {
+        language: tmdbLang(),
+        include_adult: 'false',
+        'primary_release_date.gte': from,
+        'primary_release_date.lte': to,
+        with_release_type: '2|3',
+        sort_by: 'popularity.desc',
+      }
+      const pages = [await tmdbGet('/discover/movie', { ...params, page: 1 }, apiKey)]
+      const items = pages
+        .flatMap((d) => d?.results ?? [])
+        .filter((r) => r.release_date && r.poster_path)
+        .map((r) => ({ ...toCard(r, 'movie'), releaseDate: r.release_date }))
+      cached = { at: Date.now(), items }
+      releasesCache.set(cacheKey, cached)
+    }
+    const loaded = loadBoardAndRows(profileId, boardId)
+    const look = loaded ? archiveLookup(profileId, loaded.board, loaded.rows) : (c) => c
+    res.json({ items: cached.items.map((c) => ({ ...look(c), releaseDate: c.releaseDate })) })
+  } catch (e) {
+    console.error('vizyon hata:', e)
+    res.json({ items: [] })
   }
 })
 
@@ -2203,7 +2283,7 @@ app.get('/api/profiles/:profileId/tmdb-extras/:boardId/:rowId', async (req, res)
 app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
   try {
     const { profileId, boardId } = req.params
-    const { tmdbId, mediaType, status, watchedDate, rating, exclude } = req.body ?? {}
+    const { tmdbId, mediaType, status, watchedDate, rating, scores, exclude } = req.body ?? {}
     if (!tmdbId || (mediaType !== 'movie' && mediaType !== 'tv')) return res.status(400).json({ error: stt('Geçersiz içerik') })
     const apiKey = readProfileApiKey(profileId)
     if (!apiKey) return res.status(400).json({ error: stt('Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.') })
@@ -2236,7 +2316,17 @@ app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
         const dateProp = ensureRole(board, 'izlemeTarihi', makeId)
         if (dateProp) values[dateProp.id] = dateProp.type === 'multidate' ? [date] : date
       }
-      if (typeof rating === 'number' && rating >= 0 && rating <= 10) {
+      // Kullanıcı "İzledim deyince puan verme kısmı detaylı değil" dedi: Ne İzlesem artık kriter kriter puan
+      // gönderebiliyor (scores: { kriterId: puan }); sadece arşivin kriterleri kabul edilir.
+      const puanProp0 = resolveRole(board, 'puan')
+      const criteriaIds = new Set((puanProp0?.criteria ?? []).map((c) => c.id))
+      const cleanScores =
+        scores && typeof scores === 'object'
+          ? Object.fromEntries(Object.entries(scores).filter(([k, n]) => criteriaIds.has(k) && typeof n === 'number' && n >= 0 && n <= 10))
+          : {}
+      if (puanProp0 && Object.keys(cleanScores).length) {
+        values[puanProp0.id] = cleanScores
+      } else if (typeof rating === 'number' && rating >= 0 && rating <= 10) {
         const puanProp = resolveRole(board, 'puan')
         if (puanProp) {
           // Kriterli puanda tek bir genel puan girildi — tüm kriterlere aynı değer yazılıyor
@@ -2283,18 +2373,35 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
     // "Gelmesin" dediği türler (ters filtre).
     const excludeGenreIds = Array.isArray(req.body?.excludeGenreIds) ? req.body.excludeGenreIds.filter((n) => Number.isInteger(n)) : []
     const count = Math.max(1, Math.min(40, Number(req.body?.count) || 10))
-    const sort = ['popular', 'top', 'new'].includes(req.body?.sort) ? req.body.sort : 'popular'
+    // Kullanıcı "sadece popüler ve en yüksek puanlılar var, hep aynı şeyler geliyor" dedi: 'gem' (az bilinen ama
+    // beğenilenler) ve 'any' (her şeyden — popülerlik sırasının çok daha derinlerinden) eklendi.
+    const sort = ['popular', 'top', 'new', 'gem', 'any'].includes(req.body?.sort) ? req.body.sort : 'popular'
+    const yearFrom = Number.isInteger(req.body?.yearFrom) ? req.body.yearFrom : null
+    const yearTo = Number.isInteger(req.body?.yearTo) ? req.body.yearTo : null
+    // Ne İzlesem'in son gösterdikleri — bir sonraki tıklamada yine gelmesinler
+    const skip = new Set(Array.isArray(req.body?.skip) ? req.body.skip.filter((k) => typeof k === 'string') : [])
+    // Ne İzlesem: "bu akşam 2 saatim var" (dakika) ve "sadece platformlarımda olanlar" (TMDB platform id'leri)
+    const maxMinutes = Number.isInteger(req.body?.maxMinutes) && req.body.maxMinutes > 0 ? req.body.maxMinutes : null
+    const platformIds = Array.isArray(req.body?.platforms) ? req.body.platforms.filter((n) => Number.isInteger(n)) : []
 
     // "En yüksek puanlı": az oylu yeni yapımlar (ör. 400 oyla 9.2) klasiklerin önüne geçmesin — yeni kullanıcı
     // denemesinde Baba 7. sıradaydı. Daha yüksek oy sınırı + henüz çıkmamışlar hariç.
-    const params = { language: tmdbLang(), include_adult: 'false', 'vote_count.gte': sort === 'top' ? (type === 'tv' ? 500 : 2000) : 50 }
+    const minVotes = sort === 'top' ? (type === 'tv' ? 500 : 2000) : sort === 'gem' ? (type === 'tv' ? 80 : 150) : sort === 'any' ? 40 : 50
+    const params = { language: tmdbLang(), include_adult: 'false', 'vote_count.gte': minVotes }
+    // 'any': derinlerden ama yine de beğenilmiş olanlar (6+), yoksa çok sayıda bilinmeyen/düşük puanlı yapım geliyordu
+    if (sort === 'any') params['vote_average.gte'] = 6
+    if (sort === 'gem') {
+      params['vote_count.lte'] = type === 'tv' ? 800 : 1500
+      params['vote_average.gte'] = 7
+      params[type === 'tv' ? 'first_air_date.lte' : 'primary_release_date.lte'] = localDay()
+    }
     if (sort === 'top') {
       const today = localDay()
       params[type === 'tv' ? 'first_air_date.lte' : 'primary_release_date.lte'] = today
     }
     if (genreIds.length) params.with_genres = genreIds.join(',')
     if (excludeGenreIds.length) params.without_genres = excludeGenreIds.join(',')
-    params.sort_by = sort === 'top' ? 'vote_average.desc' : sort === 'new' ? (type === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc') : 'popularity.desc'
+    params.sort_by = sort === 'top' || sort === 'gem' ? 'vote_average.desc' : sort === 'new' ? (type === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc') : 'popularity.desc'
     if (sort === 'new') {
       // "Yeni" = son iki yılda çıkmış ve bugüne kadar yayınlanmış (henüz çıkmamışlar değil).
       const today = localDay()
@@ -2307,6 +2414,22 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
         params['primary_release_date.lte'] = today
       }
     }
+    if (maxMinutes) params['with_runtime.lte'] = maxMinutes
+    if (platformIds.length) {
+      params.with_watch_providers = platformIds.join('|')
+      params.watch_region = serverRegion()
+      params.with_watch_monetization_types = 'flatrate'
+    }
+    // Yıl aralığı (Ne İzlesem filtresi): sıralamanın kendi tarih sınırıyla kesişir
+    const dateKey = type === 'tv' ? 'first_air_date' : 'primary_release_date'
+    if (yearFrom) {
+      const g = `${yearFrom}-01-01`
+      if (!params[`${dateKey}.gte`] || params[`${dateKey}.gte`] < g) params[`${dateKey}.gte`] = g
+    }
+    if (yearTo) {
+      const l = `${yearTo}-12-31`
+      if (!params[`${dateKey}.lte`] || params[`${dateKey}.lte`] > l) params[`${dateKey}.lte`] = l
+    }
 
     const index = buildArchiveIndex(profileId, loaded.board, loaded.rows)
     const dismissed = new Set(readJson(profileDismissedFile(profileId), []))
@@ -2317,7 +2440,7 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
     let pages = Array.from({ length: 15 }, (_, i) => i + 1)
     if (req.body?.random) {
       const first = await tmdbGet(`/discover/${type}`, { ...params, page: 1 }, apiKey)
-      const total = Math.max(1, Math.min(25, first?.total_pages ?? 1))
+      const total = Math.max(1, Math.min(sort === 'any' ? 150 : sort === 'popular' ? 50 : 40, first?.total_pages ?? 1))
       pages = Array.from({ length: total }, (_, i) => i + 1).sort(() => Math.random() - 0.5)
     }
     for (const page of pages) {
@@ -2327,7 +2450,7 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
       for (const r of results) {
         const card = toCard(r, type)
         const key = tmdbKey(card.mediaType, card.tmdbId)
-        if (seen.has(key) || dismissed.has(key) || index.has(card)) continue
+        if (seen.has(key) || dismissed.has(key) || skip.has(key) || index.has(card)) continue
         seen.add(key)
         out.push(card)
         if (out.length >= count) break
@@ -2505,6 +2628,237 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
     }
   }
 }
+
+// ---- İzleme listesi takibi ------------------------------------------------------------------------
+// Kullanıcı şunları istedi: (1) İzlenecek bir içerik bir platforma (Netflix, Disney+…) gelince haber versin,
+// (2) ileri tarihli vizyon tarihleri kendiliğinden güncellensin (ertelenirse haber versin), (3) arşivdeki bir
+// film serisine yeni bir film eklenince haber versin. Sunucu açıkken saatte bir bakılır, her arşiv için günde bir
+// tur yapılır (seriler haftada bir). Görülenler watch-state.json'da saklanır: bir şey ilk kez görüldüğünde sadece
+// kaydedilir, sonraki turlarda DEĞİŞEN şey bildirilir (yoksa ilk açılışta yüzlerce bildirim düşerdi).
+function profileWatchStateFile(profileId) {
+  return path.join(profileDir(profileId), 'watch-state.json')
+}
+const WATCHLIST_CHECK_MS = 20 * 3600e3
+const COLLECTION_CHECK_MS = 6 * 24 * 3600e3
+const watchlistRunning = new Set()
+
+async function mapLimit(items, n, fn) {
+  let i = 0
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, async () => {
+      while (i < items.length) {
+        const it = items[i++]
+        try {
+          await fn(it)
+        } catch (e) {
+          console.error('takip hata:', e)
+        }
+      }
+    }),
+  )
+}
+
+async function checkWatchlist(profileId, boardId, apiKey, force = false) {
+  const k = `${profileId}:${boardId}`
+  if (watchlistRunning.has(k)) return
+  const stateFile = profileWatchStateFile(profileId)
+  const bs = readJson(stateFile, {})[boardId] ?? {}
+  if (!force && Date.now() - (bs.at ?? 0) < WATCHLIST_CHECK_MS) return
+  watchlistRunning.add(k)
+  try {
+    const loaded = loadBoardAndRows(profileId, boardId)
+    if (!loaded) return
+    const { board, rows } = loaded
+    const durumProp = resolveRole(board, 'durum')
+    const izlendi = resolveStatusOption(board, 'izlendi')
+    const vizyonProp = resolveRole(board, 'vizyon')
+    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+    const titleOf = (r) => String((tp && r.values[tp.id]) || stt('İsimsiz'))
+    const refs = readJson(profileTmdbFile(profileId), {})
+    const home = readJson(profileHomeSettingsFile(profileId), {})
+    const mine = new Set(Array.isArray(home.myPlatforms) ? home.myPlatforms : [])
+    const region = serverRegion()
+    const today = localDay()
+    const providers = bs.providers ?? {}
+    const dateChanges = []
+
+    // 1 + 2: henüz izlenmemiş (İzlenecek, Yarım, İzleniyor, boş) ve TMDB'ye bağlı kayıtlar — tek istekte hem
+    // içeriğin bilgisi (vizyon tarihi) hem platformları
+    const open = rows.filter((r) => refs[r.id]?.id && (!durumProp || !izlendi || r.values[durumProp.id] !== izlendi))
+    const live = new Set(open.map((r) => r.id))
+    for (const id of Object.keys(providers)) if (!live.has(id)) delete providers[id]
+    await mapLimit(open, 4, async (row) => {
+      const ref = refs[row.id]
+      const d = await tmdbGet(`/${ref.mediaType}/${ref.id}`, { language: tmdbLang(), append_to_response: 'watch/providers' }, apiKey)
+      if (!d) return
+      const flat = d['watch/providers']?.results?.[region]?.flatrate ?? []
+      const before = providers[row.id]
+      if (before) {
+        for (const p of flat) {
+          if (before.ids.includes(p.provider_id) || (mine.size > 0 && !mine.has(p.provider_id))) continue
+          pushNotification(profileId, {
+            key: `platform:${row.id}:${p.provider_id}`,
+            type: 'platform',
+            boardId,
+            rowId: row.id,
+            title: titleOf(row),
+            text: stt('Artık şu platformda izlenebilir: {0}.', p.provider_name),
+          })
+        }
+      }
+      providers[row.id] = { ids: flat.map((p) => p.provider_id), at: Date.now() }
+      const tmdbDate = ref.mediaType === 'tv' ? d.first_air_date : d.release_date
+      const cur = vizyonProp ? row.values[vizyonProp.id] : null
+      const isDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+      if (vizyonProp && isDay(cur) && cur > today && isDay(tmdbDate) && tmdbDate !== cur) dateChanges.push({ rowId: row.id, from: cur, to: tmdbDate })
+    })
+
+    if (dateChanges.length) {
+      const rowsFile = profileRowsFile(profileId, boardId)
+      const fresh = readJson(rowsFile, [])
+      for (const c of dateChanges) {
+        const r = fresh.find((x) => x.id === c.rowId)
+        if (!r || r.values[vizyonProp.id] !== c.from) continue
+        r.values = { ...r.values, [vizyonProp.id]: c.to }
+        r.updatedAt = Date.now()
+        pushNotification(profileId, {
+          key: `vizyon:${r.id}:${c.to}`,
+          type: 'announce',
+          boardId,
+          rowId: r.id,
+          title: titleOf(r),
+          text:
+            c.to > c.from
+              ? stt('Vizyon tarihi ertelendi: {0} → {1}.', langDate(c.from), langDate(c.to))
+              : stt('Vizyon tarihi öne alındı: {0} → {1}.', langDate(c.from), langDate(c.to)),
+        })
+      }
+      writeJson(rowsFile, fresh)
+    }
+
+    // 3: film serileri. Serisi henüz bilinmeyen filmlerin serisi her turda en fazla 80 tane öğrenilir.
+    const movieRows = rows.filter((r) => refs[r.id]?.mediaType === 'movie')
+    const learned = {}
+    await mapLimit(
+      movieRows.filter((r) => refs[r.id].collection === undefined).slice(0, 80),
+      4,
+      async (row) => {
+        const d = await tmdbGet(`/movie/${refs[row.id].id}`, { language: tmdbLang() }, apiKey)
+        if (!d) return
+        const c = d.belongs_to_collection
+        learned[row.id] = c ? { id: c.id, name: c.name } : null
+      },
+    )
+    if (Object.keys(learned).length) {
+      const fr = readJson(profileTmdbFile(profileId), {})
+      for (const [id, c] of Object.entries(learned)) {
+        if (fr[id]) fr[id] = { ...fr[id], collection: c }
+        refs[id] = { ...refs[id], collection: c }
+      }
+      writeJson(profileTmdbFile(profileId), fr)
+    }
+    let collections = bs.collections ?? {}
+    let collectionsAt = bs.collectionsAt ?? 0
+    if (force || Date.now() - collectionsAt > COLLECTION_CHECK_MS) {
+      const byCol = new Map()
+      for (const r of movieRows) {
+        const c = refs[r.id]?.collection
+        if (c?.id && !byCol.has(c.id)) byCol.set(c.id, { name: c.name, rowId: r.id })
+      }
+      const index = buildArchiveIndex(profileId, board, rows)
+      const next = {}
+      await mapLimit([...byCol.entries()], 4, async ([colId, info]) => {
+        const d = await tmdbGet(`/collection/${colId}`, { language: tmdbLang() }, apiKey)
+        if (!d) {
+          if (collections[colId]) next[colId] = collections[colId]
+          return
+        }
+        const prev = collections[colId]
+        if (prev) {
+          for (const part of d.parts ?? []) {
+            if (prev.includes(part.id)) continue
+            const card = toCard(part, 'movie')
+            if (index.has(card)) continue
+            pushNotification(profileId, {
+              key: `collection:${colId}:${part.id}`,
+              type: 'collection',
+              boardId,
+              rowId: info.rowId,
+              title: stt('{0} serisi', String(d.name || info.name).replace(/\s*\[seri\]\s*/i, '').replace(/\s+(serisi|koleksiyonu|collection)$/i, '').trim()),
+              text: part.release_date
+                ? stt('Seriye yeni bir film eklendi: {0} ({1}).', card.title, langDate(part.release_date))
+                : stt('Seriye yeni bir film eklendi: {0}.', card.title),
+            })
+          }
+        }
+        next[colId] = (d.parts ?? []).map((x) => x.id)
+      })
+      collections = next
+      collectionsAt = Date.now()
+    }
+
+    const all = readJson(stateFile, {})
+    all[boardId] = { at: Date.now(), providers, collections, collectionsAt }
+    writeJson(stateFile, all)
+  } finally {
+    watchlistRunning.delete(k)
+  }
+}
+
+// Sunucu açıkken saatte bir: her profilin ana sayfa arşivi (yoksa ilk arşivi) için takip turu (günde birden
+// fazla çalışmaz, bkz. WATCHLIST_CHECK_MS). İlki açılıştan 1 dakika sonra — açılışı yavaşlatmasın.
+function watchlistTick() {
+  let ids = []
+  try {
+    ids = fs.readdirSync(PROFILES_DIR)
+  } catch {
+    return
+  }
+  for (const profileId of ids) {
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) continue
+    const home = readJson(profileHomeSettingsFile(profileId), {})
+    const boards = readJson(profileBoardsFile(profileId), [])
+    const boardId = boards.some((b) => b.id === home.boardId) ? home.boardId : boards[0]?.id
+    if (boardId) checkWatchlist(profileId, boardId, apiKey).catch((e) => console.error('takip hata:', e))
+  }
+}
+if (!process.env.ARGUS_NO_WATCH) {
+  setTimeout(watchlistTick, 60_000)
+  setInterval(watchlistTick, 3600e3)
+}
+
+// Ne İzlesem'in "sadece platformlarımda" filtresi için: izlenmemiş kayıtların bilinen platformları
+app.get('/api/profiles/:profileId/row-platforms/:boardId', (req, res) => {
+  const bs = readJson(profileWatchStateFile(req.params.profileId), {})[req.params.boardId]
+  const out = {}
+  for (const [rowId, v] of Object.entries(bs?.providers ?? {})) out[rowId] = v.ids
+  res.json({ ready: Boolean(bs?.at), platforms: out })
+})
+
+// Platform listesi (Platformlarım seçimi): bölgedeki abonelik platformları, en yaygından başlayarak
+let platformsCache = null
+app.get('/api/profiles/:profileId/tmdb-platforms', async (req, res) => {
+  try {
+    const apiKey = readProfileApiKey(req.params.profileId)
+    if (!apiKey) return res.json({ needsApiKey: true, items: [] })
+    const region = serverRegion()
+    if (!platformsCache || platformsCache.region !== region || Date.now() - platformsCache.at > 24 * 3600e3) {
+      const lists = await Promise.all(['movie', 'tv'].map((t) => tmdbGet(`/watch/providers/${t}`, { watch_region: region, language: tmdbLang() }, apiKey)))
+      const byId = new Map()
+      for (const p of lists.flatMap((l) => l?.results ?? [])) {
+        const prio = p.display_priorities?.[region] ?? p.display_priority ?? 999
+        const cur = byId.get(p.provider_id)
+        if (!cur || prio < cur.prio) byId.set(p.provider_id, { id: p.provider_id, name: p.provider_name, logo: p.logo_path ? `${TMDB_IMG_BASE}/w92${p.logo_path}` : null, prio })
+      }
+      platformsCache = { at: Date.now(), region, items: [...byId.values()].sort((a, b) => a.prio - b.prio).slice(0, 24) }
+    }
+    res.json({ items: platformsCache.items.map(({ prio: _p, ...x }) => x) })
+  } catch (e) {
+    console.error('platform hata:', e)
+    res.json({ items: [] })
+  }
+})
 
 // Detay penceresindeki "Dizi bitti / Yeni sezon" etiketi için saklanan dizi durumları (TMDB'ye gitmez).
 app.get('/api/profiles/:profileId/show-status', (req, res) => {

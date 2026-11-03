@@ -67,5 +67,12 @@
  "OneDrive (buluta gider)": "OneDrive (goes to the cloud)",
  "Google Drive (buluta gider)": "Google Drive (goes to the cloud)",
  "Dropbox (buluta gider)": "Dropbox (goes to the cloud)",
- "Belgeler (sadece bu bilgisayar)": "Documents (this computer only)"
+ "Belgeler (sadece bu bilgisayar)": "Documents (this computer only)",
+ "Geçersiz tarih": "Invalid date",
+ "Artık şu platformda izlenebilir: {0}.": "Now available to stream on {0}.",
+ "Vizyon tarihi ertelendi: {0} → {1}.": "Release date pushed back: {0} → {1}.",
+ "Vizyon tarihi öne alındı: {0} → {1}.": "Release date moved up: {0} → {1}.",
+ "{0} serisi": "{0} series",
+ "Seriye yeni bir film eklendi: {0} ({1}).": "A new film was added to the series: {0} ({1}).",
+ "Seriye yeni bir film eklendi: {0}.": "A new film was added to the series: {0}."
 }

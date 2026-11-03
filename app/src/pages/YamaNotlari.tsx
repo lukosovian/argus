@@ -58,6 +58,16 @@ import {
   DilVisual,
   OtomatikIzleniyorVisual,
   BolumNumarasiVisual,
+  NeIzlesemFiltreVisual,
+  NeIzlesemSiralamaVisual,
+  SeriFilmVisual,
+  DetayliPuanVisual,
+  TakvimOzetVisual,
+  VizyonTakvimVisual,
+  TakipBildirimVisual,
+  SurePlatformVisual,
+  UnuttuklarinVisual,
+  PuanZevkiVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -72,6 +82,42 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.17',
+    date: tt('3 Kasım 2026'),
+    title: tt('Ne İzlesem\'e filtreler ve seriler, takvime vizyondakiler, platform bildirimleri, daha hızlı açılış'),
+    items: [
+      tt('ARGUS daha hızlı açılıyor: değişen bir şey yoksa her açılışta paketler kontrol edilmiyor ve arayüz yeniden hazırlanmıyor (yalnızca güncelleme gelince).'),
+      tt('ARGUS açıkken simgesine yeniden basınca "ARGUS zaten açık" penceresi çıkmıyor, açık pencere doğrudan öne geliyor.'),
+      tt('Ne İzlesem\'in sonuç ekranında "Filtreler" düğmesi: nereden seçileceğini, türleri ve sıralamayı Ayarlar\'a gitmeden değiştirip "Bu filtreyle getir" diyebilirsin.'),
+      tt('Ne İzlesem\'e yıl filtresi: başlangıç ve bitiş yılı yazabilir ya da "90\'lar", "Son 5 yıl" gibi hazır aralıklardan seçebilirsin. Arşivden seçerken de TMDB\'den seçerken de geçerli.'),
+      tt('TMDB\'den seçerken yeni sıralamalar: "Gizli kalmışlar" (az bilinen ama çok beğenilenler), "Yeni çıkanlar" ve "Her şeyden" (popülerlik sırasının çok daha derinlerinden). Son gösterilen 60 içerik bir süre yeniden gelmiyor.'),
+      tt('Seri bir film çıkınca serinin kaçıncı filmi olduğu yazıyor, altında serinin diğer filmleri görünüyor. Serinin daha önceki bir filmini izlemediysen önce izlemediğin ilk film geliyor.'),
+      tt('Ne İzlesem\'de "İzledim", "Zaten izledim" ve "Bitirdim" artık ayrıntılı: izleme tarihi ve arşivindeki puan kriterlerinin (Senaryo, Oyunculuk…) her biri ayrı ayrı; ortalama canlı görünüyor.'),
+      tt('Takvimin üstündeki özetlere (film, bölüm, dizi bitirdin, yaklaşan…) tıklayınca o ayın ilgili içerikleri listeleniyor; birine tıklayınca detayı açılıyor.'),
+      tt('Takvimde "🎬 Vizyondakiler": o ay vizyona girecek popüler filmler (arşivinde olmayanlar) günlerinde sarı kesik çizgiyle görünüyor; tıklayınca fragmanı ve ekleme seçenekleri açılıyor.'),
+      tt('Vizyon tarihi ileride olan bir içerik eklenince durumu boşsa kendiliğinden İzlenecek oluyor.'),
+      tt('Platforma geldi bildirimi: henüz izlemediğin bir içerik bir platforma (Netflix, Disney+…) gelince zile ve Windows bildirimlerine düşüyor. "Platformlarım"ı seçtiysen sadece o platformlar için haber geliyor.'),
+      tt('Vizyon tarihleri kendiliğinden güncelleniyor: ileri tarihli bir içeriğin tarihi ertelenir ya da öne alınırsa kayıt düzeltiliyor ve haber veriliyor; "Güncelle"ye basmana gerek yok.'),
+      tt('Arşivindeki bir film serisine yeni bir film eklenince haber geliyor; bildirime tıklayınca serinin filmleri açılıyor, yeni filmi tek tıkla İzlenecek\'e ekleyebilirsin.'),
+      tt('Bu kontroller ARGUS açıkken arkada günde bir kez yapılıyor (seriler haftada bir). İlk turda sadece mevcut durum kaydediliyor, sonradan değişenler bildiriliyor.'),
+      tt('Ne İzlesem\'e süre ve platform filtresi: "90 dk\'ya kadar", "2 saate kadar" gibi süre seçebilir, "Sadece platformlarımda izlenebilenler"i açıp abone olduğun platformları seçebilirsin.'),
+      tt('Ana sayfada "Unuttukların" satırı: İzleniyor\'da olup 2 aydır izlemediklerin ("Devam" ya da "Bırak") ve İzlenecek listende 6 aydan uzun bekleyenler. Hatırlatılacak bir şey yoksa görünmüyor; Ana Sayfa Ayarları\'ndan kapatılabiliyor.'),
+      tt('İstatistikler\'de "Puan zevkin": hangi kritere en cömert, hangisine en sert puan verdiğin, en sevdiğin tür ve türlere göre öne çıkan kriterlerin.'),
+    ],
+    visuals: [
+      { caption: tt('1 Ne İzlesem\'de Filtreler · 2 yıl aralığı'), Visual: NeIzlesemFiltreVisual },
+      { caption: tt('1 yeni sıralamalar · 2 son gelenler bir süre yine gelmez'), Visual: NeIzlesemSiralamaVisual },
+      { caption: tt('1 serinin kaçıncı filmi · 2 serinin diğer filmleri'), Visual: SeriFilmVisual },
+      { caption: tt('1 her kritere ayrı puan'), Visual: DetayliPuanVisual },
+      { caption: tt('1 özete tıkla · 2 o ayın içerikleri, tıklayınca detay'), Visual: TakvimOzetVisual },
+      { caption: tt('1 Vizyondakiler · 2 vizyona giren filmler günlerinde'), Visual: VizyonTakvimVisual },
+      { caption: tt('1 platforma geldi · 2 vizyon tarihi değişti · 3 seriye yeni film'), Visual: TakipBildirimVisual },
+      { caption: tt('1 ne kadar vaktin var · 2 platformlarım'), Visual: SurePlatformVisual },
+      { caption: tt('1 yarıda kalıp unuttukların · 2 listende uzun bekleyenler'), Visual: UnuttuklarinVisual },
+      { caption: tt('1 kriter ortalamaların · 2 öne çıkanlar'), Visual: PuanZevkiVisual },
+    ],
+  },
   {
     version: 'v1.16',
     date: tt('22 Ekim 2026'),

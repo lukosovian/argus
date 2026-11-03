@@ -1,14 +1,124 @@
 import { useEffect, useState } from 'react'
 import type { Board, Row } from '../types'
-import { titleText, todayIso, ratingAverage } from '../types'
+import { titleText, todayIso, ratingAverage, RATING_OVERALL } from '../types'
 import { api, type TmdbCard, type TmdbItem } from '../lib/api'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { formatRuntime, showcaseMeta } from '../lib/rowMeta'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
-import { WatchedForm } from './DiscoverModal'
+import CollectionSection from './CollectionSection'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
+
+// Seride baştan başlatıldıysa (bkz. RandomPickerButton seriesStart): asıl çıkan film ve sıraları
+export type SeriesSwap = { pickedTitle: string; pickedNumber: number; number: number }
+
+// Kullanıcı "izlemediğim bir şey geldiğinde izledim deyince puan verme kısmı detaylı değil, detaylandır" dedi:
+// tarih + arşivin puan kriterleri (Senaryo, Oyunculuk…) tek tek; kriter yoksa tek genel puan. Puanlanmayan
+// kriter boş kalır, ortalama canlı gösterilir.
+function DetailedWatchedForm({
+  board,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  board: Board
+  busy: boolean
+  onSave: (date: string | null, scores: Record<string, number>) => void
+  onCancel: () => void
+}) {
+  const criteria = resolveRole(board, 'puan')?.criteria ?? []
+  const [date, setDate] = useState<string | null>(todayIso())
+  const [scores, setScores] = useState<Record<string, number>>({})
+  const keys = criteria.length ? criteria.map((c) => ({ id: c.id, name: c.name })) : [{ id: RATING_OVERALL, name: tt('Genel puan') }]
+  const given = keys.map((k) => scores[k.id]).filter((n): n is number => typeof n === 'number')
+  const avg = given.length ? given.reduce((a, b) => a + b, 0) / given.length : null
+  const setAll = (n: number) => setScores(Object.fromEntries(keys.map((k) => [k.id, n])))
+  return (
+    <div className="w-full max-w-md mx-auto md:mx-0 text-left space-y-4 rounded-2xl bg-neutral-900/80 border border-neutral-700 p-4 backdrop-blur-sm">
+      <div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-neutral-400">{tt('İzleme tarihi')}</span>
+          {date === null ? (
+            <button onClick={() => setDate(todayIso())} className="text-xs text-[#00c0fa] hover:underline">
+              {tt('Tarih ekle')}
+            </button>
+          ) : (
+            <button onClick={() => setDate(null)} className="text-xs text-neutral-500 hover:text-neutral-300">
+              {tt('Hatırlamıyorum')}
+            </button>
+          )}
+        </div>
+        {date !== null && (
+          <input
+            type="date"
+            value={date}
+            max={todayIso()}
+            onChange={(e) => setDate(e.target.value || null)}
+            className="mt-1 w-full rounded-lg bg-neutral-950 border border-neutral-700 px-2.5 py-1.5 text-sm text-neutral-100 outline-none focus:border-neutral-500"
+          />
+        )}
+      </div>
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-neutral-400">{tt('Puan')}</span>
+          <span className="text-sm font-semibold text-amber-400 tabular-nums">{avg === null ? tt('Puansız') : `★ ${avg.toFixed(1)}`}</span>
+        </div>
+        {keys.map((k) => (
+          <div key={k.id}>
+            <div className="flex items-center justify-between text-xs mb-0.5">
+              <span className="text-neutral-300">{k.name}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="font-semibold text-neutral-50 tabular-nums">{scores[k.id] ?? '—'}</span>
+                {scores[k.id] !== undefined && (
+                  <button
+                    onClick={() => setScores(({ [k.id]: _drop, ...rest }) => rest)}
+                    title={tt('Bu puanı kaldır')}
+                    className="text-neutral-500 hover:text-rose-400 leading-none"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              step={0.5}
+              value={scores[k.id] ?? 0}
+              onChange={(e) => setScores((s) => ({ ...s, [k.id]: Number(e.target.value) }))}
+              className={`w-full accent-[#00c0fa] ${scores[k.id] === undefined ? 'opacity-40' : ''}`}
+            />
+          </div>
+        ))}
+        {criteria.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[11px] text-neutral-500">{tt('Hepsine:')}</span>
+            {[5, 6, 7, 8, 9, 10].map((n) => (
+              <button key={n} onClick={() => setAll(n)} className="text-[11px] rounded-md border border-neutral-700 hover:border-neutral-400 text-neutral-300 px-2 py-0.5">
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => onSave(date, scores)}
+          disabled={busy}
+          style={primaryButtonStyle}
+          className={`flex-1 text-sm px-4 py-2 rounded-full ${PRIMARY_BUTTON}`}
+        >
+          {busy ? tt('Kaydediliyor...') : tt('Kaydet')}
+        </button>
+        <button onClick={onCancel} disabled={busy} className="text-sm rounded-full border border-neutral-700 text-neutral-300 px-4 py-2 hover:border-neutral-400">
+          {tt('Vazgeç')}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // Ne İzlesem'in sonuç ekranı — kullanıcı "içerik seçildikten sonra poster ya da yatay görseli
 // gelsin, yanında kapak adı, kısa sinopsis, bilgiler; arkada mavi ışık vuran ekranda; altında
@@ -20,6 +130,7 @@ export default function PickResult({
   tmdb,
   cover,
   landscape,
+  swap,
   onAgain,
   onOpenRow,
   onOpenTmdb,
@@ -29,6 +140,7 @@ export default function PickResult({
   tmdb?: TmdbCard
   cover: string
   landscape: boolean
+  swap?: SeriesSwap | null
   onAgain: () => void
   onOpenRow: (row: Row) => void
   onOpenTmdb: (card: TmdbCard) => void
@@ -39,6 +151,9 @@ export default function PickResult({
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<string | null>(null)
   const [watchedForm, setWatchedForm] = useState(false)
+  // Arşivdeki kayıt için "Zaten izledim" / "Bitirdim": detaylı puan formu açık mı (açıksa hangi duruma geçecek)
+  const [rowForm, setRowForm] = useState(false)
+  const [position, setPosition] = useState<{ number: number; total: number } | null>(null)
 
   useEffect(() => {
     if (!tmdb) return
@@ -125,7 +240,25 @@ export default function PickResult({
     return values
   }
 
-  async function addFromTmdb(status: 'izlenecek' | 'izlendi', watchedDate?: string | null, rating?: number | null) {
+  // Detaylı formdan: İzlendi + (varsa) tarih + kriter puanları
+  function markWatched(date: string | null, scores: Record<string, number>) {
+    if (!durumProp || !izlendiId) return
+    patchRow((v) => {
+      const next = { ...v, [durumProp.id]: izlendiId }
+      if (date && tarihProp) {
+        const cur = next[tarihProp.id]
+        if (tarihProp.type === 'multidate') {
+          const list = Array.isArray(cur) ? (cur as string[]) : typeof cur === 'string' && cur ? [cur] : []
+          next[tarihProp.id] = list.includes(date) ? list : [...list, date]
+        } else next[tarihProp.id] = date
+      }
+      if (puanProp && Object.keys(scores).length) next[puanProp.id] = scores
+      return next
+    }, tt('İzlendi olarak işaretlendi.'))
+    setRowForm(false)
+  }
+
+  async function addFromTmdb(status: 'izlenecek' | 'izlendi', watchedDate?: string | null, scores?: Record<string, number>) {
     if (!tmdb) return
     setBusy(true)
     try {
@@ -134,7 +267,8 @@ export default function PickResult({
         mediaType: tmdb.mediaType,
         status,
         watchedDate: watchedDate ?? undefined,
-        rating: rating ?? undefined,
+        rating: scores?.[RATING_OVERALL],
+        scores: scores && !(RATING_OVERALL in scores) ? scores : undefined,
       })
       notifyDataChanged(board.id)
       setWatchedForm(false)
@@ -176,7 +310,7 @@ export default function PickResult({
         actions.push({
           label: tt('✓ Bitirdim'),
           primary: true,
-          onClick: () => patchRow((v) => addToday({ ...v, [durumProp.id]: izlendiId }), tt('İzlendi olarak işaretlendi.')),
+          onClick: () => setRowForm(true),
         })
     } else {
       question = tt('Bu akşam bu olsun mu?')
@@ -189,7 +323,7 @@ export default function PickResult({
       if (izlendiId && durumProp)
         actions.push({
           label: tt('✓ Zaten izledim'),
-          onClick: () => patchRow((v) => addToday({ ...v, [durumProp.id]: izlendiId }), tt('İzlendi olarak işaretlendi.')),
+          onClick: () => setRowForm(true),
         })
     }
   }
@@ -221,6 +355,11 @@ export default function PickResult({
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-50">{title}</h2>
             )}
             {logo && <p className="text-lg font-semibold text-neutral-200 -mt-1">{title}</p>}
+            {swap && (
+              <p className="text-sm text-[#7fdcff] max-w-2xl mx-auto md:mx-0">
+                {tt('"{0}" çıktı ama o serinin {1}. filmi — {2}. filmi izlemediğin için seriye buradan başla.', swap.pickedTitle, swap.pickedNumber, swap.number)}
+              </p>
+            )}
 
             <div className="flex flex-wrap justify-center md:justify-start items-center gap-1.5">
               {score !== null && score !== undefined && (
@@ -229,6 +368,11 @@ export default function PickResult({
               {!r && (item ?? tmdb)?.rating ? (
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-neutral-950">★ {(item ?? tmdb)!.rating}</span>
               ) : null}
+              {position && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#00c0fa]/15 border border-[#00c0fa]/50 text-[#7fdcff]">
+                  {tt('Serinin {0}. filmi', position.number)}
+                </span>
+              )}
               {statusOpt && <span className="text-xs px-2.5 py-1 rounded-full border border-[#00c0fa]/50 text-[#7fdcff] bg-[#00c0fa]/10">{statusOpt.label}</span>}
               {!r && (
                 <span className="text-xs px-2.5 py-1 rounded-full border border-neutral-600 text-neutral-300 bg-black/20">
@@ -248,6 +392,8 @@ export default function PickResult({
             <div className="pt-2 space-y-3">
               {done ? (
                 <p className="text-sm text-emerald-400">✓ {done}</p>
+              ) : r && rowForm ? (
+                <DetailedWatchedForm board={board} busy={busy} onCancel={() => setRowForm(false)} onSave={markWatched} />
               ) : r ? (
                 <>
                   {question && <p className="text-sm text-neutral-400">{question}</p>}
@@ -271,9 +417,7 @@ export default function PickResult({
               ) : inArchive ? (
                 <p className="text-sm text-emerald-400">{tt('✓ Zaten arşivinde')}</p>
               ) : watchedForm ? (
-                <div className="max-w-xs mx-auto md:mx-0 text-left">
-                  <WatchedForm busy={busy} onCancel={() => setWatchedForm(false)} onSave={(date, rating) => addFromTmdb('izlendi', date, rating)} />
-                </div>
+                <DetailedWatchedForm board={board} busy={busy} onCancel={() => setWatchedForm(false)} onSave={(date, scores) => addFromTmdb('izlendi', date, scores)} />
               ) : (
                 <>
                   <p className="text-sm text-neutral-400">{tt('Arşivinde yok — ne yapalım?')}</p>
@@ -298,6 +442,27 @@ export default function PickResult({
             </div>
           </div>
         </div>
+        {/* Seri film: serinin diğer filmleri (kullanıcı "seri bir film gelirse altta diğer filmleri de göstersin") */}
+        {(r || tmdb?.mediaType === 'movie') && (
+          <div className="w-full max-w-5xl mt-10 text-left">
+            <CollectionSection
+              key={r?.id ?? tmdb?.tmdbId}
+              boardId={board.id}
+              rowId={r?.id}
+              tmdbId={r ? undefined : tmdb?.tmdbId}
+              onPosition={(number, total) => setPosition({ number, total })}
+              onOpenRow={(id) => {
+                api
+                  .getRows(board.id)
+                  .then((rows) => {
+                    const found = rows.find((x) => x.id === id)
+                    if (found) onOpenRow(found)
+                  })
+                  .catch(() => {})
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

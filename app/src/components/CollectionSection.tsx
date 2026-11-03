@@ -14,7 +14,21 @@ function cleanName(name: string) {
   return name.replace(/\s*\[seri\]\s*/i, '').replace(/\s+(serisi|koleksiyonu|collection)$/i, '').trim()
 }
 
-export default function CollectionSection({ boardId, rowId, onOpenRow }: { boardId: string; rowId: string; onOpenRow?: (rowId: string) => void }) {
+// Ne İzlesem'in sonuç ekranında arşivde olmayan bir TMDB filmi için de kullanılıyor (tmdbId) — onPosition
+// "serinin kaçıncı filmi" rozeti için.
+export default function CollectionSection({
+  boardId,
+  rowId,
+  tmdbId,
+  onOpenRow,
+  onPosition,
+}: {
+  boardId: string
+  rowId?: string
+  tmdbId?: number
+  onOpenRow?: (rowId: string) => void
+  onPosition?: (number: number, total: number) => void
+}) {
   const { notify } = useToast()
   const [data, setData] = useState<{ collection: { name: string } | null; parts?: Part[] } | null>(null)
   const [preview, setPreview] = useState<TmdbCard | null>(null)
@@ -24,19 +38,27 @@ export default function CollectionSection({ boardId, rowId, onOpenRow }: { board
   useEffect(() => {
     let alive = true
     Promise.resolve()
-      .then(() => api.getCollection(boardId, rowId))
-      .then((d) => alive && setData(d))
+      .then(() => (rowId ? api.getCollection(boardId, rowId) : tmdbId ? api.getCollectionByTmdb(boardId, tmdbId) : null))
+      .then((d) => {
+        if (!alive || !d) return
+        setData(d)
+        const parts = d.parts ?? []
+        const at = parts.findIndex((p) => (rowId ? p.rowId === rowId : p.tmdbId === tmdbId))
+        if (d.collection && at >= 0) onPosition?.(at + 1, parts.length)
+      })
       .catch(() => {})
     return () => {
       alive = false
     }
-  }, [boardId, rowId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardId, rowId, tmdbId])
 
   if (!data?.collection || !data.parts?.length) return null
   const parts = data.parts
   const released = parts.filter((p) => p.released)
   const watched = released.filter((p) => p.watched).length
-  const next = released.find((p) => !p.watched && p.rowId !== rowId)
+  const isCurrent = (p: Part) => (rowId ? p.rowId === rowId : p.tmdbId === tmdbId)
+  const next = released.find((p) => !p.watched && !isCurrent(p))
 
   async function add(p: Part) {
     setBusy(p.tmdbId)
@@ -64,7 +86,7 @@ export default function CollectionSection({ boardId, rowId, onOpenRow }: { board
       )}
       <div className="flex gap-3 overflow-x-auto pb-2">
         {parts.map((p, i) => {
-          const isThis = p.rowId === rowId
+          const isThis = isCurrent(p)
           const inArch = p.inArchive || added.has(p.tmdbId)
           return (
             <div key={p.tmdbId} className={`w-28 shrink-0 ${isThis ? '' : ''}`}>
