@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { MOBILE } from '../lib/mobile/ui'
 import type { Board, Mood, Row } from '../types'
 import { titleText, BUILTIN_MOODS } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
@@ -30,7 +31,8 @@ function resolveMoodImageSrc(path: string, theme: 'dark' | 'light'): string {
 
 // Dinlenme genişliği (dikey poster) ve üzerine gelince açılan yatay genişlik — MoodCard'ın
 // kendi ölçüleri, satırın kaydırma miktarını hesaplarken de kullanılıyor.
-const REST_WIDTH = 144
+// Telefonda kartlar daha küçük (ekrana sığsın)
+const REST_WIDTH = MOBILE ? 100 : 144
 const HOVER_WIDTH = 320
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -164,8 +166,8 @@ function MoodCard({
       <button
         ref={buttonRef}
         onClick={() => onOpenDetail(row)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={MOBILE ? undefined : handleMouseEnter}
+        onMouseLeave={MOBILE ? undefined : handleMouseLeave}
         style={{
           width: hovering ? HOVER_WIDTH : REST_WIDTH,
           ...anchorStyle,
@@ -352,7 +354,7 @@ export default function MoodRow({
         <div
           ref={scrollRef}
           onWheel={handleWheel}
-          className="no-scrollbar flex items-end gap-8 overflow-x-auto px-4 -mx-4 pt-16 pb-16 -mt-16 -mb-16 scroll-smooth"
+          className={`no-scrollbar flex items-end ${MOBILE ? 'gap-3' : 'gap-8'} overflow-x-auto px-4 -mx-4 pt-16 pb-16 -mt-16 -mb-16 scroll-smooth`}
         >
           {items.map(({ mood, row }) => (
             <div key={mood.id} className="flex items-end shrink-0">
@@ -371,7 +373,7 @@ export default function MoodRow({
                   maskImage: 'linear-gradient(to right, black 35%, transparent 85%)',
                 }}
               />
-              <div className="relative z-10" style={{ marginLeft: -40 }}>
+              <div className="relative z-10" style={{ marginLeft: MOBILE ? -28 : -40 }}>
                 <MoodCard board={board} row={row} scrollRef={scrollRef} onOpenDetail={onOpenDetail} />
               </div>
             </div>

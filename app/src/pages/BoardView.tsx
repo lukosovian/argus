@@ -1,4 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import RowEditorModal from '../components/RowEditorModal'
+import MobileBoardList from '../components/mobile/MobileBoardList'
+import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
@@ -769,6 +772,8 @@ export default function BoardView() {
   // Altı-noktalı tutamacın yanındaki göz ikonu — ana sayfadaki kart tıklamasıyla açılan aynı
   // RowDetailModal'ı tablo görünümünden de açabilmek için.
   const [detailRow, setDetailRow] = useState<Row | null>(null)
+  // Telefonda kayıt düzenleme / yeni kayıt formu (masaüstündeki tablo hücreleri yerine)
+  const [editRow, setEditRow] = useState<Row | 'new' | null>(null)
 
   // Bir arşiv açıkken profil değiştirilirse (bkz. useBoard.ts'nin activeProfileId bağımlılığı),
   // URL'deki board id yeni profilde muhtemelen yok — eskiden bu hep "Arşiv bulunamadı" gösterip
@@ -2037,7 +2042,39 @@ export default function BoardView() {
   )
 
   return (
-    <div className="px-4 py-6">
+    <div className={MOBILE ? 'px-4 pt-1 pb-6' : 'px-4 py-6'}>
+      {MOBILE ? (
+        // Telefonda masaüstü araç çubuğu yerine: arama kutusu, filtre, sıralama ve "+" (Netflix'teki gibi sade)
+        <div className="flex items-center gap-2 mb-3">
+          <label className="flex-1 min-w-0 flex items-center gap-2 rounded-full bg-neutral-900 border border-neutral-800 px-3.5 h-11 text-neutral-400">
+            <SearchIcon />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={tt('Arşivde ara')}
+              className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-neutral-100 placeholder:text-neutral-500"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="text-neutral-500 text-lg leading-none px-1">
+                ×
+              </button>
+            )}
+          </label>
+          <FilterPopover board={board} conditions={tableConditions} onChange={setTableConditions} />
+          <SortPopover
+            sortableProps={sortableProps}
+            sortPropertyId={sortPropertyId}
+            sortDirection={sortDirection}
+            onChange={(propertyId, direction) => {
+              setSortPropertyId(propertyId)
+              setSortDirection(direction)
+            }}
+          />
+          <button onClick={() => setEditRow('new')} title={tt('Yeni Kayıt')} className="h-11 w-11 shrink-0 flex items-center justify-center rounded-full bg-neutral-50 text-neutral-950 text-2xl leading-none">
+            +
+          </button>
+        </div>
+      ) : (
       <section className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-4 sm:px-5 py-4 mb-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <button
@@ -2064,6 +2101,7 @@ export default function BoardView() {
         </div>
         </div>
       </section>
+      )}
       {docked &&
         navbarSlot &&
         createPortal(
@@ -2116,6 +2154,8 @@ export default function BoardView() {
 
       {rowsLoading ? (
         <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
+      ) : MOBILE ? (
+        <MobileBoardList board={board} rows={filteredRows} onOpen={setDetailRow} />
       ) : (
         <BoardTable
           ref={boardTableRef}
@@ -2158,7 +2198,7 @@ export default function BoardView() {
           onMoveRow={moveRow}
         />
       )}
-      {!rowsLoading && (
+      {!rowsLoading && !MOBILE && (
         <ScrollEndsButtons
           onRefresh={async () => {
             try {
@@ -2200,6 +2240,45 @@ export default function BoardView() {
           onClose={() => setDetailRow(null)}
           editable
           onFetchTmdb={fetchTmdb}
+          onEdit={MOBILE ? () => setEditRow(rows.find((r) => r.id === detailRow.id) ?? detailRow) : undefined}
+        />
+      )}
+      {editRow && (
+        <RowEditorModal
+          board={board}
+          row={editRow === 'new' ? null : editRow}
+          titleOnly={editRow === 'new'}
+          onClose={() => setEditRow(null)}
+          onAddOption={addOptionToProperty}
+          onSave={async (values) => {
+            try {
+              if (editRow === 'new') {
+                const saved = await saveRow({ ...emptyRow(), values })
+                setEditRow(null)
+                if (saved) {
+                  setDetailRow(saved)
+                  // Adı yazıldıysa TMDB'den doldur (PC'ye bağlı değilken sessizce geçer, sonra "Güncelle" ile yapılabilir)
+                  if (board.titlePropertyId && values[board.titlePropertyId]) fetchTmdb(saved.id)?.catch(() => {})
+                }
+              } else {
+                await saveRow({ ...editRow, values, updatedAt: Date.now() }, editRow.id)
+                setEditRow(null)
+                notify(tt('Kaydedildi.'), 'success')
+              }
+            } catch (e) {
+              notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
+            }
+          }}
+          onDelete={
+            editRow === 'new'
+              ? undefined
+              : async () => {
+                  if (!(await confirm({ message: tt('Bu kayıt silinsin mi?'), confirmLabel: tt('Sil'), tone: 'danger' }))) return
+                  await removeRow(editRow.id)
+                  setEditRow(null)
+                  setDetailRow(null)
+                }
+          }
         />
       )}
 

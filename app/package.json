@@ -12,17 +12,23 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0",
+    "compression": "^1.8.2",
     "cors": "^2.8.5",
     "electron": "^44.4.5",
     "express": "^4.21.2",
     "flag-icons": "^7.5.0",
     "multer": "^2.0.1",
     "papaparse": "^5.7.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/papaparse": "^5.5.2",

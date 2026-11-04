@@ -74,5 +74,11 @@
  "Vizyon tarihi öne alındı: {0} → {1}.": "Release date moved up: {0} → {1}.",
  "{0} serisi": "{0} series",
  "Seriye yeni bir film eklendi: {0} ({1}).": "A new film was added to the series: {0} ({1}).",
- "Seriye yeni bir film eklendi: {0}.": "A new film was added to the series: {0}."
+ "Seriye yeni bir film eklendi: {0}.": "A new film was added to the series: {0}.",
+ "Bu cihaz ARGUS'a bağlı değil. PC'de Ayarlar › Telefon Bağla'dan eşleştir.": "This device isn't connected to ARGUS. Pair it from Settings › Connect a phone on the PC.",
+ "Bu işlem sadece PC'deki ARGUS'tan yapılabilir.": "This can only be done from ARGUS on the PC.",
+ "Kodun süresi doldu. PC'de Telefon Bağla'dan yeni kod al.": "The code has expired. Get a new one from Connect a phone on the PC.",
+ "Kod yanlış.": "Wrong code.",
+ "Telefon": "Phone",
+ "Telefon uygulaması bu ARGUS'ta yok.": "The phone app is not included in this ARGUS."
 }

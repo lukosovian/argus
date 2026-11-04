@@ -34,3 +34,10 @@ export function useEscape(active: boolean, onEscape: () => void) {
     }
   }, [active])
 }
+
+// Telefonun geri tuşu (bkz. lib/mobile/backButton.ts): en üstteki açık pencereyi kapatır; açık pencere yoksa false.
+export function closeTopmost(): boolean {
+  if (!stack.length) return false
+  handlers.get(stack[stack.length - 1])?.()
+  return true
+}

@@ -1,6 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { PanelHeader, SettingsSection, choiceClass } from './SettingsUi'
 import ToggleSwitch from '../ToggleSwitch'
+import PhonePanel from './PhonePanel'
+import MobileConnectionPanel from '../mobile/MobileConnectionPanel'
+import { isMobileApp } from '../../lib/mobile/native'
 import { useToast } from '../../hooks/useToast'
 import type { AppSettings } from '../../lib/desktopApp'
 import { LANGS, getLang, setLang, tt } from '../../lib/i18n'
@@ -33,6 +36,7 @@ export default function AppSettingsPanel() {
   const { notify } = useToast()
   const bridge = typeof window !== 'undefined' ? window.argusApp : undefined
   const [s, setS] = useState<AppSettings | null>(null)
+  const mobile = isMobileApp()
 
   useEffect(() => {
     bridge
@@ -55,7 +59,10 @@ export default function AppSettingsPanel() {
 
   return (
     <div className="space-y-5">
-      <PanelHeader title={tt('Uygulama Ayarları')} description={tt('ARGUS uygulamasının bu bilgisayarda nasıl açılıp kapanacağı, bildirimleri ve görünümü.')} />
+      <PanelHeader
+        title={tt('Uygulama Ayarları')}
+        description={mobile ? tt('Telefondaki ARGUS\'un dili ve PC ile bağlantısı.') : tt('ARGUS uygulamasının bu bilgisayarda nasıl açılıp kapanacağı, bildirimleri ve görünümü.')}
+      />
       {/* Dil: tarayıcıda açıkken de değiştirilebilir. Seçenek adları her zaman kendi dilinde yazar. */}
       <SettingsSection title={getLang() === 'tr' ? 'Dil · Language' : 'Language · Dil'}>
         <Row title={tt('Arayüz dili')} description={tt('Menüler, yazılar ve bildirimler bu dilde olur. TMDB\'den yeni gelen bilgiler (özet, türler, başlıklar) de bu dilde gelir; arşivindeki mevcut kayıtlar değişmez.')}>
@@ -68,7 +75,13 @@ export default function AppSettingsPanel() {
           </div>
         </Row>
       </SettingsSection>
-      {!bridge ? (
+      {mobile ? (
+        // Telefondaki ARGUS: bilgisayara özel ayarlar (açılış, tepsi…) yerine PC bağlantısı
+        <MobileConnectionPanel />
+      ) : (
+        <PhonePanel />
+      )}
+      {mobile ? null : !bridge ? (
         <p className="text-sm text-neutral-400 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
           {tt('Bu ayarlar ARGUS uygulamasında çalışır. Şu an ARGUS\'u tarayıcıda açmışsın; masaüstündeki ARGUS simgesinden açınca buradan değiştirebilirsin.')}
         </p>

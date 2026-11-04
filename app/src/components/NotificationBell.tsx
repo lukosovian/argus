@@ -7,6 +7,7 @@ import { useProfiles } from '../hooks/useProfiles'
 import { useToast } from '../hooks/useToast'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx, locale } from '../lib/i18n'
+import { MOBILE } from '../lib/mobile/ui'
 
 // Üst menüdeki zil — kullanıcı "bildirimler için bir yer olsun" dedi. Dizi kendiliğinden İzlendi olunca,
 // bitmiş bir diziye yeni bölüm gelince ya da yeni sezon tarihi açıklanınca burada birikir. Okunmamış
@@ -137,11 +138,21 @@ export default function NotificationBell() {
           <>
             <div className="fixed inset-0 z-[80]" onClick={() => setOpen(false)} />
             <div
-              style={{ top: pos.top, right: pos.right }}
-              className="fixed z-[81] w-[min(24rem,calc(100vw-1rem))] max-h-[70vh] flex flex-col bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
+              // Telefonda tam ekran sayfa (köşeden açılan küçük panel telefona sığmıyordu)
+              style={MOBILE ? { paddingTop: 'env(safe-area-inset-top)' } : { top: pos.top, right: pos.right }}
+              className={
+                MOBILE
+                  ? 'fixed inset-0 z-[81] flex flex-col bg-neutral-950'
+                  : 'fixed z-[81] w-[min(24rem,calc(100vw-1rem))] max-h-[70vh] flex flex-col bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden'
+              }
             >
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-neutral-800">
-                <p className="text-sm font-semibold text-neutral-100">
+              <div className={`flex items-center justify-between gap-2 border-b border-neutral-800 ${MOBILE ? 'px-3 h-16' : 'px-4 py-3'}`}>
+                {MOBILE && (
+                  <button onClick={() => setOpen(false)} aria-label={tt('Kapat')} className="h-10 w-10 -ml-1 flex items-center justify-center rounded-full text-neutral-200 text-2xl active:bg-neutral-800">
+                    ‹
+                  </button>
+                )}
+                <p className={`${MOBILE ? 'flex-1 text-xl font-bold text-neutral-50' : 'text-sm font-semibold text-neutral-100'}`}>
                   {tt('Bildirimler')}{unread > 0 && <span className="ml-1.5 text-xs font-normal text-neutral-500">{ttx('{0} okunmamış', unread)}</span>}
                 </p>
                 <div className="flex items-center gap-3 text-xs">
@@ -157,7 +168,7 @@ export default function NotificationBell() {
                   )}
                 </div>
               </div>
-              <div className="overflow-y-auto">
+              <div className={`overflow-y-auto ${MOBILE ? 'flex-1 pb-8' : ''}`}>
                 {items.length === 0 ? (
                   <p className="text-sm text-neutral-500 px-4 py-8 text-center">
                     {tt('Henüz bildirim yok.')}
@@ -172,7 +183,7 @@ export default function NotificationBell() {
                         onClick={() => openItem(n)}
                         className={`w-full flex items-start gap-3 text-left px-4 py-3 border-b border-neutral-800/60 hover:bg-neutral-800/60 transition ${n.read ? '' : 'bg-[#00c0fa]/[0.04]'}`}
                       >
-                        <span className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-sm ${look.cls}`}>{look.icon}</span>
+                        <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}>{look.icon}</span>
                         <span className="flex-1 min-w-0">
                           <span className="flex items-center gap-2">
                             <span className={`text-sm truncate ${n.read ? 'text-neutral-300' : 'text-neutral-50 font-medium'}`}>{n.title}</span>

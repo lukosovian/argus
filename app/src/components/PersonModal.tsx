@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { api, type ArchiveCard, type PersonInfo, type TmdbCard } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
@@ -93,8 +94,9 @@ export default function PersonModal({
   const watchedCount = data?.inArchive.filter((c) => c.watched).length ?? 0
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-6 px-4 sm:px-8" onClick={onClose}>
-      <div className="relative w-full max-w-4xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6 space-y-6" onClick={(e) => e.stopPropagation()}>
+    // Telefonda tam ekran sayfa
+    <div className={`fixed inset-0 z-[70] overflow-y-auto ${MOBILE ? 'bg-neutral-900' : 'bg-black/80 py-6 px-4 sm:px-8'}`} onClick={onClose}>
+      <div className={MOBILE ? 'relative w-full min-h-full bg-neutral-900 p-4 space-y-6' : 'relative w-full max-w-4xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6 space-y-6'} onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label={tt('Kapat')} className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
           ×
         </button>

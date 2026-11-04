@@ -70,6 +70,19 @@ export interface BackupInfo {
   targetExists: boolean
 }
 
+// Telefon bağlama (bkz. server/sync.js, components/settings/PhonePanel.tsx)
+export interface SyncDevice {
+  id: string
+  name: string
+  pairedAt: number
+  lastSeen: number
+}
+export interface SyncDevicesInfo {
+  devices: SyncDevice[]
+  pairing: { code: string; expiresAt: number } | null
+  addresses: string[]
+}
+
 // Güncelle'de birden fazla TMDB adayı çıkınca kullanıcıya gösterilen seçenek (bkz. TmdbChoiceModal).
 export interface TmdbChoice {
   tmdbId: number
@@ -349,6 +362,11 @@ export const api = {
     request<{ ok: true; count: number }>(profilePath(`/history/${boardId}/restore-day`), { method: 'POST', ...json({ day }) }),
   // Yedekleme (bkz. server/backup.js) — profile bağlı değil, bütün veriyi kapsar.
   getBackup: () => request<BackupInfo>('/api/backup'),
+  // Telefon bağlama (bkz. server/sync.js) — sadece PC'deki ARGUS'ta.
+  getSyncDevices: () => request<SyncDevicesInfo>('/api/sync/devices'),
+  newPairCode: () => request<{ code: string; expiresAt: number; addresses: string[]; port: number }>('/api/sync/pair-code', { method: 'POST' }),
+  getMobileInfo: () => request<{ available: boolean; version?: string; size?: number }>('/api/mobile/info'),
+  removeSyncDevice: (id: string) => request<{ ok: true }>(`/api/sync/devices/${id}`, { method: 'DELETE' }),
   // Flashback (yıllık özet): dizilerin bölüm süreleri (TMDB'den arka planda öğrenilir) ve kaydedilmiş izleme saatleri
   // Son izleme verisi girilen kayıtlar, en yeni önce (Takvim'in hızlı seçimi için)
   getRecentWatch: () => request<{ rowId: string; t: number }[]>(profilePath('/recent-watch')),

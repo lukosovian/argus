@@ -144,3 +144,45 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ARGUS Android: alttaki sekme çubuğu içeriğin üstüne binmesin (bkz. Navbar MobileTabBar) */
+html.argus-mobile body {
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Açık temada koyu zemin için seçilmiş açık renk yazılar beyaz zeminde okunmuyordu (kullanıcı "açık temada okunmayan
+   yazılar var" dedi) — aynı tonların koyusu. Resim/video üstündeki beyaz yazılar etkilenmez. */
+:root[data-theme='light'] .text-\[\#7fdcff\],
+:root[data-theme='light'] .text-\[\#3fa9ff\] {
+  color: #0369a1;
+}
+:root[data-theme='light'] .text-\[\#00c0fa\] {
+  color: #0284c7;
+}
+:root[data-theme='light'] .text-amber-200,
+:root[data-theme='light'] .text-amber-300,
+:root[data-theme='light'] .text-amber-400 {
+  color: #b45309;
+}
+:root[data-theme='light'] .text-emerald-200,
+:root[data-theme='light'] .text-emerald-300,
+:root[data-theme='light'] .text-emerald-400 {
+  color: #047857;
+}
+:root[data-theme='light'] .text-rose-300,
+:root[data-theme='light'] .text-red-400 {
+  color: #be123c;
+}
+
+/* ARGUS Android tam ekran: tam ekran pencerelerin içeriği durum çubuğunun altında kalmasın (arka planları
+   yine en üste kadar uzanır). Kendi boşluğunu veren pencereler (style ile) bundan etkilenmez. */
+html.argus-mobile .fixed.inset-0 {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Tam ekran pencerelerde (detay vb.) görselin üstündeki düğmeler durum çubuğunun altına kayar */
+html.argus-mobile .safe-shift {
+  margin-top: env(safe-area-inset-top);
+}

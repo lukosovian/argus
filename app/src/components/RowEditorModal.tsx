@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useEscape } from '../hooks/useEscape'
+import { MOBILE } from '../lib/mobile/ui'
 import type { Board, PropertyValue, Row } from '../types'
 import PropertyValueInput from './PropertyValueInput'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
@@ -11,6 +13,7 @@ export default function RowEditorModal({
   onSave,
   onDelete,
   onAddOption,
+  titleOnly = false,
 }: {
   board: Board
   row: Row | null
@@ -18,9 +21,12 @@ export default function RowEditorModal({
   onSave: (values: Record<string, PropertyValue>) => void
   onDelete?: () => void
   onAddOption: (propertyId: string, label: string) => string
+  // Telefonda yeni kayıt: sadece ad sorulur, gerisi kaydedince TMDB'den gelir (bkz. BoardView)
+  titleOnly?: boolean
 }) {
   const [values, setValues] = useState<Record<string, PropertyValue>>(row?.values ?? {})
   const [saving, setSaving] = useState(false)
+  useEscape(true, onClose)
 
   function update(propertyId: string, v: PropertyValue) {
     setValues((prev) => ({ ...prev, [propertyId]: v }))
@@ -38,11 +44,13 @@ export default function RowEditorModal({
 
   return (
     <div
-      className="fixed inset-0 z-40 bg-black/60 flex items-start justify-center overflow-y-auto py-10 px-4"
+      className={MOBILE ? 'fixed inset-0 z-[70] bg-neutral-950 overflow-y-auto' : 'fixed inset-0 z-40 bg-black/60 flex items-start justify-center overflow-y-auto py-10 px-4'}
       onClick={onClose}
+      style={MOBILE ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}
     >
+      {/* Telefonda tam ekran form (arşivde tablo hücreleri olmadığı için veri buradan girilir) */}
       <div
-        className="bg-neutral-900 border border-neutral-800 rounded-xl w-full max-w-lg p-6"
+        className={MOBILE ? 'min-h-full p-4 pb-10' : 'bg-neutral-900 border border-neutral-800 rounded-xl w-full max-w-lg p-6'}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -52,14 +60,15 @@ export default function RowEditorModal({
           </button>
         </div>
 
-        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+        <div className={MOBILE ? 'space-y-4' : 'space-y-4 max-h-[65vh] overflow-y-auto pr-1'}>
           {titleProp && (
             <div>
               <label className={labelClass}>{titleProp.name}</label>
               <PropertyValueInput property={titleProp} value={values[titleProp.id]} onChange={(v) => update(titleProp.id, v)} />
             </div>
           )}
-          {otherProps.map((p) => (
+          {titleOnly && <p className="text-xs text-neutral-500">{tt('Adını yazıp kaydet — afiş, tür, oyuncular gibi bilgiler TMDB\'den kendiliğinden gelir.')}</p>}
+          {(titleOnly ? [] : otherProps).map((p) => (
             <div key={p.id}>
               <label className={labelClass}>{p.name}</label>
               <PropertyValueInput
@@ -79,7 +88,7 @@ export default function RowEditorModal({
           )}
         </div>
 
-        <div className="flex items-center gap-3 pt-4 mt-2 border-t border-neutral-800">
+        <div className={`flex items-center gap-3 pt-4 mt-2 border-t border-neutral-800 ${MOBILE ? 'sticky bottom-0 bg-neutral-950 pb-4' : ''}`}>
           <button
             onClick={handleSave}
             disabled={saving}

@@ -2682,3 +2682,109 @@ export function PuanZevkiVisual() {
     </Frame>
   )
 }
+
+// v1.18 — ARGUS telefonda: alt menü, afişler, Kim izliyor
+function Phone({ x, children }: { x: number; children?: React.ReactNode }) {
+  return (
+    <g>
+      <rect x={x} y={14} width={76} height={152} rx={12} className="fill-neutral-900 stroke-neutral-600" strokeWidth={1.5} />
+      <rect x={x + 28} y={19} width={20} height={3} rx={1.5} className="fill-neutral-600" />
+      {children}
+    </g>
+  )
+}
+function PhoneTabs({ x, active }: { x: number; active: number }) {
+  return (
+    <g>
+      <rect x={x + 6} y={146} width={64} height={13} rx={6.5} className="fill-neutral-800 stroke-neutral-700" strokeWidth={1} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <circle key={i} cx={x + 14 + i * 12} cy={152.5} r={2.4} fill={i === active ? ACCENT : undefined} className={i === active ? '' : 'fill-neutral-600'} />
+      ))}
+    </g>
+  )
+}
+export function TelefonUygulamaVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Phone x={20}>
+        <rect x={26} y={28} width={64} height={70} rx={6} className="fill-neutral-700" />
+        <rect x={42} y={82} width={32} height={5} rx={2.5} className="fill-neutral-400" />
+        {[0, 1, 2].map((i) => (
+          <rect key={i} x={26 + i * 22} y={106} width={19} height={28} rx={3} className="fill-neutral-700" />
+        ))}
+        <PhoneTabs x={20} active={0} />
+      </Phone>
+      <Phone x={122}>
+        <rect x={128} y={28} width={44} height={8} rx={4} className="fill-neutral-800 stroke-neutral-700" strokeWidth={1} />
+        <circle cx={185} cy={32} r={4.5} className="fill-neutral-50" />
+        {[0, 1, 2, 3].map((r) =>
+          [0, 1, 2].map((c) => <rect key={`${r}${c}`} x={128 + c * 22} y={42 + r * 26} width={19} height={23} rx={2.5} className="fill-neutral-700" />),
+        )}
+        <PhoneTabs x={122} active={1} />
+      </Phone>
+      <Phone x={224}>
+        <rect x={224} y={14} width={76} height={92} rx={12} className="fill-neutral-700" />
+        <rect x={246} y={84} width={32} height={6} rx={3} className="fill-neutral-400" />
+        {[0, 1, 2].map((i) => (
+          <rect key={i} x={232 + i * 21} y={114} width={17} height={17} rx={3} className={i === 0 ? 'fill-rose-400' : i === 1 ? 'fill-sky-400' : 'fill-neutral-600'} />
+        ))}
+      </Phone>
+      <Pin x={30} y={150} n={1} />
+      <Pin x={132} y={40} n={2} />
+      <Pin x={234} y={26} n={3} />
+      <NewTag x={8} y={6} />
+    </Frame>
+  )
+}
+
+// v1.18 — PC ile eşitleme
+export function TelefonEsitlemeVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Phone x={30}>
+        <rect x={44} y={34} width={48} height={12} rx={6} fill="#78350f" />
+        <Label x={68} y={42.5} size={6} anchor="middle">
+          {tt('3 değişiklik')}
+        </Label>
+        {[0, 1, 2].map((i) => (
+          <rect key={i} x={38 + i * 21} y={56} width={18} height={26} rx={3} className="fill-neutral-700" />
+        ))}
+      </Phone>
+      <rect x={196} y={46} width={100} height={66} rx={6} className="fill-neutral-800 stroke-neutral-600" strokeWidth={1.5} />
+      <rect x={236} y={112} width={20} height={14} className="fill-neutral-600" />
+      <rect x={222} y={126} width={48} height={5} rx={2.5} className="fill-neutral-600" />
+      <path d="M118 74h68m-8-6 8 6-8 6M186 98h-68m8-6-8 6 8 6" stroke={ACCENT} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M140 124a12 12 0 0 1 24 0M146 130a6 6 0 0 1 12 0" className="stroke-neutral-400" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      <Pin x={70} y={30} n={1} />
+      <Pin x={152} y={66} n={2} />
+    </Frame>
+  )
+}
+
+// v1.18 — Telefona kurulum (PC'deki QR) ve kendini güncelleme
+export function TelefonKurulumVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={14} y={22} w={170} h={136} r={8} />
+      <Label x={26} y={42} size={8}>{tt('Ayarlar › Telefon')}</Label>
+      <rect x={26} y={52} width={56} height={56} rx={4} fill="#ffffff" />
+      {[0, 1, 2, 3, 4, 5].map((r) =>
+        [0, 1, 2, 3, 4, 5].map((c) => ((r * 7 + c * 3) % 4 === 0 || (r < 2 && c < 2) || (r > 3 && c < 2) || (r < 2 && c > 3) ? <rect key={`${r}${c}`} x={30 + c * 8} y={56 + r * 8} width={7} height={7} fill="#000" /> : null)),
+      )}
+      <Line x={90} y={60} w={80} />
+      <Line x={90} y={70} w={70} light />
+      <Chip x={90} y={84} w={60} color="#262626" text={tt('APK\'yı indir')} />
+      <Phone x={222}>
+        <rect x={230} y={30} width={60} height={14} rx={7} fill="#062033" stroke={ACCENT} strokeWidth={1} />
+        <Label x={260} y={39.5} size={6} anchor="middle">
+          {tt('Güncelle')}
+        </Label>
+        {[0, 1, 2].map((i) => (
+          <rect key={i} x={230 + i * 21} y={54} width={18} height={26} rx={3} className="fill-neutral-700" />
+        ))}
+      </Phone>
+      <Pin x={54} y={80} n={1} />
+      <Pin x={292} y={30} n={2} />
+    </Frame>
+  )
+}

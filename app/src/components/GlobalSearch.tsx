@@ -8,6 +8,7 @@ import type { Board, PropertyDef, Row, SelectOption } from '../types'
 import { titleText } from '../types'
 import { HomeCard } from '../pages/AnaSayfa'
 import { tt, ttx } from '../lib/i18n'
+import { MOBILE } from '../lib/mobile/ui'
 
 const MAX_RESULTS = 30
 
@@ -205,6 +206,118 @@ export default function GlobalSearch() {
   function close() {
     setOpen(false)
     setQ('')
+  }
+
+  // Telefonda: arama tam ekran ayrı bir sayfada açılır (kullanıcı "arama kısmı yeni ekrana açılabilir" dedi)
+  if (MOBILE) {
+    const cover = board?.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+    const titleP = board?.properties.find((p) => p.id === board.titlePropertyId)
+    const recent = board ? [...rows].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).slice(0, 15) : []
+    return (
+      <>
+        <button onClick={() => setOpen(true)} className="h-10 w-10 flex items-center justify-center rounded-full text-neutral-50" title={tt('Ara')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-6 w-6">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+        </button>
+        {open &&
+          createPortal(
+            <div className="fixed inset-0 z-[60] bg-neutral-950 flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+              <div className="flex items-center gap-2 px-3 h-16 shrink-0">
+                <button onClick={close} aria-label={tt('Kapat')} className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full text-neutral-200 text-2xl active:bg-neutral-800">
+                  ‹
+                </button>
+                <label className="flex-1 min-w-0 flex items-center gap-2 rounded-full bg-neutral-900 border border-neutral-800 px-4 h-11 text-neutral-500">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5 shrink-0">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input
+                    autoFocus
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Escape' && close()}
+                    placeholder={tt('Film, dizi, oyuncu, tür ara…')}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-neutral-100 placeholder:text-neutral-500"
+                  />
+                  {q && (
+                    <button onClick={() => setQ('')} className="text-neutral-500 text-xl leading-none">
+                      ×
+                    </button>
+                  )}
+                </label>
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 pb-10">
+                {!query ? (
+                  <>
+                    <h2 className="text-[17px] font-bold text-neutral-50 mt-2 mb-3">{tt('Son eklenenler')}</h2>
+                    <div className="space-y-2">
+                      {recent.map((r) => (
+                        <button
+                          key={r.id}
+                          onClick={() => {
+                            close()
+                            openResult(r.id)
+                          }}
+                          className="w-full flex items-center gap-3 text-left active:bg-neutral-900 rounded-md"
+                        >
+                          <span className="w-36 shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-800">
+                            {cover && r.values[cover.id] ? <img src={r.values[cover.id] as string} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+                          </span>
+                          <span className="flex-1 min-w-0 text-[15px] text-neutral-100 line-clamp-2">{titleP ? titleText(titleP, r.values[titleP.id]) : ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-6 pt-1">
+                    {tagMatches.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+                        {tagMatches.map(({ prop, opt, count }) => (
+                          <button key={prop.id + opt.id} onClick={() => openTag(prop.id, opt.id)} className="shrink-0 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900 pl-1 pr-3.5 py-1">
+                            <span className="h-8 w-8 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center text-xs text-neutral-500 shrink-0">
+                              {opt.image ? <img src={opt.image} alt="" className="h-full w-full object-cover" /> : opt.label.slice(0, 1)}
+                            </span>
+                            <span className="text-left">
+                              <span className="block text-[13px] text-neutral-100 leading-tight">{opt.label}</span>
+                              <span className="block text-[10px] text-neutral-500">{ttx('{0} · {1} kayıt', prop.name, count)}</span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {board && results.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {[...titleResults, ...otherResults].map((r) => (
+                          <HomeCard
+                            key={r.id}
+                            board={board}
+                            row={r}
+                            landscape={false}
+                            fill
+                            onOpenDetail={(row) => {
+                              close()
+                              openResult(row.id)
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {results.length + tagMatches.length === 0 && (
+                      <div className="text-center py-16">
+                        <p className="text-neutral-300">{tt('Bu aramaya uyan bir şey yok.')}</p>
+                        <p className="text-sm text-neutral-500 mt-1">{tt('Başka bir kelime dene — ad, oyuncu, tür ya da ülke adıyla arayabilirsin.')}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>,
+            document.body,
+          )}
+      </>
+    )
   }
 
   return (

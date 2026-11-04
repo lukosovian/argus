@@ -18,7 +18,7 @@ import { tt } from '../lib/i18n'
 // iki kart gibi olsun biri düz biri çapraz olarak"). Soldaki (düz) dolu, sağdaki (çapraz) boş
 // — kullanıcı "soldaki kartın içi dolu olsun sağdakinin boş olsun" dedi. Çapraz olan SVG'de
 // sonra çizildiği için düz olanın üstünde durur.
-function StackedCardsIcon() {
+export function StackedCardsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <rect x="3" y="3" width="10" height="16" rx="2" fill="currentColor" stroke="none" />
@@ -163,7 +163,8 @@ type Candidate = {
 // satır verisi Navbar her sayfada asılı kaldığı için hook olarak değil, sadece tıklanınca
 // (api.ts üzerinden) tek seferlik çekiliyor — her sayfa geçişinde arka planda gereksiz bir
 // arşiv isteği atılmasın diye.
-export default function RandomPickerButton() {
+// hideButton: telefonda düğme alttaki sekme çubuğunda (bkz. Navbar), burada sadece pencere/animasyon çizilir.
+export default function RandomPickerButton({ hideButton = false }: { hideButton?: boolean }) {
   const { settings, saveSettings } = useHomeSettings()
   const { notify } = useToast()
   const [loading, setLoading] = useState(false)
@@ -500,14 +501,14 @@ export default function RandomPickerButton() {
 
   return (
     <>
-      <button
+      {!hideButton && <button
         onClick={() => handleClick()}
         disabled={loading || phase !== 'idle'}
         title={tt('Ne İzlesem? — kararsızsan rastgele bir şey seçer')}
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition disabled:opacity-50 shrink-0"
       >
         <StackedCardsIcon />
-      </button>
+      </button>}
 
       {/* Animasyon ve açılan pencereler document.body'ye çiziliyor: bu buton üst menünün
           (<header>) içinde ve üst menü aşağı kaydırılınca bulanıklık efekti (backdrop-blur) alıyor
@@ -526,7 +527,7 @@ export default function RandomPickerButton() {
                 style={{ background: 'radial-gradient(circle, #00c0fa 0%, #015eea 45%, transparent 70%)' }}
               />
               {phase !== 'result' && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 backdrop-blur-sm px-4 py-2">
+              <div className="safe-shift absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 backdrop-blur-sm px-4 py-2">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-[#00c0fa] opacity-60 animate-ping" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00c0fa]" />
@@ -536,7 +537,7 @@ export default function RandomPickerButton() {
               )}
               {/* Sağ üst: sonuç ekranında "Tekrar getir" (mavi çerçeve, üstüne gelince mavi dolu) ve
                   "Kapat" (kırmızı çerçeve, üstüne gelince kırmızı dolu, yazı siyah) — kullanıcı böyle istedi. */}
-              <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
+              <div className="safe-shift absolute top-6 right-6 z-40 flex items-center gap-2">
                 {phase === 'result' && (
                   <button
                     onClick={() => setFiltersOpen((o) => !o)}
@@ -560,7 +561,7 @@ export default function RandomPickerButton() {
                   onClick={cancelPick}
                   className="group text-sm font-medium rounded-full px-4 py-2 border border-rose-500 text-rose-400 bg-neutral-900/80 hover:bg-rose-500 hover:text-black transition"
                 >
-                  {phase === 'result' ? tt('Kapat') : tt('Vazgeç')} <span className="text-rose-400/60 group-hover:text-black/60 text-xs ml-1">{tt('Esc')}</span>
+                  {phase === 'result' ? tt('Kapat') : tt('Vazgeç')} <span className="max-md:hidden text-rose-400/60 group-hover:text-black/60 text-xs ml-1">{tt('Esc')}</span>
                 </button>
               </div>
               {phase === 'result' && result && board && (

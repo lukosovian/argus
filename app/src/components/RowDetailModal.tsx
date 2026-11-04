@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { api } from '../lib/api'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -120,6 +121,7 @@ export default function RowDetailModal({
   onClose,
   editable = false,
   onFetchTmdb,
+  onEdit,
 }: {
   board: Board
   row: Row
@@ -129,6 +131,8 @@ export default function RowDetailModal({
   // pencerede bilerek false: kullanıcı "izlendi ekleme kısmı sadece veritabanından detay gör
   // diyince gelsin, ana sayfadan normal görelim" dedi.
   editable?: boolean
+  // Telefonda kaydın bütün alanlarını düzenleme formu (masaüstündeki tablo hücreleri yerine) — bkz. BoardView
+  onEdit?: () => void
   // BoardTable.tsx'in satır menüsündeki "Güncelle" ile birebir aynı işlev — sadece
   // BoardView'dan (editable=true) geçiriliyor, kullanıcı bu pencereden de erişmek istedi
   // ("tmdb den doldur özelliğini veritabanından girdiğim detay penceresine de ekle").
@@ -421,20 +425,24 @@ export default function RowDetailModal({
   const sideCard = 'rounded-2xl border border-neutral-800 bg-neutral-950/40 p-4'
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm overflow-y-auto py-6 px-3 sm:px-8 md:px-14" onClick={onClose}>
+    // Telefonda tam ekran: görsel durum çubuğunun arkasına kadar uzanır (üstteki boşluk yok, düğmeler aşağı kayar)
+    <div className={`fixed inset-0 z-50 bg-black/85 backdrop-blur-sm overflow-y-auto ${MOBILE ? '' : 'py-6 px-3 sm:px-8 md:px-14'}`} onClick={onClose} style={MOBILE ? { paddingTop: 0 } : undefined}>
+      {/* Telefonda tam ekran */}
       <div
-        className="relative bg-neutral-900 rounded-3xl w-full max-w-6xl mx-auto shadow-2xl shadow-black/60 ring-1 ring-white/5"
+        className={MOBILE ? 'relative bg-neutral-900 w-full min-h-full' : 'relative bg-neutral-900 rounded-3xl w-full max-w-6xl mx-auto shadow-2xl shadow-black/60 ring-1 ring-white/5'}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Üst: büyük görsel (fragman varsa oynar). Başlık kendi bölümümüzde gösterildiği için görselin
             kendi logo şeridi kapalı. */}
-        <div className="relative rounded-t-3xl overflow-hidden">
+        <div className={`relative overflow-hidden ${MOBILE ? '' : 'rounded-t-3xl'}`}>
           <ShowcaseBanner
             imageUrl={cover}
             videoId={yt?.id ?? null}
             startSeconds={yt?.start ?? 0}
             title=""
             aspect="21/9"
+            // Telefonda görsel/video ekranın büyük kısmını kaplasın (21:9 telefonda çok küçük kalıyordu)
+            height={MOBILE ? 'max(58vh, 340px)' : undefined}
             bottomFadeColor="#171717"
             controlsTop
           />
@@ -442,16 +450,17 @@ export default function RowDetailModal({
           <button
             onClick={onClose}
             aria-label={tt('Kapat')}
-            className="absolute top-4 right-4 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-sm text-white text-xl z-10 transition"
+            className="safe-shift absolute top-4 right-4 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-sm text-white text-xl z-10 transition"
           >
             ×
           </button>
         </div>
 
         {/* Afiş bölümü: görselin altına biniyor */}
-        <div className="relative z-10 px-4 sm:px-8 md:px-10 -mt-14 sm:-mt-28 md:-mt-40">
+        <div className={`relative z-10 px-4 sm:px-8 md:px-10 ${MOBILE ? '-mt-8' : '-mt-14 sm:-mt-28 md:-mt-40'}`}>
           <div className="flex items-end gap-4 sm:gap-7">
-            {poster && (
+            {/* Telefonda yandaki afiş yok (Netflix uygulamasındaki gibi bilgiler tam genişlikte) */}
+            {poster && !MOBILE && (
               <img
                 src={poster}
                 alt={title}
@@ -463,7 +472,7 @@ export default function RowDetailModal({
                 <img
                   src={titleImage}
                   alt={title}
-                  className="max-h-14 sm:max-h-24 md:max-h-28 max-w-full w-auto object-contain object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.7)]"
+                  className={`${MOBILE ? 'max-h-11 max-w-[62%]' : 'max-h-14 sm:max-h-24 md:max-h-28 max-w-full'} w-auto object-contain object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.7)]`}
                 />
               ) : null}
               <div>
@@ -536,6 +545,11 @@ export default function RowDetailModal({
                       {tt('✓ Bugün izledim')}
                     </button>
                   )}
+                  {onEdit && (
+                    <button onClick={onEdit} className="text-xs rounded-full px-3 py-1.5 border border-[#00c0fa]/50 text-[#7fdcff] bg-black/20 transition">
+                      ✎ {tt('Düzenle')}
+                    </button>
+                  )}
                 </div>
               )}
               {editable && onFetchTmdb && hasTitle && (
@@ -558,7 +572,7 @@ export default function RowDetailModal({
           <div className="min-w-0 space-y-10">
             {(synopsis || yasValue) && (
               <section className="space-y-3">
-                {synopsis && <p className="text-neutral-200 text-base sm:text-[17px] leading-relaxed">{synopsis}</p>}
+                {synopsis && <p className={`${MOBILE ? 'text-neutral-300 text-[14px]' : 'text-neutral-200 text-base sm:text-[17px]'} leading-relaxed`}>{synopsis}</p>}
                 {yasValue && <AgeRatingBadge raw={yasValue} />}
                 {editable && onFetchTmdb && hasTitle && (
                   <button

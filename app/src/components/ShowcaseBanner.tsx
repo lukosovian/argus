@@ -30,6 +30,7 @@ export default function ShowcaseBanner({
   title,
   titleImageUrl,
   aspect = '21/9',
+  height,
   titleAlwaysVisible = false,
   onShowingVideoChange,
   bottomFadeColor,
@@ -44,6 +45,8 @@ export default function ShowcaseBanner({
   // başlık logosu) gösterilir; boşsa normal metin başlığa düşülür.
   titleImageUrl?: string
   aspect?: '21/9' | '16/9'
+  // Sabit yükseklik (ör. telefondaki detay penceresinde ekranın büyük kısmı) — verilirse en-boy oranı yerine bu
+  height?: string
   titleAlwaysVisible?: boolean
   onShowingVideoChange?: (showingVideo: boolean) => void
   // Doluysa, en altta bu renge doğru yumuşak bir soluklaşma (fade) eklenir — hem görsel/videonun
@@ -219,12 +222,12 @@ export default function ShowcaseBanner({
     <div
       ref={wrapperRef}
       className={`relative w-full overflow-hidden bg-neutral-900 ${
-        cinematic ? '' : `${aspect === '16/9' ? 'aspect-video' : 'aspect-[21/9]'} rounded-xl`
+        cinematic || height ? '' : `${aspect === '16/9' ? 'aspect-video' : 'aspect-[21/9]'} rounded-xl`
       }`}
-      style={cinematic ? { height: 'max(min(56.25vw, 88vh), 440px)' } : undefined}
+      style={height ? { height } : cinematic ? { height: 'max(min(56.25vw, 88vh), 440px)' } : undefined}
     >
       {!cinematic && (
-        <img src="/logoblue.png" alt="" className="absolute top-7 left-7 z-10 h-6 w-6 object-contain opacity-95 pointer-events-none" />
+        <img src="/logoblue.png" alt="" className="safe-shift absolute top-7 left-7 z-10 h-6 w-6 object-contain opacity-95 pointer-events-none" />
       )}
       {imageUrl ? (
         <img src={imageUrl} alt={title} className="absolute inset-0 w-full h-full object-cover" />
@@ -266,7 +269,7 @@ export default function ShowcaseBanner({
         </div>
       )}
       {!showImage && ready && (
-        <div className={`absolute ${controlsTop ? 'top-4 right-16' : cinematic ? 'bottom-28 right-8' : 'bottom-4 right-4'} flex gap-2 z-10`}>
+        <div className={`absolute ${controlsTop ? 'safe-shift top-4 right-16' : cinematic ? 'bottom-28 right-8' : 'bottom-4 right-4'} flex gap-2 z-10`}>
           <button
             onClick={() => setStopped(true)}
             className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition"
@@ -284,7 +287,7 @@ export default function ShowcaseBanner({
         </div>
       )}
       {showImage && videoId && ready && (
-        <div className={`absolute ${controlsTop ? 'top-4 right-16' : cinematic ? 'bottom-28 right-8' : 'bottom-4 right-4'} z-10`}>
+        <div className={`absolute ${controlsTop ? 'safe-shift top-4 right-16' : cinematic ? 'bottom-28 right-8' : 'bottom-4 right-4'} z-10`}>
           <button
             onClick={replay}
             className="h-9 flex items-center gap-1.5 px-3 rounded-full bg-black/60 hover:bg-black/80 text-white text-sm font-medium transition"

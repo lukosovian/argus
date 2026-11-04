@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import MobileHero from '../components/mobile/MobileHero'
+import { MOBILE } from '../lib/mobile/ui'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
@@ -173,6 +175,9 @@ export function HomeCard({
   const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
   const titleImage = titleImageProp ? ((row.values[titleImageProp.id] as string) ?? '') : ''
   const cover = coverProp ? (row.values[coverProp.id] as string) : ''
+  // Telefonda kartlar dikey afiş: afiş sütunu doluysa o (afişte adı zaten yazıyor, logo eklenmez)
+  const posterRole = MOBILE ? resolveRole(board, 'poster') : undefined
+  const mobilePoster = posterRole ? ((row.values[posterRole.id] as string) ?? '') : ''
   const link = urlProp ? ((row.values[urlProp.id] as string) ?? '') : ''
   const yt = link ? parseYouTubeUrl(link) : null
   // Kart küçük olduğu için üstte sadece kısa, sabit bir özet gösteriliyor: Durum, Kategori, yıl.
@@ -201,8 +206,8 @@ export function HomeCard({
       <button
         ref={buttonRef}
         onClick={() => onOpenDetail(row)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={MOBILE ? undefined : handleMouseEnter}
+        onMouseLeave={MOBILE ? undefined : handleMouseLeave}
         style={{
           ...(hovering ? gradientBorderStyle('#262626') : {}),
           ...(widthMorph && hovering ? { width: hoverWidth, ...morphAnchorStyle } : {}),
@@ -216,14 +221,16 @@ export function HomeCard({
           style={{ aspectRatio: landscape ? '16 / 9' : hovering ? '16 / 9' : '2 / 3' }}
         >
           {hovering && yt ? <HoverPreviewVideo videoId={yt.id} startSeconds={yt.start} /> : null}
-          {(!hovering || !yt) && cover && (
-            <img src={cover} alt={title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+          {mobilePoster ? (
+            <img src={mobilePoster} alt={title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+          ) : (
+            (!hovering || !yt) && cover && <img src={cover} alt={title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
           )}
 
           {/* Başlık artık dinlenme halinde de görünür (KAPAK ADI logosu varsa küçük halde, yoksa
               düz yazı) — bannerlar yazısız hale getirildikten sonra kart üzerine gelmeden
               hangi içerik olduğu hiç belli olmuyordu. */}
-          {(titleImage || title) && (
+          {!mobilePoster && (titleImage || title) && (
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 pointer-events-none">
               {titleImage ? (
                 <img src={titleImage} alt={title} className="h-7 w-auto max-w-[85%] object-contain" />
@@ -676,6 +683,7 @@ export default function AnaSayfa() {
   const synopsisProp = resolveRole(board, 'sinopsis')
   const urlProp = resolveRole(board, 'video')
   const yasProp = resolveRole(board, 'yas')
+  const posterRole = resolveRole(board, 'poster')
 
   // Kapak görseli olmayan kayıtlar, ayardan açılınca ana sayfanın (vitrin dahil) hiçbir
   // yerinde gösterilmiyor — ama başka bir yerden (ör. arama, detay linki) doğrudan açılabilsin
@@ -870,14 +878,16 @@ export default function AnaSayfa() {
 
   // Vitrin görünümü "Sinema": kenardan kenara, menünün arkasına kadar uzanan büyük vitrin.
   const cinematic = (settings.showcaseStyle ?? 'klasik') === 'sinema'
-  const landscape = settings.layout !== 'izgara'
-  const titleClass = rowTitleClass(settings.rowTitleSize)
+  // Telefonda satırlar hep dikey afiş, ekrana 3 tane sığacak genişlikte (Netflix uygulamasındaki gibi)
+  const landscape = MOBILE ? false : settings.layout !== 'izgara'
+  // Telefonda satır başlıkları Netflix uygulamasındaki gibi küçük ve kalın
+  const titleClass = MOBILE ? 'text-[17px] font-bold text-neutral-50' : rowTitleClass(settings.rowTitleSize)
   const bodySections = sortByOrder(
     (settings.sections ?? []).filter((s) => s.showInBody !== false),
     settings.bodyOrder ?? [],
   )
   const cardSize = settings.cardSize ?? 'orta'
-  const cardWidth = landscape ? CARD_WIDTHS[cardSize].yatay : CARD_WIDTHS[cardSize].dikey
+  const cardWidth = MOBILE ? Math.floor((window.innerWidth - 32 - 2 * 12) / 3.15) : landscape ? CARD_WIDTHS[cardSize].yatay : CARD_WIDTHS[cardSize].dikey
   // Dikey + Küçük'te "her zaman göster" güzel durmuyor (bkz. HomeSettingsPanel.tsx'teki
   // infoAlwaysUnavailable) — ayarlar panelinde bu kombinasyonda hem devre dışı bırakılıp hem
   // otomatik kapatılıyor, ama eski (bu kısıtlamadan önce kaydedilmiş) veriler için burada da
@@ -1004,8 +1014,20 @@ export default function AnaSayfa() {
   }
 
   return (
-    <div className={`px-4 py-6 ${cinematic ? 'space-y-10' : 'space-y-8'}`}>
-      {featured && !adHocRequested && (
+    <div className={MOBILE ? 'px-4 pt-1 pb-6 space-y-7' : `px-4 py-6 ${cinematic ? 'space-y-10' : 'space-y-8'}`}>
+      {featured && !adHocRequested && MOBILE && (
+        // Telefonda vitrin: ortada büyük kart (bkz. MobileHero)
+        <MobileHero
+          image={featuredImage || ((posterRole && (featured.values[posterRole.id] as string)) ?? '')}
+          title={featuredTitle}
+          titleImage={featuredTitleImage}
+          meta={featuredMeta.slice(0, 3)}
+          ageRating={featuredAgeRating}
+          onDetails={() => setDetailRow(featured)}
+          onNext={showcasePool.length > 1 ? () => setFeatured(shuffle(showcasePool.filter((r) => r.id !== featured.id))[0]) : undefined}
+        />
+      )}
+      {featured && !adHocRequested && !MOBILE && (
         // Sinema: kenar boşluğu yok, menünün arkasına kadar uzanıyor (sayfanın px-4 / py-6 payı +
         // 64px'lik menü yüksekliği kadar yukarı ve yanlara taşıyor).
         <div

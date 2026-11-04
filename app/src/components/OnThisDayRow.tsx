@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MOBILE } from '../lib/mobile/ui'
 import { useNavigate } from 'react-router-dom'
 import type { Board, Row, WatchedMap } from '../types'
 import { titleText } from '../types'
@@ -77,7 +78,7 @@ export default function OnThisDayRow({
           const image = [bannerProp, posterProp].map((p) => (p ? (row.values[p.id] as string) : '')).find(Boolean) ?? ''
           const ago = thisYear - year
           return (
-            <div key={`${row.id}-${year}`} className="w-64 shrink-0">
+            <div key={`${row.id}-${year}`} className={`${MOBILE ? 'w-48' : 'w-64'} shrink-0`}>
               <button onClick={() => onOpenDetail(row)} className="w-full text-left group">
                 <div className="relative aspect-video rounded-lg overflow-hidden bg-neutral-800">
                   {image && <img src={image} alt={title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />}

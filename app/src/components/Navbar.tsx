@@ -6,12 +6,13 @@ import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useThemeMode } from '../hooks/useThemeMode'
 import { sortByOrder } from './HomeSectionEditor'
 import GlobalSearch from './GlobalSearch'
-import RandomPickerButton from './RandomPickerButton'
+import RandomPickerButton, { StackedCardsIcon } from './RandomPickerButton'
 import NotificationBell from './NotificationBell'
 import { gradientBorderStyle } from '../lib/theme'
 import { APP_VERSION } from '../lib/version'
 import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
 import { tt } from '../lib/i18n'
+import { MOBILE } from '../lib/mobile/ui'
 
 function SunIcon() {
   return (
@@ -62,6 +63,66 @@ function MenuLink({ to, icon, label, extra, onClick }: { to: string; icon: keyof
   )
 }
 
+// Telefonda alttaki yüzen menünün kapladığı yükseklik (+ telefonun alt boşluğu) — menü paneli bunun üstünde açılır.
+const TABBAR_OFFSET = 'calc(5.25rem + env(safe-area-inset-bottom))'
+const inSheet = (n: React.ReactNode) => (MOBILE ? createPortal(n, document.body) : n)
+
+function TabIcon({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]">
+      <path d={d} />
+    </svg>
+  )
+}
+const TAB_ICONS = {
+  ev: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5Z',
+  arsiv: 'M4 4h6v7H4zM14 4h6v7h-6zM4 15h6v5H4zM14 15h6v5h-6z',
+  diger: 'M4 6h16M4 12h16M4 18h16',
+}
+
+// ARGUS Android: alttaki yüzen menü — Ana Sayfa, Arşiv, Takvim, Ne İzlesem, Diğer (profil menüsü).
+// Kullanıcı "Netflix uygulamasındaki gibi" istedi: yuvarlak köşeli, kenarlardan ayrık bir hap; seçili sekme vurgulu.
+function MobileTabBar({ boardId, menuOpen, onMenu, onNavigate }: { boardId: string | null; menuOpen: boolean; onMenu: () => void; onNavigate: () => void }) {
+  const location = useLocation()
+  const p = location.pathname
+  const tab = (active: boolean) =>
+    `flex flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-medium transition ${active ? 'bg-neutral-50/[0.09] text-neutral-50' : 'text-neutral-400'}`
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-30 px-3 pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
+      <div className="pointer-events-auto grid grid-cols-5 gap-1 h-[4.25rem] p-1.5 rounded-full border border-white/10 bg-neutral-900/90 backdrop-blur-md shadow-2xl shadow-black/70">
+        <Link to="/" onClick={onNavigate} className={tab(p === '/' && !menuOpen)}>
+          <TabIcon d={TAB_ICONS.ev} />
+          {tt('Ana Sayfa')}
+        </Link>
+        <Link to={boardId ? `/board/${boardId}` : '/arsivlerim'} onClick={onNavigate} className={tab(p.startsWith('/board/') && !menuOpen)}>
+          <TabIcon d={TAB_ICONS.arsiv} />
+          {tt('Arşiv')}
+        </Link>
+        <Link to="/takvim" onClick={onNavigate} className={tab(p.startsWith('/takvim') && !menuOpen)}>
+          <TabIcon d={ICONS.takvim} />
+          {tt('Takvim')}
+        </Link>
+        <button
+          onClick={() => {
+            onNavigate()
+            window.dispatchEvent(new Event('argus-ne-izlesem'))
+          }}
+          className={tab(false)}
+        >
+          <span className="h-[22px] w-[22px] flex items-center justify-center">
+            <StackedCardsIcon />
+          </span>
+          {tt('Ne İzlesem')}
+        </button>
+        <button onClick={onMenu} className={tab(menuOpen)}>
+          <TabIcon d={TAB_ICONS.diger} />
+          {tt('Diğer')}
+        </button>
+      </div>
+    </nav>
+  )
+}
+
 export default function Navbar() {
   const { profiles, activeProfile, activeProfileId, setActiveProfileId } = useProfiles()
   const { settings } = useHomeSettings()
@@ -83,6 +144,11 @@ export default function Navbar() {
       ['/yama-notlari', tt('Yama Notları')],
     ] as const
   ).find(([p]) => location.pathname.startsWith(p))?.[1]
+  const mobileTitle = location.pathname.startsWith('/board/')
+    ? tt('Arşiv')
+    : location.pathname === '/'
+      ? ((activeSection && (settings.sections ?? []).find((s) => s.id === activeSection)?.name) || tt('Ana Sayfa'))
+      : (currentPage ?? '')
   const pinnedSections = sortByOrder((settings.sections ?? []).filter((s) => s.pinnedToNav), settings.navOrder ?? [])
   const [menuOpen, setMenuOpen] = useState(false)
   const otherProfiles = profiles.filter((p) => p.id !== activeProfileId)
@@ -113,16 +179,27 @@ export default function Navbar() {
         className={`sticky top-0 z-20 transition-colors duration-300 ${
           scrolled ? 'bg-neutral-950/95 backdrop-blur-sm' : 'bg-transparent'
         }`}
+        // Telefonda sayfa durum çubuğunun arkasına uzanıyor; menü onun altından başlasın
+        style={MOBILE ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}
       >
         <div className="px-2.5 sm:px-4 h-16 flex items-center gap-1 sm:gap-4">
           <Link to="/" className="flex items-center shrink-0">
-            <img src="/logoblue-yatay.png" alt={tt('ARGUS')} className="h-6 sm:h-9 w-auto" />
+            {MOBILE ? (
+              <img src="/logoblue.png" alt={tt('ARGUS')} className="h-8 w-8 object-contain" />
+            ) : (
+              <img src="/logoblue-yatay.png" alt={tt('ARGUS')} className="h-6 sm:h-9 w-auto" />
+            )}
           </Link>
           {/* Sayfa bağlantıları tek satırda kalıyor (telefonda "Ana Sayfa" iki satıra kayıyordu); sığmazsa
               yana kaydırılıyor. */}
           {/* Sayfaların menünün ortasına koyabildiği yer — ör. arşiv tablosunun araç çubuğu, sayfa aşağı
               kaydırılınca buraya gelir (bkz. BoardView). Sığmıyorsa o sayfa kendisi göstermez. */}
-          <div id="navbar-center-slot" className="absolute left-1/2 top-0 h-16 -translate-x-1/2 flex items-center pointer-events-none z-10" />
+          {!MOBILE && <div id="navbar-center-slot" className="absolute left-1/2 top-0 h-16 -translate-x-1/2 flex items-center pointer-events-none z-10" />}
+          {/* Telefonda sayfa bağlantıları alttaki sekme çubuğunda; üstte sadece bulunulan sayfanın adı */}
+          {MOBILE ? (
+            // Telefonda (Netflix'teki gibi) logonun yanında büyük sayfa adı
+            <span className="flex-1 min-w-0 truncate pl-2.5 text-[22px] font-bold tracking-tight text-neutral-50">{mobileTitle}</span>
+          ) : (
           <nav data-navbar-links className="flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar">
             {[{ id: null as string | null, name: tt('Ana Sayfa'), to: '/' }, ...pinnedSections.map((s) => ({ id: s.id as string | null, name: s.name, to: `/?bolum=${s.id}` }))].map((l) => {
               const active = l.id === null ? isHome : activeSection === l.id
@@ -147,9 +224,10 @@ export default function Navbar() {
               </span>
             )}
           </nav>
+          )}
 
           <GlobalSearch />
-          <RandomPickerButton />
+          <RandomPickerButton hideButton={MOBILE} />
           <NotificationBell />
 
           <div className="relative shrink-0">
@@ -167,7 +245,8 @@ export default function Navbar() {
               )}
             </button>
 
-            {menuOpen && (
+            {menuOpen &&
+              inSheet(
               <>
                 {/* "Dışarı tıklayınca kapan" katmanı body'ye çiziliyor — header'ın içinde kalsaydı,
                     sayfa kaydırılınca header'a eklenen bulanıklık efekti yüzünden sadece header'ı
@@ -175,8 +254,12 @@ export default function Navbar() {
                     altında, böylece menünün kendisi tıklanabilir kalıyor. */}
                 {createPortal(<div className="fixed inset-0 z-[19]" onClick={() => setMenuOpen(false)} />, document.body)}
                 <div
-                  className="absolute right-0 top-13 mt-1 z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-2xl pb-1.5 shadow-2xl shadow-black/40 overflow-hidden"
-                  style={{ animation: 'argus-toast-in .15s ease-out' }}
+                  className={
+                    MOBILE
+                      ? 'fixed inset-x-0 z-40 max-h-[75vh] overflow-y-auto bg-neutral-900 border-t border-neutral-800 rounded-t-2xl pb-3 shadow-2xl shadow-black/60'
+                      : 'absolute right-0 top-13 mt-1 z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-2xl pb-1.5 shadow-2xl shadow-black/40 overflow-hidden'
+                  }
+                  style={MOBILE ? { bottom: TABBAR_OFFSET, animation: 'argus-toast-in .15s ease-out' } : { animation: 'argus-toast-in .15s ease-out' }}
                 >
                   <div className="flex items-center gap-3 px-4 py-3.5 border-b border-neutral-800 bg-neutral-950/40">
                     <span className="h-11 w-11 rounded-full overflow-hidden bg-neutral-800 ring-2 ring-[#00c0fa]/60 shrink-0 flex items-center justify-center text-sm text-neutral-400">
@@ -256,11 +339,40 @@ export default function Navbar() {
                     </div>
                   </div>
                 </div>
-              </>
-            )}
+              </>,
+              )}
           </div>
         </div>
+        {/* Telefonda Ana Sayfa'nın bölümleri (Diziler, Filmler…) başlığın altında yana kayan düğmeler */}
+        {MOBILE && location.pathname === '/' && pinnedSections.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pb-2">
+            {[{ id: null as string | null, name: tt('Tümü'), to: '/' }, ...pinnedSections.map((s) => ({ id: s.id as string | null, name: s.name, to: `/?bolum=${s.id}` }))].map((l) => {
+              const active = l.id === null ? isHome : activeSection === l.id
+              return (
+                <Link
+                  key={l.id ?? 'home'}
+                  to={l.to}
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition ${
+                    active ? 'border-[#00c0fa]/60 bg-[#00c0fa]/15 text-neutral-50' : 'border-neutral-700 bg-neutral-900/70 text-neutral-300'
+                  }`}
+                >
+                  {l.name}
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </header>
+      {MOBILE &&
+        createPortal(
+          <MobileTabBar
+            boardId={settings.boardId ?? null}
+            menuOpen={menuOpen}
+            onMenu={() => setMenuOpen((v) => !v)}
+            onNavigate={() => setMenuOpen(false)}
+          />,
+          document.body,
+        )}
     </>
   )
 }

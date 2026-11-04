@@ -9,6 +9,7 @@ import { useToast } from '../hooks/useToast'
 import CollectionSection from './CollectionSection'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
+import { MOBILE } from '../lib/mobile/ui'
 
 // Seride baştan başlatıldıysa (bkz. RandomPickerButton seriesStart): asıl çıkan film ve sıraları
 export type SeriesSwap = { pickedTitle: string; pickedNumber: number; number: number }
@@ -147,6 +148,8 @@ export default function PickResult({
 }) {
   const { notify } = useToast()
   const [item, setItem] = useState<TmdbItem | null>(null)
+  // Kullanıcı "Ne İzlesem'den gelen içeriğin sinopsisinin tamamını okuyabileyim" dedi: dokununca açılır/kapanır
+  const [fullSynopsis, setFullSynopsis] = useState(false)
   const [current, setCurrent] = useState<Row | undefined>(row)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<string | null>(null)
@@ -329,7 +332,7 @@ export default function PickResult({
   }
 
   return (
-    <div className="absolute inset-0 z-30 overflow-y-auto">
+    <div className="absolute inset-0 z-30 overflow-y-auto" style={MOBILE ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}>
       <div className="min-h-full flex flex-col items-center justify-center px-4 sm:px-8 py-20 animate-[pickIn_.5s_ease-out]">
         <div className={`w-full ${landscape ? 'max-w-6xl' : 'max-w-5xl'} flex flex-col md:flex-row items-center md:items-stretch gap-6 md:gap-10`}>
           {/* Görsel, arkasında mavi ışık */}
@@ -350,7 +353,7 @@ export default function PickResult({
 
           <div className="flex-1 min-w-0 flex flex-col justify-center text-center md:text-left space-y-4">
             {logo ? (
-              <img src={logo} alt={title} className="max-h-24 sm:max-h-28 max-w-full w-auto object-contain mx-auto md:mx-0 md:object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.7)]" />
+              <img src={logo} alt={title} className={`${MOBILE ? 'max-h-14 max-w-[70%]' : 'max-h-24 sm:max-h-28 max-w-full'} w-auto object-contain mx-auto md:mx-0 md:object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.7)]`} />
             ) : (
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-50">{title}</h2>
             )}
@@ -386,7 +389,12 @@ export default function PickResult({
               ))}
             </div>
             {genres.length > 0 && <p className="text-sm text-neutral-400">{genres.slice(0, 4).join(' · ')}</p>}
-            {synopsis && <p className="text-neutral-300 leading-relaxed line-clamp-4 max-w-2xl mx-auto md:mx-0">{synopsis}</p>}
+            {synopsis && (
+              <button onClick={() => setFullSynopsis((v) => !v)} className="block text-left max-w-2xl mx-auto md:mx-0">
+                <span className={`block text-neutral-300 leading-relaxed ${fullSynopsis ? '' : 'line-clamp-4'}`}>{synopsis}</span>
+                {synopsis.length > 220 && <span className="block mt-1 text-sm font-semibold text-[#7fdcff]">{fullSynopsis ? tt('Daha az göster') : tt('Devamını oku')}</span>}
+              </button>
+            )}
 
             {/* Eylemler */}
             <div className="pt-2 space-y-3">

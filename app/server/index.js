@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import compression from 'compression'
 import multer from 'multer'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,6 +14,7 @@ import { initBackup, registerBackupRoutes } from './backup.js'
 import { publishFile } from './featurePublish.js'
 import { langDate, serverLang, serverRegion, stt, tmdbLang } from './lang.js'
 import { COLUMN_NAMES, KIND_NAMES, isName, nameOf } from './names.js'
+import { checkRemote, initSync, isLoopback, opAt, opDedupeMiddleware, registerSyncRoutes } from './sync.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -91,6 +93,15 @@ function localDay(d = new Date()) {
 
 function makeId() {
   return Math.random().toString(36).slice(2, 10)
+}
+
+// Arayüzün sürüm numarası (src/lib/version.ts) — telefon hangi ARGUS'a bağlandığını görsün.
+function readAppVersion() {
+  try {
+    return /APP_VERSION\s*=\s*'([^']+)'/.exec(fs.readFileSync(path.join(__dirname, '..', 'src', 'lib', 'version.ts'), 'utf-8'))?.[1] ?? ''
+  } catch {
+    return ''
+  }
 }
 
 function profileDir(profileId) {
@@ -178,15 +189,20 @@ const app = express()
 // cihaz da ulaşabilirdi.
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i
 const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i
+// Telefon (ARGUS Android) eşleştirme anahtarıyla ağdan da bağlanabiliyor — bkz. sync.js. "Bu bilgisayar"
+// sayılmak için isteğin gerçekten bu bilgisayardan gelmesi (soket adresi) de gerekiyor: Host başlığını
+// ağdaki biri "localhost" diye yazabilirdi.
 app.use((req, res, next) => {
   const origin = req.headers.origin
-  if (!LOCAL_HOST.test(req.headers.host || '') || (origin && !LOCAL_ORIGIN.test(origin))) {
-    return res.status(403).json({ error: stt('Bu adresten ARGUS\'a erişilemez.') })
-  }
-  next()
+  if (isLoopback(req) && LOCAL_HOST.test(req.headers.host || '') && (!origin || LOCAL_ORIGIN.test(origin))) return next()
+  const ok = isLoopback(req) ? stt('Bu adresten ARGUS\'a erişilemez.') : checkRemote(req)
+  if (ok === true) return next()
+  return res.status(403).json({ error: ok })
 })
 app.use(cors({ origin: LOCAL_ORIGIN }))
+app.use(compression())
 app.use(express.json({ limit: '15mb' }))
+app.use(opDedupeMiddleware)
 app.use('/medya', express.static(MEDYA_DIR))
 
 initHistory({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId })
@@ -196,6 +212,8 @@ initNotifications({ profilesDir: PROFILES_DIR, readJson, writeJson, makeId })
 registerNotificationRoutes(app)
 initBackup({ dataDir: DATA_DIR, medyaDir: MEDYA_DIR, root: ROOT, readJson, writeJson: rawWriteJson })
 registerBackupRoutes(app)
+initSync({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId, appVersion: readAppVersion(), mobileDir: path.join(__dirname, '..', 'mobile') })
+registerSyncRoutes(app)
 
 app.get('/api/profiles/:profileId/boards', (req, res) => {
   res.json(readJson(profileBoardsFile(req.params.profileId), []))
@@ -418,8 +436,11 @@ function planIfUpcoming(board, row, before = null) {
 app.post('/api/profiles/:profileId/boards/:id/rows', (req, res) => {
   const rowsFile = profileRowsFile(req.params.profileId, req.params.id)
   const rows = readJson(rowsFile, [])
-  const id = makeId()
-  const row = { ...req.body, id }
+  // Telefonda PC yokken eklenen kayıt kendi kimliğiyle gelir (sonraki değişiklikleri aynı kimliği kullanıyor).
+  const wanted = req.body?.id
+  const id = typeof wanted === 'string' && /^[a-z0-9]{6,16}$/.test(wanted) && !rows.some((r) => r.id === wanted) ? wanted : makeId()
+  const { fieldAt: _fa, ...body } = req.body ?? {}
+  const row = { ...body, id }
   planIfUpcoming(findBoardCached(req.params.profileId, req.params.id), row)
   rows.unshift(row)
   writeJson(rowsFile, rows)
@@ -432,13 +453,27 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   const idx = rows.findIndex((r) => r.id === req.params.rowId)
   const before = idx === -1 ? null : rows[idx]
   let saved
-  if (before && Array.isArray(req.body?._changed)) {
+  // Telefonun PC yokken yaptığı değişiklik (sync.js): yapıldığı an. Tam kayıt geldiyse değişen sütunlar
+  // bulunur; PC'de o andan SONRA değişmiş bir sütun ezilmez ("son yapılan kazanır", fieldAt: history.js).
+  const at = opAt(req)
+  // Kayıt bu arada PC'de silindiyse silme kazanır (geçmişten geri getirilebilir), yeniden oluşturulmaz.
+  if (!before && at) return res.json({ id: req.params.rowId, skipped: true })
+  let changed = Array.isArray(req.body?._changed) ? req.body._changed : null
+  if (before && at) {
+    if (!changed) {
+      const incoming = req.body?.values ?? {}
+      const keys = new Set([...Object.keys(before.values ?? {}), ...Object.keys(incoming)])
+      changed = [...keys].filter((k) => JSON.stringify(before.values?.[k] ?? null) !== JSON.stringify(incoming[k] ?? null))
+    }
+    changed = changed.filter((k) => !((before.fieldAt?.[k] ?? 0) > at))
+  }
+  if (before && changed) {
     // Arayüz sadece değiştirdiği sütunları bildiriyor (_changed): onları dosyadaki EN GÜNCEL halin üstüne
     // işliyoruz. Eskiden arayüzdeki (belki eski) kopyanın tamamı yazılıyordu — Genel Güncelleme sürerken
     // tabloda bir hücre değiştirilince o satıra TMDB'den az önce gelen afiş/oyuncu vb. siliniyordu.
     const values = { ...before.values }
     const incoming = req.body.values ?? {}
-    for (const k of req.body._changed) {
+    for (const k of changed) {
       if (k in incoming) values[k] = incoming[k]
       else delete values[k]
     }
@@ -660,11 +695,32 @@ function fixAbsoluteEpisodes(profileId, rowId, body) {
   return out
 }
 
-app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
+app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => saveWatched(req, res, () => req.body))
+
+// Telefondan (PC yokken yapılan) bölüm işaretlemeleri: tam liste değil FARK gelir —
+// { add: { "1-3": ["2026-11-04"] }, remove: { "1-2": ["2026-11-01"] } }. Dosyadaki EN GÜNCEL hale işlenir,
+// böylece bu arada PC'de işaretlenen bölümler kaybolmaz. Sonrası (otomatik durum, puan sorma…) PUT ile aynı.
+app.patch('/api/profiles/:profileId/watched/:rowId/diff', (req, res) =>
+  saveWatched(req, res, (current) => {
+    const next = Object.fromEntries(Object.entries(current).map(([k, ds]) => [k, Array.isArray(ds) ? [...ds] : ds]))
+    for (const [k, ds] of Object.entries(req.body?.add ?? {})) {
+      if (!Array.isArray(ds)) continue
+      next[k] = [...new Set([...(Array.isArray(next[k]) ? next[k] : []), ...ds.map(String)])].sort()
+    }
+    for (const [k, ds] of Object.entries(req.body?.remove ?? {})) {
+      if (!Array.isArray(ds) || !Array.isArray(next[k])) continue
+      next[k] = next[k].filter((d) => !ds.includes(d))
+      if (!next[k].length) delete next[k]
+    }
+    return next
+  }),
+)
+
+function saveWatched(req, res, makeBody) {
   const file = profileWatchedFile(req.params.profileId)
   const all = readJson(file, {})
   const before = all[req.params.rowId] ?? {}
-  req.body = fixAbsoluteEpisodes(req.params.profileId, req.params.rowId, req.body)
+  req.body = fixAbsoluteEpisodes(req.params.profileId, req.params.rowId, makeBody(before))
   all[req.params.rowId] = req.body
   writeJson(file, all)
   try {
@@ -691,7 +747,7 @@ app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => {
     if (row && shouldAskRating(req.params.profileId, autoWatched.boardId, null, row)) setAskRating(res, autoWatched.boardId, row.id)
   }
   res.json({ ok: true, autoWatched, autoWatching })
-})
+}
 
 // İçerikteki müzikler: kullanıcı "Nook'un Hum'u izlediğim dizilerin filmlerin içindeki müzikleri bulsun,
 // hangi dakikada hangi müzik çaldığı detay penceresinde yazsın" dedi. Nook izlerken çalan şarkıyı tanıyıp

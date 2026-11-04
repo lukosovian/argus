@@ -9,6 +9,7 @@ import Import from '../../pages/Import'
 import TemplatesPanel from './TemplatesPanel'
 import ApiPanel from './ApiPanel'
 import BackupPanel from './BackupPanel'
+import { MOBILE } from '../../lib/mobile/ui'
 import DatabaseHelpModal from './DatabaseHelpModal'
 import Select from '../Select'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
@@ -119,13 +120,16 @@ export default function ArchivesPanel() {
         value={tab}
         onChange={setTab}
         tabs={
-          [
-            ['arsivler', tt('Arşivler')],
-            ['sablonlar', tt('Şablonlar')],
-            ['ice-aktar', tt('İçe Aktar')],
-            ['api', 'API'],
-            ['yedek', tt('Yedekleme')],
-          ] as const
+          // İçe aktarma ve yedekleme PC'deki dosyalarla çalışıyor — telefonda gösterilmez
+          (
+            [
+              ['arsivler', tt('Arşivler')],
+              ['sablonlar', tt('Şablonlar')],
+              ['ice-aktar', tt('İçe Aktar')],
+              ['api', 'API'],
+              ['yedek', tt('Yedekleme')],
+            ] as const
+          ).filter(([k]) => !MOBILE || (k !== 'ice-aktar' && k !== 'yedek'))
         }
       />
 

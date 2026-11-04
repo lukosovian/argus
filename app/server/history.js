@@ -131,6 +131,11 @@ export function beforeWrite(file, data) {
           const b = r.values?.[k]
           if (!same(a, b)) changes.push({ prop: k, from: clip(a ?? null), to: clip(b ?? null) })
         }
+        // Telefon eşitlemesi için her alanın son değişiklik anı (bkz. sync.js, index.js satır PUT). Gelen kayıttaki
+        // fieldAt'e güvenilmiyor, hep dosyadaki eski halden hesaplanıyor.
+        if (changes.length) r.fieldAt = { ...(o.fieldAt ?? {}), ...Object.fromEntries(changes.map((c) => [c.prop, t])) }
+        else if (o.fieldAt) r.fieldAt = o.fieldAt
+        else delete r.fieldAt
         if (changes.length) entries.push({ id: makeId(), t, type: 'update', rowId: id, title: titleOf(board, r) || titleOf(board, o), changes, ...(writeNote ? { note: writeNote } : {}) })
       }
       for (const [id, o] of oldById) {

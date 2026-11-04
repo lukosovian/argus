@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import MobileMonth from '../components/mobile/MobileMonth'
+import { MOBILE } from '../lib/mobile/ui'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoards } from '../hooks/useBoards'
@@ -344,16 +346,16 @@ export default function Takvim() {
   const textDateProp = hasDateProp || !board ? undefined : board.properties.find((p) => p.type !== 'date' && p.type !== 'multidate' && /izle|watched|tarih/i.test(p.name))
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-5">
+    <div className={`max-w-7xl mx-auto px-4 ${MOBILE ? 'pt-1 pb-6 space-y-4' : 'py-8 space-y-5'}`}>
       {/* Işık efekti kendi kırpılan katmanında — kutunun kendisi kırpmıyor ki Filtre paneli dışarı taşıp açılabilsin. */}
       {/* z-10: Filtre menüsü takvimin üstünde açılsın ama kaydırınca üst menünün (z-20) üstüne çıkmasın — z-20'yken
           sayfada sonra geldiği için menünün üstünde kalıp tıklamayı engelliyordu. */}
-      <section className="relative z-10 rounded-3xl border border-neutral-800 bg-neutral-900/60 px-5 py-6 md:px-8">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+      <section className={`relative z-10 ${MOBILE ? '' : 'rounded-3xl border border-neutral-800 bg-neutral-900/60 px-5 py-6 md:px-8'}`}>
+        <div className={`${MOBILE ? 'hidden' : ''} pointer-events-none absolute inset-0 overflow-hidden rounded-3xl`}>
           <div className="absolute -top-28 -right-20 h-64 w-[36rem] max-w-[140%] rounded-full blur-3xl opacity-20" style={{ background: BRAND_GRADIENT }} />
         </div>
         <div className="relative flex flex-wrap items-end justify-between gap-4">
-          <div>
+          <div className={MOBILE ? 'hidden' : ''}>
             <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">{tt('Takvim')}</h1>
             <p className="text-sm text-neutral-400 mt-1.5">
               <span style={{ color: BRAND_TEXT }}>{board.name}</span>{' '}{tt('— ne zaman ne izledin, sırada neler var.')}
@@ -707,7 +709,7 @@ function MonthView({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className={`${MOBILE ? 'hidden' : 'flex'} items-center gap-2`}>
           <button onClick={onPrev} aria-label={tt('Önceki ay')} className="h-9 w-9 rounded-lg border border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-neutral-50 transition">
             ‹
           </button>
@@ -796,7 +798,23 @@ function MonthView({
         </div>
       </div>
 
-      {/* Telefon: gün gün liste */}
+      {MOBILE ? (
+        <MobileMonth
+          board={board}
+          year={year}
+          month={month}
+          today={today}
+          byDay={byDay}
+          releasesByDay={new Map([...releasesByDay].map(([d, cs]) => [d, cs.map((c) => ({ tmdbId: c.tmdbId, title: c.title, image: c.backdrop ?? c.poster, releaseDate: c.releaseDate }))]))}
+          onPrev={onPrev}
+          onNext={onNext}
+          onToday={onToday}
+          onOpenDay={onOpenDay}
+          onOpenRow={onOpenRow}
+          onOpenRelease={(c) => setPreview(releases.find((r) => r.tmdbId === c.tmdbId) ?? null)}
+        />
+      ) : (
+      // Dar tarayıcı penceresi: gün gün liste
       <div className="md:hidden space-y-3">
         {agendaDays.length === 0 && <p className="text-sm text-neutral-500 text-center py-8">{tt('Bu ay için kayıt yok.')}</p>}
         {agendaDays.map((d) => (
@@ -814,8 +832,10 @@ function MonthView({
         ))}
       </div>
 
+      )}
+
       {/* Kullanıcı "bitirdin sadece dizide mi, filmde de varsa onu da yaz" dedi — işaretlerin hepsi film ve dizide ortak */}
-      <div className="text-xs text-neutral-500 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3 grid gap-1.5 sm:grid-cols-2">
+      <div className={`${MOBILE ? 'hidden' : 'grid'} text-xs text-neutral-500 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3 gap-1.5 sm:grid-cols-2`}>
         <span>
           <span className="text-neutral-300">{tt('Başladın')}</span> / <span className="text-emerald-400">{tt('Bitirdin')}</span>{tt(': bir filmi ya da diziyi birkaç günde izlediysen (izleme tarihi "başladım → bitirdim" aralığıysa) başladığın ve bitirdiğin gün.')}
         </span>

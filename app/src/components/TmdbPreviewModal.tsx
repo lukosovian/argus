@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { api, type TmdbCard, type TmdbItem } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
@@ -89,8 +90,9 @@ export default function TmdbPreviewModal({
   // document.body'ye çiziliyor ve her şeyin üstünde (z-70): detay penceresinin içinden (Benzer İçerikler)
   // açılınca oranın bulanıklık efekti pencereyi kaydırılan içeriğe hapsedip en üstte açtırıyordu.
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-6 px-4 sm:px-10" onClick={onClose}>
-      <div className="bg-neutral-900 rounded-xl w-full max-w-4xl mx-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    // Telefonda tam ekran (görsel durum çubuğunun arkasına uzanır)
+    <div className={`fixed inset-0 z-[70] bg-black/80 overflow-y-auto ${MOBILE ? '' : 'py-6 px-4 sm:px-10'}`} onClick={onClose} style={MOBILE ? { paddingTop: 0 } : undefined}>
+      <div className={MOBILE ? 'bg-neutral-900 w-full min-h-full overflow-hidden' : 'bg-neutral-900 rounded-xl w-full max-w-4xl mx-auto overflow-hidden'} onClick={(e) => e.stopPropagation()}>
         <div className="relative">
           {/* Arşivdeki detay penceresiyle aynı üst bölüm: yatay görsel, üstünde başlık logosu,
               fragman varsa oynar. Ayrıntılar gelene kadar kartın kendi yatay görseli gösteriliyor. */}
@@ -101,17 +103,18 @@ export default function TmdbPreviewModal({
             title={shown.title}
             titleImageUrl={item?.logo ?? undefined}
             aspect="21/9"
+            height={MOBILE ? 'max(58vh, 340px)' : undefined}
             titleAlwaysVisible
             bottomFadeColor="#171717"
           />
           {!card.inArchive && !item?.inArchive && (
-            <span className="absolute top-3 right-14 z-10 text-[11px] font-semibold text-white bg-black/60 rounded px-2 py-1">
+            <span className="safe-shift absolute top-3 right-14 z-10 text-[11px] font-semibold text-white bg-black/60 rounded px-2 py-1">
               {tt('Arşivinde yok · TMDB\'den öneri')}
             </span>
           )}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white text-lg transition"
+            className="safe-shift absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white text-lg transition"
           >
             ×
           </button>

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { MOBILE } from '../lib/mobile/ui'
 import { GizliSutunVisual, GuncelleVisual, KesfetVisual, KoleksiyonVisual, SaglikVisual, YedekVisual, YeniBolumlerVisual } from '../components/PatchVisuals'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
@@ -447,9 +448,138 @@ function VisualCard({ children }: { children: ReactNode }) {
   )
 }
 
-type Group = 'baslarken' | 'ana-sayfa' | 'arsiv' | 'kesfet' | 'diger'
+type Group = 'telefon' | 'baslarken' | 'ana-sayfa' | 'arsiv' | 'kesfet' | 'diger'
+
+// ---- Telefondaki ARGUS (sadece Android uygulamasında görünür) ---------------------------------------
+// Kullanıcı "yardım merkezi mobil için uyumlu mu, wireframeler de mobil için uyumlu mu" dedi: telefonda en başta
+// telefona özel konular, telefon çerçeveli çizimlerle.
+function PhoneFrame({ children }: { children: ReactNode }) {
+  return (
+    <WireframeCard>
+      <rect x={108} y={6} width={84} height={150} rx={14} fill="none" stroke={WF_STROKE} strokeWidth={2} />
+      <rect x={138} y={11} width={24} height={4} rx={2} fill={WF_LINE} />
+      {children}
+    </WireframeCard>
+  )
+}
+function PhoneTabBar({ active = 0 }: { active?: number }) {
+  return (
+    <>
+      <rect x={114} y={136} width={72} height={14} rx={7} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <circle key={i} cx={122 + i * 14} cy={143} r={2.6} fill={i === active ? BRAND_TEXT : WF_LINE} />
+      ))}
+    </>
+  )
+}
+function TelefonMenuWireframe() {
+  return (
+    <PhoneFrame>
+      <rect x={116} y={20} width={68} height={52} rx={6} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      <rect x={136} y={60} width={28} height={5} rx={2.5} fill={WF_EMPHASIS} />
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={116 + i * 24} y={82} width={20} height={30} rx={3} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      ))}
+      <rect x={116} y={118} width={30} height={4} rx={2} fill={WF_LINE} />
+      <PhoneTabBar active={0} />
+    </PhoneFrame>
+  )
+}
+function TelefonEsitlemeWireframe() {
+  return (
+    <WireframeCard>
+      <rect x={30} y={30} width={56} height={100} rx={10} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
+      <rect x={48} y={36} width={20} height={3} rx={1.5} fill={WF_LINE} />
+      <rect x={38} y={50} width={40} height={6} rx={3} fill={WF_EMPHASIS} />
+      <rect x={38} y={62} width={30} height={5} rx={2.5} fill={WF_LINE} />
+      <rect x={180} y={38} width={92} height={62} rx={6} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
+      <rect x={214} y={100} width={24} height={14} fill={WF_STROKE} />
+      <rect x={200} y={114} width={52} height={5} rx={2.5} fill={WF_STROKE} />
+      <path d="M100 68h66m-8-6 8 6-8 6M166 92h-66m8-6-8 6 8 6" stroke={BRAND_TEXT} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M120 120a14 14 0 0 1 24 0M126 126a6 6 0 0 1 12 0" stroke={WF_EMPHASIS} strokeWidth={2.5} fill="none" strokeLinecap="round" />
+    </WireframeCard>
+  )
+}
+function TelefonArsivWireframe() {
+  return (
+    <PhoneFrame>
+      <rect x={116} y={20} width={50} height={9} rx={4.5} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      <circle cx={177} cy={24.5} r={5} fill={BRAND_TEXT} />
+      {[0, 1, 2].map((r) =>
+        [0, 1, 2].map((c) => <rect key={`${r}-${c}`} x={116 + c * 23} y={36 + r * 32} width={20} height={28} rx={3} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />),
+      )}
+      <PhoneTabBar active={1} />
+    </PhoneFrame>
+  )
+}
+function TelefonTakvimWireframe() {
+  return (
+    <PhoneFrame>
+      <rect x={116} y={20} width={68} height={50} rx={5} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      {[0, 1, 2, 3].map((r) =>
+        [0, 1, 2, 3, 4, 5, 6].map((c) => (
+          <circle key={`${r}-${c}`} cx={122 + c * 9.3} cy={30 + r * 11} r={2.2} fill={r === 1 && c === 3 ? BRAND_TEXT : WF_LINE} />
+        )),
+      )}
+      <rect x={116} y={76} width={68} height={10} rx={5} fill="none" stroke={BRAND_TEXT} strokeWidth={1.5} />
+      <rect x={116} y={92} width={10} height={14} rx={2} fill={WF_LINE} />
+      <rect x={130} y={92} width={54} height={30} rx={4} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      <PhoneTabBar active={2} />
+    </PhoneFrame>
+  )
+}
+
+const PHONE_TOPICS = (): Topic[] => [
+  {
+    group: 'telefon',
+    icon: <HomeIcon />,
+    title: tt('Telefonda ARGUS'),
+    where: tt('Alttaki menü'),
+    text: tt("Alttaki menüden Ana Sayfa, Arşiv, Takvim ve Ne İzlesem'e geçersin. Diğer'de Ayarlar, İstatistikler, Koleksiyon, profil değiştirme ve tema var."),
+    tips: [
+      tt('Bir afişe dokununca detayı açılır; telefonun geri tuşu açık pencereyi kapatır.'),
+      tt('Sağ üstteki büyüteçle arama tam ekran açılır; oyuncu ya da tür adıyla da arayabilirsin.'),
+    ],
+    visual: <TelefonMenuWireframe />,
+  },
+  {
+    group: 'telefon',
+    icon: <GearIcon />,
+    title: tt('PC ile eşitleme'),
+    where: tt('Ayarlar › Uygulama Ayarları › PC bağlantısı'),
+    text: tt("Telefondaki ARGUS, PC ile aynı Wi-Fi'a girince değişiklikleri kendiliğinden eşitler. PC yokken de kullanabilirsin: yaptıkların telefonda saklanır, PC'ye bağlanınca oraya gider."),
+    tips: [
+      tt("Üstte \"Çevrimdışı · 3 değişiklik bekliyor\" yazıyorsa değişiklikler PC'yi bekliyor demektir."),
+      tt('Aynı şeyi iki yerde değiştirdiysen son yaptığın geçerli olur.'),
+      tt('Afişler telefona indirilir; diğer görseller açtıkça kaydedilir.'),
+    ],
+    visual: <TelefonEsitlemeWireframe />,
+  },
+  {
+    group: 'telefon',
+    icon: <DatabaseIcon />,
+    title: tt('Arşiv ve kayıt düzenleme'),
+    where: tt('Alttaki menü › Arşiv'),
+    text: tt("Arşivin afiş ızgarası ya da liste olarak görünür (sağ üstteki düğme). \"+\" ile yeni kayıt eklersin: adını yazman yeter, afiş ve bilgiler TMDB'den gelir."),
+    tips: [
+      tt('Bir kaydın detayında "Düzenle" ile bütün alanları girebilirsin — izleme tarihi, tekrar izleme, puan, durum…'),
+      tt('"Bugün izledim" tek dokunuşla bugünü izleme tarihine ekler (daha önce izlediysen tekrar izleme olarak).'),
+    ],
+    visual: <TelefonArsivWireframe />,
+  },
+  {
+    group: 'telefon',
+    icon: <SearchIcon />,
+    title: tt('Takvim'),
+    where: tt('Alttaki menü › Takvim'),
+    text: tt('Üstteki ay takviminde izlediğin günlerde beyaz, yaklaşanlarda mavi nokta var. Bir güne dokununca listede o güne gidersin; altında her gün görselleriyle sıralanır.'),
+    tips: [tt('"+ Bugün izlediğini ekle" ile (ya da boş bir güne dokunarak) o gün izlediğin film ya da bölümü eklersin.')],
+    visual: <TelefonTakvimWireframe />,
+  },
+]
 
 const GROUPS: { id: Group; label: string; hint: string }[] = [
+  ...(MOBILE ? [{ id: 'telefon' as Group, label: tt('Telefonda'), hint: tt('Alt menü, eşitleme, kayıt düzenleme') }] : []),
   { id: 'baslarken', label: tt('Başlarken'), hint: tt('Profiller ve ana sayfaya ilk bakış') },
   { id: 'ana-sayfa', label: tt('Ana Sayfa'), hint: tt('Vitrin, satırlar ve mod satırı') },
   { id: 'arsiv', label: tt('Arşiv'), hint: tt('Veritabanı, tablo, TMDB, Keşfet, Sağlık Kontrolü') },
@@ -471,6 +601,7 @@ interface Topic {
 // İçerik 26 Eylül 2026'da (v1.8.1) uygulamanın o anki haline göre baştan gözden geçirildi. Yeni bir
 // özellik eklenince ilgili konuya bir cümle ya da ipucu eklemek yeterli.
 const TOPICS: Topic[] = [
+  ...(MOBILE ? PHONE_TOPICS() : []),
   {
     group: 'baslarken',
     icon: <ProfileIcon />,

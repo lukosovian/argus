@@ -68,6 +68,9 @@ import {
   SurePlatformVisual,
   UnuttuklarinVisual,
   PuanZevkiVisual,
+  TelefonUygulamaVisual,
+  TelefonEsitlemeVisual,
+  TelefonKurulumVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -82,6 +85,28 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.18',
+    date: tt('4 Kasım 2026'),
+    title: tt("ARGUS artık telefonda: Android uygulaması, PC ile eşitleme"),
+    items: [
+      tt("ARGUS'un Android uygulaması geldi. Ayarlar › Uygulama Ayarları › Telefon'daki QR kodu telefonun kamerasıyla okut (telefon bilgisayarla aynı Wi-Fi'da olmalı), inen dosyayı açıp kur. Ya da \"APK'yı indir\" ile dosyayı telefona gönder."),
+      tt("İlk açılışta telefon aynı Wi-Fi'daki bilgisayarı kendisi bulur; PC'de \"Kod al\" deyip çıkan 6 haneli kodu telefonda yazınca arşivin telefona gelir."),
+      tt("PC yokken de kullanabilirsin: bölüm işaretleme, puan, durum, yeni kayıt, izleme tarihi… hepsi telefonda saklanır, PC ile aynı Wi-Fi'a girince kendiliğinden PC'ye gider. Üstte \"Çevrimdışı · 3 değişiklik bekliyor\" yazısı görünür."),
+      tt("Aynı şeyi hem PC'de hem telefonda değiştirdiysen son yaptığın geçerli olur; iki tarafta işaretlenen bölümler birleşir, PC'de sildiğin bir kayıt telefondan geri gelmez."),
+      tt("Telefona özel ekranlar: alttaki menü (Ana Sayfa, Arşiv, Takvim, Ne İzlesem, Diğer), afiş ızgarası ya da liste olarak arşiv, ay takvimi ve günlere göre liste, tam ekran arama ve bildirimler, Netflix'teki gibi \"Kim izliyor\" ekranı."),
+      tt("Afişler telefona indirilir, PC kapalıyken de görünür; diğer görseller açtıkça kaydedilir."),
+      tt("Telefondaki ARGUS kendini günceller: PC'deki ARGUS güncellenince telefonu PC'ye bağladığında üstte \"Yeni sürüm hazır · Güncelle\" çıkar, dokununca kurulur."),
+      tt("Ne İzlesem'in sonuç ekranında özetin tamamını okumak için üstüne dokun."),
+      tt("Açık temada okunmayan açık renkli yazılar (mavi, sarı, yeşil) koyulaştırıldı."),
+      tt("Güvenlik: ARGUS'a ağdaki başka bir cihaz yalnızca eşleştirdiğin telefonla bağlanabilir; bağlı telefonları Ayarlar › Telefon'dan görüp kaldırabilirsin."),
+    ],
+    visuals: [
+      { caption: tt('1 alttaki menü · 2 afiş ızgarası · 3 Kim izliyor'), Visual: TelefonUygulamaVisual },
+      { caption: tt("1 PC yokken bekleyen değişiklikler · 2 aynı Wi-Fi'da eşitlenir"), Visual: TelefonEsitlemeVisual },
+      { caption: tt('1 QR kodu okut, kur · 2 sonraki sürümler telefonda "Güncelle"'), Visual: TelefonKurulumVisual },
+    ],
+  },
   {
     version: 'v1.17',
     date: tt('3 Kasım 2026'),
