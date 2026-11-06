@@ -18,19 +18,16 @@ import { fmtDate, tt, ttx } from '../lib/i18n'
 // Evrenler — kullanıcı "VisionQuest'i anlamak için önce şunları izle dedi, madem öyle Marvel'ı baştan izleyeyim;
 // evrendeki filmleri dizileri sıralasın, ben oradan işaretleyeyim, izlenmiş olarak arşivime ve takvime düşsün"
 // dedi. Hazır evrenler (Marvel, DC, Star Wars, Orta Dünya, Büyücülük Dünyası) çıkış ve hikâye sırasıyla gelir;
-// sıralar resmî kaynaklardan doğrulandı (bkz. server/evrenler.js). İzlediklerin kendi sırasında tarihiyle durur;
-// tekrar izliyorsan "Baştan izliyorum" ile bir maraton başlatılır, ondan sonra işaretlediklerin sayılır.
-// Kendi evrenini de kurabilirsin (yapım ekle, sırala, "tarihe göre sırala").
+// sıralar resmî kaynaklardan doğrulandı (bkz. server/evrenler.js). İzlediklerin kendi sırasında tarihiyle durur.
+// Sonra kullanıcı "dizide izledim deyince bütün bölümleri aynı tarihe atmasın; amacım baştan izleme turu başlatıp ne
+// kadar izledim ne kadar kaldı takip etmek, arşivimde olmayanı ekleyebilmek" dedi: asıl kullanım "izleme turu"
+// (prefs.maraton = turun başladığı gün). Turda o günden sonraki izlemeler sayılır; filmler buradan işaretlenir,
+// dizilerin bölümleri detay penceresinden (ya da Nook'tan) tek tek, gerçek tarihleriyle. Arşivde olmayanlar
+// İzlenecek olarak eklenir. Kendi evrenini de kurabilirsin (yapım ekle, sırala, "tarihe göre sırala").
 
 const SWATCHES = ['#e23636', '#2b6cff', '#ffe81f', '#c9a227', '#946b2d', '#22c55e', '#a855f7', '#f97316', '#00c0fa', '#ec4899']
 
 const endOf = (w: string) => (w === '?' ? '' : w.split('/').pop() ?? '')
-
-// Maraton varsa ondan sonra bitirilenler sayılır; yoksa hiç izlenmiş olması yeter
-function isDone(it: EvrenItem, maraton?: string) {
-  if (!maraton) return it.watched
-  return it.watches.some((w) => endOf(w) >= maraton)
-}
 
 function fmtWatch(w: string) {
   if (w === '?') return tt('tarihi bilinmiyor')
@@ -172,11 +169,30 @@ function toSave(u: Evren): EvrenSave {
   }
 }
 
+// Turda: film turdan sonra izlendiyse, dizi(sezon) turdan sonra bütün bölümleri izlendiyse bitmiş sayılır
+function isDone(it: EvrenItem, tur?: string) {
+  if (!tur) return it.watched
+  return Boolean(it.tour?.done)
+}
+// Turda yarım kalan dizinin izlenen kısmı (kalan süre için)
+function doneShare(it: EvrenItem, tur?: string) {
+  if (isDone(it, tur)) return 1
+  if (tur && it.tour?.total) return (it.tour.seen ?? 0) / it.tour.total
+  return 0
+}
+
 function stats(u: Evren, prefs: EvrenPrefs) {
   const items = u.items.filter((i) => (prefs.ek || !i.extra) && i.released)
   const done = items.filter((i) => isDone(i, prefs.maraton)).length
-  const left = items.filter((i) => !isDone(i, prefs.maraton)).reduce((t, i) => t + (i.minutes ?? 0), 0)
-  return { total: items.length, done, left, upcoming: u.items.filter((i) => (prefs.ek || !i.extra) && !i.released).length }
+  const left = Math.round(items.reduce((t, i) => t + (i.minutes ?? 0) * (1 - doneShare(i, prefs.maraton)), 0))
+  return {
+    total: items.length,
+    done,
+    left,
+    before: items.filter((i) => i.watched).length,
+    missing: u.items.filter((i) => (prefs.ek || !i.extra) && !i.rowId && i.tmdbId).length,
+    upcoming: u.items.filter((i) => (prefs.ek || !i.extra) && !i.released).length,
+  }
 }
 
 // ---- Evren listesi ----------------------------------------------------------------------------
@@ -191,7 +207,7 @@ function UniverseList({ universes, prefs, onNew }: { universes: Evren[]; prefs: 
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
         <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Evrenler')}</h1>
         <p className="text-neutral-300 mt-2 max-w-2xl">
-          {tt('Sinematik evrenlerin bütün filmleri ve dizileri, çıkış ya da hikâye sırasıyla. İzlediklerini buradan işaretle; arşivine, takvimine, her yere düşer.')}
+          {tt('Sinematik evrenlerin bütün filmleri ve dizileri, çıkış ya da hikâye sırasıyla. Bir izleme turu başlat, ne kadarını izlediğini ve ne kadar kaldığını takip et; arşivinde olmayanları tek tıkla ekle.')}
         </p>
       </section>
 
@@ -224,11 +240,13 @@ function UniverseList({ universes, prefs, onNew }: { universes: Evren[]; prefs: 
                   <div className="h-full rounded-full" style={{ width: `${pct}%`, background: u.color }} />
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-neutral-300">{ttx('{0}/{1} izledin', <b className="text-neutral-50">{s.done}</b>, s.total)}</span>
+                  <span className="text-neutral-300">
+                    {p.maraton ? ttx('Turda {0}/{1}', <b className="text-neutral-50">{s.done}</b>, s.total) : ttx('{0}/{1} izledin', <b className="text-neutral-50">{s.done}</b>, s.total)}
+                  </span>
                   <span className="text-neutral-500 text-xs">{s.left ? tt('kalan {0}', hoursText(s.left)) : s.total ? tt('hepsini izledin') : ''}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-[11px]">
-                  {p.maraton && <span className="rounded-full bg-[#00c0fa]/15 text-[#7fdcff] px-2 py-0.5">{tt('Maraton sürüyor')}</span>}
+                  {p.maraton && <span className="rounded-full bg-[#00c0fa]/15 text-[#7fdcff] px-2 py-0.5">{tt('Tur sürüyor')}</span>}
                   {!u.builtin && <span className="rounded-full bg-neutral-800 text-neutral-400 px-2 py-0.5">{tt('Senin evrenin')}</span>}
                   {s.upcoming > 0 && <span className="rounded-full bg-neutral-800 text-neutral-400 px-2 py-0.5">{tt('{0} yakında', s.upcoming)}</span>}
                 </div>
@@ -273,17 +291,22 @@ function UniverseView({
   onCopy: () => void
 }) {
   const { notify, confirm } = useToast()
+  const tur = prefs.maraton
   const mode: Mode = prefs.sira ?? 'cikis'
   const showExtra = Boolean(prefs.ek)
   const extraCount = u.items.filter((i) => i.extra).length
   const ordered = useMemo(() => orderItems(u, mode, showExtra), [u, mode, showExtra])
   const s = stats(u, prefs)
   const pct = s.total ? Math.round((s.done / s.total) * 100) : 0
-  const next = ordered.find((i) => i.released && !isDone(i, prefs.maraton))
+  const next = ordered.find((i) => i.released && !isDone(i, tur))
   const [busy, setBusy] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ item: EvrenItem; el: HTMLElement } | null>(null)
-  const [detail, setDetail] = useState<Row | null>(null)
+  const [detail, setDetail] = useState<{ row: Row; episodes: boolean } | null>(null)
+  // Arşive yeni eklenen dizinin kaydı satırlar yenilenince açılır
+  const [openAfterAdd, setOpenAfterAdd] = useState<string | null>(null)
   const [preview, setPreview] = useState<TmdbCard | null>(null)
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null)
+  const [startDay, setStartDay] = useState('')
   const numbers = new Map(ordered.map((i, n) => [i.key, n + 1]))
 
   // Çıkış sırasında fazlara göre bölümler; hikâye sırasında tek liste
@@ -295,6 +318,20 @@ function UniverseView({
     return out.filter((x) => x.items.length)
   }, [mode, u.groups, ordered])
 
+  const pendingRow = openAfterAdd ? rows.find((r) => r.id === openAfterAdd) : null
+  useEffect(() => {
+    if (!pendingRow) return
+    setOpenAfterAdd(null)
+    openRow(pendingRow, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRow])
+
+  function openRow(row: Row, episodes: boolean) {
+    setDetail({ row, episodes })
+    if (episodes) setTimeout(() => document.getElementById('rd-bolumler')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 450)
+  }
+
+  // Film: izledim (arşivde yoksa izlendi olarak eklenir)
   async function mark(it: EvrenItem, date: string, remove = false) {
     setMenu(null)
     setBusy(it.key)
@@ -324,19 +361,58 @@ function UniverseView({
     }
   }
 
+  // Arşive İzlenecek olarak ekle; open: dizide eklenince bölümleri aç
+  async function addToArchive(it: EvrenItem, open = false) {
+    setMenu(null)
+    setBusy(it.key)
+    try {
+      const res = await api.addEvren(boardId, { uid: u.id, key: it.key })
+      notifyDataChanged(boardId)
+      onChanged()
+      if (open && res.rowId) setOpenAfterAdd(res.rowId)
+      else notify(tt('"{0}" izlenecekler listene eklendi.', it.title))
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function addAllMissing() {
+    const list = ordered.filter((i) => !i.rowId && i.tmdbId)
+    if (!list.length) return
+    const ok = await confirm({ message: tt('Arşivinde olmayan {0} yapım İzlenecek olarak eklensin mi? Biraz sürebilir.', list.length), confirmLabel: tt('Ekle') })
+    if (!ok) return
+    setBulk({ done: 0, total: list.length })
+    let fail = 0
+    for (let n = 0; n < list.length; n++) {
+      try {
+        await api.addEvren(boardId, { uid: u.id, key: list[n].key })
+      } catch {
+        fail++
+      }
+      setBulk({ done: n + 1, total: list.length })
+    }
+    setBulk(null)
+    notifyDataChanged(boardId)
+    onChanged()
+    notify(fail ? tt('{0} yapım eklendi, {1} tanesi eklenemedi.', list.length - fail, fail) : tt('{0} yapım izlenecekler listene eklendi.', list.length), fail ? 'danger' : undefined)
+  }
+
+  // Afişe ya da "Bölümler"e basınca: arşivdeyse detay (dizide bölümler açık), değilse TMDB önizlemesi
   function open(it: EvrenItem) {
     const row = it.rowId ? rows.find((r) => r.id === it.rowId) : null
-    if (row) return setDetail(row)
+    if (row) return openRow(row, it.type === 'tv')
     if (it.tmdbId)
       setPreview({ tmdbId: it.tmdbId, mediaType: it.type, title: it.title, originalTitle: '', year: it.date.slice(0, 4), poster: it.poster, backdrop: null, overview: '', rating: null })
   }
 
-  async function startMarathon() {
-    onPrefs({ maraton: todayIso() })
-    notify(tt('Maraton başladı. Bundan sonra işaretlediklerin bu maratona sayılır; eskiden izlediklerin tarihleriyle görünmeye devam eder.'))
+  function startTour(day: string) {
+    onPrefs({ maraton: day })
+    notify(tt('Tur başladı. {0} tarihinden sonra izlediklerin sayılıyor; önceki izlemelerin tarihleriyle görünmeye devam eder.', fmtWatch(day)))
   }
-  async function endMarathon() {
-    const ok = await confirm({ message: tt('Maratonu bitirmek istiyor musun? İşaretlediklerin arşivinde kalır.'), confirmLabel: tt('Bitir') })
+  async function endTour() {
+    const ok = await confirm({ message: tt('Turu bitirmek istiyor musun? İzlediklerin arşivinde kalır, sadece sayaç kapanır.'), confirmLabel: tt('Bitir') })
     if (ok) onPrefs({ maraton: null as unknown as string })
   }
 
@@ -346,33 +422,69 @@ function UniverseView({
     </button>
   )
 
+  const nextAction = (it: EvrenItem) => {
+    if (it.type === 'movie') return { label: tt('✓ İzledim'), run: () => mark(it, todayIso()) }
+    if (!it.rowId) return { label: tt('+ Arşive ekle'), run: () => addToArchive(it, true) }
+    return { label: tt('Bölümleri aç'), run: () => open(it) }
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-7 sm:px-10" style={{ background: `radial-gradient(ellipse at 10% 0%, ${u.color}40, transparent 60%), #0a0a0a` }}>
         <Link to="/evrenler" className="text-sm text-neutral-400 hover:text-neutral-100">{tt('← Evrenler')}</Link>
         {u.short && <p className="text-sm font-black tracking-widest mt-3" style={{ color: u.color }}>{u.short}</p>}
         <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight">{u.name}</h1>
-        <div className="mt-4 max-w-xl space-y-1.5">
-          <div className="h-2 rounded-full bg-neutral-800 overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: u.color }} />
+
+        {tur ? (
+          <div className="mt-4 max-w-xl space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#7fdcff]">{tt('İzleme turu · {0} tarihinden beri', fmtWatch(tur))}</p>
+              <button onClick={endTour} className="text-xs text-neutral-500 hover:text-neutral-200">{tt('Turu bitir')}</button>
+            </div>
+            <div className="h-2.5 rounded-full bg-neutral-800 overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: u.color }} />
+            </div>
+            <p className="text-sm text-neutral-200">
+              {ttx('{0} yapımın {1} tanesini izledin', s.total, <b className="text-neutral-50">{s.done}</b>)}
+              <span className="text-neutral-500"> · %{pct}</span>
+              {s.left > 0 && <span className="text-neutral-400"> · {tt('kalan {0}', hoursText(s.left))}</span>}
+            </p>
+            {s.upcoming > 0 && <p className="text-xs text-neutral-500">{tt('{0} yapım henüz çıkmadı, çıkınca listeye katılır.', s.upcoming)}</p>}
           </div>
-          <p className="text-sm text-neutral-300">
-            {prefs.maraton ? tt('Maratonda {0}/{1}', s.done, s.total) : tt('{0}/{1} izledin', s.done, s.total)}
-            {s.left > 0 && <span className="text-neutral-500"> · {tt('kalan {0}', hoursText(s.left))}</span>}
-            {s.upcoming > 0 && <span className="text-neutral-500"> · {tt('{0} yapım yakında', s.upcoming)}</span>}
-          </p>
-          {prefs.maraton && <p className="text-xs text-[#7fdcff]">{tt('Maraton {0} tarihinde başladı — ondan önce izlediklerin sayılmıyor.', fmtWatch(prefs.maraton))}</p>}
-        </div>
+        ) : (
+          <div className="mt-4 max-w-xl rounded-2xl border border-[#00c0fa]/30 bg-[#00c0fa]/5 p-4 space-y-2">
+            <p className="font-semibold text-neutral-50">{tt('Baştan izleme turu')}</p>
+            <p className="text-sm text-neutral-300">
+              {tt('Turu başlatınca sayaç sıfırdan başlar: o günden sonra izlediklerin sayılır, ne kadar izlediğini ve ne kadar kaldığını görürsün. Daha önce izlediklerin tarihleriyle görünmeye devam eder.')}
+            </p>
+            <p className="text-xs text-neutral-500">{tt('Şu ana kadar {0} yapımın {1} tanesini izlemişsin.', s.total, s.before)}</p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button onClick={() => startTour(todayIso())} className={`${PRIMARY_BUTTON} rounded-xl px-4 py-2 text-sm`} style={primaryButtonStyle}>
+                {tt('Turu bugün başlat')}
+              </button>
+              <span className="text-xs text-neutral-500">{tt('ya da çoktan başladıysan:')}</span>
+              <input type="date" value={startDay} max={todayIso()} onChange={(e) => setStartDay(e.target.value)} className="rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
+              <button disabled={!startDay} onClick={() => startTour(startDay)} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 disabled:opacity-40">
+                {tt('Bu tarihten başlat')}
+              </button>
+            </div>
+          </div>
+        )}
+
         {next && (
           <div className="mt-5 flex items-center gap-3 rounded-2xl bg-black/40 border border-neutral-800 p-2.5 max-w-xl">
             {next.poster && <img src={next.poster} alt="" className="h-16 aspect-[2/3] object-cover rounded-md" />}
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-wider text-neutral-500">{tt('Sıradaki')}</p>
               <p className="font-semibold text-neutral-50 truncate">{next.archiveTitle || next.title}</p>
-              <p className="text-xs text-neutral-500">{kindLabel(next)} · {next.date.slice(0, 4)}</p>
+              <p className="text-xs text-neutral-500">
+                {kindLabel(next)} · {next.date.slice(0, 4)}
+                {tur && next.tour?.total ? ` · ${tt('{0}/{1} bölüm', next.tour.seen ?? 0, next.tour.total)}` : ''}
+                {!next.rowId ? ` · ${tt('arşivinde yok')}` : ''}
+              </p>
             </div>
-            <button disabled={busy === next.key} onClick={() => mark(next, todayIso())} className={`${PRIMARY_BUTTON} rounded-xl px-3 py-2 text-sm shrink-0`} style={primaryButtonStyle}>
-              {tt('✓ İzledim')}
+            <button disabled={busy === next.key} onClick={nextAction(next).run} className={`${PRIMARY_BUTTON} rounded-xl px-3 py-2 text-sm shrink-0`} style={primaryButtonStyle}>
+              {busy === next.key ? '…' : nextAction(next).label}
             </button>
           </div>
         )}
@@ -392,13 +504,9 @@ function UniverseView({
             {tt('Yan yapımlar ({0})', extraCount)}
           </button>
         )}
-        {prefs.maraton ? (
-          <button onClick={endMarathon} className="text-sm rounded-xl px-3 py-1.5 border border-[#00c0fa]/60 text-[#7fdcff] hover:bg-[#00c0fa]/10 transition">
-            {tt('Maratonu bitir')}
-          </button>
-        ) : (
-          <button onClick={startMarathon} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition" title={tt('Tekrar izleyeceksen: bugünden sonra işaretlediklerin sayılır')}>
-            {tt('Baştan izliyorum')}
+        {s.missing > 0 && (
+          <button disabled={Boolean(bulk)} onClick={addAllMissing} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition disabled:opacity-60">
+            {bulk ? tt('Ekleniyor {0}/{1}…', bulk.done, bulk.total) : tt('Arşivinde olmayanları ekle ({0})', s.missing)}
           </button>
         )}
         <span className="flex-1" />
@@ -429,7 +537,7 @@ function UniverseView({
           {sec.name && (
             <div className="flex items-baseline gap-2 mb-3">
               <h2 className="text-lg font-bold text-neutral-50">{sec.name}</h2>
-              <span className="text-xs text-neutral-500">{tt('{0}/{1}', sec.items.filter((i) => isDone(i, prefs.maraton)).length, sec.items.length)}</span>
+              <span className="text-xs text-neutral-500">{tt('{0}/{1}', sec.items.filter((i) => isDone(i, tur)).length, sec.items.length)}</span>
             </div>
           )}
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-x-3 gap-y-5">
@@ -439,12 +547,13 @@ function UniverseView({
                 it={it}
                 n={numbers.get(it.key) ?? 0}
                 color={u.color}
-                maraton={prefs.maraton}
+                tur={tur}
                 isNext={next?.key === it.key}
                 busy={busy === it.key}
                 onOpen={() => open(it)}
-                onQuick={(el) => (isDone(it, prefs.maraton) ? setMenu({ item: it, el }) : mark(it, todayIso()))}
+                onMovie={(el) => (isDone(it, tur) ? setMenu({ item: it, el }) : mark(it, todayIso()))}
                 onMenu={(el) => setMenu({ item: it, el })}
+                onAdd={() => addToArchive(it, it.type === 'tv')}
               />
             ))}
           </div>
@@ -457,8 +566,32 @@ function UniverseView({
         </p>
       )}
 
-      {menu && <MarkMenu item={menu.item} anchor={menu.el} maraton={prefs.maraton} onClose={() => setMenu(null)} onMark={(d, remove) => mark(menu.item, d, remove)} onOpen={() => { const it = menu.item; setMenu(null); open(it) }} />}
-      {detail && <RowDetailModal board={board} row={detail} onClose={() => setDetail(null)} />}
+      {menu && (
+        <MarkMenu
+          item={menu.item}
+          anchor={menu.el}
+          tur={tur}
+          onClose={() => setMenu(null)}
+          onMark={(d, remove) => mark(menu.item, d, remove)}
+          onAdd={!menu.item.rowId ? () => addToArchive(menu.item) : undefined}
+          onOpen={() => {
+            const it = menu.item
+            setMenu(null)
+            open(it)
+          }}
+        />
+      )}
+      {detail && (
+        <RowDetailModal
+          board={board}
+          row={detail.row}
+          editable={detail.episodes}
+          onClose={() => {
+            setDetail(null)
+            onChanged()
+          }}
+        />
+      )}
       {preview && <TmdbPreviewModal boardId={boardId} card={preview} onClose={() => setPreview(null)} onAdded={onChanged} />}
     </div>
   )
@@ -468,32 +601,38 @@ function Card({
   it,
   n,
   color,
-  maraton,
+  tur,
   isNext,
   busy,
   onOpen,
-  onQuick,
+  onMovie,
   onMenu,
+  onAdd,
 }: {
   it: EvrenItem
   n: number
   color: string
-  maraton?: string
+  tur?: string
   isNext: boolean
   busy: boolean
   onOpen: () => void
-  onQuick: (el: HTMLElement) => void
+  onMovie: (el: HTMLElement) => void
   onMenu: (el: HTMLElement) => void
+  onAdd: () => void
 }) {
-  const done = isDone(it, maraton)
+  const done = isDone(it, tur)
   const last = it.watches[it.watches.length - 1]
-  const before = maraton && it.watched && !done
+  const lastInTour = tur ? [...it.watches].reverse().find((w) => w !== '?' && endOf(w) >= tur) : last
+  const before = tur && it.watched && !done
+  const epPart = tur && it.type === 'tv' && it.tour?.total && !done ? it.tour : null
+  const btn = 'flex-1 min-w-0 truncate rounded-md text-[11px] font-semibold px-1.5 py-1 transition'
+  const idle = 'bg-black/75 text-neutral-100 hover:bg-neutral-100 hover:text-neutral-950'
   return (
     <div className="min-w-0">
-      <div className={`relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group ${isNext ? 'ring-2 ring-offset-2 ring-offset-neutral-950' : ''}`} style={isNext ? { ['--tw-ring-color' as string]: color } : undefined}>
+      <div className={`relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group ${isNext ? 'ring-2 ring-offset-2 ring-offset-neutral-950' : ''} ${!it.rowId ? 'outline outline-1 outline-dashed outline-neutral-700' : ''}`} style={isNext ? { ['--tw-ring-color' as string]: color } : undefined}>
         <button onClick={onOpen} className="block h-full w-full" title={it.archiveTitle || it.title}>
           {it.poster ? (
-            <img src={it.poster} alt={it.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released ? 'opacity-40' : done ? '' : 'opacity-90'}`} />
+            <img src={it.poster} alt={it.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released ? 'opacity-40' : !it.rowId ? 'opacity-60' : done ? '' : 'opacity-90'}`} />
           ) : (
             <span className="flex h-full items-center justify-center p-2 text-center text-xs text-neutral-400">{it.title}</span>
           )}
@@ -501,40 +640,67 @@ function Card({
         <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-black/75 text-neutral-100 rounded px-1.5 py-0.5 pointer-events-none">{n}</span>
         {it.extra && <span className="absolute top-1.5 right-1.5 text-[9px] font-semibold bg-black/75 text-neutral-300 rounded px-1 py-0.5 pointer-events-none">{tt('yan')}</span>}
         {isNext && <span className="absolute bottom-10 left-1.5 text-[10px] font-bold text-neutral-950 rounded px-1.5 py-0.5 pointer-events-none" style={{ background: color }}>{tt('Sıradaki')}</span>}
-        {it.released ? (
-          <div className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1">
-            <button
-              disabled={busy}
-              onClick={(e) => onQuick(e.currentTarget)}
-              className={`flex-1 min-w-0 truncate rounded-md text-[11px] font-semibold px-1.5 py-1 transition ${done ? 'bg-emerald-500 text-white' : 'bg-black/75 text-neutral-100 hover:bg-neutral-100 hover:text-neutral-950'}`}
-              title={done ? tt('İzleme tarihleri, tekrar izledim') : tt('Bugün izledim olarak işaretle')}
-            >
-              {busy ? '…' : done ? `✓ ${last ? fmtWatch(last) : tt('İzledin')}` : tt('✓ İzledim')}
-            </button>
-            {!done && (
-              <button onClick={(e) => onMenu(e.currentTarget)} className="shrink-0 rounded-md bg-black/75 text-neutral-200 hover:bg-neutral-100 hover:text-neutral-950 text-[11px] px-1.5 transition" title={tt('Başka bir tarih seç')}>
-                ▾
-              </button>
-            )}
+        {epPart && (
+          <div className="absolute bottom-9 left-1.5 right-1.5 h-1 rounded-full bg-black/60 overflow-hidden pointer-events-none">
+            <div className="h-full" style={{ width: `${((epPart.seen ?? 0) / (epPart.total ?? 1)) * 100}%`, background: color }} />
           </div>
-        ) : (
-          <span className="absolute bottom-1.5 left-1.5 right-1.5 text-center rounded-md bg-black/75 text-[10px] text-neutral-300 py-1 pointer-events-none">{tt('Yakında')}</span>
         )}
+        <div className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1">
+          {!it.released && it.rowId ? (
+            <span className="flex-1 text-center rounded-md bg-black/75 text-[10px] text-neutral-300 py-1 pointer-events-none">{tt('Yakında')}</span>
+          ) : it.type === 'movie' && it.released ? (
+            <>
+              <button disabled={busy} onClick={(e) => onMovie(e.currentTarget)} className={`${btn} ${done ? 'bg-emerald-500 text-white' : idle}`} title={done ? tt('İzleme tarihleri, tekrar izledim') : tt('Bugün izledim olarak işaretle')}>
+                {busy ? '…' : done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : tt('✓ İzledim')}
+              </button>
+              {!done && (
+                <button onClick={(e) => onMenu(e.currentTarget)} className="shrink-0 rounded-md bg-black/75 text-neutral-200 hover:bg-neutral-100 hover:text-neutral-950 text-[11px] px-1.5 transition" title={tt('Başka bir tarih seç')}>
+                  ▾
+                </button>
+              )}
+            </>
+          ) : !it.rowId ? (
+            <button disabled={busy} onClick={onAdd} className={`${btn} ${idle}`} title={tt('İzlenecek olarak arşivine ekle')}>
+              {busy ? '…' : tt('+ Arşive ekle')}
+            </button>
+          ) : (
+            <button onClick={onOpen} className={`${btn} ${done ? 'bg-emerald-500 text-white' : idle}`} title={tt('Bölümleri tek tek işaretle')}>
+              {done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : epPart ? tt('{0}/{1} bölüm', epPart.seen ?? 0, epPart.total ?? 0) : tt('Bölümler')}
+            </button>
+          )}
+        </div>
       </div>
       <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{it.archiveTitle || it.title}</p>
       <p className="text-[11px] text-neutral-500">
         {kindLabel(it)} · {it.released ? it.date.slice(0, 4) : it.date ? fmtRelease(it.date) : tt('tarih yok')}
       </p>
-      {it.progress && <p className="text-[11px] text-amber-400">{tt('{0}/{1} bölüm', it.progress.seen, it.progress.total)}</p>}
+      {!it.rowId && <p className="text-[11px] text-neutral-500">{tt('arşivinde yok')}</p>}
+      {!tur && it.progress && <p className="text-[11px] text-amber-400">{tt('{0}/{1} bölüm', it.progress.seen, it.progress.total)}</p>}
       {before && last && <p className="text-[11px] text-neutral-500">{tt('Önceden: {0}', fmtWatch(last))}</p>}
       {it.watches.length > 1 && done && <p className="text-[11px] text-neutral-500">{tt('{0} kez izledin', it.watches.length)}</p>}
-      {!it.watched && it.status && !it.progress && <p className="text-[11px] text-neutral-500">{it.status}</p>}
+      {!it.watched && it.status && !it.progress && it.rowId && !epPart && <p className="text-[11px] text-neutral-500">{it.status}</p>}
     </div>
   )
 }
 
-// İzleme tarihi seçimi: bugün / dün / bir gün / sadece yıl / hatırlamıyorum, ve önceki tarihleri kaldırma
-function MarkMenu({ item, anchor, maraton, onClose, onMark, onOpen }: { item: EvrenItem; anchor: HTMLElement; maraton?: string; onClose: () => void; onMark: (date: string, remove?: boolean) => void; onOpen: () => void }) {
+// Film için izleme tarihi seçimi: bugün / dün / bir gün / sadece yıl / hatırlamıyorum, ve önceki tarihleri kaldırma
+function MarkMenu({
+  item,
+  anchor,
+  tur,
+  onClose,
+  onMark,
+  onAdd,
+  onOpen,
+}: {
+  item: EvrenItem
+  anchor: HTMLElement
+  tur?: string
+  onClose: () => void
+  onMark: (date: string, remove?: boolean) => void
+  onAdd?: () => void
+  onOpen: () => void
+}) {
   const ref = useRef<HTMLElement | null>(anchor)
   const [day, setDay] = useState('')
   const [year, setYear] = useState('')
@@ -555,7 +721,7 @@ function MarkMenu({ item, anchor, maraton, onClose, onMark, onOpen }: { item: Ev
               <div key={i} className="flex items-center justify-between text-sm text-neutral-200">
                 <span>
                   {fmtWatch(w)}
-                  {maraton && endOf(w) >= maraton && <span className="text-[10px] text-[#7fdcff] ml-1.5">{tt('maraton')}</span>}
+                  {tur && w !== '?' && endOf(w) >= tur && <span className="text-[10px] text-[#7fdcff] ml-1.5">{tt('bu tur')}</span>}
                 </span>
                 {!w.includes('/') && (
                   <button onClick={() => onMark(w, true)} className="text-xs text-neutral-500 hover:text-rose-400 px-1" title={tt('Bu izlemeyi kaldır')}>
@@ -570,7 +736,7 @@ function MarkMenu({ item, anchor, maraton, onClose, onMark, onOpen }: { item: Ev
         <button className={opt} onClick={() => onMark(today)}>{tt('Bugün')}</button>
         <button className={opt} onClick={() => onMark(yesterday)}>{tt('Dün')}</button>
         <div className="flex gap-1.5 px-3 py-1">
-          <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} className="min-w-0 flex-1 rounded-md bg-neutral-900 border border-neutral-700 px-2 py-1 text-sm text-neutral-100 [color-scheme:dark] bg-neutral-950" />
+          <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100 [color-scheme:dark]" />
           <button disabled={!day} onClick={() => onMark(day)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
         </div>
         <div className="flex gap-1.5 px-3 py-1">
@@ -578,8 +744,8 @@ function MarkMenu({ item, anchor, maraton, onClose, onMark, onOpen }: { item: Ev
           <button disabled={!/^(19|20)\d\d$/.test(year)} onClick={() => onMark(year)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
         </div>
         <button className={opt} onClick={() => onMark('?')}>{tt('Ne zaman izlediğimi hatırlamıyorum')}</button>
-        {item.type === 'tv' && <p className="px-3 py-1 text-[11px] text-neutral-500">{item.season ? tt('Bu sezonun çıkmış bütün bölümlerine bu tarih yazılır.') : tt('Dizinin çıkmış bütün bölümlerine bu tarih yazılır.')}</p>}
         <div className="border-t border-neutral-800 mt-1 pt-1">
+          {onAdd && <button className={opt} onClick={onAdd}>{tt('İzlemedim, İzlenecek olarak ekle')}</button>}
           <button className={opt} onClick={onOpen}>{tt('Detayı aç')}</button>
         </div>
       </div>

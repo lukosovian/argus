@@ -81,8 +81,26 @@ function episodeKeys(ctx, rowId, season) {
   return out
 }
 
-// Öğenin izlenme durumu: watches = her bitirişin tarihi (tekrar izleme = ikinci tarih), progress = yarım kalan izleme
-function itemState(ctx, item) {
+// Öğenin izlenme durumu: watches = her bitirişin tarihi (tekrar izleme = ikinci tarih), progress = yarım kalan izleme,
+// tour = izleme turu (since: turun başladığı gün) — kullanıcı "baştan izleme turu başlatıp ne kadar izledim ne kadar
+// kaldı takip edeyim" dedi. Turda sadece o günden sonraki izlemeler sayılır; dizide her bölüm kendi gerçek tarihiyle
+// (Nook'tan ya da detay penceresinden) işaretlenir, burada toplu tarih basılmaz.
+function itemState(ctx, item, since) {
+  const st = baseState(ctx, item)
+  if (!since) return st
+  const after = (w) => w !== '?' && endOf(w) >= since
+  if (st.rowId && item.type === 'tv') {
+    const keys = episodeKeys(ctx, st.rowId, item.season)
+    if (keys.length) {
+      const seenMap = ctx.watched[st.rowId] ?? {}
+      const seen = keys.filter((k) => list(seenMap[k]).some(after)).length
+      return { ...st, tour: { done: seen === keys.length, seen, total: keys.length } }
+    }
+  }
+  return { ...st, tour: { done: st.watches.some(after), seen: null, total: null } }
+}
+
+function baseState(ctx, item) {
   const row = findRow(ctx, item)
   if (!row) return { rowId: null, watched: false, watches: [] }
   const status = ctx.durum ? row.values[ctx.durum.id] : null
@@ -107,8 +125,8 @@ function itemState(ctx, item) {
   return { ...base, watched: rowWatched || (!ctx.durum && rowDates.length > 0), watches: rowDates }
 }
 
-function publicItem(ctx, item) {
-  const st = itemState(ctx, item)
+function publicItem(ctx, item, since) {
+  const st = itemState(ctx, item, since)
   const poster = st.poster || (item.poster ? (String(item.poster).startsWith('/') && !String(item.poster).startsWith('/medya') ? IMG + item.poster : item.poster) : null)
   return {
     key: item.key,
@@ -128,6 +146,7 @@ function publicItem(ctx, item) {
     watched: st.watched,
     watches: st.watches,
     progress: st.progress ?? null,
+    tour: st.tour ?? null,
   }
 }
 
@@ -150,7 +169,7 @@ export function registerEvrenlerRoutes(app) {
       from: u.from ?? null,
       groups: u.groups ?? [],
       story: u.story ?? (u.items ?? []).map((i) => i.key),
-      items: (u.items ?? []).map((it) => publicItem(ctx, it)),
+      items: (u.items ?? []).map((it) => publicItem(ctx, it, user.prefs[u.id]?.maraton)),
     }))
     res.json({ universes, prefs: user.prefs, today: ctx.today })
   })
@@ -178,62 +197,52 @@ export function registerEvrenlerRoutes(app) {
     res.json({ ok: true })
   })
 
-  // Bir öğeyi izledim olarak işaretle (date: "2026-11-06" | "2019" | "?") ya da o tarihi geri al (remove)
+  // Filmi izledim olarak işaretle (date: "2026-11-06" | "2019" | "?") ya da o tarihi geri al (remove). Diziler burada
+  // toplu işaretlenmez — kullanıcı "bütün bölümleri aynı tarihe atmasın" dedi; bölümler detay penceresinden tek tek.
   app.post('/api/profiles/:profileId/evrenler/:boardId/isaretle', async (req, res) => {
     try {
       const { profileId, boardId } = req.params
       const { uid, key, date, remove } = req.body ?? {}
       if (typeof date !== 'string' || !DATE_RE.test(date)) return res.status(400).json({ error: stt('Geçersiz tarih') })
-      const u = universe(profileId, uid)
-      const item = u?.items?.find((i) => i.key === key)
+      const item = universe(profileId, uid)?.items?.find((i) => i.key === key)
       if (!item) return res.status(404).json({ error: stt('Yapım bulunamadı') })
-      let ctx = makeContext(profileId, boardId)
+      if (item.type !== 'movie') return res.status(400).json({ error: stt('Dizilerin bölümlerini detay penceresinden işaretle') })
+      const ctx = makeContext(profileId, boardId)
       if (!ctx) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
-      let row = findRow(ctx, item)
-      let created = false
+      const row = findRow(ctx, item)
       if (!row) {
         if (remove) return res.json({ ok: true })
         if (!item.tmdbId) return res.status(400).json({ error: stt('Bu yapım arşivinde yok') })
-        const out = await d.addRowFromTmdb(profileId, boardId, {
-          tmdbId: item.tmdbId,
-          mediaType: item.type,
-          status: item.type === 'movie' ? 'izlendi' : 'izlenecek',
-          watchedDate: date,
-        })
+        const out = await d.addRowFromTmdb(profileId, boardId, { tmdbId: item.tmdbId, mediaType: 'movie', status: 'izlendi', watchedDate: date })
         if (out.status !== 200) return res.status(out.status).json(out.json)
-        created = true
-        if (item.type === 'movie') return askAndSend(res, profileId, boardId, out.json.rowId, { ok: true, rowId: out.json.rowId, created })
-        ctx = makeContext(profileId, boardId)
-        row = ctx.rowById.get(out.json.rowId)
-        if (!row) return res.json({ ok: true, created })
+        return askAndSend(res, profileId, boardId, out.json.rowId, { ok: true, rowId: out.json.rowId, created: true })
       }
-      if (item.type === 'tv') {
-        const keys = episodeKeys(ctx, row.id, item.season)
-        if (keys.length) {
-          const r = d.applyWatched(profileId, row.id, (before) => {
-            const next = { ...before }
-            for (const k of keys) {
-              const cur = list(next[k])
-              if (remove) {
-                const i = cur.lastIndexOf(date)
-                if (i >= 0) cur.splice(i, 1)
-                if (cur.length) next[k] = cur
-                else delete next[k]
-              } else next[k] = [...cur, date].sort()
-            }
-            return next
-          })
-          if (r.askRating) d.setAskRating(res, r.askRating.boardId, r.askRating.rowId)
-          // Bölümleri bilinmeyen sezonlar yüzünden durum kendiliğinden değişmediyse (ör. yalnız bu sezonu bitirdi)
-          return res.json({ ok: true, rowId: row.id, created, autoWatched: r.autoWatched, autoWatching: r.autoWatching })
-        }
-      }
-      // Film (ya da bölümleri bilinmeyen dizi): İzleme Tarihi + Durum
       const result = markRow(profileId, boardId, row.id, date, Boolean(remove))
-      return askAndSend(res, profileId, boardId, row.id, { ok: true, rowId: row.id, created, ...result })
+      return askAndSend(res, profileId, boardId, row.id, { ok: true, rowId: row.id, created: false, ...result })
     } catch (e) {
       console.error('evren işaretle hata:', e)
       res.status(500).json({ error: stt('İşaretlenemedi') })
+    }
+  })
+
+  // Arşivinde olmayan bir yapımı İzlenecek olarak ekle (dizilerde bölümler de gelir); zaten varsa kaydını döndürür
+  app.post('/api/profiles/:profileId/evrenler/:boardId/ekle', async (req, res) => {
+    try {
+      const { profileId, boardId } = req.params
+      const { uid, key } = req.body ?? {}
+      const item = universe(profileId, uid)?.items?.find((i) => i.key === key)
+      if (!item) return res.status(404).json({ error: stt('Yapım bulunamadı') })
+      const ctx = makeContext(profileId, boardId)
+      if (!ctx) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+      const row = findRow(ctx, item)
+      if (row) return res.json({ ok: true, rowId: row.id, created: false })
+      if (!item.tmdbId) return res.status(400).json({ error: stt('Bu yapım arşivinde yok') })
+      const out = await d.addRowFromTmdb(profileId, boardId, { tmdbId: item.tmdbId, mediaType: item.type, status: 'izlenecek' })
+      if (out.status !== 200) return res.status(out.status).json(out.json)
+      res.json({ ok: true, rowId: out.json.rowId, created: true })
+    } catch (e) {
+      console.error('evren ekle hata:', e)
+      res.status(500).json({ error: stt('İçerik eklenemedi') })
     }
   })
 

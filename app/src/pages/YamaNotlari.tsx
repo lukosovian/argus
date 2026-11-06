@@ -71,6 +71,7 @@ import {
   TelefonUygulamaVisual,
   EvrenlerListeVisual,
   EvrenIsaretVisual,
+  EvrenTurVisual,
   TelefonEsitlemeVisual,
   TelefonKurulumVisual,
 } from '../components/PatchVisuals'
@@ -87,6 +88,18 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.19.1',
+    date: tt('6 Kasım 2026'),
+    title: tt('Evrenler: izleme turu, diziler bölüm bölüm'),
+    items: [
+      tt('Evrenler artık bir izleme turu üzerine kurulu: "Turu bugün başlat" (ya da çoktan başladıysan "Bu tarihten başlat") dediğin andan sonra izlediklerin sayılır. Üstte kaç yapımın kaçını izlediğin, yüzde kaçı ve kalan süre görünür. Daha önce izlediklerin "Önceden: 2019" diye durur, sayaca girmez.'),
+      tt('Dizilerde "İzledim" deyince bütün bölümlere aynı tarih yazılmıyor artık. Dizinin "Bölümler" düğmesi bölüm listesini açar, her bölümü gerçek tarihiyle işaretlersin (Nook\'tan işaretlediklerin de sayılır). Kartta "3/9 bölüm" ve ince bir ilerleme çizgisi görünür; bütün bölümler bitince dizi bitti sayılır.'),
+      tt('Arşivinde olmayan yapımlar kesik çerçeveli ve "arşivinde yok" yazılı. Dizilerde "+ Arşive ekle" İzlenecek olarak ekler ve bölümlerini açar. Filmlerde okun altındaki menüden "İzlemedim, İzlenecek olarak ekle" seçilebilir. "Arşivinde olmayanları ekle" hepsini birden ekler.'),
+      tt('Sıradaki yapımın düğmesi türüne göre değişir: filmde "✓ İzledim", dizide "Bölümleri aç", arşivde yoksa "+ Arşive ekle".'),
+    ],
+    visuals: [{ caption: tt('1 izleme turu ve kalan süre · 2 dizide turda izlenen bölümler · 3 arşivinde olmayan, tek tıkla ekle'), Visual: EvrenTurVisual }],
+  },
   {
     version: 'v1.19',
     date: tt('6 Kasım 2026'),

@@ -44,6 +44,8 @@ export interface EvrenItem {
   // Her bitirişin tarihi ("2024-03-12", "2019", "?") — tekrar izleme = ikinci tarih
   watches: string[]
   progress: { seen: number; total: number } | null
+  // İzleme turundaki durumu (tur yoksa null): dizide seen/total = turda izlenen bölümler
+  tour: { done: boolean; seen: number | null; total: number | null } | null
 }
 export interface Evren {
   id: string
@@ -442,6 +444,8 @@ export const api = {
     request<{ ok: true }>(profilePath('/evrenler-veri'), { method: 'POST', ...json(patch) }),
   markEvren: (boardId: string, body: { uid: string; key: string; date: string; remove?: boolean }) =>
     request<{ ok: true; rowId?: string; created?: boolean }>(profilePath(`/evrenler/${boardId}/isaretle`), { method: 'POST', ...json(body) }),
+  addEvren: (boardId: string, body: { uid: string; key: string }) =>
+    request<{ ok: true; rowId: string; created: boolean }>(profilePath(`/evrenler/${boardId}/ekle`), { method: 'POST', ...json(body) }),
   searchEvren: (boardId: string, q: string) =>
     request<{ items: (ArchiveCard & { date: string; posterPath: string | null })[]; needsApiKey?: boolean }>(profilePath(`/evren-ara/${boardId}?q=${encodeURIComponent(q)}`)),
   getEvrenSeasons: (tmdbId: number) =>

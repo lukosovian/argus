@@ -2902,3 +2902,55 @@ export function EvrenIsaretVisual() {
     </Frame>
   )
 }
+
+// ---- v1.19.1 ---------------------------------------------------------------------------------
+
+export function EvrenTurVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <text x={10} y={16} fontSize={6} fontWeight={700} fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        {tt('İZLEME TURU · 1 KAS 2026')}
+      </text>
+      <rect x={10} y={22} width={180} height={5} rx={2.5} className="fill-neutral-800" />
+      <rect x={10} y={22} width={34} height={5} rx={2.5} fill="#e23636" />
+      <text x={10} y={39} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }} {...fit(tt('63 yapımın 12 tanesini izledin · kalan 170 saat'), 7, 220)}>
+        {tt('63 yapımın 12 tanesini izledin · kalan 170 saat')}
+      </text>
+      <Pin x={196} y={22} n={1} />
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+        const x = 10 + i * 43
+        const kind = ['done', 'done', 'tv', 'missing', 'before', 'idle', 'missing'][i]
+        return (
+          <g key={i}>
+            <rect x={x} y={52} width={38} height={57} rx={3} className={kind === 'missing' ? 'fill-neutral-900' : 'fill-neutral-700'} strokeDasharray={kind === 'missing' ? '2 1.5' : undefined} stroke={kind === 'missing' ? '#737373' : 'none'} strokeWidth={0.7} />
+            {kind === 'tv' && (
+              <g>
+                <rect x={x + 3} y={92} width={32} height={2} rx={1} className="fill-neutral-900" />
+                <rect x={x + 3} y={92} width={11} height={2} rx={1} fill="#e23636" />
+              </g>
+            )}
+            <rect x={x + 2} y={97} width={34} height={9} rx={1.5} fill={kind === 'done' ? '#10b981' : '#0a0a0a'} />
+            <text x={x + 19} y={103.5} fontSize={5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }} {...fit(kind === 'done' ? tt('✓ 3 Kas') : kind === 'tv' ? tt('3/9 bölüm') : kind === 'missing' ? tt('+ Arşive ekle') : tt('✓ İzledim'), 5, 31)}>
+              {kind === 'done' ? tt('✓ 3 Kas') : kind === 'tv' ? tt('3/9 bölüm') : kind === 'missing' ? tt('+ Arşive ekle') : tt('✓ İzledim')}
+            </text>
+            <Line x={x} y={116} w={30} light />
+            {kind === 'before' && (
+              <text x={x} y={128} fontSize={5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+                {tt('Önceden: 2019')}
+              </text>
+            )}
+            {kind === 'missing' && (
+              <text x={x} y={128} fontSize={5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+                {tt('arşivinde yok')}
+              </text>
+            )}
+          </g>
+        )
+      })}
+      <Pin x={96} y={56} n={2} />
+      <Pin x={139} y={56} n={3} />
+      <MiniButton x={10} y={146} w={120} text={tt('Arşivinde olmayanları ekle (31)')} />
+      <MiniButton x={136} y={146} w={70} text={tt('Bölümleri aç')} accent />
+    </Frame>
+  )
+}
