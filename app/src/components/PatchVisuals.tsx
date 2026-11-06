@@ -3010,3 +3010,115 @@ export function EvrenEskiVisual() {
     </Frame>
   )
 }
+
+// ---- v1.19.3 ---------------------------------------------------------------------------------
+
+export function EvrenHedefVisual() {
+  const red = '#e23636'
+  return (
+    <Frame viewBox={VB}>
+      <text x={10} y={18} fontSize={6} fontWeight={700} fill={red} style={{ fontFamily: 'inherit' }}>
+        {tt('İZLEME TURU · 1 KAS · 6. GÜN')}
+      </text>
+      <text x={196} y={18} fontSize={6} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }} {...fit(tt('Hedef 16 Ara · 40 gün kaldı'), 6, 116)}>
+        {tt('Hedef 16 Ara · 40 gün kaldı')}
+      </text>
+      <Pin x={300} y={8} n={1} />
+      <rect x={10} y={24} width={300} height={5} rx={2.5} className="fill-neutral-800" />
+      <rect x={10} y={24} width={60} height={5} rx={2.5} fill={red} />
+      <text x={10} y={42} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('63 yapımın 12 tanesini izledin · kalan 170 saat')}
+      </text>
+      <text x={10} y={54} fontSize={5.8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }} {...fit(tt('Günde yaklaşık 4 saat · Bu hızla 10 Ara gibi bitirirsin (hedeften önce)'), 5.8, 280)}>
+        {tt('Günde yaklaşık 4 saat · Bu hızla 10 Ara gibi bitirirsin (hedeften önce)')}
+      </text>
+      <Pin x={296} y={46} n={2} />
+      <Box x={10} y={66} w={190} h={106} r={6} strong />
+      <text x={18} y={80} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('Başlangıç')}
+      </text>
+      <rect x={18} y={84} width={174} height={13} rx={2.5} fill="none" className="stroke-neutral-600" strokeWidth={0.6} />
+      <text x={22} y={93} fontSize={6} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>01.11.2026</text>
+      <text x={18} y={108} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('Hedef bitiş')}
+      </text>
+      <rect x={18} y={112} width={174} height={13} rx={2.5} fill="none" className="stroke-neutral-600" strokeWidth={0.6} />
+      <text x={22} y={121} fontSize={6} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>16.12.2026</text>
+      {[tt('Doomsday çıkana kadar'), tt('1 ay'), tt('3 ay')].map((t, i) => {
+        const x = [18, 104, 132][i]
+        const w = [82, 24, 24][i]
+        return (
+          <g key={i}>
+            <rect x={x} y={131} width={w} height={11} rx={5.5} fill={i === 0 ? red : 'none'} opacity={i === 0 ? 0.5 : 1} className={i === 0 ? undefined : 'stroke-neutral-600'} strokeWidth={0.6} />
+            <text x={x + w / 2} y={138.5} fontSize={5} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit' }} {...fit(t, 5, w - 4)}>
+              {t}
+            </text>
+          </g>
+        )
+      })}
+      <rect x={18} y={150} width={174} height={14} rx={3} fill={red} />
+      <text x={105} y={159.5} fontSize={6.5} textAnchor="middle" fill="#fff" fontWeight={700} style={{ fontFamily: 'inherit' }}>
+        {tt('Kaydet')}
+      </text>
+      <Pin x={196} y={128} n={3} />
+      <text x={214} y={84} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('Önceki turlar')}
+      </text>
+      <text x={214} y={96} fontSize={5.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }} {...fit(tt('2019 · 22/23 yapım · 95 gün'), 5.5, 98)}>
+        {tt('2019 · 22/23 yapım · 95 gün')}
+      </text>
+    </Frame>
+  )
+}
+
+export function EvrenEkleVisual() {
+  const purple = '#a855f7'
+  return (
+    <Frame viewBox={VB}>
+      {[0, 1, 2].map((i) => {
+        const x = 10 + i * 34
+        return (
+          <g key={i}>
+            <rect x={x} y={14} width={30} height={45} rx={3} className="fill-neutral-700" />
+            {i === 0 && <circle cx={x + 25} cy={19} r={3.5} fill="#e23636" />}
+            <Line x={x} y={66} w={26} light />
+            <rect x={x} y={74} width={30} height={9} rx={2} fill={i === 0 ? '#e2363640' : 'none'} className={i === 0 ? undefined : 'stroke-neutral-600'} strokeWidth={0.6} />
+            <text x={x + 15} y={80.5} fontSize={4.6} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit' }} {...fit(i === 0 ? tt('✓ 3 Kas') : tt('✓ İzledim'), 4.6, 26)}>
+              {i === 0 ? tt('✓ 3 Kas') : tt('✓ İzledim')}
+            </text>
+          </g>
+        )
+      })}
+      <Pin x={108} y={74} n={1} />
+      <Box x={10} y={94} w={302} h={80} r={6} strong />
+      <rect x={16} y={100} width={180} height={11} rx={2.5} fill="none" className="stroke-neutral-600" strokeWidth={0.6} />
+      <text x={20} y={107.5} fontSize={5.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>annabelle</text>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={16 + i * 36} y={115} width={32} height={40} rx={2.5} className="fill-neutral-700" stroke={i < 2 ? purple : 'none'} strokeWidth={1} />
+          <rect x={16 + i * 36} y={159} width={32} height={8} rx={2} fill={i < 2 ? purple : 'none'} className={i < 2 ? undefined : 'stroke-neutral-600'} strokeWidth={0.6} />
+          <text x={32 + i * 36} y={165} fontSize={4.6} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
+            {i < 2 ? tt('✓ Eklendi') : tt('+ Ekle')}
+          </text>
+        </g>
+      ))}
+      <rect x={202} y={98} width={0.6} height={72} className="fill-neutral-700" />
+      <text x={208} y={107} fontSize={6} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        {tt('Sıra (3 yapım)')}
+      </text>
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <rect x={208} y={113 + i * 18} width={98} height={15} rx={3} className="fill-neutral-800" />
+          <text x={213} y={123 + i * 18} fontSize={5.5} fontWeight={700} fill={purple} style={{ fontFamily: 'inherit' }}>
+            {i + 1}
+          </text>
+          <Line x={222} y={119 + i * 18} w={50} light />
+          <text x={282} y={123 + i * 18} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+            ↑ ↓ ✕
+          </text>
+        </g>
+      ))}
+      <Pin x={196} y={96} n={2} />
+    </Frame>
+  )
+}

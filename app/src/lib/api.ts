@@ -63,6 +63,9 @@ export interface EvrenPrefs {
   maraton?: string
   ek?: boolean
   sira?: 'cikis' | 'hikaye'
+  // Turun hedef bitiş günü ve biten turlar (başlangıç, bitiş, izlenen/toplam)
+  hedef?: string
+  gecmis?: { bas: string; bit: string; done: number; total: number }[]
 }
 export interface EvrenSaveItem {
   key: string

@@ -73,6 +73,8 @@ import {
   EvrenIsaretVisual,
   EvrenTurVisual,
   EvrenEskiVisual,
+  EvrenHedefVisual,
+  EvrenEkleVisual,
   TelefonEsitlemeVisual,
   TelefonKurulumVisual,
 } from '../components/PatchVisuals'
@@ -89,6 +91,22 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.19.3',
+    date: tt('6 Kasım 2026'),
+    title: tt('Evrenler: turun hedef tarihi, kapak altındaki düğmeler, ayrı yapım ekleme penceresi'),
+    items: [
+      tt('Tura hedef bitiş tarihi koyabilirsin ("Turu düzenle"), sonradan değiştirebilir ya da kaldırabilirsin. Hazır seçenekler: 1 ay, 3 ay, 6 ay ve evrende sıradaki çıkacak yapım (ör. "Avengers: Doomsday çıkana kadar"). Başlangıç tarihini de buradan düzeltebilirsin.'),
+      tt('Üstte turun kaçıncı günü olduğu, hedefe kaç gün kaldığı, hedefe yetişmek için günde ne kadar izlemen gerektiği ve şimdiki hızınla ne zaman bitireceğin yazıyor (hedefin önünde ya da gerisinde olduğunla birlikte).'),
+      tt('Turu bitirince "Önceki turlar"a kaydediliyor: tarihleri, kaç yapım izlediğin ve kaç gün sürdüğü. Bütün yapımları izleyince "Turu bitirdin!" çıkıyor.'),
+      tt('İzledim, Arşive ekle, Bölümler gibi düğmeler artık kapağın üstünde değil, altında; kapaklar açık görünüyor. Kapakta sadece sıra numarası ve izlediklerinde küçük bir ✓ var.'),
+      tt('Kendi evrenlerinde yapım ekleme ayrı ve geniş bir pencere oldu ("+ Yapım ekle / sırala"): solda arama sonuçları kapak ızgarası olarak, sağda evrenin sırası. Dizilerde sezonları S1, S2… diye tek tıkla seçersin. Ad ve renk ayrı bir küçük pencerede ("Ad ve renk").'),
+    ],
+    visuals: [
+      { caption: tt('1 turun günü ve hedefe kalan gün · 2 günlük süre ve tahmini bitiş · 3 hedef için hazır seçenekler'), Visual: EvrenHedefVisual },
+      { caption: tt('1 düğmeler kapağın altında · 2 yapım ekleme penceresi: solda arama, sağda sıra'), Visual: EvrenEkleVisual },
+    ],
+  },
   {
     version: 'v1.19.2',
     date: tt('6 Kasım 2026'),

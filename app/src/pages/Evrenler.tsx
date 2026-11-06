@@ -12,7 +12,6 @@ import { todayIso, type Row } from '../types'
 import RowDetailModal from '../components/RowDetailModal'
 import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import AnchoredMenu from '../components/AnchoredMenu'
-import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { fmtDate, tt, ttx } from '../lib/i18n'
 
 // Evrenler — kullanıcı "VisionQuest'i anlamak için önce şunları izle dedi, madem öyle Marvel'ı baştan izleyeyim;
@@ -28,6 +27,14 @@ import { fmtDate, tt, ttx } from '../lib/i18n'
 const SWATCHES = ['#e23636', '#2b6cff', '#ffe81f', '#c9a227', '#946b2d', '#22c55e', '#a855f7', '#f97316', '#00c0fa', '#ec4899']
 
 const endOf = (w: string) => (w === '?' ? '' : w.split('/').pop() ?? '')
+
+// "YYYY-MM-DD" → gün sayısı (fark almak için) ve gün ekleme
+function dayNum(iso: string) {
+  return Math.round(Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 864e5)
+}
+function addDays(iso: string, n: number) {
+  return new Date((dayNum(iso) + n) * 864e5).toISOString().slice(0, 10)
+}
 
 function fmtWatch(w: string) {
   if (w === '?') return tt('tarihi bilinmiyor')
@@ -83,7 +90,7 @@ export default function Evrenler() {
   const { rows } = useRows(boardId)
   const [data, setData] = useState<{ universes: Evren[]; prefs: Record<string, EvrenPrefs> } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [editing, setEditing] = useState<{ id: string; initial: EvrenSave } | null>(null)
+  const [editing, setEditing] = useState<{ id: string; initial: EvrenSave; part: 'settings' | 'content' } | null>(null)
 
   const load = useCallback(() => {
     if (!boardId) return
@@ -113,7 +120,7 @@ export default function Evrenler() {
   const current = id ? data.universes.find((u) => u.id === id) : null
 
   function newUniverse() {
-    setEditing({ id: 'k' + Math.random().toString(36).slice(2, 9), initial: { name: '', color: SWATCHES[6], items: [], story: [] } })
+    setEditing({ id: 'k' + Math.random().toString(36).slice(2, 9), part: 'settings', initial: { name: '', color: SWATCHES[6], items: [], story: [] } })
   }
 
   return (
@@ -128,10 +135,10 @@ export default function Evrenler() {
           board={board}
           onPrefs={(p) => savePrefs(current.id, p)}
           onChanged={load}
-          onEdit={() => setEditing({ id: current.id, initial: toSave(current) })}
+          onEdit={(part) => setEditing({ id: current.id, part, initial: toSave(current) })}
           onCopy={() => {
             const nid = 'k' + Math.random().toString(36).slice(2, 9)
-            setEditing({ id: nid, initial: { ...toSave(current), name: tt('{0} (benim sıram)', current.name), from: current.id } })
+            setEditing({ id: nid, part: 'settings', initial: { ...toSave(current), name: tt('{0} (benim sıram)', current.name), from: current.id } })
           }}
         />
       ) : (
@@ -141,6 +148,7 @@ export default function Evrenler() {
       {editing && (
         <UniverseEditor
           id={editing.id}
+          part={editing.part}
           initial={editing.initial}
           boardId={boardId}
           isNew={!data.universes.some((u) => u.id === editing.id)}
@@ -212,6 +220,8 @@ function stats(u: Evren, prefs: EvrenPrefs) {
     done,
     left,
     before: items.filter((i) => i.watched).length,
+    // Turda izlenen süre (hıza göre tahmini bitiş için)
+    watchedMin: Math.round(items.reduce((t, i) => t + (i.minutes ?? 0) * doneShare(i, prefs.maraton), 0)),
     missing: missingTitles(u.items.filter((i) => prefs.ek || !i.extra)).length,
     upcoming: u.items.filter((i) => (prefs.ek || !i.extra) && !i.released).length,
   }
@@ -309,7 +319,7 @@ function UniverseView({
   board: NonNullable<ReturnType<typeof useBoard>['board']>
   onPrefs: (p: EvrenPrefs | null) => void
   onChanged: () => void
-  onEdit: () => void
+  onEdit: (part: 'settings' | 'content') => void
   onCopy: () => void
 }) {
   const { notify, confirm } = useToast()
@@ -328,7 +338,8 @@ function UniverseView({
   const [openAfterAdd, setOpenAfterAdd] = useState<string | null>(null)
   const [preview, setPreview] = useState<TmdbCard | null>(null)
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null)
-  const [startDay, setStartDay] = useState('')
+  const [formStart, setFormStart] = useState('')
+  const [formTarget, setFormTarget] = useState('')
   const [tourMenu, setTourMenu] = useState(false)
   const tourBtn = useRef<HTMLButtonElement>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -448,15 +459,43 @@ function UniverseView({
       setPreview({ tmdbId: it.tmdbId, mediaType: it.type, title: it.title, originalTitle: '', year: it.date.slice(0, 4), poster: it.poster, backdrop: null, overview: '', rating: null })
   }
 
-  function startTour(day: string) {
+  // Tur ayarları penceresi (başlat ya da düzenle): başlangıç ve isteğe bağlı hedef bitiş tarihi
+  function openTourMenu() {
+    setFormStart(tur ?? todayIso())
+    setFormTarget(prefs.hedef ?? '')
+    setTourMenu(true)
+  }
+  function saveTour() {
+    if (!formStart) return
+    const starting = !tur
     setTourMenu(false)
-    onPrefs({ maraton: day })
-    notify(tt('Tur başladı. {0} tarihinden sonra izlediklerin sayılıyor; önceki izlemelerin tarihleriyle görünmeye devam eder.', fmtWatch(day)))
+    onPrefs({ maraton: formStart, hedef: (formTarget || null) as unknown as string })
+    if (starting) notify(tt('Tur başladı. {0} tarihinden sonra izlediklerin sayılıyor; önceki izlemelerin tarihleriyle görünmeye devam eder.', fmtWatch(formStart)))
   }
   async function endTour() {
-    const ok = await confirm({ message: tt('Turu bitirmek istiyor musun? İzlediklerin arşivinde kalır, sadece sayaç kapanır.'), confirmLabel: tt('Bitir') })
-    if (ok) onPrefs({ maraton: null as unknown as string })
+    setTourMenu(false)
+    const ok = await confirm({ message: tt('Turu bitirmek istiyor musun? İzlediklerin arşivinde kalır; tur "Önceki turlar"a kaydedilir.'), confirmLabel: tt('Bitir') })
+    if (!ok || !tur) return
+    const rec = { bas: tur, bit: todayIso(), done: s.done, total: s.total }
+    onPrefs({ maraton: null, hedef: null, gecmis: [...(prefs.gecmis ?? []), rec] } as unknown as EvrenPrefs)
   }
+
+  // Tur hesapları: geçen gün, hedefe kalan gün, hıza göre tahmini bitiş, hedefe yetişmek için günlük süre
+  const today = todayIso()
+  const elapsed = tur ? dayNum(today) - dayNum(tur) + 1 : 0
+  const daysLeft = tur && prefs.hedef ? dayNum(prefs.hedef) - dayNum(today) : null
+  const perDay = daysLeft != null && daysLeft >= 0 && s.left > 0 ? s.left / (daysLeft + 1) : null
+  const pace = elapsed >= 3 && s.watchedMin > 0 ? s.watchedMin / elapsed : null
+  const eta = pace && s.left > 0 ? addDays(today, Math.ceil(s.left / pace)) : null
+  const finished = Boolean(tur && s.total && s.done === s.total)
+  // Hedef için hazır seçenekler: 1/3/6 ay sonrası ve evrende sıradaki çıkacak yapımın çıkış günü
+  const nextRelease = u.items.filter((i) => !i.released && i.date && i.date > today && (showExtra || !i.extra)).sort((a, b) => a.date.localeCompare(b.date))[0]
+  const quickTargets = [
+    ...(nextRelease ? [{ label: tt('{0} çıkana kadar', nextRelease.archiveTitle || nextRelease.title), date: nextRelease.date }] : []),
+    { label: tt('1 ay'), date: addDays(formStart || today, 30) },
+    { label: tt('3 ay'), date: addDays(formStart || today, 91) },
+    { label: tt('6 ay'), date: addDays(formStart || today, 182) },
+  ]
 
   const modeBtn = (m: Mode, label: string) => (
     <button onClick={() => onPrefs({ sira: m })} className={`px-3 py-1 rounded-lg transition ${mode === m ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:text-neutral-100'}`}>
@@ -478,7 +517,18 @@ function UniverseView({
         <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight">{u.name}</h1>
 
         <div className="mt-4 max-w-xl space-y-1.5">
-          {tur && <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: u.color }}>{tt('İzleme turu · {0} tarihinden beri', fmtWatch(tur))}</p>}
+          {tur && (
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: u.color }}>
+                {tt('İzleme turu · {0} tarihinden beri · {1}. gün', fmtWatch(tur), elapsed)}
+              </p>
+              {prefs.hedef && daysLeft != null && (
+                <p className={`text-xs font-semibold ${daysLeft < 0 ? 'text-amber-400' : 'text-neutral-200'}`}>
+                  {daysLeft > 0 ? tt('Hedef {0} · {1} gün kaldı', fmtWatch(prefs.hedef), daysLeft) : daysLeft === 0 ? tt('Hedef bugün') : tt('Hedef {0} gün geçti', -daysLeft)}
+                </p>
+              )}
+            </div>
+          )}
           <div className="h-2.5 rounded-full bg-neutral-800 overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: u.color }} />
           </div>
@@ -487,33 +537,75 @@ function UniverseView({
             <span className="text-neutral-500"> · %{pct}</span>
             {s.left > 0 && <span className="text-neutral-400"> · {tt('kalan {0}', hoursText(s.left))}</span>}
           </p>
+          {tur && !finished && (perDay != null || eta) && (
+            <p className="text-xs text-neutral-400">
+              {perDay != null && tt('Hedefe yetişmek için günde {0}', hoursText(Math.ceil(perDay)))}
+              {perDay != null && eta && ' · '}
+              {eta && tt('Bu hızla {0} gibi bitirirsin', fmtWatch(eta))}
+              {eta && prefs.hedef && (eta <= prefs.hedef ? <span style={{ color: u.color }}>{' '}{tt('(hedeften önce)')}</span> : <span className="text-amber-400">{' '}{tt('(hedefin {0} gün gerisinde)', dayNum(eta) - dayNum(prefs.hedef))}</span>)}
+            </p>
+          )}
           {s.upcoming > 0 && <p className="text-xs text-neutral-500">{tt('{0} yapım henüz çıkmadı, çıkınca listeye katılır.', s.upcoming)}</p>}
-          <div className="pt-2">
+          {finished && (
+            <div className="rounded-xl p-3 text-sm text-neutral-50" style={{ background: `${u.color}26`, border: `1px solid ${u.color}80` }}>
+              {tt('Turu bitirdin! {0} günde {1} yapım.', elapsed, s.total)}{' '}
+              <button onClick={endTour} className="underline underline-offset-2 font-semibold">{tt('Turu kaydet ve kapat')}</button>
+            </div>
+          )}
+          <div className="pt-2 flex flex-wrap gap-2">
             {tur ? (
-              <button onClick={endTour} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-700 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500 transition">
-                {tt('Turu bitir')}
-              </button>
+              <>
+                <button ref={tourBtn} onClick={openTourMenu} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-700 text-neutral-200 hover:text-neutral-50 hover:border-neutral-500 transition">
+                  {prefs.hedef ? tt('Turu düzenle') : tt('Hedef tarih koy')}
+                </button>
+                <button onClick={endTour} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-400 hover:text-neutral-50 hover:border-neutral-600 transition">
+                  {tt('Turu bitir')}
+                </button>
+              </>
             ) : (
-              <button ref={tourBtn} onClick={() => setTourMenu(true)} className={`${ACCENT_BTN} text-sm rounded-xl px-4 py-2`} style={accentBtn(u.color)}>
+              <button ref={tourBtn} onClick={openTourMenu} className={`${ACCENT_BTN} text-sm rounded-xl px-4 py-2`} style={accentBtn(u.color)}>
                 {tt('Baştan izleme turu başlat')}
               </button>
             )}
           </div>
+          {(prefs.gecmis ?? []).length > 0 && (
+            <div className="pt-2">
+              <p className="text-[11px] uppercase tracking-wider text-neutral-500">{tt('Önceki turlar')}</p>
+              {[...(prefs.gecmis ?? [])].reverse().map((g, i) => (
+                <p key={i} className="text-xs text-neutral-400">
+                  {fmtWatch(g.bas)} – {fmtWatch(g.bit)} · {tt('{0}/{1} yapım', g.done, g.total)} · {tt('{0} gün', dayNum(g.bit) - dayNum(g.bas) + 1)}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
         {tourMenu && (
-          <AnchoredMenu anchorRef={tourBtn} width={300} onClose={() => setTourMenu(false)}>
-            <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl p-3 space-y-2.5">
-              <p className="text-sm text-neutral-300">{tt('Sayaç sıfırdan başlar: o günden sonra izlediklerin sayılır. Daha önce izlediklerin tarihleriyle görünmeye devam eder.')}</p>
-              <button onClick={() => startTour(todayIso())} className={`${ACCENT_BTN} w-full rounded-lg px-3 py-2 text-sm`} style={accentBtn(u.color)}>
-                {tt('Bugün başlat')}
-              </button>
-              <p className="text-xs text-neutral-500">{tt('Çoktan başladıysan başladığın gün:')}</p>
-              <div className="flex gap-1.5">
-                <input type="date" value={startDay} max={todayIso()} onChange={(e) => setStartDay(e.target.value)} className="min-w-0 flex-1 rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
-                <button disabled={!startDay} onClick={() => startTour(startDay)} className="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-3 text-sm text-neutral-100 disabled:opacity-40">
-                  {tt('Başlat')}
-                </button>
+          <AnchoredMenu anchorRef={tourBtn} width={320} onClose={() => setTourMenu(false)}>
+            <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl p-3 space-y-3">
+              {!tur && <p className="text-sm text-neutral-300">{tt('Sayaç sıfırdan başlar: o günden sonra izlediklerin sayılır. Daha önce izlediklerin tarihleriyle görünmeye devam eder.')}</p>}
+              <label className="block space-y-1">
+                <span className="text-xs text-neutral-500">{tt('Başlangıç')}</span>
+                <input type="date" value={formStart} max={today} onChange={(e) => setFormStart(e.target.value)} className="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs text-neutral-500">{tt('Hedef bitiş (isteğe bağlı)')}</span>
+                <input type="date" value={formTarget} min={formStart || today} onChange={(e) => setFormTarget(e.target.value)} className="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {quickTargets.map((q) => (
+                  <button key={q.label} onClick={() => setFormTarget(q.date)} className={`text-[11px] rounded-full px-2.5 py-1 border transition ${formTarget === q.date ? 'text-neutral-50' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'}`} style={formTarget === q.date ? { borderColor: u.color, background: `${u.color}33` } : undefined}>
+                    {q.label}
+                  </button>
+                ))}
+                {formTarget && (
+                  <button onClick={() => setFormTarget('')} className="text-[11px] rounded-full px-2.5 py-1 text-neutral-500 hover:text-neutral-200">
+                    {tt('Hedefsiz')}
+                  </button>
+                )}
               </div>
+              <button disabled={!formStart} onClick={saveTour} className={`${ACCENT_BTN} w-full rounded-lg px-3 py-2 text-sm`} style={accentBtn(u.color)}>
+                {tur ? tt('Kaydet') : tt('Turu başlat')}
+              </button>
             </div>
           </AnchoredMenu>
         )}
@@ -563,9 +655,14 @@ function UniverseView({
             {tt('Kopyala ve düzenle')}
           </button>
         ) : (
-          <button onClick={onEdit} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
-            {tt('Düzenle')}
-          </button>
+          <>
+            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} text-sm rounded-xl px-3 py-1.5`} style={accentBtn(u.color)}>
+              {tt('+ Yapım ekle / sırala')}
+            </button>
+            <button onClick={() => onEdit('settings')} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+              {tt('Ad ve renk')}
+            </button>
+          </>
         )}
       </div>
 
@@ -573,7 +670,7 @@ function UniverseView({
         <div className="text-center py-14 text-neutral-500">
           <p>{tt('Bu evrende henüz yapım yok.')}</p>
           {!u.builtin && (
-            <button onClick={onEdit} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm mt-3`} style={accentBtn(u.color)}>
+            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm mt-3`} style={accentBtn(u.color)}>
               {tt('+ Yapım ekle')}
             </button>
           )}
@@ -648,6 +745,8 @@ function UniverseView({
   )
 }
 
+// Kapak + altında bilgiler ve düğmeler (kullanıcı "butonlar kapakların üzerinde olmasın, altında olsun, kapakları
+// kapatıyo" dedi). Kapakta sadece sıra numarası, izlendi işareti ve "yan" etiketi kalır.
 function Card({
   it,
   n,
@@ -676,56 +775,37 @@ function Card({
   const lastInTour = tur ? [...it.watches].reverse().find((w) => w !== '?' && endOf(w) >= tur) : last
   const before = tur && it.watched && !done
   const epPart = tur && it.type === 'tv' && it.tour?.total && !done ? it.tour : null
-  const btn = 'flex-1 min-w-0 truncate rounded-md text-[11px] font-semibold px-1.5 py-1 transition'
-  const idle = 'bg-black/75 text-neutral-100 hover:bg-neutral-100 hover:text-neutral-950'
+  const btn = 'flex-1 min-w-0 truncate rounded-md text-[11px] font-semibold px-1.5 py-1.5 transition disabled:opacity-60'
+  const idle = 'border border-neutral-700 text-neutral-200 hover:border-neutral-400 hover:text-neutral-50'
+  const doneStyle = { background: `${color}26`, color: '#f5f5f5', border: `1px solid ${color}80` }
+  const arrow = 'shrink-0 rounded-md border border-neutral-700 text-neutral-300 hover:border-neutral-400 hover:text-neutral-50 text-[11px] px-2 transition'
   return (
-    <div className="min-w-0">
-      <div className={`relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group ${isNext ? 'ring-2 ring-offset-2 ring-offset-neutral-950' : ''} ${!it.rowId ? 'outline outline-1 outline-dashed outline-neutral-700' : ''}`} style={isNext ? { ['--tw-ring-color' as string]: color } : undefined}>
+    <div className="min-w-0 flex flex-col">
+      <div
+        className={`relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group ${isNext ? 'ring-2 ring-offset-2 ring-offset-neutral-950' : ''} ${!it.rowId ? 'outline outline-1 outline-dashed outline-neutral-700' : ''}`}
+        style={isNext ? { ['--tw-ring-color' as string]: color } : undefined}
+      >
         <button onClick={onOpen} className="block h-full w-full" title={it.archiveTitle || it.title}>
           {it.poster ? (
-            <img src={it.poster} alt={it.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released ? 'opacity-40' : !it.rowId ? 'opacity-60' : done ? '' : 'opacity-90'}`} />
+            <img src={it.poster} alt={it.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released ? 'opacity-40' : !it.rowId ? 'opacity-60' : ''}`} />
           ) : (
             <span className="flex h-full items-center justify-center p-2 text-center text-xs text-neutral-400">{it.title}</span>
           )}
         </button>
         <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-black/75 text-neutral-100 rounded px-1.5 py-0.5 pointer-events-none">{n}</span>
-        {it.extra && <span className="absolute top-1.5 right-1.5 text-[9px] font-semibold bg-black/75 text-neutral-300 rounded px-1 py-0.5 pointer-events-none">{tt('yan')}</span>}
-        {isNext && <span className="absolute bottom-10 left-1.5 text-[10px] font-bold text-neutral-950 rounded px-1.5 py-0.5 pointer-events-none" style={{ background: color }}>{tt('Sıradaki')}</span>}
-        {epPart && (
-          <div className="absolute bottom-9 left-1.5 right-1.5 h-1 rounded-full bg-black/60 overflow-hidden pointer-events-none">
-            <div className="h-full" style={{ width: `${((epPart.seen ?? 0) / (epPart.total ?? 1)) * 100}%`, background: color }} />
-          </div>
+        {done && (
+          <span className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-bold pointer-events-none shadow" style={accentBtn(color)}>
+            ✓
+          </span>
         )}
-        <div className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1">
-          {!it.released && it.rowId ? (
-            <span className="flex-1 text-center rounded-md bg-black/75 text-[10px] text-neutral-300 py-1 pointer-events-none">{tt('Yakında')}</span>
-          ) : it.type === 'movie' && it.released ? (
-            <>
-              <button disabled={busy} onClick={(e) => onMovie(e.currentTarget)} className={`${btn} ${done ? 'bg-emerald-500 text-white' : idle}`} title={done ? tt('İzleme tarihleri, tekrar izledim') : tt('Bugün izledim olarak işaretle')}>
-                {busy ? '…' : done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : tt('✓ İzledim')}
-              </button>
-              {!done && (
-                <button onClick={(e) => onMenu(e.currentTarget)} className="shrink-0 rounded-md bg-black/75 text-neutral-200 hover:bg-neutral-100 hover:text-neutral-950 text-[11px] px-1.5 transition" title={tt('Başka bir tarih seç')}>
-                  ▾
-                </button>
-              )}
-            </>
-          ) : !it.rowId ? (
-            <>
-              <button disabled={busy} onClick={onAdd} className={`${btn} ${idle}`} title={tt('İzlenecek olarak arşivine ekle')}>
-                {busy ? '…' : tt('+ Arşive ekle')}
-              </button>
-              <button onClick={(e) => onMenu(e.currentTarget)} className="shrink-0 rounded-md bg-black/75 text-neutral-200 hover:bg-neutral-100 hover:text-neutral-950 text-[11px] px-1.5 transition" title={tt('Eskiden izlediysen')}>
-                ▾
-              </button>
-            </>
-          ) : (
-            <button onClick={onOpen} className={`${btn} ${done ? 'bg-emerald-500 text-white' : idle}`} title={tt('Bölümleri tek tek işaretle')}>
-              {done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : epPart ? tt('{0}/{1} bölüm', epPart.seen ?? 0, epPart.total ?? 0) : tt('Bölümler')}
-            </button>
-          )}
-        </div>
+        {it.extra && !done && <span className="absolute top-1.5 right-1.5 text-[9px] font-semibold bg-black/75 text-neutral-300 rounded px-1 py-0.5 pointer-events-none">{tt('yan')}</span>}
+        {isNext && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-bold rounded px-1.5 py-0.5 pointer-events-none" style={accentBtn(color)}>{tt('Sıradaki')}</span>}
       </div>
+      {epPart && (
+        <div className="mt-1 h-1 rounded-full bg-neutral-800 overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${((epPart.seen ?? 0) / (epPart.total ?? 1)) * 100}%`, background: color }} />
+        </div>
+      )}
       <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{it.archiveTitle || it.title}</p>
       <p className="text-[11px] text-neutral-500">
         {kindLabel(it)} · {it.released ? it.date.slice(0, 4) : it.date ? fmtRelease(it.date) : tt('tarih yok')}
@@ -735,6 +815,35 @@ function Card({
       {before && last && <p className="text-[11px] text-neutral-500">{tt('Önceden: {0}', fmtWatch(last))}</p>}
       {it.watches.length > 1 && done && <p className="text-[11px] text-neutral-500">{tt('{0} kez izledin', it.watches.length)}</p>}
       {!it.watched && it.status && !it.progress && it.rowId && !epPart && <p className="text-[11px] text-neutral-500">{it.status}</p>}
+      <div className="mt-auto pt-2 flex gap-1">
+        {!it.released && it.rowId ? (
+          <span className="flex-1 text-center rounded-md border border-dashed border-neutral-800 text-[11px] text-neutral-500 py-1.5">{tt('Yakında')}</span>
+        ) : it.type === 'movie' && it.released ? (
+          <>
+            <button disabled={busy} onClick={(e) => onMovie(e.currentTarget)} className={`${btn} ${done ? '' : idle}`} style={done ? doneStyle : undefined} title={done ? tt('İzleme tarihleri, tekrar izledim') : tt('Bugün izledim olarak işaretle')}>
+              {busy ? '…' : done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : tt('✓ İzledim')}
+            </button>
+            {!done && (
+              <button onClick={(e) => onMenu(e.currentTarget)} className={arrow} title={tt('Başka bir tarih seç')}>
+                ▾
+              </button>
+            )}
+          </>
+        ) : !it.rowId ? (
+          <>
+            <button disabled={busy} onClick={onAdd} className={`${btn} ${idle}`} title={tt('İzlenecek olarak arşivine ekle')}>
+              {busy ? '…' : tt('+ Arşive ekle')}
+            </button>
+            <button onClick={(e) => onMenu(e.currentTarget)} className={arrow} title={tt('Eskiden izlediysen')}>
+              ▾
+            </button>
+          </>
+        ) : (
+          <button onClick={onOpen} className={`${btn} ${done ? '' : idle}`} style={done ? doneStyle : undefined} title={tt('Bölümleri tek tek işaretle')}>
+            {done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : epPart ? tt('{0}/{1} bölüm', epPart.seen ?? 0, epPart.total ?? 0) : tt('Bölümler')}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -907,77 +1016,35 @@ function BulkAddModal({ items, color, onClose, onAdd }: { items: EvrenItem[]; co
 
 type SearchCard = Awaited<ReturnType<typeof api.searchEvren>>['items'][number]
 
-function UniverseEditor({ id, initial, boardId, isNew, onClose, onSaved }: { id: string; initial: EvrenSave; boardId: string; isNew: boolean; onClose: () => void; onSaved: (saved: EvrenSave | null) => void }) {
+// Kullanıcı "kendi evrenime içerik ekleme kısmı evren adı ve renginin olduğu yerden bağımsız olsun" dedi: iki ayrı
+// pencere. part="settings": ad, renk, silme (yeni evren / kopya da buradan). part="content": yapım ara ve ekle, sırala.
+function UniverseEditor({
+  id,
+  part,
+  initial,
+  boardId,
+  isNew,
+  onClose,
+  onSaved,
+}: {
+  id: string
+  part: 'settings' | 'content'
+  initial: EvrenSave
+  boardId: string
+  isNew: boolean
+  onClose: () => void
+  onSaved: (saved: EvrenSave | null) => void
+}) {
   const { notify, confirm } = useToast()
   useEscape(true, onClose)
   const [name, setName] = useState(initial.name)
   const [color, setColor] = useState(initial.color)
-  // items, story'deki sırayla tutulur (düzenleyicide görülen sıra = "Benim sıram")
+  // items, story'deki sırayla tutulur (görülen sıra = "Benim sıram")
   const [items, setItems] = useState<EvrenSaveItem[]>(() => {
     const pos = new Map(initial.story.map((k, i) => [k, i]))
     return [...initial.items].sort((a, b) => (pos.get(a.key) ?? 9999) - (pos.get(b.key) ?? 9999))
   })
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<SearchCard[] | null>(null)
-  const [searching, setSearching] = useState(false)
-  const [seasonsFor, setSeasonsFor] = useState<{ card: SearchCard; seasons: { season: number; date: string; episodes: number; poster: string | null }[]; runtime: number | null } | null>(null)
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    const query = q.trim()
-    if (query.length < 2) return
-    const t = setTimeout(() => {
-      setSearching(true)
-      api
-        .searchEvren(boardId, query)
-        .then((r) => {
-          setResults(r.items)
-          if (r.needsApiKey) notify(tt('Arama için Ayarlar → Veritabanı → API sekmesinden bir TMDB anahtarı girmelisin.'), 'danger')
-        })
-        .catch(() => setResults([]))
-        .finally(() => setSearching(false))
-    }, 350)
-    return () => clearTimeout(t)
-  }, [q, boardId, notify])
-
-  const has = (tmdbId: number, type: string, season?: number) => items.some((i) => i.tmdbId === tmdbId && i.type === type && (i.season ?? 0) === (season ?? 0))
-
-  function add(card: SearchCard, season?: { season: number; date: string; poster: string | null; episodes: number }, runtime?: number | null) {
-    if (has(card.tmdbId, card.mediaType, season?.season)) return
-    const it: EvrenSaveItem = {
-      key: `${card.mediaType[0]}${card.tmdbId}${season ? 's' + season.season : ''}`,
-      type: card.mediaType,
-      tmdbId: card.tmdbId,
-      title: card.title || card.originalTitle,
-      en: card.originalTitle,
-      date: season?.date || card.date || '',
-    }
-    if (season) it.season = season.season
-    const poster = season?.poster ? `https://image.tmdb.org/t/p/w342${season.poster}` : card.poster
-    if (poster) it.poster = poster
-    if (season && runtime) it.minutes = runtime * season.episodes
-    setItems((list) => [...list, it])
-  }
-
-  async function pickSeasons(card: SearchCard) {
-    const r = await api.getEvrenSeasons(card.tmdbId).catch(() => null)
-    if (!r?.seasons.length) return add(card)
-    setSeasonsFor({ card, ...r })
-  }
-
-  function move(i: number, d: number) {
-    setItems((list) => {
-      const j = i + d
-      if (j < 0 || j >= list.length) return list
-      const next = [...list]
-      ;[next[i], next[j]] = [next[j], next[i]]
-      return next
-    })
-  }
-
-  function sortByDate() {
-    setItems((list) => [...list].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999')))
-  }
 
   async function save() {
     if (!name.trim()) return notify(tt('Evrene bir ad ver.'), 'danger')
@@ -1000,110 +1067,226 @@ function UniverseEditor({ id, initial, boardId, isNew, onClose, onSaved }: { id:
     onSaved(null)
   }
 
+  const footer = (
+    <div className="flex items-center gap-2 p-4 border-t border-neutral-800">
+      {part === 'settings' && !isNew && (
+        <button onClick={remove} className="text-sm rounded-xl px-3 py-2 text-rose-400 hover:bg-rose-500/10">
+          {tt('Evreni sil')}
+        </button>
+      )}
+      <span className="flex-1" />
+      <button onClick={onClose} className="text-sm rounded-xl px-4 py-2 text-neutral-300 hover:bg-neutral-800">{tt('Vazgeç')}</button>
+      <button disabled={saving} onClick={save} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`} style={accentBtn(color)}>
+        {saving ? tt('Kaydediliyor...') : isNew ? tt('Oluştur') : tt('Kaydet')}
+      </button>
+    </div>
+  )
+
+  if (part === 'settings') {
+    return (
+      <div className="fixed inset-0 z-[70] bg-black/70 flex items-start sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
+        <div className="w-full max-w-md rounded-none sm:rounded-3xl border border-neutral-800 bg-neutral-950" onClick={(e) => e.stopPropagation()}>
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-neutral-50">{isNew ? tt('Yeni evren') : tt('Evren ayarları')}</h2>
+              <button onClick={onClose} className="text-neutral-500 hover:text-neutral-100 text-xl px-2">✕</button>
+            </div>
+            <div className="rounded-2xl border border-neutral-800 p-4" style={{ background: `linear-gradient(135deg, ${color}55, #0a0a0a 75%)` }}>
+              <p className="text-xl font-black text-neutral-50 truncate">{name.trim() || tt('Evrenin adı')}</p>
+              <p className="text-xs text-neutral-400">{tt('{0} yapım', items.length)}</p>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs text-neutral-500">{tt('Ad')}</p>
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} placeholder={tt('Evrenin adı (ör. Korku Seansı Evreni)')} className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs text-neutral-500">{tt('Renk')}</p>
+              <div className="flex flex-wrap gap-2">
+                {SWATCHES.map((c) => (
+                  <button key={c} onClick={() => setColor(c)} className={`h-8 w-8 rounded-full border-2 transition ${color === c ? 'border-white scale-110' : 'border-transparent'}`} style={{ background: c }} aria-label={c} />
+                ))}
+              </div>
+            </div>
+            {isNew && !items.length && <p className="text-xs text-neutral-500">{tt('Oluşturduktan sonra evrenin sayfasında "+ Yapım ekle / sırala" ile film ve dizi eklersin.')}</p>}
+          </div>
+          {footer}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/70 flex items-start sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
-      <div className="w-full max-w-3xl max-h-full sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-3xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-neutral-50">{isNew ? tt('Yeni evren') : tt('Evreni düzenle')}</h2>
+      <div className="w-full max-w-6xl h-full sm:h-[88vh] flex flex-col rounded-none sm:rounded-3xl border border-neutral-800 bg-neutral-950" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 pb-3">
+          <div>
+            <p className="text-xs font-black tracking-widest" style={{ color }}>{name}</p>
+            <h2 className="text-xl font-bold text-neutral-50">{tt('Yapımlar')}</h2>
+          </div>
           <button onClick={onClose} className="text-neutral-500 hover:text-neutral-100 text-xl px-2">✕</button>
         </div>
-        <div className="space-y-3">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tt('Evrenin adı (ör. Korku Seansı Evreni)')} className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-neutral-100 outline-none focus:border-[#00c0fa]" />
-          <div className="flex flex-wrap gap-2">
-            {SWATCHES.map((c) => (
-              <button key={c} onClick={() => setColor(c)} className={`h-7 w-7 rounded-full border-2 transition ${color === c ? 'border-white scale-110' : 'border-transparent'}`} style={{ background: c }} aria-label={c} />
-            ))}
-          </div>
+        <div className="flex-1 min-h-0 grid md:grid-cols-[1fr_340px] gap-0 border-t border-neutral-800">
+          <ContentSearch boardId={boardId} color={color} items={items} onAdd={(it) => setItems((l) => (l.some((x) => x.key === it.key) ? l : [...l, it]))} onRemove={(key) => setItems((l) => l.filter((x) => x.key !== key))} />
+          <OrderList items={items} setItems={setItems} color={color} />
         </div>
+        {footer}
+      </div>
+    </div>
+  )
+}
 
-        <div className="space-y-2">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt('Film ya da dizi ara ve ekle…')} className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]" />
-          {searching && <p className="text-xs text-neutral-500">{tt('Aranıyor...')}</p>}
-          {results && q.trim().length >= 2 && !searching && (
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {!results.length && <p className="text-sm text-neutral-500">{tt('Bir şey bulunamadı.')}</p>}
-              {results.map((c) => {
-                const added = has(c.tmdbId, c.mediaType)
-                return (
-                  <div key={c.mediaType + c.tmdbId} className="w-24 shrink-0">
-                    <div className="aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800">{c.poster && <img src={c.poster} alt="" className="h-full w-full object-cover" />}</div>
-                    <p className="text-[11px] text-neutral-200 mt-1 line-clamp-2 leading-tight">{c.title}</p>
-                    <p className="text-[10px] text-neutral-500">{c.mediaType === 'tv' ? tt('Dizi') : tt('Film')} · {c.year}{c.inArchive ? ' · ' + tt('arşivinde') : ''}</p>
-                    <button disabled={added} onClick={() => add(c)} className="mt-1 w-full text-[11px] rounded-md border border-neutral-700 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] py-1 disabled:opacity-40">
+// Sol taraf: ara, sonuçlar kapak ızgarası (düğmeler kapağın altında), dizide sezon seçimi
+function ContentSearch({ boardId, color, items, onAdd, onRemove }: { boardId: string; color: string; items: EvrenSaveItem[]; onAdd: (it: EvrenSaveItem) => void; onRemove: (key: string) => void }) {
+  const { notify } = useToast()
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<SearchCard[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [seasonsFor, setSeasonsFor] = useState<{ card: SearchCard; seasons: { season: number; date: string; episodes: number; poster: string | null }[]; runtime: number | null } | null>(null)
+
+  useEffect(() => {
+    const query = q.trim()
+    if (query.length < 2) return
+    const t = setTimeout(() => {
+      setSearching(true)
+      api
+        .searchEvren(boardId, query)
+        .then((r) => {
+          setResults(r.items)
+          if (r.needsApiKey) notify(tt('Arama için Ayarlar → Veritabanı → API sekmesinden bir TMDB anahtarı girmelisin.'), 'danger')
+        })
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false))
+    }, 350)
+    return () => clearTimeout(t)
+  }, [q, boardId, notify])
+
+  const keyOf = (card: SearchCard, season?: number) => `${card.mediaType[0]}${card.tmdbId}${season ? 's' + season : ''}`
+  const has = (key: string) => items.some((i) => i.key === key)
+
+  function make(card: SearchCard, season?: { season: number; date: string; poster: string | null; episodes: number }, runtime?: number | null): EvrenSaveItem {
+    const it: EvrenSaveItem = { key: keyOf(card, season?.season), type: card.mediaType, tmdbId: card.tmdbId, title: card.title || card.originalTitle, en: card.originalTitle, date: season?.date || card.date || '' }
+    if (season) it.season = season.season
+    const poster = season?.poster ? `https://image.tmdb.org/t/p/w342${season.poster}` : card.poster
+    if (poster) it.poster = poster
+    if (season && runtime) it.minutes = runtime * season.episodes
+    return it
+  }
+
+  function toggle(card: SearchCard) {
+    const key = keyOf(card)
+    if (has(key)) onRemove(key)
+    else onAdd(make(card))
+  }
+
+  async function pickSeasons(card: SearchCard) {
+    if (seasonsFor?.card.tmdbId === card.tmdbId) return setSeasonsFor(null)
+    const r = await api.getEvrenSeasons(card.tmdbId).catch(() => null)
+    if (!r?.seasons.length) return onAdd(make(card))
+    setSeasonsFor({ card, ...r })
+  }
+
+  const chip = (on: boolean) => `w-full text-[11px] rounded-md py-1 transition ${on ? 'font-semibold' : 'border border-neutral-700 text-neutral-300 hover:border-neutral-500 hover:text-neutral-50'}`
+
+  return (
+    <div className="min-h-0 flex flex-col p-4 gap-3 overflow-hidden">
+      <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt('Film ya da dizi ara…')} className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2.5 text-sm text-neutral-100 outline-none focus:border-neutral-500" />
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+        {q.trim().length < 2 && <p className="text-sm text-neutral-500 py-10 text-center">{tt('Eklemek istediğin film ya da diziyi ara. Dizilerde istersen tek tek sezon seçebilirsin.')}</p>}
+        {searching && <p className="text-xs text-neutral-500">{tt('Aranıyor...')}</p>}
+        {results && q.trim().length >= 2 && !searching && !results.length && <p className="text-sm text-neutral-500">{tt('Bir şey bulunamadı.')}</p>}
+        {results && q.trim().length >= 2 && !searching && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-4">
+            {results.map((c) => {
+              const added = has(keyOf(c))
+              const seasonCount = items.filter((i) => i.tmdbId === c.tmdbId && i.type === 'tv' && i.season).length
+              return (
+                <div key={c.mediaType + c.tmdbId} className="min-w-0">
+                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800" style={added || seasonCount ? { boxShadow: `0 0 0 2px ${color}` } : undefined}>
+                    {c.poster ? <img src={c.poster} alt="" loading="lazy" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center p-2 text-center text-xs text-neutral-400">{c.title}</span>}
+                  </div>
+                  <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{c.title}</p>
+                  <p className="text-[11px] text-neutral-500">
+                    {c.mediaType === 'tv' ? tt('Dizi') : tt('Film')} · {c.year || '—'}
+                    {c.inArchive ? ' · ' + tt('arşivinde') : ''}
+                  </p>
+                  <div className="mt-1.5 space-y-1">
+                    <button onClick={() => toggle(c)} className={chip(added)} style={added ? accentBtn(color) : undefined}>
                       {added ? tt('✓ Eklendi') : c.mediaType === 'tv' ? tt('+ Bütün dizi') : tt('+ Ekle')}
                     </button>
                     {c.mediaType === 'tv' && (
-                      <button onClick={() => pickSeasons(c)} className="mt-1 w-full text-[11px] rounded-md border border-neutral-800 text-neutral-400 hover:text-neutral-100 py-1">
-                        {tt('Sezon seç')}
+                      <button onClick={() => pickSeasons(c)} className={chip(false)}>
+                        {seasonCount ? tt('{0} sezon seçili', seasonCount) : tt('Sezon seç')}
                       </button>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          )}
-          {seasonsFor && (
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-neutral-200">{tt('{0} — hangi sezonlar?', seasonsFor.card.title)}</p>
-                <button onClick={() => setSeasonsFor(null)} className="text-neutral-500 hover:text-neutral-100 text-sm">✕</button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {seasonsFor.seasons.map((s) => {
-                  const added = has(seasonsFor.card.tmdbId, 'tv', s.season)
-                  return (
-                    <button key={s.season} disabled={added} onClick={() => add(seasonsFor.card, s, seasonsFor.runtime)} className="text-xs rounded-lg border border-neutral-700 text-neutral-200 hover:border-[#00c0fa] px-2.5 py-1.5 disabled:opacity-40">
-                      {tt('{0}. Sezon', s.season)} {s.date ? `· ${s.date.slice(0, 4)}` : ''} {added ? '✓' : '+'}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-neutral-200">{tt('Sıra ({0} yapım)', items.length)}</p>
-            {items.length > 1 && (
-              <button onClick={sortByDate} className="text-xs rounded-lg border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 px-2.5 py-1">
-                {tt('Çıkış tarihine göre sırala')}
-              </button>
-            )}
-          </div>
-          {!items.length && <p className="text-sm text-neutral-500">{tt('Yukarıdan arayıp yapım ekle. Okları kullanarak sırasını değiştirebilirsin.')}</p>}
-          <ol className="space-y-1">
-            {items.map((it, i) => (
-              <li key={it.key} className="flex items-center gap-2 rounded-xl bg-neutral-900/70 border border-neutral-800 px-2 py-1.5">
-                <span className="w-6 text-right text-xs text-neutral-500">{i + 1}</span>
-                <div className="h-10 w-7 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" className="h-full w-full object-cover" />}</div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-neutral-100 truncate">{it.title}</p>
-                  <p className="text-[11px] text-neutral-500">
-                    {it.season ? tt('{0}. Sezon', it.season) : it.type === 'tv' ? tt('Dizi') : tt('Film')} · {it.date ? it.date.slice(0, 4) : tt('tarih yok')}
-                  </p>
+                  {seasonsFor?.card.tmdbId === c.tmdbId && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {seasonsFor.seasons.map((s) => {
+                        const k = keyOf(c, s.season)
+                        const on = has(k)
+                        return (
+                          <button
+                            key={s.season}
+                            onClick={() => (on ? onRemove(k) : onAdd(make(c, s, seasonsFor.runtime)))}
+                            className={`text-[11px] rounded-md px-2 py-0.5 transition ${on ? 'font-semibold' : 'border border-neutral-700 text-neutral-300 hover:border-neutral-500'}`}
+                            style={on ? accentBtn(color) : undefined}
+                            title={s.date ? s.date.slice(0, 4) : ''}
+                          >
+                            {tt('S{0}', s.season)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-                <button onClick={() => move(i, -1)} disabled={i === 0} className="h-7 w-7 rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-30" title={tt('Yukarı')}>↑</button>
-                <button onClick={() => move(i, 1)} disabled={i === items.length - 1} className="h-7 w-7 rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-30" title={tt('Aşağı')}>↓</button>
-                <button onClick={() => setItems((l) => l.filter((x) => x.key !== it.key))} className="h-7 w-7 rounded-md text-neutral-500 hover:bg-rose-500/10 hover:text-rose-400" title={tt('Çıkar')}>✕</button>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        <div className="flex items-center gap-2 pt-2 border-t border-neutral-800">
-          {!isNew && (
-            <button onClick={remove} className="text-sm rounded-xl px-3 py-2 text-rose-400 hover:bg-rose-500/10">
-              {tt('Evreni sil')}
-            </button>
-          )}
-          <span className="flex-1" />
-          <button onClick={onClose} className="text-sm rounded-xl px-4 py-2 text-neutral-300 hover:bg-neutral-800">{tt('Vazgeç')}</button>
-          <button disabled={saving} onClick={save} className={`${PRIMARY_BUTTON} rounded-xl px-4 py-2 text-sm`} style={primaryButtonStyle}>
-            {saving ? tt('Kaydediliyor...') : tt('Kaydet')}
-          </button>
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+// Sağ taraf: evrendeki yapımlar, sırası (oklar), çıkar, çıkış tarihine göre sırala
+function OrderList({ items, setItems, color }: { items: EvrenSaveItem[]; setItems: React.Dispatch<React.SetStateAction<EvrenSaveItem[]>>; color: string }) {
+  function move(i: number, d: number) {
+    setItems((list) => {
+      const j = i + d
+      if (j < 0 || j >= list.length) return list
+      const next = [...list]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+  return (
+    <div className="min-h-0 flex flex-col border-t md:border-t-0 md:border-l border-neutral-800 bg-neutral-900/30">
+      <div className="flex items-center justify-between gap-2 p-4 pb-2">
+        <p className="text-sm font-semibold text-neutral-200">{tt('Sıra ({0} yapım)', items.length)}</p>
+        {items.length > 1 && (
+          <button onClick={() => setItems((list) => [...list].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999')))} className="text-xs rounded-lg border border-neutral-700 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500 px-2.5 py-1">
+            {tt('Çıkış tarihine göre sırala')}
+          </button>
+        )}
+      </div>
+      <ol className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-1">
+        {!items.length && <p className="text-sm text-neutral-500 px-1 py-6">{tt('Henüz yapım yok. Soldan arayıp ekle; sırasını burada oklarla değiştirirsin.')}</p>}
+        {items.map((it, i) => (
+          <li key={it.key} className="flex items-center gap-2 rounded-xl bg-neutral-900 border border-neutral-800 px-2 py-1.5">
+            <span className="w-5 text-right text-xs font-bold" style={{ color }}>{i + 1}</span>
+            <div className="h-10 w-7 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" className="h-full w-full object-cover" />}</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-neutral-100 truncate">{it.title}</p>
+              <p className="text-[11px] text-neutral-500">
+                {it.season ? tt('{0}. Sezon', it.season) : it.type === 'tv' ? tt('Dizi') : tt('Film')} · {it.date ? it.date.slice(0, 4) : tt('tarih yok')}
+              </p>
+            </div>
+            <button onClick={() => move(i, -1)} disabled={i === 0} className="h-7 w-6 rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-30" title={tt('Yukarı')}>↑</button>
+            <button onClick={() => move(i, 1)} disabled={i === items.length - 1} className="h-7 w-6 rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-30" title={tt('Aşağı')}>↓</button>
+            <button onClick={() => setItems((l) => l.filter((x) => x.key !== it.key))} className="h-7 w-6 rounded-md text-neutral-500 hover:bg-rose-500/10 hover:text-rose-400" title={tt('Çıkar')}>✕</button>
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }
