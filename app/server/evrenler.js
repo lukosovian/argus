@@ -225,11 +225,15 @@ export function registerEvrenlerRoutes(app) {
     }
   })
 
-  // Arşivinde olmayan bir yapımı İzlenecek olarak ekle (dizilerde bölümler de gelir); zaten varsa kaydını döndürür
+  // Arşivinde olmayan bir yapımı ekle (dizilerde bölümler de gelir); zaten varsa kaydını döndürür. Varsayılan İzlenecek;
+  // status "izlendi" + date ("2019" / "?") = "eskiden izledim, arşive yazmayı unuttum" — kullanıcı toplu eklerken
+  // bunları ayırmak istedi. Dizide bölümlere tarih basılmaz, sadece kayıt İzlendi olur (tura sayılmaz).
   app.post('/api/profiles/:profileId/evrenler/:boardId/ekle', async (req, res) => {
     try {
       const { profileId, boardId } = req.params
-      const { uid, key } = req.body ?? {}
+      const { uid, key, status, date } = req.body ?? {}
+      const old = status === 'izlendi'
+      if (old && (typeof date !== 'string' || !DATE_RE.test(date))) return res.status(400).json({ error: stt('Geçersiz tarih') })
       const item = universe(profileId, uid)?.items?.find((i) => i.key === key)
       if (!item) return res.status(404).json({ error: stt('Yapım bulunamadı') })
       const ctx = makeContext(profileId, boardId)
@@ -237,7 +241,7 @@ export function registerEvrenlerRoutes(app) {
       const row = findRow(ctx, item)
       if (row) return res.json({ ok: true, rowId: row.id, created: false })
       if (!item.tmdbId) return res.status(400).json({ error: stt('Bu yapım arşivinde yok') })
-      const out = await d.addRowFromTmdb(profileId, boardId, { tmdbId: item.tmdbId, mediaType: item.type, status: 'izlenecek' })
+      const out = await d.addRowFromTmdb(profileId, boardId, { tmdbId: item.tmdbId, mediaType: item.type, status: old ? 'izlendi' : 'izlenecek', watchedDate: old ? date : undefined })
       if (out.status !== 200) return res.status(out.status).json(out.json)
       res.json({ ok: true, rowId: out.json.rowId, created: true })
     } catch (e) {

@@ -72,6 +72,7 @@ import {
   EvrenlerListeVisual,
   EvrenIsaretVisual,
   EvrenTurVisual,
+  EvrenEskiVisual,
   TelefonEsitlemeVisual,
   TelefonKurulumVisual,
 } from '../components/PatchVisuals'
@@ -88,6 +89,18 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.19.2',
+    date: tt('6 Kasım 2026'),
+    title: tt('Evrenler: "Eskiden izledim", tur butonu, evrenin kendi renkleri'),
+    items: [
+      tt('"Arşivinde olmayanları ekle" artık önce bir liste açıyor: her yapım için "İzlenecek" ya da "Eskiden izledim" seçersin, istersen yılını yazarsın. Eskiden izlediklerin İzlendi olarak eklenir, takvimde bugüne düşmez, tura sayılmaz. Bir dizinin sezonları listede tek satır.'),
+      tt('Tek tek de olur: arşivinde olmayan bir yapımın okundaki menüde "Eskiden izledim" (yıl ya da hatırlamıyorum) var, dizilerde de.'),
+      tt('Baştan izleme turu kutusu kalktı: yerinde "Baştan izleme turu başlat" düğmesi var, basınca küçük bir pencerede "Bugün başlat" ya da başladığın günü seçersin.'),
+      tt('Evren sayfasındaki düğmeler, etiketler ve çerçeveler evrenin kendi renginde (Marvel kırmızı, Star Wars sarı…), mavi değil.'),
+    ],
+    visuals: [{ caption: tt('1 her yapım için İzlenecek ya da Eskiden izledim · 2 yılı ya da boş · 3 hepsini ekle'), Visual: EvrenEskiVisual }],
+  },
   {
     version: 'v1.19.1',
     date: tt('6 Kasım 2026'),

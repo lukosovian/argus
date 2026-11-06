@@ -52,6 +52,16 @@ function hoursText(min: number) {
   return h >= 1 ? tt('yaklaşık {0} saat', h) : tt('{0} dakika', min)
 }
 
+// Evren sayfasındaki vurgular evrenin kendi renginde (kullanıcı "MCU kırmızı, butonlar mavi güzel durmamış" dedi).
+// Açık renklerin (Star Wars sarısı) üstüne koyu yazı.
+function onColor(hex: string) {
+  const n = parseInt(hex.slice(1), 16)
+  const l = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
+  return l > 0.6 ? '#0a0a0a' : '#ffffff'
+}
+const accentBtn = (c: string) => ({ background: c, color: onColor(c) })
+const ACCENT_BTN = 'font-semibold transition hover:brightness-110 disabled:opacity-50'
+
 type Mode = 'cikis' | 'hikaye'
 
 function orderItems(u: Evren, mode: Mode, showExtra: boolean) {
@@ -181,6 +191,18 @@ function doneShare(it: EvrenItem, tur?: string) {
   return 0
 }
 
+// Arşivinde olmayanlar — bir dizinin sezonları arşivde tek kayıt olduğundan bir kez sayılır
+function missingTitles(items: EvrenItem[]) {
+  const seen = new Set<string>()
+  return items.filter((i) => {
+    if (i.rowId || !i.tmdbId) return false
+    const k = i.type + i.tmdbId
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
 function stats(u: Evren, prefs: EvrenPrefs) {
   const items = u.items.filter((i) => (prefs.ek || !i.extra) && i.released)
   const done = items.filter((i) => isDone(i, prefs.maraton)).length
@@ -190,7 +212,7 @@ function stats(u: Evren, prefs: EvrenPrefs) {
     done,
     left,
     before: items.filter((i) => i.watched).length,
-    missing: u.items.filter((i) => (prefs.ek || !i.extra) && !i.rowId && i.tmdbId).length,
+    missing: missingTitles(u.items.filter((i) => prefs.ek || !i.extra)).length,
     upcoming: u.items.filter((i) => (prefs.ek || !i.extra) && !i.released).length,
   }
 }
@@ -246,7 +268,7 @@ function UniverseList({ universes, prefs, onNew }: { universes: Evren[]; prefs: 
                   <span className="text-neutral-500 text-xs">{s.left ? tt('kalan {0}', hoursText(s.left)) : s.total ? tt('hepsini izledin') : ''}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-[11px]">
-                  {p.maraton && <span className="rounded-full bg-[#00c0fa]/15 text-[#7fdcff] px-2 py-0.5">{tt('Tur sürüyor')}</span>}
+                  {p.maraton && <span className="rounded-full px-2 py-0.5 text-neutral-50" style={{ background: `${u.color}33` }}>{tt('Tur sürüyor')}</span>}
                   {!u.builtin && <span className="rounded-full bg-neutral-800 text-neutral-400 px-2 py-0.5">{tt('Senin evrenin')}</span>}
                   {s.upcoming > 0 && <span className="rounded-full bg-neutral-800 text-neutral-400 px-2 py-0.5">{tt('{0} yakında', s.upcoming)}</span>}
                 </div>
@@ -307,6 +329,9 @@ function UniverseView({
   const [preview, setPreview] = useState<TmdbCard | null>(null)
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null)
   const [startDay, setStartDay] = useState('')
+  const [tourMenu, setTourMenu] = useState(false)
+  const tourBtn = useRef<HTMLButtonElement>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const numbers = new Map(ordered.map((i, n) => [i.key, n + 1]))
 
   // Çıkış sırasında fazlara göre bölümler; hikâye sırasında tek liste
@@ -378,16 +403,16 @@ function UniverseView({
     }
   }
 
-  async function addAllMissing() {
-    const list = ordered.filter((i) => !i.rowId && i.tmdbId)
+  // Toplu ekleme: her yapım için İzlenecek ya da "eskiden izledim" (yıl / "?") seçilmiş liste
+  async function addAllMissing(list: { item: EvrenItem; old: string | null }[]) {
+    setBulkOpen(false)
     if (!list.length) return
-    const ok = await confirm({ message: tt('Arşivinde olmayan {0} yapım İzlenecek olarak eklensin mi? Biraz sürebilir.', list.length), confirmLabel: tt('Ekle') })
-    if (!ok) return
     setBulk({ done: 0, total: list.length })
     let fail = 0
     for (let n = 0; n < list.length; n++) {
+      const { item, old } = list[n]
       try {
-        await api.addEvren(boardId, { uid: u.id, key: list[n].key })
+        await api.addEvren(boardId, old ? { uid: u.id, key: item.key, status: 'izlendi', date: old } : { uid: u.id, key: item.key })
       } catch {
         fail++
       }
@@ -396,7 +421,23 @@ function UniverseView({
     setBulk(null)
     notifyDataChanged(boardId)
     onChanged()
-    notify(fail ? tt('{0} yapım eklendi, {1} tanesi eklenemedi.', list.length - fail, fail) : tt('{0} yapım izlenecekler listene eklendi.', list.length), fail ? 'danger' : undefined)
+    notify(fail ? tt('{0} yapım eklendi, {1} tanesi eklenemedi.', list.length - fail, fail) : tt('{0} yapım arşivine eklendi.', list.length), fail ? 'danger' : undefined)
+  }
+
+  // Tek bir yapımı "eskiden izledim" diye ekle (dizi ya da film; tarih yıl ya da "?")
+  async function addOld(it: EvrenItem, date: string) {
+    setMenu(null)
+    setBusy(it.key)
+    try {
+      await api.addEvren(boardId, { uid: u.id, key: it.key, status: 'izlendi', date })
+      notifyDataChanged(boardId)
+      onChanged()
+      notify(tt('"{0}" eskiden izlediklerin arasına eklendi.', it.title))
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Eklenemedi.'), 'danger')
+    } finally {
+      setBusy(null)
+    }
   }
 
   // Afişe ya da "Bölümler"e basınca: arşivdeyse detay (dizide bölümler açık), değilse TMDB önizlemesi
@@ -408,6 +449,7 @@ function UniverseView({
   }
 
   function startTour(day: string) {
+    setTourMenu(false)
     onPrefs({ maraton: day })
     notify(tt('Tur başladı. {0} tarihinden sonra izlediklerin sayılıyor; önceki izlemelerin tarihleriyle görünmeye devam eder.', fmtWatch(day)))
   }
@@ -435,40 +477,45 @@ function UniverseView({
         {u.short && <p className="text-sm font-black tracking-widest mt-3" style={{ color: u.color }}>{u.short}</p>}
         <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight">{u.name}</h1>
 
-        {tur ? (
-          <div className="mt-4 max-w-xl space-y-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#7fdcff]">{tt('İzleme turu · {0} tarihinden beri', fmtWatch(tur))}</p>
-              <button onClick={endTour} className="text-xs text-neutral-500 hover:text-neutral-200">{tt('Turu bitir')}</button>
-            </div>
-            <div className="h-2.5 rounded-full bg-neutral-800 overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: u.color }} />
-            </div>
-            <p className="text-sm text-neutral-200">
-              {ttx('{0} yapımın {1} tanesini izledin', s.total, <b className="text-neutral-50">{s.done}</b>)}
-              <span className="text-neutral-500"> · %{pct}</span>
-              {s.left > 0 && <span className="text-neutral-400"> · {tt('kalan {0}', hoursText(s.left))}</span>}
-            </p>
-            {s.upcoming > 0 && <p className="text-xs text-neutral-500">{tt('{0} yapım henüz çıkmadı, çıkınca listeye katılır.', s.upcoming)}</p>}
+        <div className="mt-4 max-w-xl space-y-1.5">
+          {tur && <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: u.color }}>{tt('İzleme turu · {0} tarihinden beri', fmtWatch(tur))}</p>}
+          <div className="h-2.5 rounded-full bg-neutral-800 overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: u.color }} />
           </div>
-        ) : (
-          <div className="mt-4 max-w-xl rounded-2xl border border-[#00c0fa]/30 bg-[#00c0fa]/5 p-4 space-y-2">
-            <p className="font-semibold text-neutral-50">{tt('Baştan izleme turu')}</p>
-            <p className="text-sm text-neutral-300">
-              {tt('Turu başlatınca sayaç sıfırdan başlar: o günden sonra izlediklerin sayılır, ne kadar izlediğini ve ne kadar kaldığını görürsün. Daha önce izlediklerin tarihleriyle görünmeye devam eder.')}
-            </p>
-            <p className="text-xs text-neutral-500">{tt('Şu ana kadar {0} yapımın {1} tanesini izlemişsin.', s.total, s.before)}</p>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button onClick={() => startTour(todayIso())} className={`${PRIMARY_BUTTON} rounded-xl px-4 py-2 text-sm`} style={primaryButtonStyle}>
-                {tt('Turu bugün başlat')}
+          <p className="text-sm text-neutral-200">
+            {tur ? ttx('{0} yapımın {1} tanesini izledin', s.total, <b className="text-neutral-50">{s.done}</b>) : ttx('{0}/{1} izledin', <b className="text-neutral-50">{s.done}</b>, s.total)}
+            <span className="text-neutral-500"> · %{pct}</span>
+            {s.left > 0 && <span className="text-neutral-400"> · {tt('kalan {0}', hoursText(s.left))}</span>}
+          </p>
+          {s.upcoming > 0 && <p className="text-xs text-neutral-500">{tt('{0} yapım henüz çıkmadı, çıkınca listeye katılır.', s.upcoming)}</p>}
+          <div className="pt-2">
+            {tur ? (
+              <button onClick={endTour} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-700 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500 transition">
+                {tt('Turu bitir')}
               </button>
-              <span className="text-xs text-neutral-500">{tt('ya da çoktan başladıysan:')}</span>
-              <input type="date" value={startDay} max={todayIso()} onChange={(e) => setStartDay(e.target.value)} className="rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
-              <button disabled={!startDay} onClick={() => startTour(startDay)} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 disabled:opacity-40">
-                {tt('Bu tarihten başlat')}
+            ) : (
+              <button ref={tourBtn} onClick={() => setTourMenu(true)} className={`${ACCENT_BTN} text-sm rounded-xl px-4 py-2`} style={accentBtn(u.color)}>
+                {tt('Baştan izleme turu başlat')}
               </button>
-            </div>
+            )}
           </div>
+        </div>
+        {tourMenu && (
+          <AnchoredMenu anchorRef={tourBtn} width={300} onClose={() => setTourMenu(false)}>
+            <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-xl p-3 space-y-2.5">
+              <p className="text-sm text-neutral-300">{tt('Sayaç sıfırdan başlar: o günden sonra izlediklerin sayılır. Daha önce izlediklerin tarihleriyle görünmeye devam eder.')}</p>
+              <button onClick={() => startTour(todayIso())} className={`${ACCENT_BTN} w-full rounded-lg px-3 py-2 text-sm`} style={accentBtn(u.color)}>
+                {tt('Bugün başlat')}
+              </button>
+              <p className="text-xs text-neutral-500">{tt('Çoktan başladıysan başladığın gün:')}</p>
+              <div className="flex gap-1.5">
+                <input type="date" value={startDay} max={todayIso()} onChange={(e) => setStartDay(e.target.value)} className="min-w-0 flex-1 rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
+                <button disabled={!startDay} onClick={() => startTour(startDay)} className="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-3 text-sm text-neutral-100 disabled:opacity-40">
+                  {tt('Başlat')}
+                </button>
+              </div>
+            </div>
+          </AnchoredMenu>
         )}
 
         {next && (
@@ -483,7 +530,7 @@ function UniverseView({
                 {!next.rowId ? ` · ${tt('arşivinde yok')}` : ''}
               </p>
             </div>
-            <button disabled={busy === next.key} onClick={nextAction(next).run} className={`${PRIMARY_BUTTON} rounded-xl px-3 py-2 text-sm shrink-0`} style={primaryButtonStyle}>
+            <button disabled={busy === next.key} onClick={nextAction(next).run} className={`${ACCENT_BTN} rounded-xl px-3 py-2 text-sm shrink-0`} style={accentBtn(u.color)}>
               {busy === next.key ? '…' : nextAction(next).label}
             </button>
           </div>
@@ -498,14 +545,15 @@ function UniverseView({
         {extraCount > 0 && (
           <button
             onClick={() => onPrefs({ ek: !showExtra })}
-            className={`text-sm rounded-xl px-3 py-1.5 border transition ${showExtra ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
+            className={`text-sm rounded-xl px-3 py-1.5 border transition ${showExtra ? 'text-neutral-50' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
+            style={showExtra ? { borderColor: u.color, background: `${u.color}22` } : undefined}
             title={tt('Ana hikâyeye şart olmayan yapımlar (ör. Netflix dizileri, kısa animasyonlar)')}
           >
             {tt('Yan yapımlar ({0})', extraCount)}
           </button>
         )}
         {s.missing > 0 && (
-          <button disabled={Boolean(bulk)} onClick={addAllMissing} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition disabled:opacity-60">
+          <button disabled={Boolean(bulk)} onClick={() => setBulkOpen(true)} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition disabled:opacity-60">
             {bulk ? tt('Ekleniyor {0}/{1}…', bulk.done, bulk.total) : tt('Arşivinde olmayanları ekle ({0})', s.missing)}
           </button>
         )}
@@ -525,7 +573,7 @@ function UniverseView({
         <div className="text-center py-14 text-neutral-500">
           <p>{tt('Bu evrende henüz yapım yok.')}</p>
           {!u.builtin && (
-            <button onClick={onEdit} className={`${PRIMARY_BUTTON} rounded-xl px-4 py-2 text-sm mt-3`} style={primaryButtonStyle}>
+            <button onClick={onEdit} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm mt-3`} style={accentBtn(u.color)}>
               {tt('+ Yapım ekle')}
             </button>
           )}
@@ -571,6 +619,8 @@ function UniverseView({
           item={menu.item}
           anchor={menu.el}
           tur={tur}
+          color={u.color}
+          onOld={!menu.item.rowId ? (d) => addOld(menu.item, d) : undefined}
           onClose={() => setMenu(null)}
           onMark={(d, remove) => mark(menu.item, d, remove)}
           onAdd={!menu.item.rowId ? () => addToArchive(menu.item) : undefined}
@@ -593,6 +643,7 @@ function UniverseView({
         />
       )}
       {preview && <TmdbPreviewModal boardId={boardId} card={preview} onClose={() => setPreview(null)} onAdded={onChanged} />}
+      {bulkOpen && <BulkAddModal items={missingTitles(ordered)} color={u.color} onClose={() => setBulkOpen(false)} onAdd={addAllMissing} />}
     </div>
   )
 }
@@ -660,9 +711,14 @@ function Card({
               )}
             </>
           ) : !it.rowId ? (
-            <button disabled={busy} onClick={onAdd} className={`${btn} ${idle}`} title={tt('İzlenecek olarak arşivine ekle')}>
-              {busy ? '…' : tt('+ Arşive ekle')}
-            </button>
+            <>
+              <button disabled={busy} onClick={onAdd} className={`${btn} ${idle}`} title={tt('İzlenecek olarak arşivine ekle')}>
+                {busy ? '…' : tt('+ Arşive ekle')}
+              </button>
+              <button onClick={(e) => onMenu(e.currentTarget)} className="shrink-0 rounded-md bg-black/75 text-neutral-200 hover:bg-neutral-100 hover:text-neutral-950 text-[11px] px-1.5 transition" title={tt('Eskiden izlediysen')}>
+                ▾
+              </button>
+            </>
           ) : (
             <button onClick={onOpen} className={`${btn} ${done ? 'bg-emerald-500 text-white' : idle}`} title={tt('Bölümleri tek tek işaretle')}>
               {done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : epPart ? tt('{0}/{1} bölüm', epPart.seen ?? 0, epPart.total ?? 0) : tt('Bölümler')}
@@ -688,14 +744,18 @@ function MarkMenu({
   item,
   anchor,
   tur,
+  color,
   onClose,
   onMark,
   onAdd,
+  onOld,
   onOpen,
 }: {
   item: EvrenItem
   anchor: HTMLElement
   tur?: string
+  color: string
+  onOld?: (date: string) => void
   onClose: () => void
   onMark: (date: string, remove?: boolean) => void
   onAdd?: () => void
@@ -709,6 +769,8 @@ function MarkMenu({
   y.setDate(y.getDate() - 1)
   const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`
   const again = item.watched
+  // Eskiden izledim: arşivde yoksa onOld (dizide de çalışır), filmde arşivdeyse normal işaretleme
+  const old = (d: string) => (onOld ? onOld(d) : onMark(d))
   const opt = 'w-full text-left px-3 py-1.5 rounded-lg text-sm text-neutral-200 hover:bg-neutral-800 transition'
   return (
     <AnchoredMenu anchorRef={ref} width={260} onClose={onClose}>
@@ -721,7 +783,7 @@ function MarkMenu({
               <div key={i} className="flex items-center justify-between text-sm text-neutral-200">
                 <span>
                   {fmtWatch(w)}
-                  {tur && w !== '?' && endOf(w) >= tur && <span className="text-[10px] text-[#7fdcff] ml-1.5">{tt('bu tur')}</span>}
+                  {tur && w !== '?' && endOf(w) >= tur && <span className="text-[10px] ml-1.5" style={{ color }}>{tt('bu tur')}</span>}
                 </span>
                 {!w.includes('/') && (
                   <button onClick={() => onMark(w, true)} className="text-xs text-neutral-500 hover:text-rose-400 px-1" title={tt('Bu izlemeyi kaldır')}>
@@ -732,24 +794,112 @@ function MarkMenu({
             ))}
           </div>
         )}
-        <p className="px-3 pt-1 text-[11px] uppercase tracking-wider text-neutral-500">{again ? tt('Tekrar izledim') : tt('İzledim')}</p>
-        <button className={opt} onClick={() => onMark(today)}>{tt('Bugün')}</button>
-        <button className={opt} onClick={() => onMark(yesterday)}>{tt('Dün')}</button>
-        <div className="flex gap-1.5 px-3 py-1">
-          <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100 [color-scheme:dark]" />
-          <button disabled={!day} onClick={() => onMark(day)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
-        </div>
-        <div className="flex gap-1.5 px-3 py-1">
-          <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder={tt('Sadece yıl (ör. 2019)')} inputMode="numeric" className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100" />
-          <button disabled={!/^(19|20)\d\d$/.test(year)} onClick={() => onMark(year)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
-        </div>
-        <button className={opt} onClick={() => onMark('?')}>{tt('Ne zaman izlediğimi hatırlamıyorum')}</button>
+        {item.type === 'movie' && (
+          <>
+            <p className="px-3 pt-1 text-[11px] uppercase tracking-wider text-neutral-500">{again ? tt('Tekrar izledim') : tt('İzledim')}</p>
+            <button className={opt} onClick={() => onMark(today)}>{tt('Bugün')}</button>
+            <button className={opt} onClick={() => onMark(yesterday)}>{tt('Dün')}</button>
+            <div className="flex gap-1.5 px-3 py-1">
+              <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100 [color-scheme:dark]" />
+              <button disabled={!day} onClick={() => onMark(day)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
+            </div>
+          </>
+        )}
+        {(item.type === 'movie' || onOld) && (
+          <>
+            <p className="px-3 pt-2 text-[11px] uppercase tracking-wider text-neutral-500">{tt('Eskiden izledim')}</p>
+            <p className="px-3 text-[11px] text-neutral-500">{tt('İzlendi olarak eklenir, takvimde bugüne düşmez, tura sayılmaz.')}</p>
+            <div className="flex gap-1.5 px-3 py-1">
+              <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder={tt('Yılı (ör. 2019)')} inputMode="numeric" className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100" />
+              <button disabled={!/^(19|20)\d\d$/.test(year)} onClick={() => old(year)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
+            </div>
+            <button className={opt} onClick={() => old('?')}>{tt('Ne zaman izlediğimi hatırlamıyorum')}</button>
+          </>
+        )}
         <div className="border-t border-neutral-800 mt-1 pt-1">
-          {onAdd && <button className={opt} onClick={onAdd}>{tt('İzlemedim, İzlenecek olarak ekle')}</button>}
+          {onAdd && <button className={opt} onClick={onAdd}>{item.type === 'movie' ? tt('İzlemedim, İzlenecek olarak ekle') : tt('İzlenecek olarak ekle')}</button>}
           <button className={opt} onClick={onOpen}>{tt('Detayı aç')}</button>
         </div>
       </div>
     </AnchoredMenu>
+  )
+}
+
+// ---- Arşivinde olmayanları toplu ekle ------------------------------------------------------------
+// Kullanıcı "aralarında daha önce izleyip arşive yazmayı unuttuklarım var" dedi: her yapım için İzlenecek ya da
+// "Eskiden izledim" (yıl ya da hatırlamıyorum) seçilir, sonra hepsi birden eklenir.
+
+function BulkAddModal({ items, color, onClose, onAdd }: { items: EvrenItem[]; color: string; onClose: () => void; onAdd: (list: { item: EvrenItem; old: string | null }[]) => void }) {
+  useEscape(true, onClose)
+  // key → null (İzlenecek) | "2019" | "?" | "" (eskiden izledim, yıl henüz yazılmadı → "?" sayılır)
+  const [choice, setChoice] = useState<Record<string, string | null>>({})
+  const oldCount = items.filter((i) => choice[i.key] != null).length
+  const setAll = (v: string | null) => setChoice(Object.fromEntries(items.map((i) => [i.key, v])))
+  const seg = (on: boolean) => `px-2.5 py-1 rounded-md text-xs transition ${on ? 'text-neutral-50' : 'text-neutral-400 hover:text-neutral-100'}`
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/70 flex items-start sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-3xl border border-neutral-800 bg-neutral-950" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 pb-3 space-y-2 border-b border-neutral-800">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-neutral-50">{tt('Arşivinde olmayanları ekle')}</h2>
+            <button onClick={onClose} className="text-neutral-500 hover:text-neutral-100 text-xl px-2">✕</button>
+          </div>
+          <p className="text-sm text-neutral-400">{tt('Daha önce izleyip arşivine yazmadıkların varsa "Eskiden izledim" de. Onlar İzlendi olarak eklenir, takvimde bugüne düşmez ve tura sayılmaz. Gerisi İzlenecek olur.')}</p>
+          <div className="flex gap-2 text-xs">
+            <button onClick={() => setAll(null)} className="rounded-lg border border-neutral-800 px-2.5 py-1 text-neutral-300 hover:text-neutral-50">{tt('Hepsi İzlenecek')}</button>
+            <button onClick={() => setAll('')} className="rounded-lg border border-neutral-800 px-2.5 py-1 text-neutral-300 hover:text-neutral-50">{tt('Hepsini eskiden izledim')}</button>
+          </div>
+        </div>
+        <ol className="flex-1 overflow-y-auto p-3 space-y-1">
+          {items.map((it) => {
+            const v = choice[it.key] ?? null
+            const isOld = v != null
+            return (
+              <li key={it.key} className="flex flex-wrap items-center gap-2 rounded-xl bg-neutral-900/70 border border-neutral-800 px-2 py-1.5">
+                <div className="h-11 w-8 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-neutral-100 truncate">{it.title}</p>
+                  <p className="text-[11px] text-neutral-500">
+                    {it.type === 'tv' ? tt('Dizi') : tt('Film')} · {it.date ? it.date.slice(0, 4) : tt('tarih yok')}
+                  </p>
+                </div>
+                <div className="flex rounded-lg bg-neutral-950 border border-neutral-800 p-0.5">
+                  <button onClick={() => setChoice((c) => ({ ...c, [it.key]: null }))} className={seg(!isOld)} style={!isOld ? { background: '#262626' } : undefined}>
+                    {tt('İzlenecek')}
+                  </button>
+                  <button disabled={!it.released} onClick={() => setChoice((c) => ({ ...c, [it.key]: '' }))} className={`${seg(isOld)} disabled:opacity-30`} style={isOld ? { background: `${color}33` } : undefined}>
+                    {tt('Eskiden izledim')}
+                  </button>
+                </div>
+                {isOld && (
+                  <input
+                    value={v}
+                    onChange={(e) => setChoice((c) => ({ ...c, [it.key]: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                    placeholder={tt('Yıl (bilmiyorsan boş)')}
+                    inputMode="numeric"
+                    className="w-36 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-xs text-neutral-100"
+                  />
+                )}
+              </li>
+            )
+          })}
+        </ol>
+        <div className="p-4 border-t border-neutral-800 flex items-center gap-2">
+          <p className="text-xs text-neutral-500 flex-1">{tt('{0} İzlenecek · {1} eskiden izledim', items.length - oldCount, oldCount)}</p>
+          <button onClick={onClose} className="text-sm rounded-xl px-4 py-2 text-neutral-300 hover:bg-neutral-800">{tt('Vazgeç')}</button>
+          <button
+            onClick={() => onAdd(items.map((item) => {
+              const v = choice[item.key]
+              return { item, old: v == null ? null : /^(19|20)\d\d$/.test(v) ? v : '?' }
+            }))}
+            className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`}
+            style={accentBtn(color)}
+          >
+            {tt('{0} yapımı ekle', items.length)}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

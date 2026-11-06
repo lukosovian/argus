@@ -444,7 +444,7 @@ export const api = {
     request<{ ok: true }>(profilePath('/evrenler-veri'), { method: 'POST', ...json(patch) }),
   markEvren: (boardId: string, body: { uid: string; key: string; date: string; remove?: boolean }) =>
     request<{ ok: true; rowId?: string; created?: boolean }>(profilePath(`/evrenler/${boardId}/isaretle`), { method: 'POST', ...json(body) }),
-  addEvren: (boardId: string, body: { uid: string; key: string }) =>
+  addEvren: (boardId: string, body: { uid: string; key: string; status?: 'izlendi'; date?: string }) =>
     request<{ ok: true; rowId: string; created: boolean }>(profilePath(`/evrenler/${boardId}/ekle`), { method: 'POST', ...json(body) }),
   searchEvren: (boardId: string, q: string) =>
     request<{ items: (ArchiveCard & { date: string; posterPath: string | null })[]; needsApiKey?: boolean }>(profilePath(`/evren-ara/${boardId}?q=${encodeURIComponent(q)}`)),

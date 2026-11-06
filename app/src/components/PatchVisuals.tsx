@@ -2954,3 +2954,59 @@ export function EvrenTurVisual() {
     </Frame>
   )
 }
+
+// ---- v1.19.2 ---------------------------------------------------------------------------------
+
+export function EvrenEskiVisual() {
+  const rows = [
+    { t: tt('The Incredible Hulk'), old: true, y: '2010' },
+    { t: tt('Thor'), old: true, y: '' },
+    { t: tt('Jessica Jones'), old: false, y: '' },
+    { t: tt('Luke Cage'), old: false, y: '' },
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={16} size={8.5}>
+        {tt('Arşivinde olmayanları ekle')}
+      </Label>
+      {rows.map((r, i) => {
+        const y = 26 + i * 28
+        return (
+          <g key={i}>
+            <Box x={8} y={y} w={304} h={24} r={4} />
+            <rect x={13} y={y + 3} width={12} height={18} rx={1.5} className="fill-neutral-700" />
+            <text x={30} y={y + 15} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit' }} {...fit(r.t, 6.5, 90)}>
+              {r.t}
+            </text>
+            <rect x={140} y={y + 6} width={44} height={12} rx={2.5} className={r.old ? undefined : 'fill-neutral-700'} fill={r.old ? 'none' : undefined} />
+            <text x={162} y={y + 14} fontSize={5.5} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+              {tt('İzlenecek')}
+            </text>
+            <rect x={186} y={y + 6} width={54} height={12} rx={2.5} fill={r.old ? '#e23636' : 'none'} opacity={r.old ? 0.45 : 1} />
+            <text x={213} y={y + 14} fontSize={5.5} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit' }} {...fit(tt('Eskiden izledim'), 5.5, 50)}>
+              {tt('Eskiden izledim')}
+            </text>
+            {r.old && (
+              <g>
+                <rect x={246} y={y + 6} width={60} height={12} rx={2.5} fill="none" className="stroke-neutral-600" strokeWidth={0.6} />
+                <text x={250} y={y + 14} fontSize={5.5} className={r.y ? 'fill-neutral-100' : 'fill-neutral-500'} style={{ fontFamily: 'inherit' }}>
+                  {r.y || tt('Yıl (boş)')}
+                </text>
+              </g>
+            )}
+          </g>
+        )
+      })}
+      <Pin x={208} y={28} n={1} />
+      <Pin x={300} y={28} n={2} />
+      <text x={10} y={150} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('2 İzlenecek · 2 eskiden izledim')}
+      </text>
+      <rect x={240} y={142} width={72} height={14} rx={3} fill="#e23636" />
+      <text x={276} y={151.5} fontSize={6.5} textAnchor="middle" fill="#fff" fontWeight={700} style={{ fontFamily: 'inherit' }}>
+        {tt('4 yapımı ekle')}
+      </text>
+      <Pin x={236} y={140} n={3} />
+    </Frame>
+  )
+}
