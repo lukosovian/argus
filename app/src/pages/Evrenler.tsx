@@ -211,8 +211,14 @@ function missingTitles(items: EvrenItem[]) {
   })
 }
 
+// Görünen yapımlar: yan yapımlar ayarı + kısa tur (turKeys) varsa sadece onlar
+function inScope(i: EvrenItem, prefs: EvrenPrefs) {
+  return (prefs.ek || !i.extra || (prefs.turKeys ?? []).includes(i.key)) && (!prefs.turKeys?.length || prefs.turKeys.includes(i.key))
+}
+
 function stats(u: Evren, prefs: EvrenPrefs) {
-  const items = u.items.filter((i) => (prefs.ek || !i.extra) && i.released)
+  const skip = new Set(prefs.atla ?? [])
+  const items = u.items.filter((i) => inScope(i, prefs) && i.released && !skip.has(i.key))
   const done = items.filter((i) => isDone(i, prefs.maraton)).length
   const left = Math.round(items.reduce((t, i) => t + (i.minutes ?? 0) * (1 - doneShare(i, prefs.maraton)), 0))
   return {
@@ -222,8 +228,9 @@ function stats(u: Evren, prefs: EvrenPrefs) {
     before: items.filter((i) => i.watched).length,
     // Turda izlenen süre (hıza göre tahmini bitiş için)
     watchedMin: Math.round(items.reduce((t, i) => t + (i.minutes ?? 0) * doneShare(i, prefs.maraton), 0)),
-    missing: missingTitles(u.items.filter((i) => prefs.ek || !i.extra)).length,
-    upcoming: u.items.filter((i) => (prefs.ek || !i.extra) && !i.released).length,
+    missing: missingTitles(u.items.filter((i) => inScope(i, prefs))).length,
+    upcoming: u.items.filter((i) => inScope(i, prefs) && !i.released).length,
+    skipped: u.items.filter((i) => inScope(i, prefs) && skip.has(i.key)).length,
   }
 }
 
@@ -327,10 +334,38 @@ function UniverseView({
   const mode: Mode = prefs.sira ?? 'cikis'
   const showExtra = Boolean(prefs.ek)
   const extraCount = u.items.filter((i) => i.extra).length
-  const ordered = useMemo(() => orderItems(u, mode, showExtra), [u, mode, showExtra])
+  // Kısa tur ("Bunu izlemeden önce"den): sadece o yapımlar; "Bütün evreni göster" ile hepsi
+  const subset = prefs.turKeys?.length ? prefs.turKeys : null
+  const [showAll, setShowAll] = useState(false)
+  const skip = useMemo(() => new Set(prefs.atla ?? []), [prefs.atla])
+  const ordered = useMemo(() => {
+    const list = orderItems(u, mode, showExtra || Boolean(subset))
+    return subset && !showAll ? list.filter((i) => subset.includes(i.key)) : list.filter((i) => showExtra || !i.extra || subset?.includes(i.key))
+  }, [u, mode, showExtra, subset, showAll])
   const s = stats(u, prefs)
   const pct = s.total ? Math.round((s.done / s.total) * 100) : 0
-  const next = ordered.find((i) => i.released && !isDone(i, tur))
+  const next = ordered.find((i) => i.released && !isDone(i, tur) && !skip.has(i.key) && (!subset || subset.includes(i.key)))
+  const [prereq, setPrereq] = useState<string | null | false>(false)
+  const hasDeps = Object.keys(u.deps ?? {}).length > 0
+  const subsetTarget = subset && prefs.turHedefKey ? u.items.find((i) => i.key === prefs.turHedefKey) : null
+
+  // Turda atla: izlemeden geç (kullanıcı "sıradaki şu diyor, izlemeden geçme de olsun" dedi)
+  function setSkip(it: EvrenItem, on: boolean) {
+    setMenu(null)
+    const list = new Set(prefs.atla ?? [])
+    if (on) list.add(it.key)
+    else list.delete(it.key)
+    onPrefs({ atla: [...list] })
+    if (on) notify(tt('"{0}" atlandı, sıradakine geçildi.', it.archiveTitle || it.title))
+  }
+
+  function startSubset(keys: string[], target: string) {
+    setPrereq(false)
+    setShowAll(false)
+    onPrefs({ maraton: tur ?? todayIso(), turKeys: keys, turHedefKey: target, atla: [] })
+    const t = u.items.find((i) => i.key === target)
+    notify(tt('Tur başladı: {0} öncesi, {1} yapım.', t ? t.archiveTitle || t.title : '', keys.length))
+  }
   const [busy, setBusy] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ item: EvrenItem; el: HTMLElement } | null>(null)
   const [detail, setDetail] = useState<{ row: Row; episodes: boolean } | null>(null)
@@ -364,7 +399,7 @@ function UniverseView({
 
   function openRow(row: Row, episodes: boolean) {
     setDetail({ row, episodes })
-    if (episodes) setTimeout(() => document.getElementById('rd-bolumler')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 450)
+    if (episodes) setTimeout(() => (document.getElementById('rd-ozet') ?? document.getElementById('rd-bolumler'))?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 450)
   }
 
   // Film: izledim (arşivde yoksa izlendi olarak eklenir)
@@ -469,15 +504,15 @@ function UniverseView({
     if (!formStart) return
     const starting = !tur
     setTourMenu(false)
-    onPrefs({ maraton: formStart, hedef: (formTarget || null) as unknown as string })
+    onPrefs(starting ? ({ maraton: formStart, hedef: formTarget || null, atla: [], turKeys: null, turHedefKey: null } as unknown as EvrenPrefs) : ({ maraton: formStart, hedef: formTarget || null } as unknown as EvrenPrefs))
     if (starting) notify(tt('Tur başladı. {0} tarihinden sonra izlediklerin sayılıyor; önceki izlemelerin tarihleriyle görünmeye devam eder.', fmtWatch(formStart)))
   }
   async function endTour() {
     setTourMenu(false)
     const ok = await confirm({ message: tt('Turu bitirmek istiyor musun? İzlediklerin arşivinde kalır; tur "Önceki turlar"a kaydedilir.'), confirmLabel: tt('Bitir') })
     if (!ok || !tur) return
-    const rec = { bas: tur, bit: todayIso(), done: s.done, total: s.total }
-    onPrefs({ maraton: null, hedef: null, gecmis: [...(prefs.gecmis ?? []), rec] } as unknown as EvrenPrefs)
+    const rec = { bas: tur, bit: todayIso(), done: s.done, total: s.total, ad: subsetTarget ? tt('{0} öncesi', subsetTarget.archiveTitle || subsetTarget.title) : undefined }
+    onPrefs({ maraton: null, hedef: null, turKeys: null, turHedefKey: null, atla: null, gecmis: [...(prefs.gecmis ?? []), rec] } as unknown as EvrenPrefs)
   }
 
   // Tur hesapları: geçen gün, hedefe kalan gün, hıza göre tahmini bitiş, hedefe yetişmek için günlük süre
@@ -517,6 +552,11 @@ function UniverseView({
         <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight">{u.name}</h1>
 
         <div className="mt-4 max-w-xl space-y-1.5">
+          {subset && (
+            <p className="text-sm font-semibold text-neutral-100">
+              {subsetTarget ? tt('Kısa tur: {0} öncesi ({1} yapım)', subsetTarget.archiveTitle || subsetTarget.title, subset.length) : tt('Kısa tur ({0} yapım)', subset.length)}
+            </p>
+          )}
           {tur && (
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: u.color }}>
@@ -546,6 +586,12 @@ function UniverseView({
             </p>
           )}
           {s.upcoming > 0 && <p className="text-xs text-neutral-500">{tt('{0} yapım henüz çıkmadı, çıkınca listeye katılır.', s.upcoming)}</p>}
+          {s.skipped > 0 && <p className="text-xs text-neutral-500">{tt('{0} yapımı atladın (sayılmıyor).', s.skipped)}</p>}
+          {tur && s.left > 0 && (
+            <Link to={`/abonelik?evren=${u.id}`} className="inline-block text-xs text-neutral-400 hover:text-neutral-100 underline underline-offset-2">
+              {tt('Kalanlar hangi platformda?')}
+            </Link>
+          )}
           {finished && (
             <div className="rounded-xl p-3 text-sm text-neutral-50" style={{ background: `${u.color}26`, border: `1px solid ${u.color}80` }}>
               {tt('Turu bitirdin! {0} günde {1} yapım.', elapsed, s.total)}{' '}
@@ -573,6 +619,7 @@ function UniverseView({
               <p className="text-[11px] uppercase tracking-wider text-neutral-500">{tt('Önceki turlar')}</p>
               {[...(prefs.gecmis ?? [])].reverse().map((g, i) => (
                 <p key={i} className="text-xs text-neutral-400">
+                  {g.ad ? `${g.ad} · ` : ''}
                   {fmtWatch(g.bas)} – {fmtWatch(g.bit)} · {tt('{0}/{1} yapım', g.done, g.total)} · {tt('{0} gün', dayNum(g.bit) - dayNum(g.bas) + 1)}
                 </p>
               ))}
@@ -622,6 +669,9 @@ function UniverseView({
                 {!next.rowId ? ` · ${tt('arşivinde yok')}` : ''}
               </p>
             </div>
+            <button onClick={() => setSkip(next, true)} className="text-sm rounded-xl px-3 py-2 border border-neutral-700 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500 shrink-0" title={tt('İzlemeden geç, sayılmasın')}>
+              {tt('Atla')}
+            </button>
             <button disabled={busy === next.key} onClick={nextAction(next).run} className={`${ACCENT_BTN} rounded-xl px-3 py-2 text-sm shrink-0`} style={accentBtn(u.color)}>
               {busy === next.key ? '…' : nextAction(next).label}
             </button>
@@ -634,7 +684,17 @@ function UniverseView({
           {modeBtn('cikis', tt('Çıkış sırası'))}
           {modeBtn('hikaye', u.builtin ? tt('Hikâye sırası') : tt('Benim sıram'))}
         </div>
-        {extraCount > 0 && (
+        {hasDeps && (
+          <button onClick={() => setPrereq(null)} className="text-sm rounded-xl px-3 py-1.5 border transition text-neutral-50" style={{ borderColor: u.color, background: `${u.color}22` }} title={tt('Bir yapımı anlamak için önce neleri izlemen gerektiğini çıkarır')}>
+            {tt('Bunu izlemeden önce…')}
+          </button>
+        )}
+        {subset && (
+          <button onClick={() => setShowAll((v) => !v)} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+            {showAll ? tt('Sadece turdakiler') : tt('Bütün evreni göster')}
+          </button>
+        )}
+        {extraCount > 0 && !subset && (
           <button
             onClick={() => onPrefs({ ek: !showExtra })}
             className={`text-sm rounded-xl px-3 py-1.5 border transition ${showExtra ? 'text-neutral-50' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
@@ -694,6 +754,8 @@ function UniverseView({
                 color={u.color}
                 tur={tur}
                 isNext={next?.key === it.key}
+                skipped={skip.has(it.key)}
+                onUnskip={() => setSkip(it, false)}
                 busy={busy === it.key}
                 onOpen={() => open(it)}
                 onMovie={(el) => (isDone(it, tur) ? setMenu({ item: it, el }) : mark(it, todayIso()))}
@@ -718,6 +780,8 @@ function UniverseView({
           tur={tur}
           color={u.color}
           onOld={!menu.item.rowId ? (d) => addOld(menu.item, d) : undefined}
+          onSkip={!isDone(menu.item, tur) && !skip.has(menu.item.key) ? () => setSkip(menu.item, true) : undefined}
+          onPrereq={u.deps?.[menu.item.key]?.need?.length ? () => { const k = menu.item.key; setMenu(null); setPrereq(k) } : undefined}
           onClose={() => setMenu(null)}
           onMark={(d, remove) => mark(menu.item, d, remove)}
           onAdd={!menu.item.rowId ? () => addToArchive(menu.item) : undefined}
@@ -740,6 +804,7 @@ function UniverseView({
         />
       )}
       {preview && <TmdbPreviewModal boardId={boardId} card={preview} onClose={() => setPreview(null)} onAdded={onChanged} />}
+      {prereq !== false && <PrereqModal u={u} tur={tur} initial={prereq ?? undefined} onClose={() => setPrereq(false)} onStart={startSubset} />}
       {bulkOpen && <BulkAddModal items={missingTitles(ordered)} color={u.color} onClose={() => setBulkOpen(false)} onAdd={addAllMissing} />}
     </div>
   )
@@ -758,6 +823,8 @@ function Card({
   onMovie,
   onMenu,
   onAdd,
+  skipped,
+  onUnskip,
 }: {
   it: EvrenItem
   n: number
@@ -765,6 +832,8 @@ function Card({
   tur?: string
   isNext: boolean
   busy: boolean
+  skipped: boolean
+  onUnskip: () => void
   onOpen: () => void
   onMovie: (el: HTMLElement) => void
   onMenu: (el: HTMLElement) => void
@@ -787,7 +856,7 @@ function Card({
       >
         <button onClick={onOpen} className="block h-full w-full" title={it.archiveTitle || it.title}>
           {it.poster ? (
-            <img src={it.poster} alt={it.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released ? 'opacity-40' : !it.rowId ? 'opacity-60' : ''}`} />
+            <img src={it.poster} alt={it.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released || (skipped && !done) ? 'opacity-30 grayscale' : !it.rowId ? 'opacity-60' : ''}`} />
           ) : (
             <span className="flex h-full items-center justify-center p-2 text-center text-xs text-neutral-400">{it.title}</span>
           )}
@@ -816,7 +885,11 @@ function Card({
       {it.watches.length > 1 && done && <p className="text-[11px] text-neutral-500">{tt('{0} kez izledin', it.watches.length)}</p>}
       {!it.watched && it.status && !it.progress && it.rowId && !epPart && <p className="text-[11px] text-neutral-500">{it.status}</p>}
       <div className="mt-auto pt-2 flex gap-1">
-        {!it.released && it.rowId ? (
+        {skipped && !done ? (
+          <button onClick={onUnskip} className="flex-1 rounded-md border border-dashed border-neutral-700 text-[11px] text-neutral-400 hover:text-neutral-100 py-1.5" title={tt('Atlamayı geri al')}>
+            {tt('Atlandı · geri al')}
+          </button>
+        ) : !it.released && it.rowId ? (
           <span className="flex-1 text-center rounded-md border border-dashed border-neutral-800 text-[11px] text-neutral-500 py-1.5">{tt('Yakında')}</span>
         ) : it.type === 'movie' && it.released ? (
           <>
@@ -839,9 +912,16 @@ function Card({
             </button>
           </>
         ) : (
-          <button onClick={onOpen} className={`${btn} ${done ? '' : idle}`} style={done ? doneStyle : undefined} title={tt('Bölümleri tek tek işaretle')}>
-            {done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : epPart ? tt('{0}/{1} bölüm', epPart.seen ?? 0, epPart.total ?? 0) : tt('Bölümler')}
-          </button>
+          <>
+            <button onClick={onOpen} className={`${btn} ${done ? '' : idle}`} style={done ? doneStyle : undefined} title={tt('Bölümleri tek tek işaretle')}>
+              {done ? `✓ ${lastInTour ? fmtWatch(lastInTour) : tt('İzledin')}` : epPart ? tt('{0}/{1} bölüm', epPart.seen ?? 0, epPart.total ?? 0) : tt('Bölümler')}
+            </button>
+            {!done && (
+              <button onClick={(e) => onMenu(e.currentTarget)} className={arrow} title={tt('Atla, bunu izlemeden önce')}>
+                ▾
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -858,6 +938,8 @@ function MarkMenu({
   onMark,
   onAdd,
   onOld,
+  onSkip,
+  onPrereq,
   onOpen,
 }: {
   item: EvrenItem
@@ -865,6 +947,8 @@ function MarkMenu({
   tur?: string
   color: string
   onOld?: (date: string) => void
+  onSkip?: () => void
+  onPrereq?: () => void
   onClose: () => void
   onMark: (date: string, remove?: boolean) => void
   onAdd?: () => void
@@ -926,11 +1010,193 @@ function MarkMenu({
           </>
         )}
         <div className="border-t border-neutral-800 mt-1 pt-1">
+          {onSkip && <button className={opt} onClick={onSkip}>{tt('Atla (izlemeden geç)')}</button>}
+          {onPrereq && <button className={opt} onClick={onPrereq}>{tt('Bunu izlemeden önce neler var?')}</button>}
           {onAdd && <button className={opt} onClick={onAdd}>{item.type === 'movie' ? tt('İzlemedim, İzlenecek olarak ekle') : tt('İzlenecek olarak ekle')}</button>}
           <button className={opt} onClick={onOpen}>{tt('Detayı aç')}</button>
         </div>
       </div>
     </AnchoredMenu>
+  )
+}
+
+// ---- Bunu izlemeden önce ---------------------------------------------------------------------------
+// Kullanıcının asıl derdi: "VisionQuest'i anlamak için şunları, onları anlamak için de şunları izlemen gerek".
+// Bir yapım seçilir; evrenin bağımlılıklarından (deps.need) zincir halinde gerekenler çıkarılır ve katman katman
+// gösterilir: doğrudan gerekenler, onları anlamak için gerekenler, daha geriye gidenler. Ayrıca "izlersen iyi olur"
+// (deps.good). İzlediklerin işaretli gelir; istersen bu listeyle (kısa ya da tam) bir tur başlatılır.
+
+function prereqLayers(u: Evren, target: string) {
+  const depth = new Map<string, number>()
+  let frontier = [target]
+  let level = 0
+  while (frontier.length) {
+    level++
+    const next: string[] = []
+    for (const k of frontier) {
+      for (const n of u.deps[k]?.need ?? []) {
+        if (n === target || depth.has(n)) continue
+        depth.set(n, level)
+        next.push(n)
+      }
+    }
+    frontier = next
+  }
+  const need = new Set(depth.keys())
+  const good = (u.deps[target]?.good ?? []).filter((k) => !need.has(k) && k !== target)
+  return { depth, good }
+}
+
+function PrereqModal({
+  u,
+  tur,
+  initial,
+  onClose,
+  onStart,
+}: {
+  u: Evren
+  tur?: string
+  initial?: string
+  onClose: () => void
+  onStart: (keys: string[], target: string) => void
+}) {
+  useEscape(true, onClose)
+  const [target, setTarget] = useState<string | null>(initial ?? null)
+  const [q, setQ] = useState('')
+  const [rewatch, setRewatch] = useState(false)
+  const [withGood, setWithGood] = useState(false)
+  const byKey = new Map(u.items.map((i) => [i.key, i]))
+  const pos = new Map(u.story.map((k, i) => [k, i]))
+  const storySort = (a: string, b: string) => (pos.get(a) ?? 9999) - (pos.get(b) ?? 9999)
+  const targets = orderItems(u, 'hikaye', true).filter((i) => (u.deps[i.key]?.need ?? []).length > 0)
+  const shown = q.trim() ? targets.filter((i) => (i.archiveTitle || i.title).toLocaleLowerCase('tr').includes(q.trim().toLocaleLowerCase('tr'))) : targets
+
+  const layers = target ? prereqLayers(u, target) : null
+  const groups = layers
+    ? [1, 2, 3].map((lv) => ({
+        lv,
+        keys: [...layers.depth.entries()].filter(([, d]) => (lv === 3 ? d >= 3 : d === lv)).map(([k]) => k).sort(storySort),
+      }))
+    : []
+  const allNeed = layers ? [...layers.depth.keys()] : []
+  const unwatched = (keys: string[]) => keys.filter((k) => !byKey.get(k)?.watched)
+  const minutes = (keys: string[]) => keys.reduce((t, k) => t + (byKey.get(k)?.minutes ?? 0), 0)
+  const pick = (keys: string[]) => (rewatch ? keys : unwatched(keys))
+  const shortKeys = target ? [...pick(groups[0]?.keys ?? []), ...(withGood ? pick(layers?.good ?? []) : []), target] : []
+  const fullKeys = target ? [...pick(allNeed), ...(withGood ? pick(layers?.good ?? []) : []), target] : []
+  const t = target ? byKey.get(target) : null
+  const levelName = (lv: number) => (lv === 1 ? tt('Doğrudan gerekli') : lv === 2 ? tt('Onları anlamak için') : tt('Daha geriye gidersen'))
+
+  const Row = ({ k }: { k: string }) => {
+    const it = byKey.get(k)
+    if (!it) return null
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <div className="h-10 w-7 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}</div>
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm truncate ${it.watched ? 'text-neutral-400' : 'text-neutral-100'}`}>{it.archiveTitle || it.title}</p>
+          <p className="text-[11px] text-neutral-500">
+            {kindLabel(it)} · {it.date.slice(0, 4)}
+          </p>
+        </div>
+        {it.watched ? (
+          <span className="text-[11px] shrink-0 rounded-full px-2 py-0.5" style={{ background: `${u.color}26`, color: '#e5e5e5' }}>
+            {tt('✓ izledin')} {it.watches.length ? `· ${fmtWatch(it.watches[it.watches.length - 1])}` : ''}
+          </span>
+        ) : (
+          <span className="text-[11px] text-neutral-500 shrink-0">{it.minutes ? hoursText(it.minutes) : ''}</span>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/70 flex items-start sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
+      <div className="w-full max-w-3xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-3xl border border-neutral-800 bg-neutral-950" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 pb-3 border-b border-neutral-800">
+          <div className="min-w-0">
+            <p className="text-xs font-black tracking-widest" style={{ color: u.color }}>{u.short || u.name}</p>
+            <h2 className="text-xl font-bold text-neutral-50 truncate">{t ? tt('{0} izlemeden önce', t.archiveTitle || t.title) : tt('Bunu izlemeden önce')}</h2>
+          </div>
+          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-100 text-xl px-2">✕</button>
+        </div>
+
+        {!t ? (
+          <div className="flex-1 min-h-0 flex flex-col p-4 gap-3">
+            <p className="text-sm text-neutral-400">{tt('Neyi izlemek istiyorsun? Seç, onu anlamak için önce neleri izlemen gerektiğini katman katman çıkarayım.')}</p>
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt('Ara…')} className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500" />
+            <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-4 sm:grid-cols-6 gap-3 content-start">
+              {shown.map((i) => (
+                <button key={i.key} onClick={() => setTarget(i.key)} className="text-left group">
+                  <div className="aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group-hover:ring-2" style={{ ['--tw-ring-color' as string]: u.color }}>
+                    {i.poster && <img src={i.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                  </div>
+                  <p className="text-[11px] text-neutral-200 mt-1 line-clamp-2 leading-tight">{i.archiveTitle || i.title}</p>
+                  <p className="text-[10px] text-neutral-500">{kindLabel(i)}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
+              <button onClick={() => setTarget(null)} className="text-xs text-neutral-500 hover:text-neutral-200">{tt('← Başka bir yapım seç')}</button>
+              {!allNeed.length && <p className="text-sm text-neutral-400">{tt('Bunun için önceden izlenmesi gereken bir şey yok, doğrudan başlayabilirsin.')}</p>}
+              {groups.filter((g) => g.keys.length).map((g) => (
+                <section key={g.lv}>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="font-bold text-neutral-50">{levelName(g.lv)}</h3>
+                    <span className="text-xs text-neutral-500">{tt('{0} yapım, {1} tanesini izlemedin', g.keys.length, unwatched(g.keys).length)}</span>
+                  </div>
+                  {g.lv === 2 && <p className="text-xs text-neutral-500">{tt('Yukarıdakilerin arka planı; hatırlıyorsan geçebilirsin.')}</p>}
+                  <div className="mt-1 divide-y divide-neutral-900">
+                    {g.keys.map((k) => (
+                      <Row key={k} k={k} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+              {(layers?.good ?? []).length > 0 && (
+                <section>
+                  <h3 className="font-bold text-neutral-50">{tt('İzlersen iyi olur')}</h3>
+                  <p className="text-xs text-neutral-500">{tt('Şart değil ama bağlantılar daha iyi oturur.')}</p>
+                  <div className="mt-1 divide-y divide-neutral-900">
+                    {[...(layers?.good ?? [])].sort(storySort).map((k) => (
+                      <Row key={k} k={k} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+            <div className="p-4 border-t border-neutral-800 space-y-3">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-300">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={rewatch} onChange={(e) => setRewatch(e.target.checked)} />
+                  {tt('İzlediklerimi de tekrar izleyeceğim')}
+                </label>
+                {(layers?.good ?? []).length > 0 && (
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={withGood} onChange={(e) => setWithGood(e.target.checked)} />
+                    {tt('"İyi olur"ları da ekle')}
+                  </label>
+                )}
+              </div>
+              {tur && <p className="text-xs text-amber-400">{tt('Şu an süren tur bu listeyle değişir (başlangıç tarihi aynı kalır).')}</p>}
+              <div className="flex flex-wrap gap-2 justify-end">
+                {groups[1]?.keys.length || groups[2]?.keys.length ? (
+                  <button onClick={() => onStart(shortKeys, target!)} className="text-sm rounded-xl px-4 py-2 border border-neutral-700 text-neutral-200 hover:border-neutral-500">
+                    {tt('Kısa tur: {0} yapım · {1}', shortKeys.length, hoursText(minutes(shortKeys)))}
+                  </button>
+                ) : null}
+                <button onClick={() => onStart(fullKeys, target!)} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`} style={accentBtn(u.color)}>
+                  {tt('Bu listeyle tur başlat: {0} yapım · {1}', fullKeys.length, hoursText(minutes(fullKeys)))}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   )
 }
 

@@ -3122,3 +3122,132 @@ export function EvrenEkleVisual() {
     </Frame>
   )
 }
+
+// ---- v1.19.4 ---------------------------------------------------------------------------------
+
+export function OnceVisual() {
+  const red = '#e23636'
+  const rows = [
+    { lv: tt('Doğrudan gerekli'), items: [tt('WandaVision'), tt('Agatha')], y: 34 },
+    { lv: tt('Onları anlamak için'), items: [tt('Endgame'), tt('Ultron Çağı')], y: 82 },
+    { lv: tt('Daha geriye'), items: [tt('Sonsuzluk Savaşı'), tt('Kaptan Marvel')], y: 130 },
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={16} size={8.5}>
+        {tt('VisionQuest izlemeden önce')}
+      </Label>
+      <Pin x={150} y={6} n={1} />
+      {rows.map((r, i) => (
+        <g key={i}>
+          <text x={10} y={r.y} fontSize={6.5} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+            {r.lv}
+          </text>
+          {r.items.map((t, j) => (
+            <g key={j}>
+              <rect x={10} y={r.y + 5 + j * 18} width={9} height={14} rx={1.5} className="fill-neutral-700" />
+              <text x={24} y={r.y + 15 + j * 18} fontSize={6} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+                {t}
+              </text>
+              {j === 0 && i > 0 && (
+                <g>
+                  <rect x={150} y={r.y + 6 + j * 18} width={34} height={10} rx={5} fill={red} opacity={0.3} />
+                  <text x={167} y={r.y + 13 + j * 18} fontSize={5} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+                    {tt('✓ izledin')}
+                  </text>
+                </g>
+              )}
+            </g>
+          ))}
+        </g>
+      ))}
+      <Pin x={196} y={28} n={2} />
+      <rect x={210} y={140} width={102} height={18} rx={4} fill={red} />
+      <text x={261} y={151.5} fontSize={6} textAnchor="middle" fill="#fff" fontWeight={700} style={{ fontFamily: 'inherit' }} {...fit(tt('Bu listeyle tur başlat'), 6, 96)}>
+        {tt('Bu listeyle tur başlat')}
+      </text>
+      <rect x={210} y={118} width={102} height={16} rx={4} fill="none" className="stroke-neutral-600" strokeWidth={0.6} />
+      <text x={261} y={128.5} fontSize={6} textAnchor="middle" className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('Kısa tur')}
+      </text>
+      <Pin x={206} y={112} n={3} />
+    </Frame>
+  )
+}
+
+export function AbonelikVisual() {
+  const ps = [
+    { n: 'Netflix', c: '#e50914', w: 0.85, t: tt('102 yapım · 639 saat') },
+    { n: 'Disney+', c: '#113ccf', w: 0.35, t: tt('54 yapım · 209 saat') },
+    { n: 'HBO Max', c: '#5b2be0', w: 0.12, t: tt('14 yapım · 40 saat') },
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={16} size={8.5}>
+        {tt('Hangi aboneliği almalıyım?')}
+      </Label>
+      <Box x={8} y={24} w={304} h={40} r={6} strong />
+      <rect x={16} y={30} width={28} height={28} rx={6} fill="#e50914" />
+      <text x={30} y={49} fontSize={14} fontWeight={900} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>N</text>
+      <text x={52} y={42} fontSize={8.5} fontWeight={800} className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
+        {tt('Bu ay Netflix al')}
+      </text>
+      <text x={52} y={55} fontSize={5.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }} {...fit(tt('Netflix ve Disney+ birlikte: 153 yapım'), 5.5, 200)}>
+        {tt('Netflix ve Disney+ birlikte: 153 yapım')}
+      </text>
+      <Pin x={300} y={26} n={1} />
+      <Pin x={256} y={50} n={2} />
+      {ps.map((p, i) => {
+        const y = 72 + i * 34
+        return (
+          <g key={i}>
+            <Box x={8} y={y} w={304} h={30} r={5} />
+            <rect x={14} y={y + 6} width={18} height={18} rx={4} fill={p.c} />
+            <text x={38} y={y + 13} fontSize={6.5} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>{p.n}</text>
+            <text x={38} y={y + 22} fontSize={5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>{p.t}</text>
+            <rect x={120} y={y + 13} width={110} height={3} rx={1.5} className="fill-neutral-800" />
+            <rect x={120} y={y + 13} width={110 * p.w} height={3} rx={1.5} className="fill-neutral-300" />
+            {[0, 1, 2, 3].map((j) => (
+              <rect key={j} x={238 + j * 18} y={y + 5} width={14} height={20} rx={1.5} className="fill-neutral-700" />
+            ))}
+          </g>
+        )
+      })}
+      <Pin x={232} y={70} n={3} />
+    </Frame>
+  )
+}
+
+export function AraVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={8} y={10} width={304} height={110} rx={7} fill="#f59e0b" opacity={0.06} stroke="#f59e0b" strokeOpacity={0.35} strokeWidth={0.8} />
+      <text x={16} y={26} fontSize={8} fontWeight={800} className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
+        {tt('Uzun ara verdin')}
+      </text>
+      <text x={16} y={38} fontSize={5.8} className="fill-neutral-300" style={{ fontFamily: 'inherit' }} {...fit(tt('Son bölümü 56 gün önce izledin. Kaldığın yer: 1. Sezon 6. Bölüm'), 5.8, 220)}>
+        {tt('Son bölümü 56 gün önce izledin. Kaldığın yer: 1. Sezon 6. Bölüm')}
+      </text>
+      <Pin x={240} y={22} n={1} />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <rect x={16} y={48 + i * 23} width={34} height={19} rx={2} className="fill-neutral-700" />
+          <text x={56} y={55 + i * 23} fontSize={5.8} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+            {tt('1. Sezon {0}. Bölüm', 3 + i)}
+          </text>
+          <Line x={56} y={62 + i * 23} w={200} light />
+        </g>
+      ))}
+      <Pin x={296} y={48} n={2} />
+      <text x={10} y={140} fontSize={7} fontWeight={700} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        {tt('Bölümler')}
+      </text>
+      {[0, 1].map((i) => (
+        <g key={i}>
+          <rect x={10} y={148 + i * 14} width={10} height={10} rx={2} className="fill-neutral-700" />
+          <Line x={26} y={153 + i * 14} w={180} light />
+        </g>
+      ))}
+    </Frame>
+  )
+}

@@ -47,6 +47,7 @@ const ICONS = {
   takvim: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
   koleksiyon: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3',
   evren: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20.5 6.5c1.3 2.2-2.6 6.4-8.6 9.6S1.6 19.7.3 17.5M3.5 17.5C2.2 15.3 6.1 11.1 12.1 7.9S22.4 4.3 23.7 6.5',
+  abonelik: 'M3 7h18v12H3zM8 3l4 4 4-4',
   ozet: 'M3 12a9 9 0 1 0 2.64-6.36L3 8.3M3 3v5.3h5.3M12 7v5l3.5 2',
   yardim: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
   yama: 'M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4L12 3ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z',
@@ -140,6 +141,7 @@ export default function Navbar() {
       ['/istatistikler', tt('İstatistikler')],
       ['/koleksiyon', tt('Koleksiyon')],
       ['/evrenler', tt('Evrenler')],
+      ['/abonelik', tt('Abonelik önerisi')],
       ['/flashback', 'Flashback'],
       ['/arsivlerim', tt('Ayarlar')],
       ['/yardim', tt('Yardım Merkezi')],
@@ -306,6 +308,7 @@ export default function Navbar() {
                     <MenuLink to="/takvim" icon="takvim" label={tt('Takvim')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/koleksiyon" icon="koleksiyon" label={tt('Koleksiyon')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/evrenler" icon="evren" label={tt('Evrenler')} onClick={() => setMenuOpen(false)} />
+                    <MenuLink to="/abonelik" icon="abonelik" label={tt('Abonelik önerisi')} onClick={() => setMenuOpen(false)} />
                     {canSeeWrapped(features) && (
                       <MenuLink
                         to="/flashback"

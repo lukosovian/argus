@@ -15,7 +15,7 @@ import { publishFile } from './featurePublish.js'
 import { langDate, serverLang, serverRegion, stt, tmdbLang } from './lang.js'
 import { COLUMN_NAMES, KIND_NAMES, isName, nameOf } from './names.js'
 import { checkRemote, initSync, isLoopback, opAt, opDedupeMiddleware, registerSyncRoutes } from './sync.js'
-import { initEvrenler, registerEvrenlerRoutes } from './evrenler.js'
+import { initEvrenler, registerEvrenlerRoutes, registerPlatformRoutes } from './evrenler.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -222,8 +222,11 @@ initEvrenler({
   addRowFromTmdb: (...a) => addRowFromTmdb(...a), applyWatched: (...a) => applyWatched(...a),
   shouldAskRating: (...a) => shouldAskRating(...a), setAskRating: (...a) => setAskRating(...a),
   recordRowWatchTime: (...a) => recordRowWatchTime(...a), tmdbGet: (...a) => tmdbGet(...a), toCard: (...a) => toCard(...a), tmdbLang,
+  platformList: (...a) => platformList(...a), mapLimit: (...a) => mapLimit(...a), serverRegion, profileTmdbFile, profileHomeSettingsFile,
+  profileWatchStateFile: (...a) => profileWatchStateFile(...a),
 })
 registerEvrenlerRoutes(app)
+registerPlatformRoutes(app)
 
 app.get('/api/profiles/:profileId/boards', (req, res) => {
   res.json(readJson(profileBoardsFile(req.params.profileId), []))
@@ -2920,10 +2923,8 @@ app.get('/api/profiles/:profileId/row-platforms/:boardId', (req, res) => {
 
 // Platform listesi (Platformlarım seçimi): bölgedeki abonelik platformları, en yaygından başlayarak
 let platformsCache = null
-app.get('/api/profiles/:profileId/tmdb-platforms', async (req, res) => {
-  try {
-    const apiKey = readProfileApiKey(req.params.profileId)
-    if (!apiKey) return res.json({ needsApiKey: true, items: [] })
+// Bölgedeki abonelik platformları (ad, logo), en yaygından başlayarak — Abonelik önerisi de kullanıyor
+async function platformList(apiKey) {
     const region = serverRegion()
     if (!platformsCache || platformsCache.region !== region || Date.now() - platformsCache.at > 24 * 3600e3) {
       const lists = await Promise.all(['movie', 'tv'].map((t) => tmdbGet(`/watch/providers/${t}`, { watch_region: region, language: tmdbLang() }, apiKey)))
@@ -2933,9 +2934,16 @@ app.get('/api/profiles/:profileId/tmdb-platforms', async (req, res) => {
         const cur = byId.get(p.provider_id)
         if (!cur || prio < cur.prio) byId.set(p.provider_id, { id: p.provider_id, name: p.provider_name, logo: p.logo_path ? `${TMDB_IMG_BASE}/w92${p.logo_path}` : null, prio })
       }
-      platformsCache = { at: Date.now(), region, items: [...byId.values()].sort((a, b) => a.prio - b.prio).slice(0, 24) }
+      platformsCache = { at: Date.now(), region, all: [...byId.values()].sort((a, b) => a.prio - b.prio), items: [...byId.values()].sort((a, b) => a.prio - b.prio).slice(0, 24) }
     }
-    res.json({ items: platformsCache.items.map(({ prio: _p, ...x }) => x) })
+    return platformsCache
+}
+app.get('/api/profiles/:profileId/tmdb-platforms', async (req, res) => {
+  try {
+    const apiKey = readProfileApiKey(req.params.profileId)
+    if (!apiKey) return res.json({ needsApiKey: true, items: [] })
+    const cache = await platformList(apiKey)
+    res.json({ items: cache.items.map(({ prio: _p, ...x }) => x) })
   } catch (e) {
     console.error('platform hata:', e)
     res.json({ items: [] })

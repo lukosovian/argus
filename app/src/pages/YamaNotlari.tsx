@@ -75,6 +75,9 @@ import {
   EvrenEskiVisual,
   EvrenHedefVisual,
   EvrenEkleVisual,
+  OnceVisual,
+  AbonelikVisual,
+  AraVisual,
   TelefonEsitlemeVisual,
   TelefonKurulumVisual,
 } from '../components/PatchVisuals'
@@ -91,6 +94,23 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.19.4',
+    date: tt('6 Kasım 2026'),
+    title: tt('Bunu izlemeden önce, Hangi aboneliği almalıyım?, Uzun ara verdin özeti, Evrenler\'de Atla'),
+    items: [
+      tt('Evrenler\'de "Bunu izlemeden önce…": bir yapım seç (ör. VisionQuest), onu anlamak için önce neleri izlemen gerektiği katman katman çıkar: doğrudan gerekenler, onları anlamak için gerekenler, daha geriye gidenler ve "izlersen iyi olur"lar. İzlediklerin işaretli gelir. "Bu listeyle tur başlat" ya da sadece doğrudan gerekenlerle "Kısa tur" diyebilirsin; istersen izlediklerini de tekrar izleme listesine katarsın.'),
+      tt('Kısa turda sayfada sadece turdaki yapımlar görünür ("Bütün evreni göster" ile hepsi). Biten tur "Önceki turlar"da "VisionQuest öncesi" diye adıyla kaydedilir.'),
+      tt('Evrenler\'de "Atla": sıradaki yapımı izlemeden geçebilirsin, sayaca girmez ve sıradakine geçilir. Kartta "Atlandı · geri al" ile geri alırsın. Kartların okundaki menüde de var.'),
+      tt('Yeni sayfa: Hangi aboneliği almalıyım? (profil menüsünde, Evrenler\'in altında). İzlenecekler listendeki ya da bir evrende izlemediklerindeki yapımların hangi platformda olduğuna bakar: "Bu ay Netflix al: 102 yapım, ~639 saat", en iyi ikili ve her platformda neler olduğu. Evren turunda "Kalanlar hangi platformda?" bağlantısı da buraya götürür.'),
+      tt('Uzun ara verdin: bir dizinin son bölümünü 3 haftadan uzun süre önce izlediysen ve sırada çıkmış bölüm varsa, detay penceresinde kaldığın yer yazar; "Neler olmuştu?" ile son izlediğin üç bölümün özetini okursun (sadece izlediklerin, ilerisi söylenmez).'),
+    ],
+    visuals: [
+      { caption: tt('1 seçtiğin yapım · 2 katman katman gerekenler · 3 bu listeyle tur'), Visual: OnceVisual },
+      { caption: tt('1 önerilen platform · 2 en iyi ikili · 3 platform platform yapımlar'), Visual: AbonelikVisual },
+      { caption: tt('1 kaldığın yer · 2 son izlediğin bölümlerin özeti'), Visual: AraVisual },
+    ],
+  },
   {
     version: 'v1.19.3',
     date: tt('6 Kasım 2026'),

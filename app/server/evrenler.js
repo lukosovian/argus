@@ -169,6 +169,7 @@ export function registerEvrenlerRoutes(app) {
       from: u.from ?? null,
       groups: u.groups ?? [],
       story: u.story ?? (u.items ?? []).map((i) => i.key),
+      deps: u.deps ?? {},
       items: (u.items ?? []).map((it) => publicItem(ctx, it, user.prefs[u.id]?.maraton)),
     }))
     res.json({ universes, prefs: user.prefs, today: ctx.today })
@@ -286,6 +287,113 @@ export function registerEvrenlerRoutes(app) {
       .map((s) => ({ season: s.season_number, date: s.air_date || '', episodes: s.episode_count ?? 0, poster: s.poster_path ?? null }))
     const avg = (tv?.episode_run_time ?? [])[0] || tv?.last_episode_to_air?.runtime || null
     res.json({ seasons, runtime: avg })
+  })
+}
+
+// ---- Hangi aboneliği almalıyım? ---------------------------------------------------------------
+// Kullanıcı "bu ay hangi platformu alsam" sorusunun cevabını istedi: izlenecekler listesindeki (ya da bir evrende
+// izlemediklerindeki) yapımların hangi abonelik platformunda olduğu toplanır, en çok süreyi karşılayan platformlar
+// önce gelir. Platformlar: arşivdeki açık kayıtlar için watch-state.json'da zaten var; olmayanlar TMDB'den çekilip
+// profildeki platform-cache.json'da 7 gün saklanır.
+const PLATFORM_TTL = 7 * 24 * 3600e3
+
+function platformCacheFile(profileId) {
+  return path.join(d.profileDir(profileId), 'platform-cache.json')
+}
+
+export function registerPlatformRoutes(app) {
+  app.post('/api/profiles/:profileId/platform-ozet/:boardId', async (req, res) => {
+    try {
+      const { profileId, boardId } = req.params
+      const apiKey = d.readProfileApiKey(profileId)
+      if (!apiKey) return res.json({ needsApiKey: true, providers: [], none: [], total: 0, totalMinutes: 0 })
+      const ctx = makeContext(profileId, boardId)
+      if (!ctx) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+      const refs = d.readJson(d.profileTmdbFile(profileId), {})
+      const keyToRow = new Map()
+      for (const [rowId, r] of Object.entries(refs)) if (r?.id && ctx.rowById.has(rowId)) keyToRow.set(`${r.mediaType}:${r.id}`, rowId)
+
+      // Hangi yapımlar: istemcinin gönderdiği liste (evren) ya da izlenecekler listesi
+      let list = []
+      if (Array.isArray(req.body?.items)) {
+        list = req.body.items
+          .filter((i) => i && (i.type === 'movie' || i.type === 'tv') && Number.isInteger(i.tmdbId))
+          .slice(0, 400)
+          .map((i) => ({ type: i.type, tmdbId: i.tmdbId, title: String(i.title ?? ''), poster: typeof i.poster === 'string' ? i.poster : null, minutes: Number(i.minutes) || 0 }))
+      } else {
+        const later = resolveStatusOption(ctx.board, 'izlenecek')
+        const sure = resolveRole(ctx.board, 'sure')
+        for (const row of ctx.rows) {
+          if (!ctx.durum || row.values[ctx.durum.id] !== later) continue
+          const ref = refs[row.id]
+          if (!ref?.id) continue
+          let minutes = sure && Number(row.values[sure.id]) > 0 ? Number(row.values[sure.id]) : 0
+          if (ref.mediaType === 'tv') minutes = episodeKeys(ctx, row.id).length * (ref.epRuntime || 40)
+          list.push({ type: ref.mediaType, tmdbId: ref.id, title: ctx.titleProp ? String(row.values[ctx.titleProp.id] ?? '') : '', poster: ctx.poster ? row.values[ctx.poster.id] || null : null, minutes, rowId: row.id })
+        }
+      }
+
+      const watchState = d.readJson(d.profileWatchStateFile(profileId), {})[boardId]?.providers ?? {}
+      const cacheFile = platformCacheFile(profileId)
+      const cache = d.readJson(cacheFile, {})
+      const region = d.serverRegion()
+      let fetched = 0
+      await d.mapLimit(list, 4, async (it) => {
+        const k = `${it.type}:${it.tmdbId}`
+        const rowId = it.rowId ?? keyToRow.get(k)
+        if (rowId && watchState[rowId]) return (it.ids = watchState[rowId].ids)
+        if (cache[k] && Date.now() - cache[k].at < PLATFORM_TTL) return (it.ids = cache[k].ids)
+        const p = await d.tmdbGet(`/${it.type}/${it.tmdbId}/watch/providers`, {}, apiKey)
+        it.ids = (p?.results?.[region]?.flatrate ?? []).map((x) => x.provider_id)
+        cache[k] = { ids: it.ids, at: Date.now() }
+        fetched++
+      })
+      if (fetched) d.writeJson(cacheFile, cache)
+
+      const names = new Map(((await d.platformList(apiKey)).all ?? []).map((p) => [p.id, p]))
+      const byId = new Map()
+      const none = []
+      for (const it of list) {
+        const ids = [...new Set(it.ids ?? [])].filter((id) => names.has(id))
+        if (!ids.length) {
+          none.push({ title: it.title, poster: it.poster })
+          continue
+        }
+        for (const id of ids) {
+          const p = byId.get(id) ?? { id, name: names.get(id).name, logo: names.get(id).logo, count: 0, minutes: 0, items: [] }
+          p.count++
+          p.minutes += it.minutes
+          p.items.push({ title: it.title, poster: it.poster, key: `${it.type}:${it.tmdbId}` })
+          byId.set(id, p)
+        }
+      }
+      // Aynı platformun farklı paketleri (ör. "Netflix" / "Netflix basic with Ads") ayrı görünmesin: aynı yapımları
+      // kapsayan, adı diğerini içeren platform elenir
+      let providers = [...byId.values()].sort((a, b) => b.minutes - a.minutes || b.count - a.count)
+      providers = providers.filter((p) => !providers.some((q) => q !== p && q.count >= p.count && p.name.toLowerCase().startsWith(q.name.toLowerCase())))
+      // En iyi ikili: birlikte en çok süreyi karşılayan iki platform
+      let combo = null
+      const top = providers.slice(0, 8)
+      for (let a = 0; a < top.length; a++)
+        for (let b = a + 1; b < top.length; b++) {
+          const keys = new Set([...top[a].items, ...top[b].items].map((x) => x.key))
+          const minutes = list.filter((it) => keys.has(`${it.type}:${it.tmdbId}`)).reduce((t, it) => t + it.minutes, 0)
+          if (!combo || minutes > combo.minutes) combo = { ids: [top[a].id, top[b].id], count: keys.size, minutes }
+        }
+      const home = d.readJson(d.profileHomeSettingsFile(profileId), {})
+      res.json({
+        providers: providers.map((p) => ({ ...p, items: p.items.slice(0, 12) })),
+        none: none.slice(0, 30),
+        noneCount: none.length,
+        total: list.length,
+        totalMinutes: list.reduce((t, it) => t + it.minutes, 0),
+        mine: Array.isArray(home.myPlatforms) ? home.myPlatforms : [],
+        combo,
+      })
+    } catch (e) {
+      console.error('platform özet hata:', e)
+      res.status(500).json({ error: stt('Platform bilgisi alınamadı') })
+    }
   })
 }
 

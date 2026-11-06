@@ -56,7 +56,20 @@ export interface Evren {
   from: string | null
   groups: { id: string; name: string }[]
   story: string[]
+  // "Bunu izlemeden önce": key → doğrudan gerekenler (need) ve izlersen iyi olurlar (good)
+  deps: Record<string, { need: string[]; good: string[] }>
   items: EvrenItem[]
+}
+// Hangi aboneliği almalıyım? (bkz. pages/Abonelik.tsx)
+export interface PlatformOzet {
+  providers: { id: number; name: string; logo: string | null; count: number; minutes: number; items: { title: string; poster: string | null; key: string }[] }[]
+  none: { title: string; poster: string | null }[]
+  noneCount: number
+  total: number
+  totalMinutes: number
+  mine: number[]
+  combo: { ids: number[]; count: number; minutes: number } | null
+  needsApiKey?: boolean
 }
 // maraton: "baştan izliyorum" başlangıç günü; ek: yan yapımlar görünsün; sira: son seçilen sıralama
 export interface EvrenPrefs {
@@ -65,7 +78,11 @@ export interface EvrenPrefs {
   sira?: 'cikis' | 'hikaye'
   // Turun hedef bitiş günü ve biten turlar (başlangıç, bitiş, izlenen/toplam)
   hedef?: string
-  gecmis?: { bas: string; bit: string; done: number; total: number }[]
+  // Sadece bu yapımlarla tur ("Bunu izlemeden önce"den), hedef yapım ve turda atlananlar
+  turKeys?: string[]
+  turHedefKey?: string
+  atla?: string[]
+  gecmis?: { bas: string; bit: string; done: number; total: number; ad?: string }[]
 }
 export interface EvrenSaveItem {
   key: string
@@ -453,6 +470,8 @@ export const api = {
     request<{ items: (ArchiveCard & { date: string; posterPath: string | null })[]; needsApiKey?: boolean }>(profilePath(`/evren-ara/${boardId}?q=${encodeURIComponent(q)}`)),
   getEvrenSeasons: (tmdbId: number) =>
     request<{ seasons: { season: number; date: string; episodes: number; poster: string | null }[]; runtime: number | null }>(profilePath(`/evren-sezonlar/${tmdbId}`)),
+  platformOzet: (boardId: string, items?: { type: 'movie' | 'tv'; tmdbId: number; title: string; poster: string | null; minutes: number }[]) =>
+    request<PlatformOzet>(profilePath(`/platform-ozet/${boardId}`), { method: 'POST', ...json(items ? { items } : {}) }),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),
   saveKoleksiyon: (patch: KoleksiyonPatch) => request<KoleksiyonData>(profilePath('/koleksiyon'), { method: 'POST', ...json(patch) }),
   // İnternetteki bir görseli medya klasörüne indirir (Koleksiyon'da adres yapıştırarak sembol ekleme)

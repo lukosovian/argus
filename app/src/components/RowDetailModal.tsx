@@ -19,6 +19,7 @@ import ShowcaseBanner from './ShowcaseBanner'
 import OptionBadge from './OptionBadge'
 import OptionDetailModal from './OptionDetailModal'
 import SeasonsBrowser from './SeasonsBrowser'
+import ResumeRecap from './ResumeRecap'
 import TmdbExtras from './TmdbExtras'
 import SectionTitle from './SectionTitle'
 import AgeRatingChip from './AgeRatingChip'
@@ -587,6 +588,7 @@ export default function RowDetailModal({
               </section>
             )}
 
+            {seasons && seasons.length > 0 && <ResumeRecap seasons={seasons} watched={rowWatched} />}
             {seasons && seasons.length > 0 && (
               <section id="rd-bolumler">
                 <SectionTitle title={tt('Bölümler')} count={tt('{0} sezon', seasons.length)} />

@@ -1119,7 +1119,511 @@
    "xmen97-1",
    "xmen97-2",
    "yfns1"
-  ]
+  ],
+  "deps": {
+   "ironman2": {
+    "need": [
+     "ironman"
+    ],
+    "good": []
+   },
+   "avengers": {
+    "need": [
+     "ironman",
+     "thor",
+     "catfa"
+    ],
+    "good": [
+     "ironman2",
+     "hulk"
+    ]
+   },
+   "ironman3": {
+    "need": [
+     "avengers"
+    ],
+    "good": [
+     "ironman2"
+    ]
+   },
+   "thordw": {
+    "need": [
+     "thor",
+     "avengers"
+    ],
+    "good": []
+   },
+   "catws": {
+    "need": [
+     "catfa",
+     "avengers"
+    ],
+    "good": []
+   },
+   "aou": {
+    "need": [
+     "avengers",
+     "catws"
+    ],
+    "good": [
+     "ironman3",
+     "thordw"
+    ]
+   },
+   "antman": {
+    "need": [],
+    "good": [
+     "aou"
+    ]
+   },
+   "civilwar": {
+    "need": [
+     "catws",
+     "aou"
+    ],
+    "good": [
+     "antman"
+    ]
+   },
+   "bw": {
+    "need": [
+     "civilwar"
+    ],
+    "good": []
+   },
+   "bp": {
+    "need": [
+     "civilwar"
+    ],
+    "good": []
+   },
+   "homecoming": {
+    "need": [
+     "civilwar"
+    ],
+    "good": [
+     "ironman3"
+    ]
+   },
+   "gotg2": {
+    "need": [
+     "gotg"
+    ],
+    "good": []
+   },
+   "ragnarok": {
+    "need": [
+     "thordw",
+     "aou"
+    ],
+    "good": [
+     "drstrange"
+    ]
+   },
+   "antwasp": {
+    "need": [
+     "antman",
+     "civilwar"
+    ],
+    "good": []
+   },
+   "iw": {
+    "need": [
+     "civilwar",
+     "ragnarok",
+     "gotg2",
+     "bp",
+     "drstrange"
+    ],
+    "good": [
+     "homecoming",
+     "gotg"
+    ]
+   },
+   "cm": {
+    "need": [],
+    "good": [
+     "avengers"
+    ]
+   },
+   "endgame": {
+    "need": [
+     "iw",
+     "cm",
+     "antwasp"
+    ],
+    "good": [
+     "ragnarok"
+    ]
+   },
+   "ffh": {
+    "need": [
+     "endgame",
+     "homecoming"
+    ],
+    "good": []
+   },
+   "wv1": {
+    "need": [
+     "endgame",
+     "aou"
+    ],
+    "good": [
+     "iw"
+    ]
+   },
+   "fws1": {
+    "need": [
+     "endgame",
+     "catws"
+    ],
+    "good": [
+     "civilwar"
+    ]
+   },
+   "loki1": {
+    "need": [
+     "avengers",
+     "endgame"
+    ],
+    "good": [
+     "thordw",
+     "ragnarok"
+    ]
+   },
+   "whatif1": {
+    "need": [],
+    "good": [
+     "loki1"
+    ]
+   },
+   "shangchi": {
+    "need": [],
+    "good": [
+     "ironman3"
+    ]
+   },
+   "eternals": {
+    "need": [],
+    "good": [
+     "endgame"
+    ]
+   },
+   "hawkeye1": {
+    "need": [
+     "endgame"
+    ],
+    "good": [
+     "bw"
+    ]
+   },
+   "nwh": {
+    "need": [
+     "ffh",
+     "drstrange"
+    ],
+    "good": []
+   },
+   "mom": {
+    "need": [
+     "wv1",
+     "nwh"
+    ],
+    "good": [
+     "whatif1",
+     "loki1"
+    ]
+   },
+   "msmarvel1": {
+    "need": [],
+    "good": [
+     "cm",
+     "endgame"
+    ]
+   },
+   "lat": {
+    "need": [
+     "ragnarok",
+     "endgame"
+    ],
+    "good": [
+     "gotg2"
+    ]
+   },
+   "shehulk1": {
+    "need": [],
+    "good": [
+     "aou",
+     "endgame"
+    ]
+   },
+   "wf": {
+    "need": [
+     "bp",
+     "endgame"
+    ],
+    "good": []
+   },
+   "holiday": {
+    "need": [],
+    "good": [
+     "gotg2"
+    ]
+   },
+   "quantumania": {
+    "need": [
+     "antwasp",
+     "endgame"
+    ],
+    "good": [
+     "loki1"
+    ]
+   },
+   "gotg3": {
+    "need": [
+     "gotg2",
+     "endgame"
+    ],
+    "good": [
+     "holiday"
+    ]
+   },
+   "si1": {
+    "need": [
+     "cm",
+     "endgame"
+    ],
+    "good": [
+     "catws"
+    ]
+   },
+   "loki2": {
+    "need": [
+     "loki1"
+    ],
+    "good": [
+     "quantumania"
+    ]
+   },
+   "marvels": {
+    "need": [
+     "cm",
+     "msmarvel1"
+    ],
+    "good": [
+     "wv1"
+    ]
+   },
+   "whatif2": {
+    "need": [
+     "whatif1"
+    ],
+    "good": []
+   },
+   "echo1": {
+    "need": [
+     "hawkeye1"
+    ],
+    "good": []
+   },
+   "dp": {
+    "need": [],
+    "good": [
+     "loki1",
+     "loki2"
+    ]
+   },
+   "agatha1": {
+    "need": [
+     "wv1"
+    ],
+    "good": []
+   },
+   "whatif3": {
+    "need": [
+     "whatif2"
+    ],
+    "good": []
+   },
+   "ddba1": {
+    "need": [],
+    "good": [
+     "echo1",
+     "dd3"
+    ]
+   },
+   "bnw": {
+    "need": [
+     "fws1"
+    ],
+    "good": [
+     "hulk",
+     "eternals",
+     "si1"
+    ]
+   },
+   "thunderbolts": {
+    "need": [
+     "bw",
+     "fws1"
+    ],
+    "good": [
+     "antwasp",
+     "hawkeye1"
+    ]
+   },
+   "ironheart1": {
+    "need": [
+     "wf"
+    ],
+    "good": [
+     "bp"
+    ]
+   },
+   "eow1": {
+    "need": [],
+    "good": [
+     "bp",
+     "wf"
+    ]
+   },
+   "zombies1": {
+    "need": [
+     "whatif1"
+    ],
+    "good": []
+   },
+   "ddba2": {
+    "need": [
+     "ddba1"
+    ],
+    "good": []
+   },
+   "punisherolk": {
+    "need": [
+     "ddba2"
+    ],
+    "good": [
+     "punisher1",
+     "punisher2"
+    ]
+   },
+   "bnd": {
+    "need": [
+     "nwh"
+    ],
+    "good": [
+     "punisherolk",
+     "ddba2"
+    ]
+   },
+   "visionquest1": {
+    "need": [
+     "wv1"
+    ],
+    "good": [
+     "agatha1",
+     "aou",
+     "iw"
+    ]
+   },
+   "doomsday": {
+    "need": [
+     "endgame",
+     "ff",
+     "thunderbolts",
+     "bnw",
+     "loki2"
+    ],
+    "good": [
+     "mom",
+     "quantumania",
+     "dp",
+     "marvels",
+     "wf",
+     "shangchi"
+    ]
+   },
+   "secretwars": {
+    "need": [
+     "doomsday"
+    ],
+    "good": []
+   },
+   "iamgroot2": {
+    "need": [
+     "iamgroot1"
+    ],
+    "good": []
+   },
+   "xmen97-2": {
+    "need": [
+     "xmen97-1"
+    ],
+    "good": []
+   },
+   "dd2": {
+    "need": [
+     "dd1"
+    ],
+    "good": []
+   },
+   "dd3": {
+    "need": [
+     "dd2",
+     "defenders"
+    ],
+    "good": []
+   },
+   "jj2": {
+    "need": [
+     "jj1",
+     "defenders"
+    ],
+    "good": []
+   },
+   "jj3": {
+    "need": [
+     "jj2"
+    ],
+    "good": []
+   },
+   "lc2": {
+    "need": [
+     "lc1",
+     "defenders"
+    ],
+    "good": []
+   },
+   "if2": {
+    "need": [
+     "if1",
+     "defenders"
+    ],
+    "good": []
+   },
+   "defenders": {
+    "need": [
+     "dd2",
+     "jj1",
+     "lc1",
+     "if1"
+    ],
+    "good": []
+   },
+   "punisher1": {
+    "need": [],
+    "good": [
+     "dd2"
+    ]
+   },
+   "punisher2": {
+    "need": [
+     "punisher1"
+    ],
+    "good": []
+   }
+  }
  },
  "dceu": {
   "id": "dceu",
@@ -1320,7 +1824,87 @@
    "flash",
    "bluebeetle",
    "aquaman2"
-  ]
+  ],
+  "deps": {
+   "bvs": {
+    "need": [
+     "mos"
+    ],
+    "good": []
+   },
+   "ss": {
+    "need": [],
+    "good": [
+     "bvs"
+    ]
+   },
+   "jl": {
+    "need": [
+     "bvs"
+    ],
+    "good": [
+     "ww"
+    ]
+   },
+   "zsjl": {
+    "need": [
+     "bvs"
+    ],
+    "good": [
+     "ww"
+    ]
+   },
+   "aquaman": {
+    "need": [],
+    "good": [
+     "jl"
+    ]
+   },
+   "bop": {
+    "need": [],
+    "good": [
+     "ss"
+    ]
+   },
+   "ww84": {
+    "need": [
+     "ww"
+    ],
+    "good": []
+   },
+   "tss": {
+    "need": [],
+    "good": [
+     "ss"
+    ]
+   },
+   "pm1": {
+    "need": [
+     "tss"
+    ],
+    "good": []
+   },
+   "shazam2": {
+    "need": [
+     "shazam"
+    ],
+    "good": []
+   },
+   "flash": {
+    "need": [
+     "jl"
+    ],
+    "good": [
+     "mos"
+    ]
+   },
+   "aquaman2": {
+    "need": [
+     "aquaman"
+    ],
+    "good": []
+   }
+  }
  },
  "dcu": {
   "id": "dcu",
@@ -1427,7 +2011,42 @@
    "lanterns1",
    "clayface",
    "mot"
-  ]
+  ],
+  "deps": {
+   "pm2": {
+    "need": [
+     "pm1"
+    ],
+    "good": []
+   },
+   "superman": {
+    "need": [],
+    "good": [
+     "cc1"
+    ]
+   },
+   "supergirl": {
+    "need": [
+     "superman"
+    ],
+    "good": []
+   },
+   "lanterns1": {
+    "need": [],
+    "good": [
+     "superman"
+    ]
+   },
+   "mot": {
+    "need": [
+     "superman"
+    ],
+    "good": [
+     "supergirl",
+     "lanterns1"
+    ]
+   }
+  }
  },
  "starwars": {
   "id": "starwars",
@@ -1774,7 +2393,177 @@
    "ep8",
    "ep9",
    "visions"
-  ]
+  ],
+  "deps": {
+   "ep2": {
+    "need": [
+     "ep1"
+    ],
+    "good": []
+   },
+   "tcwmovie": {
+    "need": [
+     "ep2"
+    ],
+    "good": []
+   },
+   "tcw": {
+    "need": [
+     "ep2"
+    ],
+    "good": [
+     "tcwmovie"
+    ]
+   },
+   "ep3": {
+    "need": [
+     "ep2"
+    ],
+    "good": [
+     "tcw"
+    ]
+   },
+   "totj": {
+    "need": [],
+    "good": [
+     "tcw"
+    ]
+   },
+   "tote": {
+    "need": [],
+    "good": [
+     "tcw"
+    ]
+   },
+   "totu": {
+    "need": [],
+    "good": [
+     "tcw"
+    ]
+   },
+   "badbatch": {
+    "need": [
+     "ep3",
+     "tcw"
+    ],
+    "good": []
+   },
+   "maul": {
+    "need": [],
+    "good": [
+     "tcw",
+     "badbatch"
+    ]
+   },
+   "solo": {
+    "need": [],
+    "good": [
+     "ep4"
+    ]
+   },
+   "obiwan": {
+    "need": [
+     "ep3"
+    ],
+    "good": [
+     "ep4"
+    ]
+   },
+   "andor": {
+    "need": [],
+    "good": [
+     "rogueone"
+    ]
+   },
+   "rebels": {
+    "need": [],
+    "good": [
+     "tcw"
+    ]
+   },
+   "rogueone": {
+    "need": [],
+    "good": [
+     "andor"
+    ]
+   },
+   "ep4": {
+    "need": [],
+    "good": [
+     "rogueone"
+    ]
+   },
+   "ep5": {
+    "need": [
+     "ep4"
+    ],
+    "good": []
+   },
+   "ep6": {
+    "need": [
+     "ep5"
+    ],
+    "good": []
+   },
+   "mando": {
+    "need": [],
+    "good": [
+     "ep6"
+    ]
+   },
+   "bobf": {
+    "need": [
+     "mando"
+    ],
+    "good": []
+   },
+   "ahsoka": {
+    "need": [
+     "rebels",
+     "mando"
+    ],
+    "good": [
+     "tcw"
+    ]
+   },
+   "skeleton": {
+    "need": [],
+    "good": [
+     "mando"
+    ]
+   },
+   "mandogrogu": {
+    "need": [
+     "mando",
+     "bobf"
+    ],
+    "good": []
+   },
+   "resistance": {
+    "need": [],
+    "good": [
+     "ep7"
+    ]
+   },
+   "ep7": {
+    "need": [
+     "ep6"
+    ],
+    "good": []
+   },
+   "ep8": {
+    "need": [
+     "ep7"
+    ],
+    "good": []
+   },
+   "ep9": {
+    "need": [
+     "ep8"
+    ],
+    "good": []
+   }
+  }
  },
  "ortadunya": {
   "id": "ortadunya",
@@ -1910,7 +2699,58 @@
    "fotr",
    "tt",
    "rotk"
-  ]
+  ],
+  "deps": {
+   "tt": {
+    "need": [
+     "fotr"
+    ],
+    "good": []
+   },
+   "rotk": {
+    "need": [
+     "tt"
+    ],
+    "good": []
+   },
+   "h2": {
+    "need": [
+     "h1"
+    ],
+    "good": []
+   },
+   "h3": {
+    "need": [
+     "h2"
+    ],
+    "good": []
+   },
+   "fotr": {
+    "need": [],
+    "good": [
+     "h3"
+    ]
+   },
+   "rop2": {
+    "need": [
+     "rop1"
+    ],
+    "good": []
+   },
+   "rop3": {
+    "need": [
+     "rop2"
+    ],
+    "good": []
+   },
+   "gollum": {
+    "need": [],
+    "good": [
+     "h1",
+     "fotr"
+    ]
+   }
+  }
  },
  "buyucu": {
   "id": "buyucu",
@@ -2055,6 +2895,68 @@
    "hp7",
    "hp8",
    "hpdizi1"
-  ]
+  ],
+  "deps": {
+   "hp2": {
+    "need": [
+     "hp1"
+    ],
+    "good": []
+   },
+   "hp3": {
+    "need": [
+     "hp2"
+    ],
+    "good": []
+   },
+   "hp4": {
+    "need": [
+     "hp3"
+    ],
+    "good": []
+   },
+   "hp5": {
+    "need": [
+     "hp4"
+    ],
+    "good": []
+   },
+   "hp6": {
+    "need": [
+     "hp5"
+    ],
+    "good": []
+   },
+   "hp7": {
+    "need": [
+     "hp6"
+    ],
+    "good": []
+   },
+   "hp8": {
+    "need": [
+     "hp7"
+    ],
+    "good": []
+   },
+   "fb2": {
+    "need": [
+     "fb1"
+    ],
+    "good": []
+   },
+   "fb3": {
+    "need": [
+     "fb2"
+    ],
+    "good": []
+   },
+   "fb1": {
+    "need": [],
+    "good": [
+     "hp8"
+    ]
+   }
+  }
  }
 }
