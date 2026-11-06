@@ -24,6 +24,68 @@ export interface Song {
   foundAt: number
 }
 
+// Evrenler (bkz. pages/Evrenler.tsx, server/evrenler.js): sinematik evrenlerin yapımları ve arşivdeki durumları.
+export interface EvrenItem {
+  key: string
+  type: 'movie' | 'tv'
+  tmdbId: number | null
+  season: number | null
+  title: string
+  archiveTitle: string | null
+  date: string
+  released: boolean
+  poster: string | null
+  minutes: number | null
+  group: string | null
+  extra: boolean
+  rowId: string | null
+  status: string | null
+  watched: boolean
+  // Her bitirişin tarihi ("2024-03-12", "2019", "?") — tekrar izleme = ikinci tarih
+  watches: string[]
+  progress: { seen: number; total: number } | null
+}
+export interface Evren {
+  id: string
+  name: string
+  short: string
+  color: string
+  builtin: boolean
+  from: string | null
+  groups: { id: string; name: string }[]
+  story: string[]
+  items: EvrenItem[]
+}
+// maraton: "baştan izliyorum" başlangıç günü; ek: yan yapımlar görünsün; sira: son seçilen sıralama
+export interface EvrenPrefs {
+  maraton?: string
+  ek?: boolean
+  sira?: 'cikis' | 'hikaye'
+}
+export interface EvrenSaveItem {
+  key: string
+  type: 'movie' | 'tv'
+  tmdbId?: number
+  rowId?: string
+  season?: number
+  title: string
+  en?: string
+  date: string
+  poster?: string
+  minutes?: number
+  group?: string
+  extra?: boolean
+}
+export interface EvrenSave {
+  name: string
+  short?: string
+  color: string
+  from?: string
+  groups?: { id: string; name: string }[]
+  items: EvrenSaveItem[]
+  story: string[]
+}
+
 // TMDB'deki bir içeriğin kart bilgisi (Benzerler / Keşfet sonuçları).
 // Seri / kişi sayfalarındaki kartlar: TMDB kartı + arşivdeki durumu
 export interface ArchiveCard extends TmdbCard {
@@ -375,6 +437,15 @@ export const api = {
       profilePath(`/flashback/${boardId}?year=${year}`),
     ),
   getTmdbMediaTypes: () => request<Record<string, 'movie' | 'tv'>>(profilePath('/tmdb-media')),
+  getEvrenler: (boardId: string) => request<{ universes: Evren[]; prefs: Record<string, EvrenPrefs>; today: string }>(profilePath(`/evrenler/${boardId}`)),
+  saveEvrenler: (patch: { custom?: Record<string, EvrenSave | null>; prefs?: Record<string, EvrenPrefs | null> }) =>
+    request<{ ok: true }>(profilePath('/evrenler-veri'), { method: 'POST', ...json(patch) }),
+  markEvren: (boardId: string, body: { uid: string; key: string; date: string; remove?: boolean }) =>
+    request<{ ok: true; rowId?: string; created?: boolean }>(profilePath(`/evrenler/${boardId}/isaretle`), { method: 'POST', ...json(body) }),
+  searchEvren: (boardId: string, q: string) =>
+    request<{ items: (ArchiveCard & { date: string; posterPath: string | null })[]; needsApiKey?: boolean }>(profilePath(`/evren-ara/${boardId}?q=${encodeURIComponent(q)}`)),
+  getEvrenSeasons: (tmdbId: number) =>
+    request<{ seasons: { season: number; date: string; episodes: number; poster: string | null }[]; runtime: number | null }>(profilePath(`/evren-sezonlar/${tmdbId}`)),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),
   saveKoleksiyon: (patch: KoleksiyonPatch) => request<KoleksiyonData>(profilePath('/koleksiyon'), { method: 'POST', ...json(patch) }),
   // İnternetteki bir görseli medya klasörüne indirir (Koleksiyon'da adres yapıştırarak sembol ekleme)

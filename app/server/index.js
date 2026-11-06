@@ -15,6 +15,7 @@ import { publishFile } from './featurePublish.js'
 import { langDate, serverLang, serverRegion, stt, tmdbLang } from './lang.js'
 import { COLUMN_NAMES, KIND_NAMES, isName, nameOf } from './names.js'
 import { checkRemote, initSync, isLoopback, opAt, opDedupeMiddleware, registerSyncRoutes } from './sync.js'
+import { initEvrenler, registerEvrenlerRoutes } from './evrenler.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -214,6 +215,15 @@ initBackup({ dataDir: DATA_DIR, medyaDir: MEDYA_DIR, root: ROOT, readJson, write
 registerBackupRoutes(app)
 initSync({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId, appVersion: readAppVersion(), mobileDir: path.join(__dirname, '..', 'mobile') })
 registerSyncRoutes(app)
+initEvrenler({
+  readJson, writeJson, makeId, profileDir, localDay: () => localDay(),
+  profileEpisodesFile, profileWatchedFile, profileRowsFile, profileBoardsFile, readProfileApiKey,
+  loadBoardAndRows: (...a) => loadBoardAndRows(...a), archiveLookup: (...a) => archiveLookup(...a),
+  addRowFromTmdb: (...a) => addRowFromTmdb(...a), applyWatched: (...a) => applyWatched(...a),
+  shouldAskRating: (...a) => shouldAskRating(...a), setAskRating: (...a) => setAskRating(...a),
+  recordRowWatchTime: (...a) => recordRowWatchTime(...a), tmdbGet: (...a) => tmdbGet(...a), toCard: (...a) => toCard(...a), tmdbLang,
+})
+registerEvrenlerRoutes(app)
 
 app.get('/api/profiles/:profileId/boards', (req, res) => {
   res.json(readJson(profileBoardsFile(req.params.profileId), []))
@@ -717,36 +727,45 @@ app.patch('/api/profiles/:profileId/watched/:rowId/diff', (req, res) =>
 )
 
 function saveWatched(req, res, makeBody) {
-  const file = profileWatchedFile(req.params.profileId)
+  const r = applyWatched(req.params.profileId, req.params.rowId, makeBody)
+  if (r.askRating) setAskRating(res, r.askRating.boardId, r.askRating.rowId)
+  res.json({ ok: true, autoWatched: r.autoWatched, autoWatching: r.autoWatching })
+}
+
+// Bir dizinin bölüm tarihlerini değiştirir (makeBody: eski hâl → yeni hâl) ve ardından gelen her şeyi yapar:
+// otomatik durum (İzlendi / İzleniyor), son izlenenler, izleme saati. Evrenler'deki "sezonu izledim" de bunu kullanıyor.
+function applyWatched(profileId, rowId, makeBody) {
+  const file = profileWatchedFile(profileId)
   const all = readJson(file, {})
-  const before = all[req.params.rowId] ?? {}
-  req.body = fixAbsoluteEpisodes(req.params.profileId, req.params.rowId, makeBody(before))
-  all[req.params.rowId] = req.body
+  const before = all[rowId] ?? {}
+  const body = fixAbsoluteEpisodes(profileId, rowId, makeBody(before))
+  all[rowId] = body
   writeJson(file, all)
   try {
     const today = localToday()
-    const n = Object.entries(req.body ?? {}).filter(([k, ds]) => Array.isArray(ds) && ds.includes(today) && !(before[k] ?? []).includes(today)).length
-    if (n) appendWatchTime(req.params.profileId, { rowId: req.params.rowId, kind: 'ep', n })
-    const added = Object.entries(req.body ?? {}).some(([k, ds]) => Array.isArray(ds) && ds.some((d) => !(before[k] ?? []).includes(d)))
-    if (added) touchRecentWatch(req.params.profileId, req.params.rowId)
+    const n = Object.entries(body ?? {}).filter(([k, ds]) => Array.isArray(ds) && ds.includes(today) && !(before[k] ?? []).includes(today)).length
+    if (n) appendWatchTime(profileId, { rowId, kind: 'ep', n })
+    const added = Object.entries(body ?? {}).some(([k, ds]) => Array.isArray(ds) && ds.some((d) => !(before[k] ?? []).includes(d)))
+    if (added) touchRecentWatch(profileId, rowId)
   } catch {
     /* saat kaydı önemsiz */
   }
   let autoWatched = null
   let autoWatching = null
   try {
-    autoWatched = autoMarkSeriesWatched(req.params.profileId, req.params.rowId, req.body ?? {})
-    if (!autoWatched) autoWatching = autoUnmarkSeriesWatched(req.params.profileId, req.params.rowId, before, req.body ?? {})
-    if (!autoWatched && !autoWatching) autoWatching = autoStartWatching(req.params.profileId, req.params.rowId, before, req.body ?? {})
+    autoWatched = autoMarkSeriesWatched(profileId, rowId, body ?? {})
+    if (!autoWatched) autoWatching = autoUnmarkSeriesWatched(profileId, rowId, before, body ?? {})
+    if (!autoWatched && !autoWatching) autoWatching = autoStartWatching(profileId, rowId, before, body ?? {})
   } catch (e) {
     console.error('otomatik durum hata:', e)
   }
+  let askRating = null
   if (autoWatched) {
-    const rows = readJson(profileRowsFile(req.params.profileId, autoWatched.boardId), [])
-    const row = rows.find((r) => r.id === req.params.rowId)
-    if (row && shouldAskRating(req.params.profileId, autoWatched.boardId, null, row)) setAskRating(res, autoWatched.boardId, row.id)
+    const rows = readJson(profileRowsFile(profileId, autoWatched.boardId), [])
+    const row = rows.find((r) => r.id === rowId)
+    if (row && shouldAskRating(profileId, autoWatched.boardId, null, row)) askRating = { boardId: autoWatched.boardId, rowId: row.id }
   }
-  res.json({ ok: true, autoWatched, autoWatching })
+  return { body, autoWatched, autoWatching, askRating }
 }
 
 // İçerikteki müzikler: kullanıcı "Nook'un Hum'u izlediğim dizilerin filmlerin içindeki müzikleri bulsun,
@@ -2338,24 +2357,34 @@ app.get('/api/profiles/:profileId/tmdb-extras/:boardId/:rowId', async (req, res)
 // durum (+ izlendiyse tarih/puan) ile kayıt oluşturulur, sonra normal TMDB doldurma çalışır.
 app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
   try {
-    const { profileId, boardId } = req.params
-    const { tmdbId, mediaType, status, watchedDate, rating, scores, exclude } = req.body ?? {}
-    if (!tmdbId || (mediaType !== 'movie' && mediaType !== 'tv')) return res.status(400).json({ error: stt('Geçersiz içerik') })
+    const out = await addRowFromTmdb(req.params.profileId, req.params.boardId, req.body ?? {})
+    res.status(out.status).json(out.json)
+  } catch (e) {
+    console.error('tmdb-add hata:', e)
+    res.status(500).json({ error: stt('İçerik eklenemedi') })
+  }
+})
+
+// Evrenler'den de kullanılıyor (izlendi + yaklaşık tarih "2019" / "?" olabilir).
+async function addRowFromTmdb(profileId, boardId, body) {
+  {
+    const { tmdbId, mediaType, status, watchedDate, rating, scores, exclude } = body ?? {}
+    if (!tmdbId || (mediaType !== 'movie' && mediaType !== 'tv')) return { status: 400, json: { error: stt('Geçersiz içerik') } }
     const apiKey = readProfileApiKey(profileId)
-    if (!apiKey) return res.status(400).json({ error: stt('Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.') })
+    if (!apiKey) return { status: 400, json: { error: stt('Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.') } }
 
     const boardsFile = profileBoardsFile(profileId)
     const boards = readJson(boardsFile, [])
     const board = boards.find((b) => b.id === boardId)
-    if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+    if (!board) return { status: 404, json: { error: stt('Arşiv bulunamadı') } }
     const rowsFile = profileRowsFile(profileId, boardId)
     const rows = readJson(rowsFile, [])
 
     const index = buildArchiveIndex(profileId, board, rows)
     const basic = await tmdbGet(`/${mediaType}/${tmdbId}`, { language: tmdbLang() }, apiKey)
-    if (!basic) return res.status(502).json({ error: stt('TMDB bilgisi alınamadı') })
+    if (!basic) return { status: 502, json: { error: stt('TMDB bilgisi alınamadı') } }
     const card = toCard(basic, mediaType)
-    if (index.has(card)) return res.status(409).json({ error: stt('"{0}" zaten arşivinde var.', card.title) })
+    if (index.has(card)) return { status: 409, json: { error: stt('"{0}" zaten arşivinde var.', card.title) } }
 
     const values = {}
     const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
@@ -2367,7 +2396,7 @@ app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
     if (durumProp && statusOpt) values[durumProp.id] = statusOpt
 
     if (statusKey === 'izlendi') {
-      const date = typeof watchedDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(watchedDate) ? watchedDate : null
+      const date = typeof watchedDate === 'string' && (/^\d{4}-\d{2}-\d{2}$/.test(watchedDate) || /^\d{4}$/.test(watchedDate) || watchedDate === '?') ? watchedDate : null
       if (date) {
         const dateProp = ensureRole(board, 'izlemeTarihi', makeId)
         if (dateProp) values[dateProp.id] = dateProp.type === 'multidate' ? [date] : date
@@ -2400,12 +2429,9 @@ app.post('/api/profiles/:profileId/tmdb-add/:boardId', async (req, res) => {
     writeJson(rowsFile, rows)
 
     const fill = await fillRowFromTmdb(profileId, boardId, row.id, { exclude, forced: { tmdbId, mediaType } })
-    res.json({ ok: true, rowId: row.id, title: card.title, filled: fill.status === 200 })
-  } catch (e) {
-    console.error('tmdb-add hata:', e)
-    res.status(500).json({ error: stt('İçerik eklenemedi') })
+    return { status: 200, json: { ok: true, rowId: row.id, title: card.title, filled: fill.status === 200 } }
   }
-})
+}
 
 app.get('/api/profiles/:profileId/tmdb-genres', async (req, res) => {
   const apiKey = readProfileApiKey(req.params.profileId)

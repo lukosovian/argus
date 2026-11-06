@@ -80,5 +80,9 @@
  "Kodun süresi doldu. PC'de Telefon Bağla'dan yeni kod al.": "The code has expired. Get a new one from Connect a phone on the PC.",
  "Kod yanlış.": "Wrong code.",
  "Telefon": "Phone",
- "Telefon uygulaması bu ARGUS'ta yok.": "The phone app is not included in this ARGUS."
+ "Telefon uygulaması bu ARGUS'ta yok.": "The phone app is not included in this ARGUS.",
+ "Yapım bulunamadı": "Title not found",
+ "Bu yapım arşivinde yok": "This title isn't in your archive",
+ "İşaretlenemedi": "Couldn't mark it",
+ "Yeni evren": "New universe"
 }

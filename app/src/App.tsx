@@ -15,6 +15,7 @@ import Istatistikler from './pages/Istatistikler'
 import Takvim from './pages/Takvim'
 import Flashback from './pages/Flashback'
 import Koleksiyon from './pages/Koleksiyon'
+import Evrenler from './pages/Evrenler'
 import YamaNotlari from './pages/YamaNotlari'
 
 // Bir profil ilk kez aktif olduğunda (o profil daha önce hiç görmediyse) Yardım Merkezi'ni
@@ -131,6 +132,22 @@ function AppRoutes() {
         element={
           <Shell>
             <Koleksiyon />
+          </Shell>
+        }
+      />
+      <Route
+        path="/evrenler"
+        element={
+          <Shell>
+            <Evrenler />
+          </Shell>
+        }
+      />
+      <Route
+        path="/evrenler/:id"
+        element={
+          <Shell>
+            <Evrenler />
           </Shell>
         }
       />

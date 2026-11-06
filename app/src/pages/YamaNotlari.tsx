@@ -69,6 +69,8 @@ import {
   UnuttuklarinVisual,
   PuanZevkiVisual,
   TelefonUygulamaVisual,
+  EvrenlerListeVisual,
+  EvrenIsaretVisual,
   TelefonEsitlemeVisual,
   TelefonKurulumVisual,
 } from '../components/PatchVisuals'
@@ -85,6 +87,25 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.19',
+    date: tt('6 Kasım 2026'),
+    title: tt('Evrenler: Marvel, DC, Star Wars ve daha fazlasını sırayla izle'),
+    items: [
+      tt("Yeni sayfa: Evrenler (profil menüsünde, Koleksiyon'un altında). Marvel Sinematik Evreni, DC Genişletilmiş Evreni, DC Evreni (yeni DCU), Star Wars, Orta Dünya ve Büyücülük Dünyası'nın bütün filmleri ve dizileri tek yerde."),
+      tt("Her evren \"Çıkış sırası\" ya da \"Hikâye sırası\" ile dizilir. Sıralar resmî kaynaklardan derlendi (Marvel'ın Disney+ zaman çizelgesi, StarWars.com, Wikipedia). Marvel fazlara ayrılmış görünür, dizilerin her sezonu kendi yerinde durur."),
+      tt('Daha önce izlediklerin kendiliğinden işaretli gelir, altında izlediğin tarih yazar. Kaçını izlediğin, kalan süre ve sıradaki yapım üstte görünür.'),
+      tt("\"✓ İzledim\" ile işaretlediğin yapım izlendi olarak arşivine, takvimine ve istatistiklerine düşer. Arşivinde yoksa TMDB'den eklenir. Dizide o sezonun çıkmış bütün bölümlerine tarih yazılır. Yanlışlıkla bastıysan çıkan bildirimden \"Geri al\" diyebilirsin."),
+      tt('Tarih seçmek için oka bas: bugün, dün, bir gün, sadece yıl ya da "hatırlamıyorum". İzlediğin bir yapıma tekrar basınca tekrar izleme tarihi eklenir, eski tarihleri görüp kaldırabilirsin.'),
+      tt('"Baştan izliyorum": tekrar izleyeceksen bir maraton başlat. O günden sonra işaretlediklerin sayılır, eskiden izlediklerin tarihleriyle görünmeye devam eder.'),
+      tt("Netflix'in Marvel dizileri, kısa animasyonlar gibi ana hikâyeye şart olmayanlar \"Yan yapımlar\" düğmesiyle açılıp kapanır."),
+      tt('Kendi evrenini oluştur: ad ve renk ver, film ya da dizi (istersen tek tek sezonlar) ara ve ekle, oklarla sırala ya da "Çıkış tarihine göre sırala" de. Hazır bir evreni de "Kopyala ve düzenle" ile kendine göre değiştirebilirsin.'),
+    ],
+    visuals: [
+      { caption: tt('1 evrenler ve ilerlemen · 2 kendi evrenini oluştur'), Visual: EvrenlerListeVisual },
+      { caption: tt('1 çıkış / hikâye sırası, maraton · 2 izlediklerin tarihiyle · 3 tarih seç, tekrar izle · 4 arşivine ve takvimine düşer'), Visual: EvrenIsaretVisual },
+    ],
+  },
   {
     version: 'v1.18',
     date: tt('4 Kasım 2026'),

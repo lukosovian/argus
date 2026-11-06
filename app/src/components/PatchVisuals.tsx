@@ -2788,3 +2788,117 @@ export function TelefonKurulumVisual() {
     </Frame>
   )
 }
+
+// ---- v1.19 -----------------------------------------------------------------------------------
+
+const EVREN_RENK = ['#e23636', '#2b6cff', '#ffe81f', '#c9a227', '#946b2d']
+
+export function EvrenlerListeVisual() {
+  const names = [tt('Marvel'), tt('DC'), tt('Star Wars'), tt('Orta Dünya'), tt('Büyücülük')]
+  const pct = [0.45, 0.35, 0.12, 0.6, 1]
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={16} size={9}>
+        {tt('Evrenler')}
+      </Label>
+      <NewTag x={Math.max(50, 14 + textW(tt('Evrenler'), 9))} y={7} />
+      {names.map((n, i) => {
+        const x = 8 + (i % 3) * 102
+        const y = 26 + Math.floor(i / 3) * 74
+        return (
+          <g key={i}>
+            <Box x={x} y={y} w={96} h={66} r={6} />
+            <rect x={x} y={y} width={96} height={34} rx={6} fill={EVREN_RENK[i]} opacity={0.25} />
+            {[0, 1, 2].map((j) => (
+              <rect key={j} x={x + 52 + j * 14} y={y + 4} width={12} height={18} rx={1.5} className="fill-neutral-600" />
+            ))}
+            <text x={x + 6} y={y + 29} fontSize={7.5} fontWeight={800} className="fill-neutral-50" style={{ fontFamily: 'inherit' }} {...fit(n, 7.5, 84)}>
+              {n}
+            </text>
+            <rect x={x + 6} y={y + 42} width={84} height={3} rx={1.5} className="fill-neutral-800" />
+            <rect x={x + 6} y={y + 42} width={84 * pct[i]} height={3} rx={1.5} fill={EVREN_RENK[i]} />
+            <text x={x + 6} y={y + 56} fontSize={5.8} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+              {tt('{0}/{1} izledin', Math.round(30 * pct[i]), 30)}
+            </text>
+          </g>
+        )
+      })}
+      <Pin x={14} y={30} n={1} />
+      <Box x={212} y={100} w={96} h={66} r={6} />
+      <text x={260} y={130} fontSize={14} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit' }}>
+        ＋
+      </text>
+      <text x={260} y={146} fontSize={6} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }} {...fit(tt('Kendi evrenini oluştur'), 6, 84)}>
+        {tt('Kendi evrenini oluştur')}
+      </text>
+      <Pin x={300} y={104} n={2} />
+    </Frame>
+  )
+}
+
+export function EvrenIsaretVisual() {
+  const marks = ['✓ 2019', '✓ 2019', '✓ 2024']
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={16} size={9}>
+        {tt('Marvel Sinematik Evreni')}
+      </Label>
+      <rect x={10} y={22} width={130} height={3} rx={1.5} className="fill-neutral-800" />
+      <rect x={10} y={22} width={58} height={3} rx={1.5} fill="#e23636" />
+      <MiniButton x={10} y={32} w={50} text={tt('Çıkış sırası')} />
+      <MiniButton x={62} y={32} w={50} text={tt('Hikâye sırası')} accent />
+      <MiniButton x={116} y={32} w={60} text={tt('Baştan izliyorum')} />
+      <Pin x={60} y={30} n={1} />
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const x = 10 + i * 34
+        const done = i < 3
+        return (
+          <g key={i}>
+            <rect x={x} y={52} width={30} height={45} rx={3} className={i === 3 ? 'fill-neutral-600' : 'fill-neutral-700'} stroke={i === 3 ? '#e23636' : 'none'} strokeWidth={1.2} />
+            <rect x={x + 2} y={54} width={8} height={7} rx={1.5} className="fill-neutral-950" />
+            <text x={x + 6} y={59.5} fontSize={5} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+              {i + 1}
+            </text>
+            <rect x={x + 2} y={88} width={26} height={7} rx={1.5} fill={done ? '#10b981' : '#0a0a0a'} />
+            <text x={x + 15} y={93.3} fontSize={4.6} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }} {...fit(done ? marks[i] : tt('✓ İzledim'), 4.6, 24)}>
+              {done ? marks[i] : tt('✓ İzledim')}
+            </text>
+            <Line x={x} y={104} w={26} light />
+          </g>
+        )
+      })}
+      <Pin x={128} y={56} n={2} />
+      <Box x={214} y={30} w={98} h={140} r={6} strong />
+      <text x={220} y={42} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('İzlediğin tarihler')}
+      </text>
+      <text x={220} y={52} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        {tt('8 Haz 2019')}
+      </text>
+      <text x={300} y={52} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        ✕
+      </text>
+      <rect x={220} y={58} width={86} height={0.6} className="fill-neutral-700" />
+      <text x={220} y={69} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('Tekrar izledim')}
+      </text>
+      {[tt('Bugün'), tt('Dün'), tt('Bir gün seç'), tt('Sadece yıl'), tt('Hatırlamıyorum')].map((t, i) => (
+        <g key={i}>
+          <rect x={220} y={74 + i * 17} width={86} height={13} rx={2.5} fill={i === 0 ? ACCENT : 'none'} className={i === 0 ? undefined : 'stroke-neutral-700'} strokeWidth={0.6} />
+          <text x={225} y={83 + i * 17} fontSize={6.2} fill={i === 0 ? '#fff' : undefined} className={i === 0 ? undefined : 'fill-neutral-300'} style={{ fontFamily: 'inherit' }}>
+            {t}
+          </text>
+        </g>
+      ))}
+      <Pin x={208} y={36} n={3} />
+      <Box x={10} y={122} w={196} h={48} r={6} />
+      <text x={18} y={137} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('Arşiv · Takvim · İstatistikler')}
+      </text>
+      <text x={18} y={152} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }} {...fit(tt('Demir Adam · İzlendi · bugün'), 7, 180)}>
+        {tt('Demir Adam · İzlendi · bugün')}
+      </text>
+      <Pin x={200} y={126} n={4} />
+    </Frame>
+  )
+}
