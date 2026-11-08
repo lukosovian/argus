@@ -63,7 +63,18 @@ export default function NotificationBell() {
         // Aynı anda birden çok geldiyse (ör. Genel Güncelleme'den sonra) tek bir özet kart — yeni kullanıcı
         // denemesinde 8 kart üst üste yığılıp ekranın sağ altını kapatıyordu.
         if (knownIds.current) {
-          const fresh = r.items.filter((n) => !n.read && !knownIds.current!.has(n.id))
+          const all = r.items.filter((n) => !n.read && !knownIds.current!.has(n.id))
+          // "Artık şurada izlenebilir" haberleri ayrı ayrı kart olmaz, hep tek bir özet kart (kullanıcı
+          // "tek seferde gelsin, tıklayınca hangileri olduğunu göreyim" dedi) — liste zildeki grupta.
+          const platform = all.filter((n) => n.type === 'platform')
+          const fresh = all.filter((n) => n.type !== 'platform')
+          if (platform.length > 0)
+            notify(
+              platform.length === 1
+                ? `${platform[0].title}: ${platform[0].text}`
+                : tt('{0} içerik artık izlenebilir — hangileri olduğunu zil simgesinden görebilirsin.', platform.length),
+              'success',
+            )
           if (fresh.length === 1) notify(`${fresh[0].title}: ${fresh[0].text}`, 'success')
           else if (fresh.length > 1)
             notify(tt('{0} yeni bildirim ({1}{2}) — zil simgesinden bakabilirsin.', fresh.length, fresh.slice(0, 3).map((n) => n.title).join(', '), fresh.length > 3 ? '…' : ''), 'success')
@@ -87,6 +98,28 @@ export default function NotificationBell() {
   }, [load])
 
   const unread = items.filter((n) => !n.read).length
+
+  // "Artık şurada izlenebilir" haberleri listede tek bir satırda toplanır (en yenisinin yerinde);
+  // tıklayınca açılır, her biri ayrı ayrı görünür ve tıklanınca o kaydın detayı açılır.
+  const [groupOpen, setGroupOpen] = useState(false)
+  const platformItems = items.filter((n) => n.type === 'platform')
+  type ListEntry = { kind: 'item'; item: AppNotification } | { kind: 'group'; items: AppNotification[] }
+  const listEntries: ListEntry[] = []
+  for (const n of items) {
+    if (n.type !== 'platform') listEntries.push({ kind: 'item', item: n })
+    else if (platformItems.length === 1) listEntries.push({ kind: 'item', item: n })
+    else if (n === platformItems[0]) listEntries.push({ kind: 'group', items: platformItems })
+  }
+
+  async function toggleGroup(g: AppNotification[]) {
+    const opening = !groupOpen
+    setGroupOpen(opening)
+    const ids = g.filter((n) => !n.read).map((n) => n.id)
+    if (opening && ids.length) {
+      await api.markNotificationsRead(ids).catch(() => {})
+      load()
+    }
+  }
 
   function toggle() {
     if (!open && btnRef.current) {
@@ -175,7 +208,45 @@ export default function NotificationBell() {
                     <span className="block text-xs text-neutral-600 mt-1">{tt('Bir diziyi bitirince ya da izlediğin bir diziye yeni sezon gelince burada görünür.')}</span>
                   </p>
                 ) : (
-                  items.map((n) => {
+                  listEntries.map((entry) => {
+                    if (entry.kind === 'group') {
+                      const g = entry.items
+                      const gUnread = g.filter((n) => !n.read).length
+                      const look = TYPE_ICON.platform
+                      return (
+                        <div key="platform-group" className="border-b border-neutral-800/60">
+                          <button
+                            onClick={() => toggleGroup(g)}
+                            className={`w-full flex items-start gap-3 text-left px-4 py-3 hover:bg-neutral-800/60 transition ${gUnread ? 'bg-[#00c0fa]/[0.04]' : ''}`}
+                          >
+                            <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}>{look.icon}</span>
+                            <span className="flex-1 min-w-0">
+                              <span className="flex items-center gap-2">
+                                <span className={`text-sm truncate ${gUnread ? 'text-neutral-50 font-medium' : 'text-neutral-300'}`}>{tt('{0} içerik artık izlenebilir', g.length)}</span>
+                                {gUnread > 0 && <span className="h-1.5 w-1.5 rounded-full bg-[#00c0fa] shrink-0" />}
+                              </span>
+                              <span className="block text-xs text-neutral-400 mt-0.5 leading-snug truncate">{g.slice(0, 3).map((n) => n.title).join(', ')}{g.length > 3 ? '…' : ''}</span>
+                              <span className="block text-[11px] text-neutral-600 mt-1">{ago(g[0].t)}</span>
+                            </span>
+                            <span className={`shrink-0 self-center text-neutral-500 transition-transform ${groupOpen ? 'rotate-90' : ''}`}>›</span>
+                          </button>
+                          {groupOpen &&
+                            g.map((n) => (
+                              <button
+                                key={n.id}
+                                onClick={() => openItem(n)}
+                                className="w-full flex items-start gap-3 text-left pl-[3.75rem] pr-4 py-2 hover:bg-neutral-800/60 transition"
+                              >
+                                <span className="flex-1 min-w-0">
+                                  <span className="block text-sm text-neutral-200 truncate">{n.title}</span>
+                                  <span className="block text-xs text-neutral-500 leading-snug">{n.text}</span>
+                                </span>
+                              </button>
+                            ))}
+                        </div>
+                      )
+                    }
+                    const n = entry.item
                     const look = TYPE_ICON[n.type] ?? { icon: '•', cls: 'bg-neutral-800 text-neutral-300' }
                     return (
                       <button

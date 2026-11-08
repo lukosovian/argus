@@ -174,9 +174,11 @@ export default function DateChipEditor({
   const [yearText, setYearText] = useState('')
 
   const sorted = [...dates].sort()
-  const lastFull = sorted.filter(isFullDate).pop()?.split('/').pop()
   const editingYear = editing && !isFullDate(editing) && !isUnknownDate(editing) ? `${editing}-01-01` : null
-  const initial = editing && isFullDate(editing) ? parseEntry(editing).start : (editingYear ?? lastFull ?? todayIso())
+  // Yeni tarih eklerken takvim bugünün ayında açılır (kullanıcı "tarih ekle dediğim zaman bugünün tarihini
+  // açsın" dedi — önceden en son girilmiş tarihin ayında, ör. yıllar öncesinde açılıyordu). Var olan bir
+  // tarih düzenlenirken o tarihin ayında açılır.
+  const initial = editing && isFullDate(editing) ? parseEntry(editing).start : (editingYear ?? todayIso())
   const thisYear = new Date().getFullYear()
   const yearNum = Number(yearText)
   const yearValid = /^\d{4}$/.test(yearText) && yearNum >= 1900 && yearNum <= thisYear

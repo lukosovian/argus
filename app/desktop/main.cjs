@@ -216,7 +216,9 @@ async function checkNotifications() {
     saveSettings()
     return
   }
-  const fresh = items.filter((x) => x.t > last && !x.read).sort((x, y) => x.t - y.t).slice(-3)
+  // "Artık şu platformda izlenebilir" haberleri Windows bildirimi olarak çıkmaz (kullanıcı istemedi) —
+  // onlar uygulamanın içinde tek bir toplu bildirim olarak görünür (bkz. NotificationBell).
+  const fresh = items.filter((x) => x.t > last && !x.read && x.type !== 'platform').sort((x, y) => x.t - y.t).slice(-3)
   for (const n of fresh) {
     const note = new Notification({ title: n.title || 'ARGUS', body: n.text || '', icon: ICON, silent: false })
     note.on('click', () => {

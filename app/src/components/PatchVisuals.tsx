@@ -3251,3 +3251,89 @@ export function AraVisual() {
     </Frame>
   )
 }
+
+// v1.20: "Artık izlenebilir" haberleri zilde tek grup; tıklayınca hepsi ayrı ayrı
+export function BildirimGrupVisual() {
+  const subs: [string, string][] = [
+    [tt('Bıçaklar Çekildi'), tt('Artık şu platformda: Netflix')],
+    [tt('Açlık Oyunları'), tt('Artık şu platformda: Disney+')],
+    ['Dune', tt('Artık şu platformda: HBO Max')],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={60} y={10} w={200} h={160} r={8} strong />
+      <Label x={72} y={27} size={7}>{tt('Bildirimler')}</Label>
+      <rect x={70} y={36} width={180} height={34} rx={5} className="fill-neutral-800" />
+      <circle cx={85} cy={53} r={8} fill="#8b5cf6" fillOpacity={0.25} />
+      <text x={85} y={56} fontSize={8} textAnchor="middle" style={{ fontFamily: 'inherit' }}>
+        📺
+      </text>
+      <text x={98} y={50} fontSize={6.5} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('{0} içerik artık izlenebilir', 3)}
+      </text>
+      <text x={98} y={61} fontSize={5.8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }} {...fit(tt('Bıçaklar Çekildi, Açlık Oyunları, Dune'), 5.8, 130)}>
+        {tt('Bıçaklar Çekildi, Açlık Oyunları, Dune')}
+      </text>
+      <text x={240} y={56} fontSize={8} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        ⌄
+      </text>
+      <Pin x={262} y={53} n={1} />
+      {subs.map(([title, text], i) => (
+        <g key={i}>
+          <text x={98} y={86 + i * 26} fontSize={6.3} className="fill-neutral-200" style={{ fontFamily: 'inherit' }} {...fit(title, 6.3, 140)}>
+            {title}
+          </text>
+          <text x={98} y={96 + i * 26} fontSize={5.6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }} {...fit(text, 5.6, 140)}>
+            {text}
+          </text>
+        </g>
+      ))}
+      <Pin x={262} y={112} n={2} />
+    </Frame>
+  )
+}
+
+// v1.20: Takvim'de sezonlar alt satıra sarılır; arşiv tablosunda dizinin izleme tarihi = en son bölüm tarihi
+export function SezonTarihVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Label x={10} y={20} size={7}>{tt('Bu gün hangi bölümleri izledin?')}</Label>
+      {Array.from({ length: 8 }, (_, i) => {
+        const x = 10 + (i % 5) * 46
+        const y = 30 + Math.floor(i / 5) * 20
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={42} height={14} rx={7} className={i === 6 ? 'fill-neutral-800' : 'fill-none'} stroke={i === 6 ? ACCENT : '#525252'} strokeWidth={0.8} />
+            <text x={x + 21} y={y + 9.5} fontSize={5.8} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+              {tt('{0}. sezon', i + 1)}
+            </text>
+          </g>
+        )
+      })}
+      <Pin x={250} y={57} n={1} />
+      <Box x={10} y={92} w={300} h={78} r={6} />
+      <text x={20} y={106} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('Ad')}
+      </text>
+      <text x={190} y={106} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('İzleme Tarihi')}
+      </text>
+      {[
+        ['Breaking Bad', '08.11.2026'],
+        ['Dark', '02.11.2026'],
+        ['Dune', '14.10.2026'],
+      ].map(([name, d], i) => (
+        <g key={i}>
+          <line x1={14} x2={306} y1={112 + i * 19} y2={112 + i * 19} stroke="#404040" strokeWidth={0.5} />
+          <text x={20} y={125 + i * 19} fontSize={6.3} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+            {name}
+          </text>
+          <text x={190} y={125 + i * 19} fontSize={6.3} className={i < 2 ? 'fill-neutral-50' : 'fill-neutral-400'} style={{ fontFamily: 'inherit' }}>
+            {d}
+          </text>
+        </g>
+      ))}
+      <Pin x={262} y={122} n={2} />
+    </Frame>
+  )
+}

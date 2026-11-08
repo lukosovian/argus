@@ -748,6 +748,10 @@ const BoardTable = forwardRef<
     duplicateRowIds?: Set<string>
     // Altı noktadan tutup sürükleyip başka bir satırın üstüne bırakınca: satırı oraya taşı.
     onMoveRow?: (rowId: string, targetRowId: string) => void
+    // Dizilerde bölümlere girilmiş en son izleme tarihi (satır id → YYYY-MM-DD). Kullanıcı "arşiv tablosundaki
+    // izleme tarihi diziden herhangi bir bölüme girilmiş en son tarihi alsın" dedi — İzleme Tarihi sütunu
+    // dizide bu tarihi (ya da kaydın kendi tarihi daha yeniyse onu) tek tarih olarak gösterir.
+    lastEpisodeDates?: Map<string, string>
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -793,10 +797,12 @@ const BoardTable = forwardRef<
     density = 'siki',
     duplicateRowIds,
     onMoveRow,
+    lastEpisodeDates,
   },
   ref,
 ) {
   const roomy = density === 'rahat'
+  const watchDateProp = resolveRole(board, 'izlemeTarihi')
   const rowH = roomy ? ROW_HEIGHT_ROOMY : ROW_HEIGHT
   // Rahat: en az h-14, içerik sığmazsa satır büyür
   const cellH = roomy ? 'min-h-14 py-1' : 'h-9'
@@ -1126,6 +1132,22 @@ const BoardTable = forwardRef<
     )
   }
 
+  // Dizinin İzleme Tarihi hücresi: bölümlere girilmiş en son tarih (kaydın kendi tarihi daha yeniyse o).
+  // Bölüm tarihi olmayan kayıtlarda (filmler) null — normal hücre çizilir.
+  function seriesWatchDate(row: Row, p: PropertyDef) {
+    if (p.id !== watchDateProp?.id) return null
+    const ep = lastEpisodeDates?.get(row.id)
+    if (!ep) return null
+    const v = row.values[p.id]
+    const own = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).map(entryEnd).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    const latest = [ep, ...own].sort().at(-1)!
+    return (
+      <span className="text-neutral-300 whitespace-nowrap" title={tt('Bölümlere girilmiş en son izleme tarihi')}>
+        {formatDateShort(latest) ?? latest}
+      </span>
+    )
+  }
+
   function dataCell(row: Row, p: PropertyDef) {
     const key = `${row.id}:${p.id}`
     if (p.type === 'checkbox') {
@@ -1164,7 +1186,7 @@ const BoardTable = forwardRef<
         className="px-3 overflow-hidden cursor-pointer hover:bg-neutral-800/40 border-r border-neutral-800"
       >
         <div className={`${cellH} flex items-center overflow-hidden`}>
-          <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} roomy={roomy} />
+          {seriesWatchDate(row, p) ?? <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} roomy={roomy} />}
         </div>
       </td>
     )

@@ -40,6 +40,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { OPTION_COLORS, PROPERTY_TYPE_LABELS, rowOrder } from '../types'
 import { parseDateEntries, parseDateLoose } from '../lib/csvImport'
 import { entryEnd } from '../lib/dateRange'
+import { onDataChanged } from '../lib/dataEvents'
 import {
   BulkRefreshIcon,
   ColumnsIcon,
@@ -500,7 +501,7 @@ const SORTABLE_TYPES = new Set<PropertyType>(['text', 'longtext', 'url', 'number
 
 // Farklı sütun tiplerini tek bir karşılaştırılabilir değere indirger — sıralama butonunun
 // "neye göre sıralayacağını seçeceğim" ihtiyacı için, tip bazlı tek bir yer.
-function sortValue(row: Row, property: PropertyDef): string | number | boolean {
+function sortValue(row: Row, property: PropertyDef, lastEpisode?: string): string | number | boolean {
   const v = row.values[property.id]
   if (property.type === 'rating') return ratingAverage(v, property) ?? -Infinity
   if (property.type === 'number') return typeof v === 'number' ? v : -Infinity
@@ -509,6 +510,8 @@ function sortValue(row: Row, property: PropertyDef): string | number | boolean {
   // sözlüksel sırayla kronolojik sırayla aynı, ekstra bir tarih ayrıştırmaya gerek yok.
   if (property.type === 'multidate') {
     const dates = Array.isArray(v) ? (v as string[]).map(entryEnd) : []
+    // Dizide bölümlere girilmiş en son tarih de sayılır (tabloda görünen tarihle aynı)
+    if (lastEpisode) dates.push(lastEpisode)
     return dates.length > 0 ? dates.slice().sort().at(-1)! : ''
   }
   if (property.type === 'select') {
@@ -765,6 +768,35 @@ export default function BoardView() {
   const { boards, loading: boardsLoading } = useBoards()
   const { confirm, notify } = useToast()
   const boardTableRef = useRef<BoardTableHandle>(null)
+  // Dizilerde bölümlere girilmiş en son izleme tarihi — İzleme Tarihi sütunu dizide bunu gösterir ve
+  // ona göre sıralanır (bkz. BoardTable › lastEpisodeDates). Detayda bölüm işaretlenince yenilenir.
+  const [lastEpisodeDates, setLastEpisodeDates] = useState<Map<string, string>>(new Map())
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      api
+        .getWatched()
+        .then((w) => {
+          const m = new Map<string, string>()
+          for (const [rowId, eps] of Object.entries(w ?? {})) {
+            let best = ''
+            for (const dates of Object.values(eps ?? {}))
+              for (const d of Array.isArray(dates) ? dates : []) {
+                const e = entryEnd(String(d))
+                if (/^\d{4}-\d{2}-\d{2}$/.test(e) && e > best) best = e
+              }
+            if (best) m.set(rowId, best)
+          }
+          if (alive) setLastEpisodeDates(m)
+        })
+        .catch(() => {})
+    load()
+    const off = onDataChanged(() => load())
+    return () => {
+      alive = false
+      off()
+    }
+  }, [id])
   // "+ Yeni Ekle" ile satır eklendiğinde kaydırma hedefi buraya konur — `rows`/`filteredRows`
   // state güncellemesi asenkron olduğu için satırı ekleyen fonksiyonun hemen ardından değil,
   // aşağıdaki effect'te o satır gerçekten listede belirince kaydırılıyor (yarış durumunu önler).
@@ -1055,6 +1087,7 @@ export default function BoardView() {
 
   const sortableProps = useMemo(() => board?.properties.filter((p) => SORTABLE_TYPES.has(p.type)) ?? [], [board])
   const sortProperty = sortableProps.find((p) => p.id === sortPropertyId) ?? null
+  const watchSortPropId = board ? (resolveRole(board, 'izlemeTarihi')?.id ?? null) : null
 
   // Arama kutusu seçim/çoklu-seçim sütunlarındaki (Tür/Ülke/Oyuncular gibi) ETİKETLERİ de
   // taramalı — değerler board'da bir option ID olarak tutuluyor, aramadan önce ID -> etiket
@@ -1129,8 +1162,9 @@ export default function BoardView() {
     })
     if (sortProperty) {
       result.sort((a, b) => {
-        const av = sortValue(a, sortProperty)
-        const bv = sortValue(b, sortProperty)
+        const watchSort = sortProperty.id === watchSortPropId
+        const av = sortValue(a, sortProperty, watchSort ? lastEpisodeDates.get(a.id) : undefined)
+        const bv = sortValue(b, sortProperty, watchSort ? lastEpisodeDates.get(b.id) : undefined)
         // Boş değerler (puansız, tarihsiz…) yön ne olursa olsun en sonda — artan sıralamada en üste çıkıyorlardı
         const empty = (x: string | number | boolean) => x === '' || x === -Infinity
         if (empty(av) !== empty(bv)) return empty(av) ? 1 : -1
@@ -1146,7 +1180,7 @@ export default function BoardView() {
       result.sort((a, b) => (searchRank.get(a.id) ?? 4) - (searchRank.get(b.id) ?? 4))
     }
     return result
-  }, [rows, tableConditions, search, board, sortProperty, sortDirection, searchOptionMaps])
+  }, [rows, tableConditions, search, board, sortProperty, sortDirection, searchOptionMaps, lastEpisodeDates, watchSortPropId])
 
   // Yeni eklenen satır listede gerçekten görününce (bkz. pendingScrollRowId'nin tanımındaki not)
   // BoardTable'a kaydırma komutunu veriyor.
@@ -2196,6 +2230,7 @@ export default function BoardView() {
           density={density}
           duplicateRowIds={duplicateRowIds}
           onMoveRow={moveRow}
+          lastEpisodeDates={lastEpisodeDates}
         />
       )}
       {!rowsLoading && !MOBILE && (

@@ -80,6 +80,8 @@ import {
   AraVisual,
   TelefonEsitlemeVisual,
   TelefonKurulumVisual,
+  BildirimGrupVisual,
+  SezonTarihVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -94,6 +96,22 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.20',
+    date: tt('9 Kasım 2026'),
+    title: tt('Toplu "artık izlenebilir" bildirimi, tarih eklerken bugün, tüm sezonlar, dizide en son bölüm tarihi'),
+    items: [
+      tt('"Artık şu platformda izlenebilir" haberleri tek seferde, tek bir bildirim olarak geliyor. Zilde "5 içerik artık izlenebilir" diye tek satır; tıklayınca hangileri olduğu tek tek açılır, birine tıklayınca detayı açılır. Bu haberler artık Windows bildirimi olarak çıkmıyor.'),
+      tt('Detay penceresinde "Tarih ekle" dediğinde takvim bugünün ayında açılıyor (önceden en son girdiğin tarihin ayında açılıyordu).'),
+      tt('Takvimden diziye bölüm eklerken bütün sezonlar görünüyor; sezonlar sığmayınca alt satıra geçiyor (önceden 5. sezondan sonrasına ulaşılamıyordu).'),
+      tt('Arşiv tablosunda dizilerin İzleme Tarihi, herhangi bir bölüme girdiğin en son tarihi gösteriyor; o sütuna göre sıralama da bu tarihe göre.'),
+      tt('Detay penceresinin İzleme kartında dizilerde "Son izlediğin bölüm" yazıyor: hangi bölüm ve hangi gün (tablodaki tarihle aynı). Kayıtlı izleme tarihlerin altında duruyor.'),
+    ],
+    visuals: [
+      { caption: tt('1 tek satırda toplanan haberler · 2 tıklayınca tek tek hangileri'), Visual: BildirimGrupVisual },
+      { caption: tt('1 bütün sezonlar alt alta · 2 dizide en son bölüm tarihi'), Visual: SezonTarihVisual },
+    ],
+  },
   {
     version: 'v1.19.4',
     date: tt('6 Kasım 2026'),

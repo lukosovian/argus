@@ -1399,7 +1399,8 @@ function DayPanel({
               </button>
             </div>
 
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+            {/* Sezonlar alt satıra sarılır — tek satırda gizli kaydırma çubuğuyla 5. sezondan sonrası fareyle görülemiyordu */}
+            <div className="flex flex-wrap gap-1.5">
               {pickedSeasons.map((s) => {
                 const n = s.episodes.filter((e) => chosen.has(epKey(s.seasonNumber, e.episodeNumber))).length
                 return (

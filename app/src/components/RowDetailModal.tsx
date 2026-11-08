@@ -405,6 +405,23 @@ export default function RowDetailModal({
     return aired > 0 && seen > 0 ? { aired, seen } : null
   })()
 
+  // Dizide bölümlere girilmiş en son izleme tarihi ve o bölüm — arşiv tablosundaki İzleme Tarihi ile aynı
+  // tarih (kullanıcı: tablo bunu gösteriyor, detaydaki izleme kartı da göstersin). Kaydın kendi tarihleri altında kalır.
+  // Aynı gün birden çok bölüm izlendiyse en ileridekini al ("2-10" > "2-9" sayıyla)
+  const epOrder = (k: string) => k.split('-').map(Number).reduce((a, n) => a * 1000 + (n || 0), 0)
+  const lastEpisode = (() => {
+    let best: { date: string; key: string } | null = null
+    for (const [key, dates] of Object.entries(rowWatched)) {
+      for (const d of dates ?? []) {
+        const e = entryEnd(String(d))
+        if (/^\d{4}-\d{2}-\d{2}$/.test(e) && (!best || e > best.date || (e === best.date && epOrder(key) > epOrder(best.key)))) best = { date: e, key }
+      }
+    }
+    if (!best) return null
+    const [sn, en] = best.key.split('-').map(Number)
+    return { date: best.date, season: sn, episode: en }
+  })()
+
   // Üstteki etiketler: seçim sütunları (Durum, Kategori…) kendi renkleriyle, yıl, süre ve puan.
   const pillSelects = board.properties.filter((p) => !usedIds.has(p.id) && p.type === 'select')
   const vizyonProp = resolveRole(board, 'vizyon')
@@ -676,7 +693,7 @@ export default function RowDetailModal({
               </div>
             )}
 
-            {(watchDates.length > 0 || episodeProgress) && (
+            {(watchDates.length > 0 || episodeProgress || lastEpisode) && (
               <div className={`${sideCard} space-y-3`}>
                 <p className="text-sm font-semibold text-neutral-100">{tt('İzleme')}</p>
                 {episodeProgress && (
@@ -690,6 +707,16 @@ export default function RowDetailModal({
                     <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${(episodeProgress.seen / episodeProgress.aired) * 100}%`, background: BRAND_TEXT }} />
                     </div>
+                  </div>
+                )}
+                {lastEpisode && (
+                  <div>
+                    <p className="text-xs text-neutral-500 mb-1.5">{tt('Son izlediğin bölüm')}</p>
+                    <span className="text-xs px-2 py-1 rounded-md bg-neutral-800 text-neutral-200 tabular-nums">
+                      {Number.isFinite(lastEpisode.season) && Number.isFinite(lastEpisode.episode)
+                        ? ttx('{0}. Sezon {1}. Bölüm · {2}', lastEpisode.season, lastEpisode.episode, formatDate(lastEpisode.date))
+                        : formatDate(lastEpisode.date)}
+                    </span>
                   </div>
                 )}
                 {watchDates.length > 0 && (
