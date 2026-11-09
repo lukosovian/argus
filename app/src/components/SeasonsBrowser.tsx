@@ -151,7 +151,7 @@ export default function SeasonsBrowser({
   // O kaydın bölüm bazlı izleme haritası: { [episodeKey(sezon, bölüm)]: ISO tarih dizisi }
   watched: Record<string, string[]>
   onSetEpisodeDates: (key: string, dates: string[]) => void
-  onMarkSeasonWatched: (seasonNumber: number) => void
+  onMarkSeasonWatched: (seasonNumber: number, date: string) => void
   onUnmarkSeasonWatched: (seasonNumber: number) => void
   // Sadece BoardView'ın "Detayı Gör"üyle açılan pencerede true — bkz. EpisodeRow'un başındaki not.
   editable?: boolean
@@ -164,8 +164,21 @@ export default function SeasonsBrowser({
     : []
   const seasonAllWatched = seasonEpisodeDates.length > 0 && seasonEpisodeDates.every((n) => n > 0)
 
+  // Sezonu izlendi yaparken hangi tarih: kullanıcı "bugünün tarihini atıyor, tarih sorsun, hatırlamıyorum
+  // da olsun" dedi. Bugün, bir gün, yalnızca yıl ya da "?" (hatırlamıyorum — takvimde bir güne düşmez).
+  const toggleRef = useRef<HTMLButtonElement>(null)
+  const [dateMenu, setDateMenu] = useState(false)
+  const [day, setDay] = useState('')
+  const [year, setYear] = useState('')
+  const markWith = (date: string) => {
+    setDateMenu(false)
+    setDay('')
+    setYear('')
+    if (season) onMarkSeasonWatched(season.seasonNumber, date)
+  }
+
   // Tek buton, iki anlamdan birini alır: sezon henüz tam izlenmediyse "izlendi işaretle"
-  // (katkısız ekleme, onay sormuyor), tamamı zaten izlendiyse "izlenmedi işaretle" (yıkıcı,
+  // (önce tarihi sorar), tamamı zaten izlendiyse "izlenmedi işaretle" (yıkıcı,
   // önce soruyor). Sezonun hiç bölümü yoksa (olmamalı ama) buton hiç gösterilmiyor.
   async function handleToggleSeason() {
     if (!season) return
@@ -178,9 +191,11 @@ export default function SeasonsBrowser({
       if (!ok) return
       onUnmarkSeasonWatched(season.seasonNumber)
     } else {
-      onMarkSeasonWatched(season.seasonNumber)
+      setDateMenu(true)
     }
   }
+  const opt = 'block w-full text-left px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-800'
+  const today = todayIso()
 
   return (
     <div>
@@ -212,6 +227,7 @@ export default function SeasonsBrowser({
         </div>
         {editable && season && season.episodes.length > 0 && (
           <button
+            ref={toggleRef}
             type="button"
             onClick={handleToggleSeason}
             title={seasonAllWatched ? tt('Sezonu izlenmedi olarak işaretle') : tt('Sezonu izlendi olarak işaretle')}
@@ -223,6 +239,23 @@ export default function SeasonsBrowser({
           >
             {seasonAllWatched ? <ClipboardXIcon /> : <ClipboardCheckIcon />}
           </button>
+        )}
+        {dateMenu && (
+          <AnchoredMenu anchorRef={toggleRef} align="right" width={248} onClose={() => setDateMenu(false)}>
+            <div className="py-1">
+              <p className="px-3 pt-1 pb-1 text-[11px] uppercase tracking-wider text-neutral-500">{tt('Ne zaman izledin?')}</p>
+              <button className={opt} onClick={() => markWith(today)}>{tt('Bugün')}</button>
+              <div className="flex gap-1.5 px-3 py-1">
+                <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100 [color-scheme:dark]" />
+                <button disabled={!day} onClick={() => markWith(day)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
+              </div>
+              <div className="flex gap-1.5 px-3 py-1">
+                <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder={tt('Yılı (ör. 2019)')} inputMode="numeric" className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100" />
+                <button disabled={!/^(19|20)\d\d$/.test(year)} onClick={() => markWith(year)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
+              </div>
+              <button className={opt} onClick={() => markWith('?')}>{tt('Ne zaman izlediğimi hatırlamıyorum')}</button>
+            </div>
+          </AnchoredMenu>
         )}
       </div>
       <div className="space-y-3 max-h-96 overflow-y-auto pr-1">

@@ -3337,3 +3337,38 @@ export function SezonTarihVisual() {
     </Frame>
   )
 }
+
+// v1.20.1: sezonu izlendi yaparken tarih menüsü
+export function SezonNeZamanVisual() {
+  const opts = [tt('Bugün'), tt('Bir gün seç'), tt('Yılı (ör. 2019)'), tt('Ne zaman izlediğimi hatırlamıyorum')]
+  return (
+    <Frame viewBox={VB}>
+      {[1, 2, 3].map((n, i) => (
+        <g key={n}>
+          <rect x={10 + i * 50} y={14} width={44} height={14} rx={7} className={i === 1 ? 'fill-neutral-800' : 'fill-none'} stroke={i === 1 ? ACCENT : '#525252'} strokeWidth={0.8} />
+          <text x={32 + i * 50} y={23.5} fontSize={5.8} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+            {tt('{0}. sezon', n)}
+          </text>
+        </g>
+      ))}
+      <rect x={286} y={12} width={18} height={18} rx={4} className="fill-none" stroke={ACCENT} strokeWidth={0.9} />
+      <path d="M290 21l3 3 6-6" fill="none" stroke={ACCENT} strokeWidth={1.2} strokeLinecap="round" />
+      <Pin x={276} y={14} n={1} />
+      <Box x={150} y={38} w={160} h={128} r={6} />
+      <text x={160} y={54} fontSize={5.5} className="fill-neutral-500" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('NE ZAMAN İZLEDİN?')}
+      </text>
+      {opts.map((t, i) => (
+        <g key={i}>
+          <rect x={156} y={62 + i * 25} width={148} height={20} rx={4} className={i === 3 ? 'fill-neutral-800' : 'fill-none'} stroke={i === 3 ? ACCENT : '#404040'} strokeWidth={0.6} />
+          <text x={162} y={74.5 + i * 25} fontSize={6.2} className="fill-neutral-200" style={{ fontFamily: 'inherit' }} {...fit(t, 6.2, 136)}>
+            {t}
+          </text>
+        </g>
+      ))}
+      <Pin x={300} y={140} n={2} />
+      <Label x={10} y={60} size={6.5}>{tt('Hatırlamıyorsan')}</Label>
+      <Label x={10} y={72} size={6.5}>{tt('takvimde bir güne düşmez')}</Label>
+    </Frame>
+  )
+}

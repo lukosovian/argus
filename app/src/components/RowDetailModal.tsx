@@ -316,17 +316,16 @@ export default function RowDetailModal({
     saveRowWatched(row.id, next)
   }
 
-  // "Sezonu İzlendi İşaretle" — sadece henüz hiç tarihi olmayan bölümlere bugünün tarihini
-  // ekler, zaten işaretli (ör. daha önce farklı bir tarihte tekli tiklenmiş) bölümlere
+  // "Sezonu İzlendi İşaretle" — sadece henüz hiç tarihi olmayan bölümlere seçilen tarihi (bugün, bir gün,
+  // yıl ya da "?" = hatırlamıyorum) ekler, zaten işaretli (ör. daha önce farklı bir tarihte tekli tiklenmiş) bölümlere
   // dokunmaz — mevcut tekil kayıtları ezmeden toplu ilerleme sağlar.
-  function markSeasonWatched(seasonNumber: number) {
+  function markSeasonWatched(seasonNumber: number, date: string) {
     const targetSeason = seasons?.find((s) => s.seasonNumber === seasonNumber)
     if (!targetSeason) return
     const next = { ...rowWatched }
-    const today = todayIso()
     for (const ep of targetSeason.episodes) {
       const key = episodeKey(seasonNumber, ep.episodeNumber)
-      if (!next[key] || next[key].length === 0) next[key] = [today]
+      if (!next[key] || next[key].length === 0) next[key] = [date]
     }
     saveRowWatched(row.id, next)
   }

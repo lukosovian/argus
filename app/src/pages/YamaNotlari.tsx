@@ -82,6 +82,7 @@ import {
   TelefonKurulumVisual,
   BildirimGrupVisual,
   SezonTarihVisual,
+  SezonNeZamanVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -96,6 +97,15 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.20.1',
+    date: tt('9 Kasım 2026'),
+    title: tt('Sezonu izlendi yaparken ne zaman izlediğin sorulur'),
+    items: [
+      tt('Detay penceresinde bir sezonu izlendi olarak işaretleyince artık ne zaman izlediğin soruluyor: bugün, bir gün, yalnızca yıl ya da "Ne zaman izlediğimi hatırlamıyorum". Hatırlamıyorum dersen bölümler izlendi olur ama takvimde hiçbir güne düşmez. Daha önce tarih verdiğin bölümlere dokunulmaz.'),
+    ],
+    visuals: [{ caption: tt('1 sezonu izlendi yap · 2 ne zaman izlediğini seç'), Visual: SezonNeZamanVisual }],
+  },
   {
     version: 'v1.20',
     date: tt('9 Kasım 2026'),

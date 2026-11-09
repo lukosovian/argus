@@ -2884,5 +2884,12 @@
  "1 bütün sezonlar alt alta · 2 dizide en son bölüm tarihi": "1 all seasons, wrapping · 2 latest episode date for series",
  "Son izlediğin bölüm": "Last episode you watched",
  "{0}. Sezon {1}. Bölüm · {2}": "Season {0} Episode {1} · {2}",
- "Detay penceresinin İzleme kartında dizilerde \"Son izlediğin bölüm\" yazıyor: hangi bölüm ve hangi gün (tablodaki tarihle aynı). Kayıtlı izleme tarihlerin altında duruyor.": "For series, the detail window's Watching card shows \"Last episode you watched\": which episode and on what day (same date as in the table). Your saved watch dates stay below it."
+ "Detay penceresinin İzleme kartında dizilerde \"Son izlediğin bölüm\" yazıyor: hangi bölüm ve hangi gün (tablodaki tarihle aynı). Kayıtlı izleme tarihlerin altında duruyor.": "For series, the detail window's Watching card shows \"Last episode you watched\": which episode and on what day (same date as in the table). Your saved watch dates stay below it.",
+ "Ne zaman izledin?": "When did you watch it?",
+ "NE ZAMAN İZLEDİN?": "WHEN DID YOU WATCH IT?",
+ "Hatırlamıyorsan": "If you don't remember",
+ "takvimde bir güne düşmez": "it isn't placed on any day",
+ "Sezonu izlendi yaparken ne zaman izlediğin sorulur": "Marking a season as watched asks when you watched it",
+ "Detay penceresinde bir sezonu izlendi olarak işaretleyince artık ne zaman izlediğin soruluyor: bugün, bir gün, yalnızca yıl ya da \"Ne zaman izlediğimi hatırlamıyorum\". Hatırlamıyorum dersen bölümler izlendi olur ama takvimde hiçbir güne düşmez. Daha önce tarih verdiğin bölümlere dokunulmaz.": "When you mark a season as watched in the detail window, you're now asked when you watched it: today, a specific day, just the year, or \"I don't remember when I watched it\". If you don't remember, the episodes are marked watched but aren't placed on any day in the calendar. Episodes you already dated are left untouched.",
+ "1 sezonu izlendi yap · 2 ne zaman izlediğini seç": "1 mark the season watched · 2 pick when you watched it"
 }
