@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
+import { isPermanentYouTubeError, loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
+import { replaceTrailer, resolveTrailer, type TrailerSource } from '../lib/trailerFallback'
 import { isHoverVideoActive, subscribeHoverVideo } from '../lib/videoGuard'
 import { tt } from '../lib/i18n'
+import Icon from './Icon'
 
 // Düz 2 durak (renk -> transparent) çizgisel gradyan göze hâlâ keskin/kesik gibi görünüyor —
 // insan gözü doğrusal alfa geçişini "aniden başlayıp aniden biten" bir kesim gibi algılıyor.
@@ -36,6 +38,7 @@ export default function ShowcaseBanner({
   bottomFadeColor,
   cinematic = false,
   controlsTop = false,
+  trailerSource,
 }: {
   imageUrl: string
   videoId: string | null
@@ -60,19 +63,44 @@ export default function ShowcaseBanner({
   cinematic?: boolean
   // Detay penceresi: video düğmeleri alttaki afiş/başlıkla çakışmasın diye üstte, Kapat'ın yanında.
   controlsTop?: boolean
+  // Fragman oynatılamazsa ("Video kullanılamıyor") aynı yapımın başka fragmanını bulmak için (bkz. trailerFallback.ts)
+  trailerSource?: TrailerSource
 }) {
   const [ended, setEnded] = useState(false)
   const [stopped, setStopped] = useState(false)
   const [ready, setReady] = useState(false)
+  // Video gerçekten oynamaya başlayana kadar görsel kalır — oynatıcının hata ekranı hiç görünmesin.
+  const [started, setStarted] = useState(false)
   const [muted, setMuted] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YTPlayer | null>(null)
+  // Oynatılacak video: verilen fragman, daha önce bozuk bulunduysa yerine geçen (ya da hiç).
+  const [activeId, setActiveId] = useState(() => resolveTrailer(videoId))
+  const [activeFor, setActiveFor] = useState(videoId)
+  if (activeFor !== videoId) {
+    setActiveFor(videoId)
+    setActiveId(resolveTrailer(videoId))
+  }
+  const sourceRef = useRef(trailerSource)
+  sourceRef.current = trailerSource
+  // Yedek fragman araması bitince hâlâ aynı yapım gösteriliyorsa uygulanır.
+  const propRef = useRef(videoId)
+  propRef.current = videoId
+  const aliveRef = useRef(true)
+  useEffect(() => {
+    aliveRef.current = true
+    return () => {
+      aliveRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
+    const videoId = activeId
     setEnded(false)
     setStopped(false)
     setReady(false)
+    setStarted(false)
     setMuted(true)
     if (!videoId || !containerRef.current) return
     // YouTube's IFrame API replaces the given element with its own iframe rather than
@@ -153,6 +181,19 @@ export default function ShowcaseBanner({
           },
           onStateChange: (e) => {
             if (window.YT && e.data === window.YT.PlayerState.ENDED) setEnded(true)
+            // 1 = oynuyor, 3 = arabelleğe alıyor
+            if (!cancelled && (e.data === 1 || e.data === 3)) setStarted(true)
+          },
+          // "Video kullanılamıyor" ekranı görünmesin: video hemen gizlenir (kapak görseli kalır),
+          // kalıcı bir hataysa aynı yapımın sıradaki fragmanı denenir.
+          onError: (e) => {
+            if (cancelled) return
+            setActiveId(null)
+            if (!isPermanentYouTubeError(e.data)) return
+            const forProp = propRef.current
+            replaceTrailer(videoId, sourceRef.current).then((next) => {
+              if (next && aliveRef.current && propRef.current === forProp) setActiveId(next)
+            })
           },
         },
       })
@@ -164,7 +205,7 @@ export default function ShowcaseBanner({
       playerRef.current = null
       mount.remove()
     }
-  }, [videoId, startSeconds])
+  }, [activeId, startSeconds])
 
   function toggleMute() {
     if (!playerRef.current) return
@@ -211,12 +252,12 @@ export default function ShowcaseBanner({
     wasPlayingRef.current = shouldPlay
   }, [shouldPlay])
 
-  const showImage = !videoId || ended || stopped
+  const showImage = !activeId || !started || ended || stopped
 
   useEffect(() => {
-    onShowingVideoChange?.(!showImage && Boolean(videoId))
+    onShowingVideoChange?.(!showImage)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showImage, videoId])
+  }, [showImage])
 
   return (
     <div
@@ -238,7 +279,7 @@ export default function ShowcaseBanner({
           saydamlaştırılıyor — DOM'dan sökülürse YouTube'un iframe'i de gerçekten yok olur,
           "tekrar oynat" o zaman aynı oynatıcıyı devam ettiremez, sıfırdan bir tane daha
           kurmamız gerekirdi (videoId/startSeconds değişmediği için effect da yeniden çalışmaz). */}
-      {videoId && (
+      {activeId && (
         <div
           ref={containerRef}
           className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-300 ${
@@ -275,18 +316,18 @@ export default function ShowcaseBanner({
             className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition"
             title={tt('Videoyu durdur, görsele geç')}
           >
-            ⏹
+            <Icon name="stop" className="h-[1.1em] w-[1.1em]" />
           </button>
           <button
             onClick={toggleMute}
             className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition"
             title={muted ? tt('Sesi aç') : tt('Sesi kapat')}
           >
-            {muted ? '🔇' : '🔊'}
+            <Icon name={muted ? 'mute' : 'volume'} className="h-[1.1em] w-[1.1em]" />
           </button>
         </div>
       )}
-      {showImage && videoId && ready && (
+      {(ended || stopped) && activeId && ready && (
         <div className={`absolute ${controlsTop ? 'safe-shift top-4 right-16' : cinematic ? 'bottom-28 right-8' : 'bottom-4 right-4'} z-10`}>
           <button
             onClick={replay}

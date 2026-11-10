@@ -78,7 +78,7 @@ export default function Abonelik() {
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       <section
         className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10"
-        style={{ background: 'radial-gradient(ellipse at 15% 0%, rgba(229,9,20,0.14), transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(17,60,207,0.16), transparent 60%), #0a0a0a' }}
+        style={{ background: 'radial-gradient(ellipse at 15% 0%, rgba(229,9,20,0.14), transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(17,60,207,0.16), transparent 60%), var(--color-neutral-950)' }}
       >
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
         <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Hangi aboneliği almalıyım?')}</h1>

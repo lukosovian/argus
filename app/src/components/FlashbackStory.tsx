@@ -6,6 +6,8 @@ import { fmtDuration, TR_DAYS, TR_DAYS_SHORT, TR_MONTHS } from '../lib/flashback
 import { whiteLogo } from '../lib/whiteLogo'
 import { useEscape } from '../hooks/useEscape'
 import { tt, fmtDate, locale } from '../lib/i18n'
+import { STAR_PATH } from './Icon'
+import { fontReady } from '../lib/fontReady'
 
 // Flashback'in hikâye kartları — kullanıcı önce "en çarpıcı istatistikleri tek bir dikey (9:16) kart
 // olarak" istedi, sonra "bir tane değil, Spotify / YouTube gibi farklı konularda birden fazla" dedi.
@@ -122,6 +124,33 @@ function text(ctx: Ctx, t: string, x: number, y: number, weight: number, size: n
   if (maxW) fit(ctx, t, maxW, weight, size)
   else font(ctx, weight, size)
   ctx.fillText(t, x, y)
+}
+
+// Puan: önce ARGUS'un yıldız ikonu, sonra sayı (emoji/yazı karakteri yıldızı her cihazda farklı görünüyordu).
+// `right` ise sağa yaslı (x sağ kenar).
+const STAR = typeof Path2D !== 'undefined' ? new Path2D(STAR_PATH) : null
+function starText(ctx: Ctx, t: string, x: number, y: number, weight: number, size: number, color: string, right = false) {
+  font(ctx, weight, size)
+  const s = size * 0.85
+  const gap = size * 0.2
+  const total = s + gap + ctx.measureText(t).width
+  const x0 = right ? x - total : x
+  if (STAR) {
+    ctx.save()
+    ctx.translate(x0, y - size * 0.8)
+    ctx.scale(s / 24, s / 24)
+    ctx.fillStyle = color
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1.6
+    ctx.lineJoin = 'round'
+    ctx.fill(STAR)
+    ctx.stroke(STAR)
+    ctx.restore()
+  }
+  const align = ctx.textAlign
+  ctx.textAlign = 'left'
+  text(ctx, t, x0 + s + gap, y, weight, size, color)
+  ctx.textAlign = align
 }
 
 // Satırlara böl (en fazla `lines` satır)
@@ -372,7 +401,7 @@ const CARDS: CardDef[] = [
       rr(ctx, L + 20, 340 + ph - 90, 190, 70, 20)
       ctx.fillStyle = '#fbbf24'
       ctx.fill()
-      text(ctx, `★ ${f.score?.toFixed(1)}`, L + 42, 340 + ph - 40, 900, 44, '#1c1002')
+      starText(ctx, `${f.score?.toFixed(1)}`, L + 36, 340 + ph - 40, 900, 44, '#1c1002')
       text(ctx, '1', L + pw + 50, 470, 900, 160, T.amber.accent)
       ctx.fillStyle = '#ffffff'
       font(ctx, 800, 56)
@@ -385,7 +414,7 @@ const CARDS: CardDef[] = [
         const x = L + i * (sw + gap)
         picture(ctx, img.get(t.poster), x, 1030, sw, sw * 1.5, 18)
         text(ctx, `${i + 2}`, x + 14, 1030 + 56, 900, 48, '#ffffff')
-        text(ctx, `★ ${t.score?.toFixed(1)}`, x, 1030 + sw * 1.5 + 44, 800, 32, '#fbbf24')
+        starText(ctx, `${t.score?.toFixed(1)}`, x, 1030 + sw * 1.5 + 44, 800, 32, '#fbbf24')
       })
       const y = 1030 + sw * 1.5 + 110
       if (d.avg !== null) {
@@ -400,7 +429,7 @@ const CARDS: CardDef[] = [
         text(ctx, tt('Yılın hayal kırıklığı'), L + 160, y + 180, 600, 32, '#fda4af')
         text(ctx, d.lowest.title, L + 160, y + 235, 800, 44, '#ffffff', W - L * 2 - 330)
         ctx.textAlign = 'right'
-        text(ctx, `★ ${d.lowest.score?.toFixed(1)}`, W - L - 30, y + 235, 900, 44, '#fb7185')
+        starText(ctx, `${d.lowest.score?.toFixed(1)}`, W - L - 30, y + 235, 900, 44, '#fb7185', true)
         ctx.textAlign = 'left'
       }
     },
@@ -552,7 +581,7 @@ async function drawCard(card: CardDef, d: StoryData, n: number, total: number): 
   c.height = H
   const ctx = c.getContext('2d')!
   const srcs = [...new Set(card.images(d).filter(Boolean))]
-  const [logo, loaded] = await Promise.all([whiteLogo(), Promise.all(srcs.map(loadImage))])
+  const [logo, loaded] = await Promise.all([whiteLogo(), Promise.all(srcs.map(loadImage)), fontReady()])
   const img: Imgs = new Map(srcs.map((s, i) => [s, loaded[i]]))
   ctx.textBaseline = 'alphabetic'
   background(ctx, card.theme)
@@ -659,10 +688,10 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
           </button>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <button onClick={() => save(i)} disabled={!urls[i]} style={primaryButtonStyle} className={`text-sm px-3 py-2.5 rounded-xl ${PRIMARY_BUTTON} disabled:opacity-50`}>
+          <button onClick={() => save(i)} disabled={!urls[i]} style={primaryButtonStyle} className={`text-sm px-3 py-2.5 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}>
             {tt('↓ Bu kartı indir')}
           </button>
-          <button onClick={saveAll} disabled={!ready || busy} className="text-sm px-3 py-2.5 rounded-xl border border-neutral-700 text-neutral-200 hover:border-neutral-500 disabled:opacity-50">
+          <button onClick={saveAll} disabled={!ready || busy} className="text-sm px-3 py-2.5 rounded-lg border border-neutral-700 text-neutral-200 hover:border-neutral-500 disabled:opacity-50">
             {busy ? tt('İndiriliyor…') : ready ? tt('↓ Hepsini indir ({0})', cards.length) : tt('Hazırlanıyor…')}
           </button>
         </div>

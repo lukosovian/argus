@@ -133,3 +133,15 @@ function GenericSkeleton() {
     </div>
   )
 }
+
+// Panel/pencere içinde küçük taslak: birkaç gri satır (Ayarlar panelleri, Geçmiş, TMDB bilgileri…)
+export function LineSkeleton({ lines = 3, className = '' }: { lines?: number; className?: string }) {
+  const show = useDelayed()
+  return (
+    <div role="status" aria-label={tt('Yükleniyor...')} className={`animate-pulse space-y-2.5 py-1 transition-opacity duration-300 ${className}`} style={{ opacity: show ? 1 : 0 }}>
+      {Array.from({ length: lines }).map((_, i) => (
+        <Block key={i} className="h-3.5" style={{ width: `${92 - ((i * 23) % 40)}%` }} />
+      ))}
+    </div>
+  )
+}

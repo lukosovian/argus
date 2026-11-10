@@ -7,6 +7,8 @@ import { useToast } from '../hooks/useToast'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import SectionTitle from './SectionTitle'
 import { regionName, tt } from '../lib/i18n'
+import Icon from './Icon'
+import { LineSkeleton } from './Skeleton'
 
 // Detay penceresinin altındaki iki bölüm: "Nerede İzlenir" (Türkiye'de hangi platformda var)
 // ve "Benzer İçerikler" (TMDB önerileri, tek tıkla "İzlenecek" olarak arşive eklenebilir).
@@ -90,12 +92,12 @@ export default function TmdbExtras({
           right={
             p?.link ? (
               <a href={p.link} target="_blank" rel="noreferrer" className="text-xs text-neutral-500 hover:text-neutral-50 transition">
-                {tt('Tüm seçenekler ↗')}
+                {tt('Tüm seçenekler')} <Icon name="external" className="h-3 w-3" />
               </a>
             ) : undefined
           }
         />
-        {loading ? <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p> : <WatchProviderList providers={p ?? null} />}
+        {loading ? <LineSkeleton lines={2} /> : <WatchProviderList providers={p ?? null} />}
       </section>
       )}
 
@@ -103,7 +105,7 @@ export default function TmdbExtras({
         <section id="rd-benzer" className="scroll-mt-16">
           <SectionTitle title={tt('Benzer İçerikler')} count={loading ? undefined : String(similar.length)} />
           {loading ? (
-            <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
+            <LineSkeleton lines={2} />
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
               {similar.map((c) => {
@@ -123,7 +125,7 @@ export default function TmdbExtras({
                       )}
                       {c.rating !== null && c.rating > 0 && (
                         <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold text-white bg-black/70 rounded px-1.5 py-0.5">
-                          ★ {c.rating}
+                          <Icon name="star" className="h-[0.95em] w-[0.95em]" /> {c.rating}
                         </span>
                       )}
                     </div>

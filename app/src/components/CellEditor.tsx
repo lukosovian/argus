@@ -72,7 +72,7 @@ export default function CellEditor({
           <button
             type="button"
             onClick={handleClose}
-            className="text-xs font-semibold rounded-md bg-[#00c0fa] hover:brightness-110 text-white px-3 py-1.5 transition"
+            className="text-xs font-semibold rounded-lg bg-[#00c0fa] hover:brightness-110 text-white px-3 py-1.5 transition"
           >
             {tt('Kapat')}
           </button>

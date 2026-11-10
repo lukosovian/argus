@@ -673,7 +673,7 @@ function SortPopover({
               <div className="flex gap-1 px-1">
                 <button
                   onClick={() => onChange(sortPropertyId, 'asc')}
-                  className={`flex-1 text-xs rounded-md px-2 py-1 transition ${
+                  className={`flex-1 text-xs rounded-lg px-2 py-1 transition ${
                     sortDirection === 'asc' ? 'bg-neutral-700 text-neutral-50' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                   }`}
                 >
@@ -681,7 +681,7 @@ function SortPopover({
                 </button>
                 <button
                   onClick={() => onChange(sortPropertyId, 'desc')}
-                  className={`flex-1 text-xs rounded-md px-2 py-1 transition ${
+                  className={`flex-1 text-xs rounded-lg px-2 py-1 transition ${
                     sortDirection === 'desc' ? 'bg-neutral-700 text-neutral-50' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                   }`}
                 >
@@ -692,7 +692,7 @@ function SortPopover({
             <div className="max-h-52 overflow-y-auto space-y-0.5">
               <button
                 onClick={() => onChange(null, sortDirection)}
-                className={`block w-full text-left text-xs rounded-md px-2 py-1.5 transition ${
+                className={`block w-full text-left text-xs rounded-lg px-2 py-1.5 transition ${
                   !sortPropertyId ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-300 hover:bg-neutral-800'
                 }`}
               >
@@ -702,7 +702,7 @@ function SortPopover({
                 <button
                   key={p.id}
                   onClick={() => onChange(p.id, sortDirection)}
-                  className={`block w-full text-left text-xs rounded-md px-2 py-1.5 transition ${
+                  className={`block w-full text-left text-xs rounded-lg px-2 py-1.5 transition ${
                     sortPropertyId === p.id ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-300 hover:bg-neutral-800'
                   }`}
                 >

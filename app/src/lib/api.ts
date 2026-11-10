@@ -38,6 +38,10 @@ export interface EvrenItem {
   minutes: number | null
   group: string | null
   extra: boolean
+  // Ana hikâyeye katkısı yok: atlansa bir şey kaçırılmaz
+  optional?: boolean
+  // TMDB'den kendiliğinden eklendi (bkz. server/evrenOto.js)
+  auto?: boolean
   rowId: string | null
   status: string | null
   watched: boolean
@@ -45,7 +49,7 @@ export interface EvrenItem {
   watches: string[]
   progress: { seen: number; total: number } | null
   // İzleme turundaki durumu (tur yoksa null): dizide seen/total = turda izlenen bölümler
-  tour: { done: boolean; seen: number | null; total: number | null } | null
+  tour: { done: boolean; seen: number | null; total: number | null; active?: boolean } | null
 }
 export interface Evren {
   id: string
@@ -97,6 +101,7 @@ export interface EvrenSaveItem {
   minutes?: number
   group?: string
   extra?: boolean
+  optional?: boolean
 }
 export interface EvrenSave {
   name: string
@@ -426,6 +431,13 @@ export const api = {
   resetDismissed: () => request<{ ok: true }>(profilePath('/tmdb-dismiss'), { method: 'DELETE' }),
   getTmdbItem: (boardId: string, mediaType: 'movie' | 'tv', tmdbId: number) =>
     request<TmdbItem>(profilePath(`/tmdb-item/${boardId}/${mediaType}/${tmdbId}`)),
+  trailerCandidates: (src: { rowId?: string; mediaType?: 'movie' | 'tv'; tmdbId?: number }) => {
+    const q = new URLSearchParams()
+    if (src.rowId) q.set('rowId', src.rowId)
+    if (src.mediaType) q.set('mediaType', src.mediaType)
+    if (src.tmdbId != null) q.set('tmdbId', String(src.tmdbId))
+    return request<{ keys: string[] }>(profilePath(`/fragman-adaylari?${q}`))
+  },
   getNewEpisodes: (boardId: string) => request<{ items: NewEpisodeItem[] }>(profilePath(`/new-episodes/${boardId}`)),
 
   // Profile bağlı değil — ARGUS klasörünün git durumuna göre (bkz. server/index.js).
@@ -459,6 +471,10 @@ export const api = {
       profilePath(`/flashback/${boardId}?year=${year}`),
     ),
   getTmdbMediaTypes: () => request<Record<string, 'movie' | 'tv'>>(profilePath('/tmdb-media')),
+  evrenOtoStatus: () => request<{ lastRun: number | null; running: boolean; added: number }>(profilePath('/evrenler-oto')),
+  evrenOtoRun: () =>
+    request<{ added: { uid: string; key: string; title: string; season: number | null; date: string }[]; dates: number }>(profilePath('/evrenler-oto'), { method: 'POST' }),
+  evrenOtoRemove: (uid: string, key: string) => request<{ ok: true }>(profilePath('/evrenler-oto/cikar'), { method: 'POST', ...json({ uid, key }) }),
   getEvrenler: (boardId: string) => request<{ universes: Evren[]; prefs: Record<string, EvrenPrefs>; today: string }>(profilePath(`/evrenler/${boardId}`)),
   saveEvrenler: (patch: { custom?: Record<string, EvrenSave | null>; prefs?: Record<string, EvrenPrefs | null> }) =>
     request<{ ok: true }>(profilePath('/evrenler-veri'), { method: 'POST', ...json(patch) }),

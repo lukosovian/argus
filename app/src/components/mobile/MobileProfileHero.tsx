@@ -4,6 +4,7 @@ import { titleText } from '../../types'
 import { resolveRole, resolveStatusOption } from '../../lib/roles'
 import { locale, tt } from '../../lib/i18n'
 import { averageColor } from '../../lib/imageColor'
+import Icon, { type IconName } from '../Icon'
 
 // ARGUS Android › "Kim izliyor?" arka planı — kullanıcı "tam tam Netflix gibi olsun, üstteki içerik birkaç
 // saniyede bir değişiyor" dedi: arşivden birkaç yapım (önce yakında vizyona girecekler, sonra izlemekte olduğun /
@@ -17,7 +18,7 @@ export interface HeroSlide {
   image: string
   logo: string
   title: string
-  icon: string
+  icon: IconName
   caption: string
 }
 
@@ -80,7 +81,7 @@ export function useHeroSlides(profileIds: string[], rotateMs = ROTATE_MS) {
         new Date(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))).toLocaleDateString(locale(), { day: 'numeric', month: 'long' })
 
       const picked = new Map<string, HeroSlide>()
-      const add = (r: Row, icon: string, caption: string) => {
+      const add = (r: Row, icon: IconName, caption: string) => {
         if (picked.has(r.id) || picked.size >= 6) return
         picked.set(r.id, { image: str(r, coverProp?.id), logo: str(r, logoProp?.id), title: titleProp ? titleText(titleProp, r.values[titleProp.id]) : '', icon, caption })
       }
@@ -89,13 +90,13 @@ export function useHeroSlides(profileIds: string[], rotateMs = ROTATE_MS) {
           .filter((r) => str(r, vizyon.id) >= today)
           .sort((a, b) => str(a, vizyon.id).localeCompare(str(b, vizyon.id)))
           .slice(0, 2)
-          .forEach((r) => add(r, '🎬', tt('Vizyon: {0}', fmt(str(r, vizyon.id)))))
-      if (durum && izleniyor) shuffle(usable.filter((r) => r.values[durum.id] === izleniyor)).slice(0, 2).forEach((r) => add(r, '▶️', tt('İzlemeye devam et')))
+          .forEach((r) => add(r, 'clapper', tt('Vizyon: {0}', fmt(str(r, vizyon.id)))))
+      if (durum && izleniyor) shuffle(usable.filter((r) => r.values[durum.id] === izleniyor)).slice(0, 2).forEach((r) => add(r, 'play', tt('İzlemeye devam et')))
       shuffle(usable.filter((r) => avg(r) >= 8.5))
         .slice(0, 2)
-        .forEach((r) => add(r, '⭐', tt('{0} puan verdin', avg(r).toFixed(1))))
-      if (durum && izlenecek) shuffle(usable.filter((r) => r.values[durum.id] === izlenecek)).slice(0, 2).forEach((r) => add(r, '📌', tt('Listende')))
-      shuffle(usable).forEach((r) => add(r, '✨', tt('Arşivinden')))
+        .forEach((r) => add(r, 'star', tt('{0} puan verdin', avg(r).toFixed(1))))
+      if (durum && izlenecek) shuffle(usable.filter((r) => r.values[durum.id] === izlenecek)).slice(0, 2).forEach((r) => add(r, 'bookmark', tt('Listende')))
+      shuffle(usable).forEach((r) => add(r, 'sparkle', tt('Arşivinden')))
       if (alive) setSlides(shuffle([...picked.values()]))
     })()
     return () => {
@@ -148,7 +149,7 @@ export default function MobileProfileHero({ profileIds, onColor }: { profileIds:
           )}
           {current.caption && (
             <p className="mt-3 flex items-center gap-2 text-[15px] font-semibold text-white">
-              <span className="text-lg leading-none">{current.icon}</span>
+              <Icon name={current.icon} className="h-[18px] w-[18px]" />
               {current.caption}
             </p>
           )}

@@ -7,7 +7,7 @@
 // hafızası) açılışta bir kez yukarı gönderilir; bu da tarayıcıdaki eski tercihleri uygulamaya taşır.
 
 // Önbellek niteliğindeki ve eski sürümlerden kalma (artık kullanılmayan) anahtarlar eşitlenmez
-const SKIP = [/^argus_mood_pick_/, /^argus_demo_/, /^argus_active_profile_id$/]
+const SKIP = [/^argus_mood_pick_/, /^argus_kirik_fragman$/, /^argus_demo_/, /^argus_active_profile_id$/]
 const synced = (k: string) => k.startsWith('argus_') && !SKIP.some((re) => re.test(k))
 
 let queue: { set: Record<string, string>; remove: Set<string> } = { set: {}, remove: new Set() }

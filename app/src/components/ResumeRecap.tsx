@@ -54,7 +54,7 @@ export default function ResumeRecap({ seasons, watched }: { seasons: Season[]; w
           </p>
         </div>
         {recent.some((x) => x.e.overview) && (
-          <button onClick={() => setOpen((v) => !v)} className="text-sm rounded-xl px-3 py-1.5 border border-amber-500/40 text-amber-200 hover:bg-amber-500/10 shrink-0">
+          <button onClick={() => setOpen((v) => !v)} className="text-sm rounded-lg px-3 py-1.5 border border-amber-500/40 text-amber-200 hover:bg-amber-500/10 shrink-0">
             {open ? tt('Özeti gizle') : tt('Neler olmuştu? Özeti göster')}
           </button>
         )}

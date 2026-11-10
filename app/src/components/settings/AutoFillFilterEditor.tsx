@@ -3,6 +3,7 @@ import type { AutoFillSettings, Board } from '../../types'
 import { AUTO_FILL_MAX_OPTIONS } from '../../types'
 import OptionBadge from '../OptionBadge'
 import { tt, ttx } from '../../lib/i18n'
+import Icon from '../Icon'
 
 // "En altta otomatik satırlar" için gelsin / gelmesin filtresi. Kullanıcı "şunlar gelsin şunlar
 // gelmesin, ikisinden de birden fazla seçebileyim" dedi: bir değere her tıklayışta
@@ -99,7 +100,7 @@ export default function AutoFillFilterEditor({
                   disabled={off}
                   className={`flex-1 min-w-0 flex items-center gap-2 text-left text-sm ${off ? 'text-neutral-600 line-through' : 'text-neutral-200 hover:text-neutral-50'} transition`}
                 >
-                  <span className={`text-[10px] text-neutral-500 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+                  <span className={`inline-flex text-neutral-500 transition-transform ${open ? 'rotate-90' : ''}`}><Icon name="caret" className="h-3 w-3" /></span>
                   <span className="truncate">{p.name}</span>
                   {picked > 0 && !off && <span className="text-[11px] text-neutral-500">{ttx('{0} seçili', picked)}</span>}
                 </button>

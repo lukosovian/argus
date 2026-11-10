@@ -7,6 +7,7 @@ import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import { darkTone } from '../lib/imageColor'
 import MobileProfileHero, { LAST_PROFILE_KEY, useHeroSlides } from './mobile/MobileProfileHero'
+import Icon from './Icon'
 
 // Profil seçilince App.tsx'e "ekranı karanlıktan aç" haberi (Navbar'daki profil değiştirme de kullanır)
 export const PROFILE_SWITCH_EVENT = 'argus-profil-gecis'
@@ -273,7 +274,7 @@ function DesktopPicker({
           )}
           {current.caption && (
             <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-white/85" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
-              <span className="leading-none">{current.icon}</span>
+              <Icon name={current.icon} className="h-4 w-4" />
               {current.caption}
             </p>
           )}

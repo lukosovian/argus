@@ -30,6 +30,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle, gradientBorderStyle, BRAND_GRADIENT
 import { tt, ttx } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
 import PageSkeleton from '../components/Skeleton'
+import Icon, { IconText } from '../components/Icon'
 
 function ChevronDownIcon() {
   return (
@@ -222,7 +223,7 @@ export function HomeCard({
           className="relative w-full rounded-lg overflow-hidden bg-neutral-800 transition-all duration-200"
           style={{ aspectRatio: landscape ? '16 / 9' : hovering ? '16 / 9' : '2 / 3' }}
         >
-          {hovering && yt ? <HoverPreviewVideo videoId={yt.id} startSeconds={yt.start} /> : null}
+          {hovering && yt ? <HoverPreviewVideo videoId={yt.id} startSeconds={yt.start} trailerSource={{ rowId: row.id }} /> : null}
           {mobilePoster ? (
             <img src={mobilePoster} alt={title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
           ) : (
@@ -255,7 +256,7 @@ export function HomeCard({
         {(hovering || showInfoAlways) && (
           <div className="bg-neutral-900 rounded-b-lg px-2.5 py-2 flex items-center justify-between gap-1">
             {meta.length > 0 ? (
-              <p className="text-[14px] font-bold text-neutral-400 line-clamp-2 leading-tight min-h-[2.4em]">{meta.join(' • ')}</p>
+              <p className="text-[14px] font-bold text-neutral-400 line-clamp-2 leading-tight min-h-[2.4em]"><IconText text={meta.join(' • ')} /></p>
             ) : (
               <span />
             )}
@@ -334,7 +335,7 @@ function FeaturedOverlay({
                 className={`text-white/90 ${cinematic ? 'text-sm sm:text-lg' : 'text-lg'} font-bold whitespace-nowrap`}
                 style={OVERLAY_TEXT_SHADOW}
               >
-                {meta.join('  •  ')}
+                <IconText text={meta.join('  •  ')} />
               </p>
             )}
             {ageRating && <AgeRatingChip raw={ageRating} className="h-6 min-w-6" />}
@@ -616,7 +617,7 @@ function TopRatedRow({
                   <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{name}</span>
                 )}
                 <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold text-white bg-black/70 rounded px-1.5 py-0.5">
-                  ★ {avg.toFixed(1)}
+                  <Icon name="star" className="h-[0.95em] w-[0.95em]" /> {avg.toFixed(1)}
                 </span>
               </span>
             </button>
@@ -1093,6 +1094,7 @@ export default function AnaSayfa() {
             // kapanınca (openRow tekrar boşalınca) vitrin videosu normal şekilde geri gelir.
             videoId={openRow || slideshow ? null : (featuredYt?.id ?? null)}
             startSeconds={featuredYt?.start ?? 0}
+            trailerSource={featured ? { rowId: featured.id } : undefined}
             title=""
             onShowingVideoChange={setVideoShowing}
             cinematic={cinematic}

@@ -8,6 +8,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx, fmtDate } from '../lib/i18n'
+import Icon from './Icon'
 
 // Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,
 // tek tıkla ekleyeyim" dedi. TMDB'den kişinin bilgileri ve filmografisi: arşivinde olanlar (izlediklerin
@@ -182,7 +183,7 @@ export default function PersonModal({
                       <div key={k} className="min-w-0">
                         <button onClick={() => setPreview(c)} className="block w-full relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group">
                           {c.poster && <img src={c.poster} alt={c.title} loading="lazy" className="h-full w-full object-cover group-hover:scale-105 transition" />}
-                          {c.rating ? <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-black/70 text-amber-300 rounded px-1.5 py-0.5">★ {c.rating}</span> : null}
+                          {c.rating ? <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-black/70 text-amber-300 rounded px-1.5 py-0.5"><Icon name="star" className="h-[0.95em] w-[0.95em]" /> {c.rating}</span> : null}
                         </button>
                         <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{c.title}</p>
                         <p className="text-[11px] text-neutral-500 truncate">{[c.year, c.mediaType === 'tv' ? tt('Dizi') : tt('Film')].filter(Boolean).join(' · ')}</p>

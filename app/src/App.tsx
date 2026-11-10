@@ -78,11 +78,17 @@ function Shell({ children }: { children: React.ReactNode }) {
   useUpdateCheck()
   useHistoryLimit()
   useAppNavigation()
+  // Sayfa değişince içerik anında değil, kısa bir belirmeyle gelsin (sadece saydamlık — konum/boyut oynamıyor ki
+  // sayfalardaki sabit pencereler ve yapışkan başlıklar etkilenmesin)
+  // Anahtar sadece ilk bölüm (/board/a → /board/b aynı sayfa sayılır, sayfa baştan kurulmasın, durumu kaybolmasın)
+  const section = useLocation().pathname.split('/')[1] ?? ''
   return (
     <>
       <Navbar />
       {!loading && !activeProfile && <ProfilePicker />}
-      {children}
+      <div key={section} className="argus-sayfa">
+        {children}
+      </div>
       <RatePrompt />
       <KeyboardShortcuts />
       <ProfileCurtain />

@@ -12,6 +12,10 @@ import ShowcaseBanner from './ShowcaseBanner'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { tt } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
+import Icon from './Icon'
+import { surfaceHex } from '../lib/theme'
+import { useThemeMode } from '../hooks/useThemeMode'
+import { LineSkeleton } from './Skeleton'
 
 // Ne İzlesem'in TMDB modunda kazanan içerik arşivde olmadığı için normal detay penceresi
 // açılamıyor — bunun yerine bu önizleme: görsel, özet, türler, Türkiye'de nerede izlenir ve
@@ -38,6 +42,7 @@ export default function TmdbPreviewModal({
   // "Yükleniyor..." yazmasın — eldeki kart bilgisiyle devam edilip bir not gösteriliyor.
   const [failed, setFailed] = useState(false)
   useEscape(true, onClose)
+  const { theme } = useThemeMode()
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<string | null>(null)
   const [watchedForm, setWatchedForm] = useState(false)
@@ -102,12 +107,13 @@ export default function TmdbPreviewModal({
             imageUrl={shown.backdrop || shown.poster || ''}
             videoId={trailerYt?.id ?? null}
             startSeconds={trailerYt?.start ?? 0}
+            trailerSource={{ mediaType: card.mediaType, tmdbId: card.tmdbId }}
             title={shown.title}
             titleImageUrl={item?.logo ?? undefined}
             aspect="21/9"
             height={MOBILE ? 'max(58vh, 340px)' : undefined}
             titleAlwaysVisible
-            bottomFadeColor="#171717"
+            bottomFadeColor={surfaceHex(theme)}
           />
           {!card.inArchive && !item?.inArchive && (
             <span className="safe-shift absolute top-3 right-14 z-10 text-[11px] font-semibold text-white bg-black/60 rounded px-2 py-1">
@@ -131,7 +137,12 @@ export default function TmdbPreviewModal({
             </div>
             <p className="text-neutral-300 text-sm font-medium">
               {metaBits.join('  •  ')}
-              {shown.rating ? `  •  ★ ${shown.rating}` : ''}
+              {shown.rating ? (
+                <>
+                  {'  •  '}
+                  <Icon name="star" className="h-[0.95em] w-[0.95em] text-amber-400" /> {shown.rating}
+                </>
+              ) : null}
             </p>
             {shown.overview && <p className="text-neutral-300 text-base leading-relaxed">{shown.overview}</p>}
 
@@ -182,7 +193,7 @@ export default function TmdbPreviewModal({
               </p>
               {item?.providers?.link && (
                 <a href={item.providers.link} target="_blank" rel="noreferrer" className="text-xs text-neutral-500 hover:text-neutral-50 transition">
-                  {tt('Tüm seçenekler ↗')}
+                  {tt('Tüm seçenekler')} <Icon name="external" className="h-3 w-3" />
                 </a>
               )}
             </div>
@@ -191,7 +202,7 @@ export default function TmdbPreviewModal({
             ) : failed ? (
               <p className="text-sm text-neutral-500">{tt('Bu bilgi şu an alınamadı. ARGUS\'u kapatıp yeniden açmayı dene.')}</p>
             ) : (
-              <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
+              <LineSkeleton lines={2} />
             )}
           </div>
         </div>

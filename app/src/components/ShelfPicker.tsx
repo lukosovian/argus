@@ -82,7 +82,7 @@ export default function ShelfPicker({
                       return n
                     })
                   }
-                  className={`w-full flex items-center gap-3 rounded-xl border px-2.5 py-2 text-left transition ${on ? 'border-[#00c0fa]/60 bg-[#00c0fa]/10' : 'border-neutral-800 hover:border-neutral-600'}`}
+                  className={`w-full flex items-center gap-3 rounded-lg border px-2.5 py-2 text-left transition ${on ? 'border-[#00c0fa]/60 bg-[#00c0fa]/10' : 'border-neutral-800 hover:border-neutral-600'}`}
                 >
                   <span className={`h-5 w-5 shrink-0 rounded-md border flex items-center justify-center text-xs ${on ? 'bg-[#00c0fa] border-[#00c0fa] text-white' : 'border-neutral-600'}`}>{on ? '✓' : ''}</span>
                   <span className="h-10 w-10 shrink-0 rounded-lg bg-neutral-950 border border-neutral-800 flex items-center justify-center p-1 overflow-hidden">

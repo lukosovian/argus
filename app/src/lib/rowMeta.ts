@@ -18,7 +18,7 @@ export function metaSummary(
     .map((p) => {
       if (p.type === 'rating') {
         const avg = ratingAverage(row.values[p.id], p)
-        return avg === null ? null : `⭐ ${avg.toFixed(1)}`
+        return avg === null ? null : `★ ${avg.toFixed(1)}`
       }
       const v = row.values[p.id]
       if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) return null

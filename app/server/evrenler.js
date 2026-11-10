@@ -12,7 +12,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
-import { stt } from './lang.js'
+import { langDate, stt } from './lang.js'
+import { pushNotification } from './notifications.js'
+import { evrenOtoStatus, hideAuto, initEvrenOto, mergeBuiltins, runEvrenOto } from './evrenOto.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const IMG = 'https://image.tmdb.org/t/p/w342'
@@ -26,7 +28,23 @@ try {
 let d = null
 export function initEvrenler(deps) {
   d = deps
+  initEvrenOto({
+    dataDir: deps.dataDir,
+    readJson: deps.readJson,
+    writeJson: deps.writeJson,
+    tmdbGet: deps.tmdbGet,
+    tmdbLang: deps.tmdbLang,
+    localDay: deps.localDay,
+    profileIds: deps.profileIds,
+    anyApiKey: () => deps.profileIds().map((id) => deps.readProfileApiKey(id)).find(Boolean) || '',
+    getBase: () => BUILTIN,
+    pushNotification,
+    stt,
+    langDate,
+  })
 }
+// Hazır evrenler + TMDB'den kendiliğinden eklenen yeni yapımlar/sezonlar (bkz. evrenOto.js)
+const builtins = () => mergeBuiltins(BUILTIN)
 
 const DATE_RE = /^(\d{4}-\d{2}-\d{2}|\d{4}|\?)$/
 const list = (v) => (Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : []).map(String)
@@ -42,7 +60,7 @@ function readUser(profileId) {
 
 function universe(profileId, uid) {
   const u = readUser(profileId)
-  return u.custom[uid] ?? BUILTIN[uid] ?? null
+  return u.custom[uid] ?? builtins()[uid] ?? null
 }
 
 // Arşivdeki karşılığı: önce TMDB kimliği, yoksa adı (bkz. archiveLookup)
@@ -94,10 +112,13 @@ function itemState(ctx, item, since) {
     if (keys.length) {
       const seenMap = ctx.watched[st.rowId] ?? {}
       const seen = keys.filter((k) => list(seenMap[k]).some(after)).length
-      return { ...st, tour: { done: seen === keys.length, seen, total: keys.length } }
+      return { ...st, tour: { done: seen === keys.length, seen, total: keys.length, active: seen > 0 && seen < keys.length } }
     }
   }
-  return { ...st, tour: { done: st.watches.some(after), seen: null, total: null } }
+  // Durumu İzleniyor/Yarım olan bir kaydın tarihi izlemeye başladığı gün: turda bitmiş sayılmaz, sıradaki o kalır
+  // (kullanıcı "izleniyor da duran bir içeriği izlendi sayıp turda diğerini sıradaki göstermesin" dedi).
+  const started = st.watches.some(after)
+  return { ...st, tour: { done: started && st.finished !== false, seen: null, total: null, active: started && st.finished === false } }
 }
 
 function baseState(ctx, item) {
@@ -122,7 +143,7 @@ function baseState(ctx, item) {
     }
   }
   // Durumu İzlendi olmayan (Yarım, İzleniyor…) bir kaydın tarihi izlemeye başladığı gün olabilir — izlendi sayılmaz
-  return { ...base, watched: rowWatched || (!ctx.durum && rowDates.length > 0), watches: rowDates }
+  return { ...base, watched: rowWatched || (!ctx.durum && rowDates.length > 0), watches: rowDates, finished: rowWatched || !ctx.durum }
 }
 
 function publicItem(ctx, item, since) {
@@ -141,6 +162,8 @@ function publicItem(ctx, item, since) {
     minutes: item.minutes ?? null,
     group: item.group ?? null,
     extra: Boolean(item.extra),
+    optional: Boolean(item.optional),
+    auto: Boolean(item.auto),
     rowId: st.rowId,
     status: st.status ?? null,
     watched: st.watched,
@@ -157,7 +180,7 @@ export function registerEvrenlerRoutes(app) {
     if (!ctx) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
     const user = readUser(profileId)
     const all = [
-      ...Object.values(BUILTIN).map((u) => ({ ...u, builtin: true })),
+      ...Object.values(builtins()).map((u) => ({ ...u, builtin: true })),
       ...Object.values(user.custom).map((u) => ({ ...u, builtin: false })),
     ]
     const universes = all.map((u) => ({
@@ -173,6 +196,23 @@ export function registerEvrenlerRoutes(app) {
       items: (u.items ?? []).map((it) => publicItem(ctx, it, user.prefs[u.id]?.maraton)),
     }))
     res.json({ universes, prefs: user.prefs, today: ctx.today })
+  })
+
+  // Kendiliğinden güncelleme: durum, şimdi kontrol et, yanlış eklenen bir yapımı listeden çıkar
+  app.get('/api/profiles/:profileId/evrenler-oto', (req, res) => res.json(evrenOtoStatus()))
+  app.post('/api/profiles/:profileId/evrenler-oto', async (req, res) => {
+    try {
+      res.json(await runEvrenOto())
+    } catch (e) {
+      console.error('evrenler-oto hata:', e)
+      res.status(500).json({ error: stt('Yeni yapımlar kontrol edilemedi') })
+    }
+  })
+  app.post('/api/profiles/:profileId/evrenler-oto/cikar', (req, res) => {
+    const { uid, key } = req.body ?? {}
+    if (typeof uid !== 'string' || typeof key !== 'string' || !key.startsWith('oto-')) return res.status(400).json({ error: stt('Geçersiz istek') })
+    hideAuto(uid, key)
+    res.json({ ok: true })
   })
 
   // Kısmi güncelleme: { custom: { id: Evren | null }, prefs: { id: {...} | null } } — null siler
@@ -461,6 +501,7 @@ function cleanUniverse(id, v) {
       if (Number.isFinite(i.minutes) && i.minutes > 0) o.minutes = Math.round(i.minutes)
       if (typeof i.group === 'string') o.group = str(i.group, 40)
       if (i.extra) o.extra = true
+      if (i.optional) o.optional = true
       return o
     })
   const keys = new Set(items.map((i) => i.key))

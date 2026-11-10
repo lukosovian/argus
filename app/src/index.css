@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+/* ARGUS'un yazı tipi: Inter (SIL Open Font License, bkz. public/fonts/Inter-OFL.txt). Uygulamanın içinde duruyor —
+   internet olmadan da (telefonda, ağsız bilgisayarda) aynı görünür. Tek dosyada bütün kalınlıklar var (değişken yazı
+   tipi). İkinci dosya Türkçe'deki ğ, ş, İ gibi harfleri içeriyor. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 html,
 body,
 #root {
@@ -14,7 +34,10 @@ body {
   margin: 0;
   background: var(--color-neutral-950);
   color-scheme: dark;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Inter'in rakamları ve harfleri biraz daha düzgün dursun */
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
 }
 
 /*
@@ -144,6 +167,49 @@ body {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Sayfa geçişi (bkz. App.tsx Shell): yeni sayfa kısa bir belirmeyle gelir. Bitince hiçbir iz bırakmaz. */
+@keyframes argus-sayfa {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.argus-sayfa {
+  animation: argus-sayfa 0.22s ease-out;
+}
+
+/* Kaydırma çubuğu: Windows'un kalın gri çubuğu yerine ince, temaya uyan, üzerine gelince belirginleşen bir çubuk */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-neutral-800);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-neutral-600);
+  border-width: 2px;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Klavyeyle (Tab) gezerken hangi düğmede/bağlantıda olduğun ince mavi bir çerçeveyle görünsün. Fareyle tıklayınca
+   çıkmaz (:focus-visible). :where ile en düşük öncelikte — kendi odak görünümü olan yerler onu kullanmaya devam eder. */
+:where(button, a, summary, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid #00c0fa;
+  outline-offset: 2px;
 }
 
 .no-scrollbar {

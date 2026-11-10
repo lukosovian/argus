@@ -3,6 +3,7 @@ import type { Board } from '../types'
 import type { FilterCondition } from '../lib/filters'
 import OptionBadge from './OptionBadge'
 import { tt } from '../lib/i18n'
+import Icon from './Icon'
 
 // Çoklu + ters filtre seçici (vitrin, Ne İzlesem, sayfalar, modlar, tablo hepsi bunu kullanıyor).
 // Bir sütunu açıp değerlere tıklarsın: bir tık ✓ gelsin, ikinci tık ✕ gelmesin, üçüncü tık seçimi
@@ -115,7 +116,7 @@ export default function MultiFilterEditor({
                 }}
                 className="w-full flex items-center gap-2 text-left text-sm text-neutral-200 hover:text-neutral-50 transition"
               >
-                <span className={`text-[10px] text-neutral-500 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+                <span className={`inline-flex text-neutral-500 transition-transform ${open ? 'rotate-90' : ''}`}><Icon name="caret" className="h-3 w-3" /></span>
                 <span className="truncate">{p.name}</span>
                 {picked > 0 && (
                   <span className="text-[11px] text-neutral-500">

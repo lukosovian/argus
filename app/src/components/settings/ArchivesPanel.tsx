@@ -16,6 +16,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import { PanelHeader, SettingsTabs } from './SettingsUi'
 import { tt, ttx } from '../../lib/i18n'
 import EmptyState from '../EmptyState'
+import { LineSkeleton } from '../Skeleton'
 
 function ArchiveIcon() {
   return (
@@ -198,7 +199,7 @@ export default function ArchivesPanel() {
           )}
 
           {loading ? (
-            <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
+            <LineSkeleton />
           ) : boards.length === 0 ? (
             <EmptyState compact art="arsiv" title={tt('Henüz bir arşivin yok. Yukarıdan yeni bir tane oluştur.')} />
           ) : (

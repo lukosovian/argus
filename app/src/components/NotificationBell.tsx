@@ -9,6 +9,7 @@ import { useEscape } from '../hooks/useEscape'
 import { tt, ttx, locale } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import EmptyState from './EmptyState'
+import Icon, { type IconName } from './Icon'
 
 // Üst menüdeki zil — kullanıcı "bildirimler için bir yer olsun" dedi. Dizi kendiliğinden İzlendi olunca,
 // bitmiş bir diziye yeni bölüm gelince ya da yeni sezon tarihi açıklanınca burada birikir. Okunmamış
@@ -26,21 +27,18 @@ function ago(t: number): string {
   return new Date(t).toLocaleDateString(locale())
 }
 
-const TYPE_ICON: Record<string, { icon: string; cls: string }> = {
-  watched: { icon: '✓', cls: 'bg-emerald-500/15 text-emerald-300' },
-  newSeason: { icon: '▶', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
-  announce: { icon: '📅', cls: 'bg-amber-500/15 text-amber-300' },
-  feature: { icon: '★', cls: 'bg-fuchsia-500/15 text-fuchsia-300' },
-  platform: { icon: '📺', cls: 'bg-violet-500/15 text-violet-300' },
-  collection: { icon: '🎞', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
+const TYPE_ICON: Record<string, { icon: IconName; cls: string }> = {
+  watched: { icon: 'check', cls: 'bg-emerald-500/15 text-emerald-300' },
+  newSeason: { icon: 'play', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
+  announce: { icon: 'calendar', cls: 'bg-amber-500/15 text-amber-300' },
+  feature: { icon: 'star', cls: 'bg-fuchsia-500/15 text-fuchsia-300' },
+  platform: { icon: 'tv', cls: 'bg-violet-500/15 text-violet-300' },
+  collection: { icon: 'film', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
 }
 
 function BellIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
+    <Icon name="bell" className="h-5 w-5" />
   )
 }
 
@@ -217,7 +215,7 @@ export default function NotificationBell() {
                             onClick={() => toggleGroup(g)}
                             className={`w-full flex items-start gap-3 text-left px-4 py-3 hover:bg-neutral-800/60 transition ${gUnread ? 'bg-[#00c0fa]/[0.04]' : ''}`}
                           >
-                            <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}>{look.icon}</span>
+                            <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}><Icon name={look.icon} className={MOBILE ? 'h-5 w-5' : 'h-4 w-4'} /></span>
                             <span className="flex-1 min-w-0">
                               <span className="flex items-center gap-2">
                                 <span className={`text-sm truncate ${gUnread ? 'text-neutral-50 font-medium' : 'text-neutral-300'}`}>{tt('{0} içerik artık izlenebilir', g.length)}</span>
@@ -245,14 +243,14 @@ export default function NotificationBell() {
                       )
                     }
                     const n = entry.item
-                    const look = TYPE_ICON[n.type] ?? { icon: '•', cls: 'bg-neutral-800 text-neutral-300' }
+                    const look = TYPE_ICON[n.type] ?? { icon: 'sparkle' as IconName, cls: 'bg-neutral-800 text-neutral-300' }
                     return (
                       <button
                         key={n.id}
                         onClick={() => openItem(n)}
                         className={`w-full flex items-start gap-3 text-left px-4 py-3 border-b border-neutral-800/60 hover:bg-neutral-800/60 transition ${n.read ? '' : 'bg-[#00c0fa]/[0.04]'}`}
                       >
-                        <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}>{look.icon}</span>
+                        <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}><Icon name={look.icon} className={MOBILE ? 'h-5 w-5' : 'h-4 w-4'} /></span>
                         <span className="flex-1 min-w-0">
                           <span className="flex items-center gap-2">
                             <span className={`text-sm truncate ${n.read ? 'text-neutral-300' : 'text-neutral-50 font-medium'}`}>{n.title}</span>

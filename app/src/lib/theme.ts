@@ -30,3 +30,9 @@ export function gradientBorderStyle(fillColor = 'rgba(23,23,23,0.9)'): CSSProper
     border: '1.5px solid transparent',
   }
 }
+
+// Pencere/kart zemininin (neutral-900) temaya göre gerçek rengi — görselin altındaki yumuşak geçiş gibi hex renk
+// isteyen yerler için. Açık temada koyu bir bant kalıyordu (görsel koyuya iniyor, kart açık).
+export function surfaceHex(theme: 'dark' | 'light'): string {
+  return theme === 'light' ? '#f5f5f5' : '#171717'
+}

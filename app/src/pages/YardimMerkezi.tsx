@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useToast } from '../hooks/useToast'
 import { tt, ttx } from '../lib/i18n'
+import Icon from '../components/Icon'
 
 // Küçük rozet-ikon (başlığın yanındaki) — büyük "wireframe" görselden ayrı, sadece o bölümü
 // tek bakışta tanımak için. Gradyanlı kare arka plan + beyaz stroke ikon, hepsi aynı 24x24
@@ -697,7 +698,7 @@ const TOPICS: Topic[] = [
       tt('Satır simgesiyle (üç çizgi) Rahat ve Sıkı görünüm arasında geçersin; araç çubuğundaki simgelerin üzerine gelince ne işe yaradıkları yazar.'),
       tt('Bir hücreye tıklayıp değerini değiştirirsin; açılan kutuyu "Kapat" ile kapatırsın. Puan kutusunda × ile tek kriteri, "Puanı kaldır" ile hepsini silersin.'),
       tt('Satırın solundaki altı nokta: Güncelle, Altına Satır Ekle, Çoğalt, Sil; altında kaydın ne zaman eklendiği, en son ne zaman değiştiği ve son değişiklikleri yazar. Göz ikonu o kaydın detayını açar.'),
-      tt('Araç çubuğundaki "Geçmiş" (saat) düğmesi arşivdeki her eklemeyi, değişikliği ve silmeyi gün gün gösterir; yanlışlıkla sildiğini "Geri getir"le, bir değişikliği "Geri al"la geri alırsın, istersen bütün arşivi bir günün başındaki haline döndürürsün. Geçmiş için 5 GB yer ayrılır, dolunca sana sorulur; sınırı pencerenin "⚙ Alan ayarları" bölümünden değiştirirsin.'),
+      tt('Araç çubuğundaki "Geçmiş" (saat) düğmesi arşivdeki her eklemeyi, değişikliği ve silmeyi gün gün gösterir; yanlışlıkla sildiğini "Geri getir"le, bir değişikliği "Geri al"la geri alırsın, istersen bütün arşivi bir günün başındaki haline döndürürsün. Geçmiş için 5 GB yer ayrılır, dolunca sana sorulur; sınırı pencerenin "Alan ayarları" bölümünden değiştirirsin.'),
       tt('Sütun başlığını sürükleyip yerini değiştirebilirsin; başlığa tıklayınca adını, tipini, görevini değiştirebilir, sütunu temizleyebilir ya da silebilirsin.'),
       tt('Satırların başındaki kutucuklarla birden fazla kaydı seçip toplu silebilirsin.'),
       tt('Sütunların bir "görevi" vardır (Poster, Durum, Tür…): adını istediğin gibi değiştirsen de poster, istatistikler ya da TMDB doldurma bozulmaz.'),
@@ -716,7 +717,7 @@ const TOPICS: Topic[] = [
     text: tt('Bir kaydın sadece adını yazman yeterli: poster, yatay görsel, logo, özet, tür, ülke, yönetmen, oyuncular, süre, yaş sınırı, fragman ve dizilerde sezon/bölüm listesi TMDB\'den gelir. Önce Ayarlar › Veritabanı › API\'ye ücretsiz TMDB anahtarını girmen gerekir.'),
     tips: [
       tt('Tek bir kayıt için: satırdaki altı nokta › Güncelle (detay penceresinde de aynı düğme var).'),
-      tt('Hepsi için: araç çubuğundaki Genel Güncelleme, eksik görünen kayıtları sırayla doldurur; tablonun üstünde o an ne yaptığını görürsün. Durdurduğunda "▶ Devam et" ile kaldığı yerden sürdürürsün.'),
+      tt('Hepsi için: araç çubuğundaki Genel Güncelleme, eksik görünen kayıtları sırayla doldurur; tablonun üstünde o an ne yaptığını görürsün. Durdurduğunda "Devam et" ile kaldığı yerden sürdürürsün.'),
       tt('Sadece bazıları için: satırları seçip üstteki çubuktan "Seçilenleri Güncelle"ye bas. Ya da bir filtre/arama yapıp Genel Güncelleme menüsünde "Görünen kayıtlar"ı seç.'),
       tt('Yeni bölümler için: Genel Güncelleme menüsünde "Sadece bölümleri yenile" sadece dizilerin sezon/bölüm listesini yeniler, başka hiçbir şeye dokunmaz (ör. İzleniyor filtresiyle sadece izlediğin diziler). Seçtiğin diziler için çubuktaki "Bölümlerini Yenile" de aynı işi yapar.'),
       tt('Dişli simgesinden (TMDB\'den neler gelsin?) hangi alanların çekileceğini seçersin; her alanın altında hangi sütununa yazacağı yazar — sütunun adı farklıysa (ör. "Özet") oradan seçersin, hiç yoksa yeni sütun eklersin. "Dolu alanları da güncelle" açıkken dolu alanların üzerine de yazılır.'),
@@ -943,7 +944,7 @@ function TopicCard({ topic, flip }: { topic: Topic; flip: boolean }) {
             <h3 className="text-lg md:text-xl font-semibold text-neutral-50">{topic.title}</h3>
           </div>
           <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-medium rounded-full px-2.5 py-1 bg-[#00c0fa]/10 text-[#00c0fa]">
-            <span aria-hidden>📍</span>
+            <Icon name="pin" className="h-3 w-3" />
             {topic.where}
           </p>
           <p className="text-sm text-neutral-300 leading-relaxed mt-3">{topic.text}</p>
@@ -1007,7 +1008,7 @@ export default function YardimMerkezi() {
         />
         <div className="relative flex flex-col items-center text-center">
           <img src="/logoblue.png" alt={tt('ARGUS')} className="h-14 w-14 mb-4 drop-shadow-[0_0_24px_rgba(0,192,250,0.35)]" />
-          {isFirstVisit && <p className="text-xs font-semibold tracking-wide text-[#00c0fa] mb-2">{tt('👋 HOŞ GELDİN')}</p>}
+          {isFirstVisit && <p className="text-xs font-semibold tracking-wide text-[#00c0fa] mb-2"><Icon name="sparkle" className="h-3 w-3" /> {tt('HOŞ GELDİN')}</p>}
           <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">{tt('ARGUS Nasıl Çalışır?')}</h1>
           <p className="text-neutral-400 text-sm mt-2 max-w-md">
             {isFirstVisit

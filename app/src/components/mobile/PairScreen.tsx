@@ -71,7 +71,7 @@ export default function PairScreen() {
                     setHost(s.host)
                     setManual('')
                   }}
-                  className={`w-full text-left rounded-xl border px-4 py-3 transition ${host === s.host && !manual ? 'border-[#00c0fa]/50 bg-[#00c0fa]/10' : 'border-neutral-800 bg-neutral-900/60'}`}
+                  className={`w-full text-left rounded-lg border px-4 py-3 transition ${host === s.host && !manual ? 'border-[#00c0fa]/50 bg-[#00c0fa]/10' : 'border-neutral-800 bg-neutral-900/60'}`}
                 >
                   <span className="block text-sm text-neutral-50">{s.pcName || 'ARGUS'}</span>
                   <span className="block text-xs text-neutral-500">{s.host}</span>

@@ -1,4 +1,9 @@
 {
+ "{0}: yeni yapım eklendi": "{0}: new title added",
+ "\"{0}\" Evrenler'e eklendi (çıkış: {1}).": "\"{0}\" was added to Universes (release: {1}).",
+ "{0} — {1}. Sezon": "{0} — Season {1}",
+ "Yeni yapımlar kontrol edilemedi": "Couldn't check for new titles",
+ "Geçersiz istek": "Invalid request",
  "Önce yedeklerin konacağı klasörü seç.": "First choose the folder for your backups.",
  "Seçilen klasör bulunamadı: ": "Chosen folder not found: ",
  "Yedek bulunamadı": "Backup not found",

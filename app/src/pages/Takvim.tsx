@@ -23,6 +23,7 @@ import { useEscape } from '../hooks/useEscape'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, dayNames, fmtDate, getLang, EP } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
+import Icon from '../components/Icon'
 
 // Takvim — kullanıcı "Notion'daki gibi takvim; günlerde ne izlemişsin görelim, ay ay" dedi ve şu
 // özellikleri onayladı: dizilerde bölüm bölüm kayıt, ileriye bakma (çıkacak bölümler ve vizyonlar),
@@ -744,7 +745,7 @@ function MonthView({
               showReleases ? 'border-amber-400/60 bg-amber-400/10 text-amber-300' : 'border-neutral-800 bg-neutral-900/60 text-neutral-400 hover:border-neutral-600 hover:text-neutral-200'
             }`}
           >
-            🎬 {tt('Vizyondakiler')}
+            <Icon name="clapper" className="h-3.5 w-3.5" /> {tt('Vizyondakiler')}
           </button>
         </div>
       </div>
@@ -913,7 +914,7 @@ function ReleaseItem({ card, onClick, big = false }: { card: ReleaseCard; onClic
       </span>
       <span className="min-w-0 flex-1">
         <span className={`block truncate font-medium text-neutral-100 ${big ? 'text-sm' : 'text-[11px] leading-tight'}`}>{card.title}</span>
-        <span className={`block truncate text-amber-300/90 ${big ? 'text-xs mt-0.5' : 'text-[10px] leading-tight'}`}>🎬 {label}</span>
+        <span className={`block truncate text-amber-300/90 ${big ? 'text-xs mt-0.5' : 'text-[10px] leading-tight'}`}><Icon name="clapper" className="h-[1em] w-[1em] mr-1" />{label}</span>
       </span>
     </button>
   )
@@ -1052,7 +1053,7 @@ function YearView({
         <YearTile label={tt('İzleme yaptığın gün')} value={String(active.length)} />
         <YearTile label={tt('Toplam izleme')} value={String(total)} sub={tt('içerik + bölüm')} />
         <YearTile label={tt('En uzun seri')} value={best ? tt('{0} gün', best) : '—'} sub={best > 1 ? (getLang() === 'tr' ? `${withLocative(dayLabel(bestEnd).split(',')[0])} bitti` : tt('{0} bitti', fmtDate(parseYmd(bestEnd).getFullYear(), parseYmd(bestEnd).getMonth(), parseYmd(bestEnd).getDate()))) : undefined} />
-        <YearTile label={tt('Şu anki seri')} value={current ? tt('{0} gün', current) : '—'} sub={current ? tt('devam ediyor 🔥') : tt('bugün bir şey izle')} />
+        <YearTile label={tt('Şu anki seri')} value={current ? tt('{0} gün', current) : '—'} sub={current ? <span className="inline-flex items-center gap-1">{tt('devam ediyor')} <Icon name="flame" className="h-3.5 w-3.5 text-orange-400" /></span> : tt('bugün bir şey izle')} />
         <YearTile
           label={tt('En yoğun')}
           value={total ? TR_MONTHS[busiestMonth] : '—'}
@@ -1103,7 +1104,7 @@ function YearView({
   )
 }
 
-function YearTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function YearTile({ label, value, sub }: { label: string; value: string; sub?: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-4 py-3">
       <p className="text-xs text-neutral-500">{label}</p>

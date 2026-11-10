@@ -9,6 +9,7 @@ import { titleText } from '../types'
 import { HomeCard } from '../pages/AnaSayfa'
 import { tt, ttx } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
+import Icon from './Icon'
 
 const MAX_RESULTS = 30
 
@@ -216,10 +217,7 @@ export default function GlobalSearch() {
     return (
       <>
         <button onClick={() => setOpen(true)} className="h-10 w-10 flex items-center justify-center rounded-full text-neutral-50" title={tt('Ara')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-6 w-6">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
+          <Icon name="search" className="h-6 w-6" />
         </button>
         {open &&
           createPortal(
@@ -229,10 +227,7 @@ export default function GlobalSearch() {
                   ‹
                 </button>
                 <label className="flex-1 min-w-0 flex items-center gap-2 rounded-full bg-neutral-900 border border-neutral-800 px-4 h-11 text-neutral-500">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5 shrink-0">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
+                  <Icon name="search" className="h-5 w-5" />
                   <input
                     autoFocus
                     value={q}
@@ -351,10 +346,7 @@ export default function GlobalSearch() {
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition relative z-40"
         title={tt('Ara (klavyeden "/")')}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-6 w-6">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
+        <Icon name="search" className="h-[22px] w-[22px]" />
       </button>
 
       {/* Sonuçlar geldiğinde sayfanın kendi içeriğinin (vitrin vb.) üzerine, navbar'ın hemen
@@ -423,7 +415,7 @@ export default function GlobalSearch() {
 
               {results.length + tagMatches.length === 0 && (
                 <div className="text-center py-16">
-                  <p className="text-4xl mb-3">🔍</p>
+                  <p className="mb-3 text-neutral-600"><Icon name="search" className="h-10 w-10" /></p>
                   <p className="text-neutral-300">{tt('Bu aramaya uyan bir şey yok.')}</p>
                   <p className="text-sm text-neutral-500 mt-1">{tt('Başka bir kelime dene — ad, oyuncu, tür ya da ülke adıyla arayabilirsin.')}</p>
                 </div>

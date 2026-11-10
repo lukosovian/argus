@@ -31,12 +31,21 @@ import { entryEnd, formatEntry } from '../lib/dateRange'
 import { useEscape } from '../hooks/useEscape'
 import { useThemeMode } from '../hooks/useThemeMode'
 import { averageColor, darkTone } from '../lib/imageColor'
-import { isoDate, tt, ttx } from '../lib/i18n'
+import { isoDate, locale, tt, ttx } from '../lib/i18n'
+import { universesOfRow, type RowUniverse } from '../lib/evrenLookup'
+import Icon from './Icon'
+import { surfaceHex } from '../lib/theme'
 
 const CAST_PREVIEW = 12
 
 function formatDate(v: string) {
   return isoDate(v) ?? v
+}
+
+// "2008-04-30" → "30 Nisan 2008" (İngilizcede "April 30, 2008")
+function longDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(y, m - 1, d))
 }
 
 function RefreshIcon({ spinning }: { spinning?: boolean }) {
@@ -145,6 +154,15 @@ export default function RowDetailModal({
 }) {
   useEscape(true, onClose)
   const navigate = useNavigate()
+  // Bu yapım bir evrende geçiyorsa (MCU, Star Wars…) Evrenler'deki kartına giden düğme
+  const [universes, setUniverses] = useState<RowUniverse[]>([])
+  useEffect(() => {
+    let alive = true
+    universesOfRow(board.id, row.id).then((list) => alive && setUniverses(list))
+    return () => {
+      alive = false
+    }
+  }, [board.id, row.id])
   const location = useLocation()
   const cast = useCast()
   const { episodes, reload: reloadEpisodes } = useEpisodes()
@@ -267,7 +285,7 @@ export default function RowDetailModal({
       alive = false
     }
   }, [cover, theme])
-  const base = '#171717'
+  const base = surfaceHex(theme)
   const bg = tint ?? base
   const poster = posterProp ? ((row.values[posterProp.id] as string) ?? '') : ''
   const synopsis = synopsisProp ? ((row.values[synopsisProp.id] as string) ?? '') : ''
@@ -442,7 +460,9 @@ export default function RowDetailModal({
   // Üstteki etiketler: seçim sütunları (Durum, Kategori…) kendi renkleriyle, yıl, süre ve puan.
   const pillSelects = board.properties.filter((p) => !usedIds.has(p.id) && p.type === 'select')
   const vizyonProp = resolveRole(board, 'vizyon')
-  const vizyonYear = vizyonProp && typeof row.values[vizyonProp.id] === 'string' ? (row.values[vizyonProp.id] as string).slice(0, 4) : ''
+  // Kullanıcı "detay penceresinde tam çıkış tarihini görebileyim, sadece yılını görüyorum" dedi: gün biliniyorsa "30 Nisan 2008"
+  const vizyonRaw = vizyonProp && typeof row.values[vizyonProp.id] === 'string' ? (row.values[vizyonProp.id] as string) : ''
+  const vizyonYear = /^\d{4}-\d{2}-\d{2}$/.test(vizyonRaw) ? longDate(vizyonRaw) : vizyonRaw.slice(0, 4)
   const runtime = sureProp && typeof row.values[sureProp.id] === 'number' ? formatRuntime(row.values[sureProp.id] as number) : ''
   // Kendi kartlarında gösterilenler bilgi kartına tekrar düşmesin.
   const infoProps = gridProps.filter((p) => p.id !== tarihProp?.id && p.id !== sureProp?.id)
@@ -475,6 +495,7 @@ export default function RowDetailModal({
             imageUrl={cover}
             videoId={yt?.id ?? null}
             startSeconds={yt?.start ?? 0}
+            trailerSource={{ rowId: row.id }}
             title=""
             aspect="21/9"
             // Telefonda görsel/video ekranın büyük kısmını kaplasın (21:9 telefonda çok küçük kalıyordu)
@@ -523,7 +544,7 @@ export default function RowDetailModal({
               <div className="flex flex-wrap items-center gap-1.5">
                 {avgScore !== null && (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-neutral-950">
-                    ★ {avgScore.toFixed(1)}
+                    <Icon name="star" className="h-[0.95em] w-[0.95em]" /> {avgScore.toFixed(1)}
                   </span>
                 )}
                 {pillSelects.map((p) => {
@@ -550,6 +571,21 @@ export default function RowDetailModal({
                     {showTag.text}
                   </span>
                 )}
+                {universes.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => {
+                      onClose()
+                      navigate(`/evrenler/${u.id}?yapim=${encodeURIComponent(u.key)}`)
+                    }}
+                    title={tt('Evrenler\'de göster: {0}', u.name)}
+                    className="inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-full border text-neutral-100 bg-black/20 hover:bg-black/40 transition"
+                    style={{ borderColor: `${u.color}aa` }}
+                  >
+                    <Icon name="planet" className="h-[1.1em] w-[1.1em]" style={{ color: u.color }} />
+                    {u.short}
+                  </button>
+                ))}
               </div>
               {editable && (durumProp || tarihProp || puanProp) && (
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -571,7 +607,7 @@ export default function RowDetailModal({
                       onClick={() => window.dispatchEvent(new CustomEvent('argus-ask-rating', { detail: { boardId: board.id, rowId: row.id, force: true } }))}
                       className="text-xs rounded-full px-3 py-1.5 border border-amber-500/50 text-amber-300 bg-black/20 hover:bg-amber-500/10 transition"
                     >
-                      ★ {avgScore !== null ? tt('Puanı değiştir') : tt('Puan ver')}
+                      <Icon name="star" className="h-[0.95em] w-[0.95em]" /> {avgScore !== null ? tt('Puanı değiştir') : tt('Puan ver')}
                     </button>
                   )}
                   {tarihProp && (
@@ -586,7 +622,7 @@ export default function RowDetailModal({
                   )}
                   {onEdit && (
                     <button onClick={onEdit} className="text-xs rounded-full px-3 py-1.5 border border-[#00c0fa]/50 text-[#7fdcff] bg-black/20 transition">
-                      ✎ {tt('Düzenle')}
+                      <Icon name="pencil" className="h-[0.95em] w-[0.95em]" /> {tt('Düzenle')}
                     </button>
                   )}
                 </div>
@@ -656,7 +692,7 @@ export default function RowDetailModal({
                           {opt.image ? (
                             <img src={opt.image} alt={opt.label} loading="lazy" className="h-full w-full object-cover object-top" />
                           ) : (
-                            <span className="h-full w-full flex items-center justify-center text-2xl text-neutral-600">🎭</span>
+                            <span className="h-full w-full flex items-center justify-center text-neutral-600"><Icon name="person" className="h-8 w-8" /></span>
                           )}
                         </span>
                         <p className="text-xs text-neutral-100 font-medium mt-2 leading-tight line-clamp-2">{opt.label}</p>

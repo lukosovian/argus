@@ -273,7 +273,7 @@ export default function ColumnMenu({
             <button
               type="button"
               onClick={onToggleCover}
-              className={`block w-full text-left text-xs rounded-md px-2 py-1.5 transition ${
+              className={`block w-full text-left text-xs rounded-lg px-2 py-1.5 transition ${
                 isCover ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50'
               }`}
             >
@@ -282,7 +282,7 @@ export default function ColumnMenu({
             <button
               type="button"
               onClick={onToggleTitleImage}
-              className={`block w-full text-left text-xs rounded-md px-2 py-1.5 transition ${
+              className={`block w-full text-left text-xs rounded-lg px-2 py-1.5 transition ${
                 isTitleImage ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50'
               }`}
             >

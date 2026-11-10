@@ -1,5 +1,6 @@
 import AgeRatingChip from '../AgeRatingChip'
 import { tt } from '../../lib/i18n'
+import { IconText } from '../Icon'
 
 // ARGUS Android › Ana Sayfa vitrini. Kullanıcı "Netflix uygulamasındaki gibi, logolar çok büyük duruyor" dedi:
 // ekranı kaplayan video yerine ortada büyük, köşeleri yuvarlak bir kart — görsel, küçük başlık logosu, kısa
@@ -45,7 +46,7 @@ export default function MobileHero({
           )}
           {(meta.length > 0 || ageRating) && (
             <div className="mt-2.5 flex items-center justify-center gap-2 text-[13px] text-white/85">
-              <span className="truncate">{meta.join(' • ')}</span>
+              <span className="truncate"><IconText text={meta.join(' • ')} /></span>
               {ageRating && <AgeRatingChip raw={ageRating} className="h-5 min-w-5 text-[10px]" />}
             </div>
           )}

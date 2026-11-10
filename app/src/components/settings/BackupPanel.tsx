@@ -4,6 +4,7 @@ import { useToast } from '../../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import { SettingsSection, choiceClass } from './SettingsUi'
 import { tt, ttx, fmtDate, locale } from '../../lib/i18n'
+import { LineSkeleton } from '../Skeleton'
 
 // Yedekleme (bkz. server/backup.js): seçilen klasöre veri + görseller. OneDrive / Google Drive klasörü
 // seçilirse yedek kendiliğinden buluta da gider. İş arka planda sürer, burada ilerlemesi görünür.
@@ -84,7 +85,7 @@ export default function BackupPanel() {
     }
   }
 
-  if (!info) return <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
+  if (!info) return <LineSkeleton lines={4} />
   const s = info.settings
   const job = info.job
   const pct = job && job.total ? Math.round((job.done / job.total) * 100) : 0
@@ -112,7 +113,7 @@ export default function BackupPanel() {
                   key={sg.path}
                   disabled={busy}
                   onClick={() => save({ target: sg.path })}
-                  className={`text-left text-xs rounded-xl border px-3 py-2 transition ${choiceClass(s.target === sg.path)}`}
+                  className={`text-left text-xs rounded-lg border px-3 py-2 transition ${choiceClass(s.target === sg.path)}`}
                 >
                   <span className="block font-medium">{sg.label}</span>
                   <span className="block text-[11px] text-neutral-500 break-all">{sg.path}</span>

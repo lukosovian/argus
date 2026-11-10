@@ -12,6 +12,7 @@ import HoverPreviewVideo from './HoverPreviewVideo'
 import { gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
 import { conditionsKey, filterConditions, rowMatchesConditions } from '../lib/filters'
 import { tt } from '../lib/i18n'
+import { IconText } from './Icon'
 
 // Uygulamayla gelen 10 varsayılan mod görseli koyu temada duracak şekilde (beyaz ikon,
 // saydam arka plan) hazırlandı. CSS `filter: invert()` denendi ama güvenilir çalışmadı
@@ -182,7 +183,7 @@ function MoodCard({
           style={{ aspectRatio: hovering ? '16 / 9' : '2 / 3' }}
         >
           {hovering && yt ? (
-            <HoverPreviewVideo videoId={yt.id} startSeconds={yt.start} />
+            <HoverPreviewVideo videoId={yt.id} startSeconds={yt.start} trailerSource={{ rowId: row.id }} />
           ) : (
             (hovering ? hoverImage : restImage) && (
               <img
@@ -204,7 +205,7 @@ function MoodCard({
         </div>
         {hovering && (
           <div className="bg-neutral-900 rounded-b-lg px-2.5 py-2 flex items-center justify-between gap-1">
-            {meta.length > 0 ? <p className="text-[14px] font-bold text-neutral-400 line-clamp-2">{meta.join(' • ')}</p> : <span />}
+            {meta.length > 0 ? <p className="text-[14px] font-bold text-neutral-400 line-clamp-2"><IconText text={meta.join(' • ')} /></p> : <span />}
             <span
               style={{ background: BRAND_GRADIENT }}
               className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full text-white"

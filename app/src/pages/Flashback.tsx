@@ -18,6 +18,7 @@ import FlashbackStory, { type StoryData } from '../components/FlashbackStory'
 import BackgroundProgress from '../components/BackgroundProgress'
 import { tt, ttx, fmtDate, ttc } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
+import Icon from '../components/Icon'
 
 // Flashback — yıllık özet (Spotify Wrapped gibi). Kullanıcı "adı Flashback olsun, dizi filmlere uyumlu"
 // dedi ve şu kutuları istedi: toplam ekran süresi (film + dizi), puanlama profili ve yılın en düşük
@@ -383,7 +384,7 @@ export default function Flashback() {
                 badge={
                   <>
                     <span className="absolute top-1.5 left-1.5 h-7 w-7 rounded-full bg-black/70 text-white font-black flex items-center justify-center">{i + 1}</span>
-                    <span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold bg-amber-400 text-neutral-950 rounded px-1.5 py-0.5">★ {t.score!.toFixed(1)}</span>
+                    <span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold bg-amber-400 text-neutral-950 rounded px-1.5 py-0.5"><Icon name="star" className="h-[0.95em] w-[0.95em]" /> {t.score!.toFixed(1)}</span>
                   </>
                 }
               />
@@ -391,7 +392,7 @@ export default function Flashback() {
             {stats.scores.lowest && (
               <div className="col-span-3 sm:col-span-1 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-2">
                 <p className="text-[11px] font-semibold text-rose-300 mb-1.5">{tt('Yılın hayal kırıklığı')}</p>
-                <MiniPoster t={stats.scores.lowest} badge={<span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold bg-rose-500 text-white rounded px-1.5 py-0.5">★ {stats.scores.lowest.score!.toFixed(1)}</span>} />
+                <MiniPoster t={stats.scores.lowest} badge={<span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold bg-rose-500 text-white rounded px-1.5 py-0.5"><Icon name="star" className="h-[0.95em] w-[0.95em]" /> {stats.scores.lowest.score!.toFixed(1)}</span>} />
               </div>
             )}
           </div>

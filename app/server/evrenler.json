@@ -34,6 +34,22 @@
     "name": "Netflix dizileri (Defenders Destanı)"
    },
    {
+    "id": "marveltv",
+    "name": "Marvel Television dizileri (S.H.I.E.L.D., Agent Carter…)"
+   },
+   {
+    "id": "sony",
+    "name": "Sony Spider-Man filmleri"
+   },
+   {
+    "id": "fox",
+    "name": "Fox Marvel filmleri (X-Men, Deadpool, Blade…)"
+   },
+   {
+    "id": "oneshot",
+    "name": "Marvel One-Shot kısa filmleri"
+   },
+   {
     "id": "yan",
     "name": "Yan yapımlar"
    }
@@ -353,7 +369,8 @@
     "season": 1,
     "minutes": 323,
     "episodes": 9,
-    "group": "faz4"
+    "group": "faz4",
+    "optional": true
    },
    {
     "key": "shangchi",
@@ -461,7 +478,8 @@
     "minutes": 29,
     "episodes": 5,
     "group": "faz4",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "shehulk1",
@@ -485,7 +503,8 @@
     "date": "2022-09-25",
     "poster": "/mvIvNKRIJPPS7WSFarFhOAGIVnU.jpg",
     "minutes": 54,
-    "group": "faz4"
+    "group": "faz4",
+    "optional": true
    },
    {
     "key": "wf",
@@ -507,7 +526,8 @@
     "date": "2022-11-24",
     "poster": "/8dqXyslZ2hv49Oiob9UjlGSHSTR.jpg",
     "minutes": 44,
-    "group": "faz4"
+    "group": "faz4",
+    "optional": true
    },
    {
     "key": "quantumania",
@@ -556,7 +576,8 @@
     "minutes": 24,
     "episodes": 5,
     "group": "faz5",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "loki2",
@@ -593,7 +614,8 @@
     "season": 2,
     "minutes": 289,
     "episodes": 9,
-    "group": "faz5"
+    "group": "faz5",
+    "optional": true
    },
    {
     "key": "echo1",
@@ -643,7 +665,8 @@
     "season": 3,
     "minutes": 253,
     "episodes": 8,
-    "group": "faz5"
+    "group": "faz5",
+    "optional": true
    },
    {
     "key": "yfns1",
@@ -656,7 +679,8 @@
     "season": 1,
     "minutes": 317,
     "episodes": 10,
-    "group": "faz5"
+    "group": "faz5",
+    "optional": true
    },
    {
     "key": "bnw",
@@ -728,7 +752,8 @@
     "season": 1,
     "minutes": 125,
     "episodes": 4,
-    "group": "faz6"
+    "group": "faz6",
+    "optional": true
    },
    {
     "key": "zombies1",
@@ -741,7 +766,8 @@
     "season": 1,
     "minutes": 137,
     "episodes": 4,
-    "group": "faz6"
+    "group": "faz6",
+    "optional": true
    },
    {
     "key": "wonderman1",
@@ -837,7 +863,8 @@
     "minutes": 343,
     "episodes": 10,
     "group": "yan",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "xmen97-2",
@@ -851,7 +878,8 @@
     "minutes": 287,
     "episodes": 9,
     "group": "yan",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "dd1",
@@ -907,7 +935,8 @@
     "minutes": 698,
     "episodes": 13,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "jj2",
@@ -921,7 +950,8 @@
     "minutes": 673,
     "episodes": 13,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "jj3",
@@ -935,7 +965,8 @@
     "minutes": 659,
     "episodes": 13,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "lc1",
@@ -949,7 +980,8 @@
     "minutes": 704,
     "episodes": 13,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "lc2",
@@ -963,7 +995,8 @@
     "minutes": 763,
     "episodes": 13,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "if1",
@@ -977,7 +1010,8 @@
     "minutes": 726,
     "episodes": 13,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "if2",
@@ -991,7 +1025,8 @@
     "minutes": 526,
     "episodes": 10,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "defenders",
@@ -1005,7 +1040,8 @@
     "minutes": 394,
     "episodes": 8,
     "group": "netflix",
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "punisher1",
@@ -1034,38 +1070,735 @@
     "episodes": 13,
     "group": "netflix",
     "extra": true
+   },
+   {
+    "key": "aos1",
+    "type": "tv",
+    "tmdbId": 1403,
+    "title": "S.H.I.E.L.D. Ajanları",
+    "en": "Marvel's Agents of S.H.I.E.L.D.",
+    "date": "2013-09-24",
+    "poster": "/1CaKyPcZvzzMSwbNFJObxNsxTkK.jpg",
+    "season": 1,
+    "minutes": 952,
+    "episodes": 22,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "aos2",
+    "type": "tv",
+    "tmdbId": 1403,
+    "title": "S.H.I.E.L.D. Ajanları",
+    "en": "Marvel's Agents of S.H.I.E.L.D.",
+    "date": "2014-09-23",
+    "poster": "/p8Qy60OIf0OaJ29KPw6ld51MSP7.jpg",
+    "season": 2,
+    "minutes": 954,
+    "episodes": 22,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "ac1",
+    "type": "tv",
+    "tmdbId": 61550,
+    "title": "Marvel's Agent Carter",
+    "en": "Marvel's Agent Carter",
+    "date": "2015-01-06",
+    "poster": "/gqyjmfFOrKY8iouNTXWj9KW7cC5.jpg",
+    "season": 1,
+    "minutes": 343,
+    "episodes": 8,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "aos3",
+    "type": "tv",
+    "tmdbId": 1403,
+    "title": "S.H.I.E.L.D. Ajanları",
+    "en": "Marvel's Agents of S.H.I.E.L.D.",
+    "date": "2015-09-29",
+    "poster": "/y0cxxcvCk9lEG4DEorTz5GxC9sj.jpg",
+    "season": 3,
+    "minutes": 954,
+    "episodes": 22,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "ac2",
+    "type": "tv",
+    "tmdbId": 61550,
+    "title": "Marvel's Agent Carter",
+    "en": "Marvel's Agent Carter",
+    "date": "2016-01-19",
+    "poster": "/h3yPRRiWZk6HrFD2oo3xqpLt6bc.jpg",
+    "season": 2,
+    "minutes": 434,
+    "episodes": 10,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "aos4",
+    "type": "tv",
+    "tmdbId": 1403,
+    "title": "S.H.I.E.L.D. Ajanları",
+    "en": "Marvel's Agents of S.H.I.E.L.D.",
+    "date": "2016-09-20",
+    "poster": "/mgyMzTTIFVdKoejD0gKIyaCgWOP.jpg",
+    "season": 4,
+    "minutes": 960,
+    "episodes": 22,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "inhumans",
+    "type": "tv",
+    "tmdbId": 68716,
+    "title": "Marvel's Inhumans",
+    "en": "Marvel's Inhumans",
+    "date": "2017-09-29",
+    "poster": "/doCIoaV9ffAJbK3TW2AsGp4ytOQ.jpg",
+    "season": 1,
+    "minutes": 336,
+    "episodes": 8,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "runaways1",
+    "type": "tv",
+    "tmdbId": 67466,
+    "title": "Marvel's Runaways",
+    "en": "Marvel's Runaways",
+    "date": "2017-11-21",
+    "poster": "/hMsaGkDyCM3Y3EWcdYK5Uu8qEok.jpg",
+    "season": 1,
+    "minutes": 503,
+    "episodes": 10,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "aos5",
+    "type": "tv",
+    "tmdbId": 1403,
+    "title": "S.H.I.E.L.D. Ajanları",
+    "en": "Marvel's Agents of S.H.I.E.L.D.",
+    "date": "2017-12-01",
+    "poster": "/pwZedE4CB3E73lvH9A5yRaszll0.jpg",
+    "season": 5,
+    "minutes": 963,
+    "episodes": 22,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "cd1",
+    "type": "tv",
+    "tmdbId": 66190,
+    "title": "Marvel - Pelerin & Hançer",
+    "en": "Marvel's Cloak & Dagger",
+    "date": "2018-06-07",
+    "poster": "/nluzawv8wEo0AeECpnLo3wO2YLZ.jpg",
+    "season": 1,
+    "minutes": 425,
+    "episodes": 10,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "runaways2",
+    "type": "tv",
+    "tmdbId": 67466,
+    "title": "Marvel's Runaways",
+    "en": "Marvel's Runaways",
+    "date": "2018-12-21",
+    "poster": "/r2e50wFzTsMgsSVLAyIB8uX1EGu.jpg",
+    "season": 2,
+    "minutes": 627,
+    "episodes": 13,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "cd2",
+    "type": "tv",
+    "tmdbId": 66190,
+    "title": "Marvel - Pelerin & Hançer",
+    "en": "Marvel's Cloak & Dagger",
+    "date": "2019-04-04",
+    "poster": "/pYnRJuBPEqZO1o4fcxBTgmKNHfy.jpg",
+    "season": 2,
+    "minutes": 409,
+    "episodes": 10,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "aos6",
+    "type": "tv",
+    "tmdbId": 1403,
+    "title": "S.H.I.E.L.D. Ajanları",
+    "en": "Marvel's Agents of S.H.I.E.L.D.",
+    "date": "2019-05-10",
+    "poster": "/QU0NjcvDonZLKhjRuxRv6AVo5l.jpg",
+    "season": 6,
+    "minutes": 576,
+    "episodes": 13,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "runaways3",
+    "type": "tv",
+    "tmdbId": 67466,
+    "title": "Marvel's Runaways",
+    "en": "Marvel's Runaways",
+    "date": "2019-12-13",
+    "poster": "/m83skvEvoFQoo1szIMpFQ6kbCe6.jpg",
+    "season": 3,
+    "minutes": 487,
+    "episodes": 10,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "aos7",
+    "type": "tv",
+    "tmdbId": 1403,
+    "title": "S.H.I.E.L.D. Ajanları",
+    "en": "Marvel's Agents of S.H.I.E.L.D.",
+    "date": "2020-05-27",
+    "poster": "/qM95u55G8xVyfgoSZ2qTlY3MDl6.jpg",
+    "season": 7,
+    "minutes": 573,
+    "episodes": 13,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "helstrom",
+    "type": "tv",
+    "tmdbId": 88987,
+    "title": "Helstrom",
+    "en": "Helstrom",
+    "date": "2020-10-16",
+    "poster": "/8fPIcaRIZgsoBcgA5yAm3GNz61M.jpg",
+    "season": 1,
+    "minutes": 516,
+    "episodes": 10,
+    "group": "marveltv",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "blade1",
+    "type": "movie",
+    "tmdbId": 36647,
+    "title": "Bıçağın İki Yüzü",
+    "en": "Blade",
+    "date": "1998-08-21",
+    "poster": "/jsKoFFD9uaF1zibQPeINP925iXm.jpg",
+    "minutes": 121,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "xm1",
+    "type": "movie",
+    "tmdbId": 36657,
+    "title": "X-Men",
+    "en": "X-Men",
+    "date": "2000-07-13",
+    "poster": "/bRDAc4GogyS9ci3ow7UnInOcriN.jpg",
+    "minutes": 104,
+    "group": "fox",
+    "extra": true
+   },
+   {
+    "key": "blade2",
+    "type": "movie",
+    "tmdbId": 36586,
+    "title": "Blade II",
+    "en": "Blade II",
+    "date": "2002-03-22",
+    "poster": "/rkW8rjmi7bpWja3BNDfaxdNOn3r.jpg",
+    "minutes": 117,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "sm1",
+    "type": "movie",
+    "tmdbId": 557,
+    "title": "Örümcek Adam",
+    "en": "Spider-Man",
+    "date": "2002-05-01",
+    "poster": "/5FyIHcUTLFNSk4D5rfsGRTkSwie.jpg",
+    "minutes": 121,
+    "group": "sony",
+    "extra": true
+   },
+   {
+    "key": "xm2",
+    "type": "movie",
+    "tmdbId": 36658,
+    "title": "X-Men 2",
+    "en": "X2",
+    "date": "2003-04-27",
+    "poster": "/bst4alFUXCxISwdRUKSMhhkrX1M.jpg",
+    "minutes": 133,
+    "group": "fox",
+    "extra": true
+   },
+   {
+    "key": "sm2",
+    "type": "movie",
+    "tmdbId": 558,
+    "title": "Örümcek Adam 2",
+    "en": "Spider-Man 2",
+    "date": "2004-06-25",
+    "poster": "/up4mcu95N91I7SnylVCIIMTWZYq.jpg",
+    "minutes": 135,
+    "group": "sony",
+    "extra": true
+   },
+   {
+    "key": "blade3",
+    "type": "movie",
+    "tmdbId": 36648,
+    "title": "Blade: Trinity",
+    "en": "Blade: Trinity",
+    "date": "2004-12-08",
+    "poster": "/6f7iXvPOnf83MaLB1JmPzUor1rr.jpg",
+    "minutes": 123,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "elektra",
+    "type": "movie",
+    "tmdbId": 9947,
+    "title": "Elektra",
+    "en": "Elektra",
+    "date": "2005-01-13",
+    "poster": "/Z4dAOxjAHTUZO6DJ2WVAsxzwe3.jpg",
+    "minutes": 97,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "ff2005",
+    "type": "movie",
+    "tmdbId": 9738,
+    "title": "Fantastik Dörtlü",
+    "en": "Fantastic Four",
+    "date": "2005-06-29",
+    "poster": "/5zG07ExIrWtZoxWlMOyhBszWAwf.jpg",
+    "minutes": 125,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "xm3",
+    "type": "movie",
+    "tmdbId": 36668,
+    "title": "X-Men: Son Direniş",
+    "en": "X-Men: The Last Stand",
+    "date": "2006-05-24",
+    "poster": "/tltloMUJ3KZ7IByFwJrR4lvHZeK.jpg",
+    "minutes": 104,
+    "group": "fox",
+    "extra": true
+   },
+   {
+    "key": "sm3",
+    "type": "movie",
+    "tmdbId": 559,
+    "title": "Örümcek Adam 3",
+    "en": "Spider-Man 3",
+    "date": "2007-05-01",
+    "poster": "/dxAWGyDADSazvz9pfPWPjryIVoE.jpg",
+    "minutes": 140,
+    "group": "sony",
+    "extra": true
+   },
+   {
+    "key": "ff2007",
+    "type": "movie",
+    "tmdbId": 1979,
+    "title": "Fantastik Dörtlü: Gümüş Sörfçü'nün Yükselişi",
+    "en": "Fantastic Four: Rise of the Silver Surfer",
+    "date": "2007-06-13",
+    "poster": "/b704jZVgUWzxrtxd5UA7d6lGMLe.jpg",
+    "minutes": 92,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "xmorigins",
+    "type": "movie",
+    "tmdbId": 2080,
+    "title": "X-Men Başlangıç: Wolverine",
+    "en": "X-Men Origins: Wolverine",
+    "date": "2009-04-28",
+    "poster": "/oztsCfR0IyaH7M4ZMMG9vpqd059.jpg",
+    "minutes": 107,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "xmfc",
+    "type": "movie",
+    "tmdbId": 49538,
+    "title": "X-Men: Birinci Sınıf",
+    "en": "X-Men: First Class",
+    "date": "2011-06-01",
+    "poster": "/jJ3j3Ya3oUZVhzg0MaZlqMuVX3U.jpg",
+    "minutes": 132,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "os1",
+    "type": "movie",
+    "tmdbId": 76122,
+    "title": "Marvel One-Shot: Danışman",
+    "en": "Marvel One-Shot: The Consultant",
+    "date": "2011-09-13",
+    "poster": "/jpfJmeH5VTE9pguyvHcpoHoXQYG.jpg",
+    "minutes": 4,
+    "group": "oneshot",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "os2",
+    "type": "movie",
+    "tmdbId": 76535,
+    "title": "Marvel One-Shot: Thor'un Çekici'nin Yolunda Komik Bir Şey",
+    "en": "Marvel One-Shot: A Funny Thing Happened on the Way to Thor's Hammer",
+    "date": "2011-10-25",
+    "poster": "/225392Wm9KfFgikJH9T9ceX1bxg.jpg",
+    "minutes": 4,
+    "group": "oneshot",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "tasm1",
+    "type": "movie",
+    "tmdbId": 1930,
+    "title": "İnanılmaz Örümcek-Adam",
+    "en": "The Amazing Spider-Man",
+    "date": "2012-06-23",
+    "poster": "/YoNuu4xeGIBTLAPse6RdWgV51t.jpg",
+    "minutes": 136,
+    "group": "sony",
+    "extra": true
+   },
+   {
+    "key": "os3",
+    "type": "movie",
+    "tmdbId": 119569,
+    "title": "Marvel One-Shot: 47. Eşya",
+    "en": "Marvel One-Shot: Item 47",
+    "date": "2012-08-29",
+    "poster": "/oksshuqUlH1Q2tMGhiagYqbe39F.jpg",
+    "minutes": 11,
+    "group": "oneshot",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "wolverine",
+    "type": "movie",
+    "tmdbId": 76170,
+    "title": "Wolverine",
+    "en": "The Wolverine",
+    "date": "2013-07-24",
+    "poster": "/t2wVAcoRlKvEIVSbiYDb8d0QqqS.jpg",
+    "minutes": 126,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "os4",
+    "type": "movie",
+    "tmdbId": 211387,
+    "title": "Marvel One-Shot: Ajan Carter",
+    "en": "Marvel One-Shot: Agent Carter",
+    "date": "2013-10-04",
+    "poster": "/z5PA0BCDbK7L7lPIE1IIttrLFe9.jpg",
+    "minutes": 15,
+    "group": "oneshot",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "os5",
+    "type": "movie",
+    "tmdbId": 253980,
+    "title": "Marvel One-Shot: Yaşasın Kral",
+    "en": "Marvel One-Shot: All Hail the King",
+    "date": "2014-02-04",
+    "poster": "/815QFKcdraXTY3avgvQSpH4fTv6.jpg",
+    "minutes": 14,
+    "group": "oneshot",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "tasm2",
+    "type": "movie",
+    "tmdbId": 102382,
+    "title": "İnanılmaz Örümcek-Adam 2",
+    "en": "The Amazing Spider-Man 2",
+    "date": "2014-04-16",
+    "poster": "/82bZ816lXLqAVPp0wsvE5S2SuGu.jpg",
+    "minutes": 141,
+    "group": "sony",
+    "extra": true
+   },
+   {
+    "key": "xmdofp",
+    "type": "movie",
+    "tmdbId": 127585,
+    "title": "X-Men: Geçmiş Günler Gelecek",
+    "en": "X-Men: Days of Future Past",
+    "date": "2014-05-15",
+    "poster": "/iN7h408RGxMXaEMVtbuYhKuCEnc.jpg",
+    "minutes": 132,
+    "group": "fox",
+    "extra": true
+   },
+   {
+    "key": "deadpool1",
+    "type": "movie",
+    "tmdbId": 293660,
+    "title": "Deadpool",
+    "en": "Deadpool",
+    "date": "2016-02-09",
+    "poster": "/99p0n6EhX6PebGIScQ0uRZ8aUv8.jpg",
+    "minutes": 108,
+    "group": "fox",
+    "extra": true
+   },
+   {
+    "key": "xmapoc",
+    "type": "movie",
+    "tmdbId": 246655,
+    "title": "X-Men: Apocalypse",
+    "en": "X-Men: Apocalypse",
+    "date": "2016-05-18",
+    "poster": "/81YsQLXwnPG1rpjGUJhCl0acXx3.jpg",
+    "minutes": 144,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "logan",
+    "type": "movie",
+    "tmdbId": 263115,
+    "title": "Logan: Wolverine",
+    "en": "Logan",
+    "date": "2017-02-28",
+    "poster": "/3U06IOlGpzIX1b6RsqXqqjv9EpU.jpg",
+    "minutes": 137,
+    "group": "fox",
+    "extra": true
+   },
+   {
+    "key": "deadpool2",
+    "type": "movie",
+    "tmdbId": 383498,
+    "title": "Deadpool 2",
+    "en": "Deadpool 2",
+    "date": "2018-05-15",
+    "poster": "/oTUIcMwOgAeA0Z7PIMKeNqutqmQ.jpg",
+    "minutes": 134,
+    "group": "fox",
+    "extra": true
+   },
+   {
+    "key": "venom1",
+    "type": "movie",
+    "tmdbId": 335983,
+    "title": "Venom: Zehirli Öfke",
+    "en": "Venom",
+    "date": "2018-09-28",
+    "poster": "/bQK5C2mL7DJUpQSahoT2CYMtvkX.jpg",
+    "minutes": 112,
+    "group": "sony",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "xmdp",
+    "type": "movie",
+    "tmdbId": 320288,
+    "title": "X-Men: Dark Phoenix",
+    "en": "Dark Phoenix",
+    "date": "2019-06-05",
+    "poster": "/5Ew3c5MTo3Tb903Cps0k1qAcbUD.jpg",
+    "minutes": 114,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "newmutants",
+    "type": "movie",
+    "tmdbId": 340102,
+    "title": "Yeni Mutantlar",
+    "en": "The New Mutants",
+    "date": "2020-08-26",
+    "poster": "/fm2N8CkU6Or9knK0EcUeQlfu587.jpg",
+    "minutes": 94,
+    "group": "fox",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "venom2",
+    "type": "movie",
+    "tmdbId": 580489,
+    "title": "Venom: Zehirli Öfke 2",
+    "en": "Venom: Let There Be Carnage",
+    "date": "2021-09-30",
+    "poster": "/ia0Q1KKvSWwYbywWcm49uXIZCZ3.jpg",
+    "minutes": 97,
+    "group": "sony",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "morbius",
+    "type": "movie",
+    "tmdbId": 526896,
+    "title": "Morbius",
+    "en": "Morbius",
+    "date": "2022-03-30",
+    "poster": "/3oyVnJLplWD22jRwD8ZYkFoJWhn.jpg",
+    "minutes": 105,
+    "group": "sony",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "madameweb",
+    "type": "movie",
+    "tmdbId": 634492,
+    "title": "Madame Web",
+    "en": "Madame Web",
+    "date": "2024-02-14",
+    "poster": "/uEKKqwNpYK50reH83PBPKRmR7Qs.jpg",
+    "minutes": 116,
+    "group": "sony",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "venom3",
+    "type": "movie",
+    "tmdbId": 912649,
+    "title": "Venom: Son Dans",
+    "en": "Venom: The Last Dance",
+    "date": "2024-10-22",
+    "poster": "/zXuJod6c9NyPwHJiT3HxsZDquLZ.jpg",
+    "minutes": 109,
+    "group": "sony",
+    "extra": true,
+    "optional": true
+   },
+   {
+    "key": "kraven",
+    "type": "movie",
+    "tmdbId": 539972,
+    "title": "Avcı Kraven",
+    "en": "Kraven the Hunter",
+    "date": "2024-12-11",
+    "poster": "/k12QJ5pnFu3e4Z237pf2Wii5Ab3.jpg",
+    "minutes": 127,
+    "group": "sony",
+    "extra": true,
+    "optional": true
    }
   ],
   "story": [
    "eow1",
    "catfa",
+   "os4",
+   "ac1",
+   "ac2",
    "cm",
    "ironman",
    "ironman2",
    "hulk",
    "thor",
+   "os1",
+   "os2",
    "avengers",
+   "os3",
    "thordw",
    "ironman3",
+   "os5",
    "catws",
+   "aos1",
    "gotg",
    "gotg2",
    "iamgroot1",
    "iamgroot2",
    "dd1",
    "jj1",
+   "aos2",
    "aou",
    "antman",
    "dd2",
    "lc1",
    "if1",
    "defenders",
+   "aos3",
    "civilwar",
    "bw",
    "bp",
    "homecoming",
    "punisher1",
    "drstrange",
+   "aos4",
+   "inhumans",
+   "runaways1",
+   "cd1",
    "jj2",
    "lc2",
    "if2",
@@ -1074,8 +1807,15 @@
    "punisher2",
    "jj3",
    "antwasp",
+   "runaways2",
+   "cd2",
+   "aos5",
    "iw",
    "endgame",
+   "aos6",
+   "aos7",
+   "runaways3",
+   "helstrom",
    "loki1",
    "whatif1",
    "zombies1",
@@ -1084,7 +1824,18 @@
    "fws1",
    "ffh",
    "eternals",
+   "sm1",
+   "sm2",
+   "sm3",
+   "tasm1",
+   "tasm2",
+   "venom1",
+   "venom2",
    "nwh",
+   "morbius",
+   "madameweb",
+   "venom3",
+   "kraven",
    "mom",
    "hawkeye1",
    "moonknight1",
@@ -1102,6 +1853,25 @@
    "marvels",
    "loki2",
    "whatif2",
+   "blade1",
+   "xm1",
+   "blade2",
+   "xm2",
+   "blade3",
+   "elektra",
+   "ff2005",
+   "xm3",
+   "ff2007",
+   "xmorigins",
+   "xmfc",
+   "wolverine",
+   "xmdofp",
+   "deadpool1",
+   "xmapoc",
+   "logan",
+   "deadpool2",
+   "xmdp",
+   "newmutants",
    "dp",
    "agatha1",
    "whatif3",
@@ -1320,9 +2090,16 @@
    "nwh": {
     "need": [
      "ffh",
-     "drstrange"
+     "drstrange",
+     "sm3",
+     "tasm2"
     ],
-    "good": []
+    "good": [
+     "sm1",
+     "sm2",
+     "tasm1",
+     "venom2"
+    ]
    },
    "mom": {
     "need": [
@@ -1427,10 +2204,18 @@
     "good": []
    },
    "dp": {
-    "need": [],
+    "need": [
+     "deadpool1",
+     "deadpool2"
+    ],
     "good": [
      "loki1",
-     "loki2"
+     "loki2",
+     "logan",
+     "xm1",
+     "elektra",
+     "blade1",
+     "ff2005"
     ]
    },
    "agatha1": {
@@ -1620,6 +2405,198 @@
    "punisher2": {
     "need": [
      "punisher1"
+    ],
+    "good": []
+   },
+   "ac1": {
+    "need": [
+     "catfa"
+    ],
+    "good": [
+     "os4"
+    ]
+   },
+   "ac2": {
+    "need": [
+     "ac1"
+    ],
+    "good": []
+   },
+   "aos1": {
+    "need": [
+     "avengers"
+    ],
+    "good": [
+     "thordw",
+     "catws"
+    ]
+   },
+   "aos2": {
+    "need": [
+     "aos1"
+    ],
+    "good": [
+     "catws"
+    ]
+   },
+   "aos3": {
+    "need": [
+     "aos2"
+    ],
+    "good": [
+     "aou"
+    ]
+   },
+   "aos4": {
+    "need": [
+     "aos3"
+    ],
+    "good": [
+     "civilwar",
+     "drstrange"
+    ]
+   },
+   "aos5": {
+    "need": [
+     "aos4"
+    ],
+    "good": []
+   },
+   "aos6": {
+    "need": [
+     "aos5"
+    ],
+    "good": []
+   },
+   "aos7": {
+    "need": [
+     "aos6"
+    ],
+    "good": []
+   },
+   "inhumans": {
+    "need": [],
+    "good": [
+     "aos3"
+    ]
+   },
+   "runaways2": {
+    "need": [
+     "runaways1"
+    ],
+    "good": []
+   },
+   "runaways3": {
+    "need": [
+     "runaways2"
+    ],
+    "good": [
+     "cd2"
+    ]
+   },
+   "cd2": {
+    "need": [
+     "cd1"
+    ],
+    "good": []
+   },
+   "sm2": {
+    "need": [
+     "sm1"
+    ],
+    "good": []
+   },
+   "sm3": {
+    "need": [
+     "sm2"
+    ],
+    "good": []
+   },
+   "tasm2": {
+    "need": [
+     "tasm1"
+    ],
+    "good": []
+   },
+   "venom2": {
+    "need": [
+     "venom1"
+    ],
+    "good": []
+   },
+   "venom3": {
+    "need": [
+     "venom2"
+    ],
+    "good": []
+   },
+   "xm2": {
+    "need": [
+     "xm1"
+    ],
+    "good": []
+   },
+   "xm3": {
+    "need": [
+     "xm2"
+    ],
+    "good": []
+   },
+   "wolverine": {
+    "need": [],
+    "good": [
+     "xm3",
+     "xmorigins"
+    ]
+   },
+   "xmdofp": {
+    "need": [
+     "xmfc"
+    ],
+    "good": [
+     "xm3"
+    ]
+   },
+   "xmapoc": {
+    "need": [
+     "xmdofp"
+    ],
+    "good": []
+   },
+   "xmdp": {
+    "need": [
+     "xmapoc"
+    ],
+    "good": []
+   },
+   "logan": {
+    "need": [],
+    "good": [
+     "wolverine",
+     "xmdofp"
+    ]
+   },
+   "deadpool2": {
+    "need": [
+     "deadpool1"
+    ],
+    "good": []
+   },
+   "blade2": {
+    "need": [
+     "blade1"
+    ],
+    "good": []
+   },
+   "blade3": {
+    "need": [
+     "blade2"
+    ],
+    "good": []
+   },
+   "ff2007": {
+    "need": [
+     "ff2005"
     ],
     "good": []
    }
@@ -2196,7 +3173,8 @@
     "date": "2018-10-07",
     "poster": "/xul6SG8rar3wkHPY8YusUtxcdlZ.jpg",
     "minutes": 836,
-    "episodes": 38
+    "episodes": 38,
+    "optional": true
    },
    {
     "key": "mando",
@@ -2240,7 +3218,8 @@
     "poster": "/lG9ltUP4FwvsQBcwOJYceDbP48E.jpg",
     "minutes": 378,
     "episodes": 27,
-    "extra": true
+    "extra": true,
+    "optional": true
    },
    {
     "key": "bobf",
@@ -2284,7 +3263,8 @@
     "date": "2022-10-26",
     "poster": "/k3nWQb0E8mLSR8acSkJP78VRVMv.jpg",
     "minutes": 102,
-    "episodes": 6
+    "episodes": 6,
+    "optional": true
    },
    {
     "key": "ahsoka",
@@ -2306,7 +3286,8 @@
     "date": "2024-05-04",
     "poster": "/qA28nLteurVboSSzltuyYt1lvlC.jpg",
     "minutes": 102,
-    "episodes": 6
+    "episodes": 6,
+    "optional": true
    },
    {
     "key": "acolyte",
@@ -2339,7 +3320,8 @@
     "date": "2025-05-04",
     "poster": "/qv1hagzp08cDJF6C04LyJVhcI1x.jpg",
     "minutes": 102,
-    "episodes": 6
+    "episodes": 6,
+    "optional": true
    },
    {
     "key": "maul",
@@ -2664,7 +3646,8 @@
     "en": "The Lord of the Rings: The War of the Rohirrim",
     "date": "2024-12-05",
     "poster": "/5htr97RScFopnkxyW1eBtsMsFXb.jpg",
-    "minutes": 134
+    "minutes": 134,
+    "optional": true
    },
    {
     "key": "rop3",

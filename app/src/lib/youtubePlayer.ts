@@ -26,6 +26,7 @@ declare global {
           events: {
             onReady?: () => void
             onStateChange?: (e: { data: number }) => void
+            onError?: (e: { data: number }) => void
           }
         },
       ) => YTPlayer
@@ -50,4 +51,10 @@ export function loadYouTubeApi(): Promise<void> {
     document.head.appendChild(script)
   })
   return apiPromise
+}
+
+// 100 = silinmiş/özel, 101 ve 150 = sahibi gömmeyi kapatmış ya da bölge/yaş kısıtı: bu video bir daha
+// oynamaz. 2 (bozuk kimlik) da kalıcı. 5 (oynatıcı hatası) geçici olabilir — o video sadece bu sefer gizlenir.
+export function isPermanentYouTubeError(code: number) {
+  return code === 2 || code === 100 || code === 101 || code === 150 || code === 153
 }

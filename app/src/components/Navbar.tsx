@@ -14,51 +14,27 @@ import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import { PROFILE_SWITCH_EVENT } from './ProfilePicker'
+import Icon, { type IconName } from './Icon'
 
-function SunIcon() {
+// Profil menüsündeki satırların ikonları — ARGUS'un dolgulu ikonları (bkz. Icon.tsx); kullanıcı dış çizgili
+// yerine dolgulu istedi.
+const MENU_ICONS = {
+  tablo: 'table',
+  ayarlar: 'gear',
+  istatistik: 'chart',
+  takvim: 'calendar',
+  koleksiyon: 'trophy',
+  evren: 'planet',
+  abonelik: 'tv',
+  ozet: 'clock',
+  yardim: 'help',
+  yama: 'sparkle',
+} satisfies Record<string, IconName>
+function MenuLink({ to, icon, label, extra, onClick }: { to: string; icon: keyof typeof MENU_ICONS; label: string; extra?: React.ReactNode; onClick: () => void }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-4 w-4">
-      <circle cx="12" cy="12" r="4.5" />
-      <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
-    </svg>
-  )
-}
-
-function MoonIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-      <path d="M20.4 14.7A8.5 8.5 0 1 1 9.3 3.6a7 7 0 0 0 11.1 11.1Z" />
-    </svg>
-  )
-}
-
-// Profil menüsündeki satırların ikonları — hepsi aynı 24'lük çizgi ikon kuralında.
-function MenuIcon({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <path d={d} />
-    </svg>
-  )
-}
-const ICONS = {
-  ayarlar:
-    'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z',
-  istatistik: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
-  tablo: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
-  takvim: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
-  koleksiyon: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3',
-  evren: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20.5 6.5c1.3 2.2-2.6 6.4-8.6 9.6S1.6 19.7.3 17.5M3.5 17.5C2.2 15.3 6.1 11.1 12.1 7.9S22.4 4.3 23.7 6.5',
-  abonelik: 'M3 7h18v12H3zM8 3l4 4 4-4',
-  ozet: 'M3 12a9 9 0 1 0 2.64-6.36L3 8.3M3 3v5.3h5.3M12 7v5l3.5 2',
-  yardim: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
-  yama: 'M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4L12 3ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z',
-}
-
-function MenuLink({ to, icon, label, extra, onClick }: { to: string; icon: keyof typeof ICONS; label: string; extra?: React.ReactNode; onClick: () => void }) {
-  return (
-    <Link to={to} onClick={onClick} className="flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-neutral-50 hover:bg-neutral-800 transition">
-      <span className="text-neutral-500">
-        <MenuIcon d={ICONS[icon]} />
+    <Link to={to} onClick={onClick} className="group flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-neutral-50 hover:bg-neutral-800 transition">
+      <span className="text-neutral-500 group-hover:text-[#00c0fa] transition">
+        <Icon name={MENU_ICONS[icon]} className="h-[18px] w-[18px]" />
       </span>
       <span className="flex-1">{label}</span>
       {extra}
@@ -70,17 +46,9 @@ function MenuLink({ to, icon, label, extra, onClick }: { to: string; icon: keyof
 const TABBAR_OFFSET = 'calc(5.25rem + env(safe-area-inset-bottom))'
 const inSheet = (n: React.ReactNode) => (MOBILE ? createPortal(n, document.body) : n)
 
-function TabIcon({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]">
-      <path d={d} />
-    </svg>
-  )
-}
-const TAB_ICONS = {
-  ev: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5Z',
-  arsiv: 'M4 4h6v7H4zM14 4h6v7h-6zM4 15h6v5H4zM14 15h6v5h-6z',
-  diger: 'M4 6h16M4 12h16M4 18h16',
+// Telefonun alt menüsündeki ikonlar — profil menüsüyle aynı dolgulu ARGUS ikonları
+function TabIcon({ name }: { name: IconName }) {
+  return <Icon name={name} className="h-[22px] w-[22px]" />
 }
 
 // ARGUS Android: alttaki yüzen menü — Ana Sayfa, Arşiv, Takvim, Ne İzlesem, Diğer (profil menüsü).
@@ -94,15 +62,15 @@ function MobileTabBar({ boardId, menuOpen, onMenu, onNavigate }: { boardId: stri
     <nav className="fixed inset-x-0 bottom-0 z-30 px-3 pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
       <div className="pointer-events-auto grid grid-cols-5 gap-1 h-[4.25rem] p-1.5 rounded-full border border-white/10 bg-neutral-900/90 backdrop-blur-md shadow-2xl shadow-black/70">
         <Link to="/" onClick={onNavigate} className={tab(p === '/' && !menuOpen)}>
-          <TabIcon d={TAB_ICONS.ev} />
+          <TabIcon name="home" />
           {tt('Ana Sayfa')}
         </Link>
         <Link to={boardId ? `/board/${boardId}` : '/arsivlerim'} onClick={onNavigate} className={tab(p.startsWith('/board/') && !menuOpen)}>
-          <TabIcon d={TAB_ICONS.arsiv} />
+          <TabIcon name="grid" />
           {tt('Arşiv')}
         </Link>
         <Link to="/takvim" onClick={onNavigate} className={tab(p.startsWith('/takvim') && !menuOpen)}>
-          <TabIcon d={ICONS.takvim} />
+          <TabIcon name="calendar" />
           {tt('Takvim')}
         </Link>
         <button
@@ -118,7 +86,7 @@ function MobileTabBar({ boardId, menuOpen, onMenu, onNavigate }: { boardId: stri
           {tt('Ne İzlesem')}
         </button>
         <button onClick={onMenu} className={tab(menuOpen)}>
-          <TabIcon d={TAB_ICONS.diger} />
+          <TabIcon name="menu" />
           {tt('Diğer')}
         </button>
       </div>
@@ -340,7 +308,7 @@ export default function Navbar() {
                             theme === t ? 'bg-neutral-800 text-neutral-50 ring-1 ring-[#00c0fa]/40' : 'text-neutral-500 hover:text-neutral-200'
                           }`}
                         >
-                          {t === 'dark' ? <MoonIcon /> : <SunIcon />}
+                          <Icon name={t === 'dark' ? 'moon' : 'sun'} className="h-4 w-4" />
                           {t === 'dark' ? tt('Koyu') : tt('Açık')}
                         </button>
                       ))}

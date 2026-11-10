@@ -7,6 +7,7 @@ import { isMobileApp } from '../../lib/mobile/native'
 import { useToast } from '../../hooks/useToast'
 import type { AppSettings } from '../../lib/desktopApp'
 import { LANGS, getLang, setLang, tt } from '../../lib/i18n'
+import { LineSkeleton } from '../Skeleton'
 
 // Ayarlar › Uygulama Ayarları — kullanıcı "ana sayfa ayarlarının altına Windows ayarları gibi bir yer; bilgisayar
 // açılırken açılsın, kapatınca tepsiye küçülsün" dedi, sonra önerilenlerin hepsini istedi (bildirimler, yazı
@@ -86,7 +87,7 @@ export default function AppSettingsPanel() {
           {tt('Bu ayarlar ARGUS uygulamasında çalışır. Şu an ARGUS\'u tarayıcıda açmışsın; masaüstündeki ARGUS simgesinden açınca buradan değiştirebilirsin.')}
         </p>
       ) : !s ? (
-        <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
+        <LineSkeleton />
       ) : (
         <>
           <SettingsSection title={tt('Açılış')} description={tt('Bilgisayarını açtığında ve ARGUS\'u açtığında ne olacağı.')}>

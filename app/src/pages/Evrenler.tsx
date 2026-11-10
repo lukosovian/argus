@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
@@ -9,6 +9,7 @@ import { useEscape } from '../hooks/useEscape'
 import { api, type Evren, type EvrenItem, type EvrenPrefs, type EvrenSave, type EvrenSaveItem, type TmdbCard } from '../lib/api'
 import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { todayIso, type Row } from '../types'
+import Icon from '../components/Icon'
 import RowDetailModal from '../components/RowDetailModal'
 import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import AnchoredMenu from '../components/AnchoredMenu'
@@ -144,7 +145,7 @@ export default function Evrenler() {
           }}
         />
       ) : (
-        <UniverseList universes={data.universes} prefs={data.prefs} onNew={newUniverse} />
+        <UniverseList universes={data.universes} prefs={data.prefs} onNew={newUniverse} onChanged={load} />
       )}
       {id && !current && <p className="text-center text-neutral-500 py-20">{tt('Bu evren bulunamadı.')}</p>}
       {editing && (
@@ -184,6 +185,7 @@ function toSave(u: Evren): EvrenSave {
       if (i.minutes) o.minutes = i.minutes
       if (i.group) o.group = i.group
       if (i.extra) o.extra = true
+      if (i.optional) o.optional = true
       return o
     }),
   }
@@ -238,18 +240,61 @@ function stats(u: Evren, prefs: EvrenPrefs) {
 
 // ---- Evren listesi ----------------------------------------------------------------------------
 
-function UniverseList({ universes, prefs, onNew }: { universes: Evren[]; prefs: Record<string, EvrenPrefs>; onNew: () => void }) {
+// Evrenler her hafta TMDB'den kendiliğinden güncelleniyor (yeni filmler, yeni sezonlar, ertelenen tarihler) —
+// kullanıcı "sormasın, o evrendeyse eklesin" dedi. Burada son kontrol ve "şimdi kontrol et".
+function AutoUpdateLine({ onChanged }: { onChanged: () => void }) {
+  const { notify } = useToast()
+  const [st, setSt] = useState<{ lastRun: number | null; running: boolean } | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    api.evrenOtoStatus().then(setSt).catch(() => {})
+  }, [])
+  async function run() {
+    setBusy(true)
+    try {
+      const r = await api.evrenOtoRun()
+      const n = r.added.length
+      notify(
+        n
+          ? tt('{0} yeni yapım eklendi: {1}', n, r.added.map((a) => (a.season ? `${a.title} ${a.season}. ${tt('Sezon')}` : a.title)).join(', '))
+          : r.dates
+            ? tt('Yeni yapım yok; {0} yapımın çıkış tarihi güncellendi.', r.dates)
+            : tt('Yeni yapım yok, liste güncel.'),
+      )
+      setSt({ lastRun: Date.now(), running: false })
+      onChanged()
+    } catch {
+      notify(tt('Kontrol edilemedi; TMDB\'ye ulaşılamadı.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const last = st?.lastRun ? new Date(st.lastRun) : null
+  return (
+    <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500">
+      <Icon name="sparkle" className="h-[1.1em] w-[1.1em] text-[#7fdcff]" />
+      <span>{tt('Yeni filmler ve sezonlar her hafta TMDB\'den kendiliğinden ekleniyor.')}</span>
+      {last && <span>· {tt('Son kontrol: {0}', `${last.getDate()}.${String(last.getMonth() + 1).padStart(2, '0')}.${last.getFullYear()}`)}</span>}
+      <button onClick={run} disabled={busy || st?.running} className="text-[#7fdcff] hover:underline disabled:opacity-50 disabled:no-underline">
+        {busy ? tt('Kontrol ediliyor…') : tt('Şimdi kontrol et')}
+      </button>
+    </p>
+  )
+}
+
+function UniverseList({ universes, prefs, onNew, onChanged }: { universes: Evren[]; prefs: Record<string, EvrenPrefs>; onNew: () => void; onChanged: () => void }) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
       <section
         className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10"
-        style={{ background: 'radial-gradient(ellipse at 15% 0%, rgba(226,54,54,0.16), transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(43,108,255,0.16), transparent 60%), #0a0a0a' }}
+        style={{ background: 'radial-gradient(ellipse at 15% 0%, rgba(226,54,54,0.16), transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(43,108,255,0.16), transparent 60%), var(--color-neutral-950)' }}
       >
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
         <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Evrenler')}</h1>
         <p className="text-neutral-300 mt-2 max-w-2xl">
           {tt('Sinematik evrenlerin bütün filmleri ve dizileri, çıkış ya da hikâye sırasıyla. Bir izleme turu başlat, ne kadarını izlediğini ve ne kadar kaldığını takip et; arşivinde olmayanları tek tıkla ekle.')}
         </p>
+        <AutoUpdateLine onChanged={onChanged} />
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -340,13 +385,34 @@ function UniverseView({
   const subset = prefs.turKeys?.length ? prefs.turKeys : null
   const [showAll, setShowAll] = useState(false)
   const skip = useMemo(() => new Set(prefs.atla ?? []), [prefs.atla])
+  // Detay penceresindeki Evrenler düğmesinden gelince (?yapim=key): o kart gizli olsa da (yan yapım, kısa tur) gösterilir,
+  // ekrana kaydırılıp birkaç saniye vurgulanır
+  const [searchParams] = useSearchParams()
+  const focus = searchParams.get('yapim')
+  const [glow, setGlow] = useState<string | null>(null)
   const ordered = useMemo(() => {
-    const list = orderItems(u, mode, showExtra || Boolean(subset))
-    return subset && !showAll ? list.filter((i) => subset.includes(i.key)) : list.filter((i) => showExtra || !i.extra || subset?.includes(i.key))
-  }, [u, mode, showExtra, subset, showAll])
+    const list = orderItems(u, mode, true)
+    return subset && !showAll
+      ? list.filter((i) => subset.includes(i.key) || i.key === focus)
+      : list.filter((i) => showExtra || !i.extra || subset?.includes(i.key) || i.key === focus)
+  }, [u, mode, showExtra, subset, showAll, focus])
+  useEffect(() => {
+    if (!focus) return
+    const t = setTimeout(() => {
+      document.getElementById(`evren-kart-${focus}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setGlow(focus)
+    }, 150)
+    const t2 = setTimeout(() => setGlow(null), 3200)
+    return () => {
+      clearTimeout(t)
+      clearTimeout(t2)
+    }
+  }, [focus])
   const s = stats(u, prefs)
   const pct = s.total ? Math.round((s.done / s.total) * 100) : 0
-  const next = ordered.find((i) => i.released && !isDone(i, tur) && !skip.has(i.key) && (!subset || subset.includes(i.key)))
+  // Sıradaki: turda yarıda kalan (İzleniyor) bir yapım varsa o, yoksa sıradaki izlenmemiş
+  const acik = (i: EvrenItem) => i.released && !isDone(i, tur) && !skip.has(i.key) && (!subset || subset.includes(i.key))
+  const next = (tur ? ordered.find((i) => acik(i) && i.tour?.active) : undefined) ?? ordered.find(acik)
   const [prereq, setPrereq] = useState<string | null | false>(false)
   const hasDeps = Object.keys(u.deps ?? {}).length > 0
   const subsetTarget = subset && prefs.turHedefKey ? u.items.find((i) => i.key === prefs.turHedefKey) : null
@@ -548,7 +614,7 @@ function UniverseView({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-7 sm:px-10" style={{ background: `radial-gradient(ellipse at 10% 0%, ${u.color}40, transparent 60%), #0a0a0a` }}>
+      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-7 sm:px-10" style={{ background: `radial-gradient(ellipse at 10% 0%, ${u.color}40, transparent 60%), var(--color-neutral-950)` }}>
         <Link to="/evrenler" className="text-sm text-neutral-400 hover:text-neutral-100">{tt('← Evrenler')}</Link>
         {u.short && <p className="text-sm font-black tracking-widest mt-3" style={{ color: u.color }}>{u.short}</p>}
         <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight">{u.name}</h1>
@@ -603,15 +669,15 @@ function UniverseView({
           <div className="pt-2 flex flex-wrap gap-2">
             {tur ? (
               <>
-                <button ref={tourBtn} onClick={openTourMenu} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-700 text-neutral-200 hover:text-neutral-50 hover:border-neutral-500 transition">
+                <button ref={tourBtn} onClick={openTourMenu} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-700 text-neutral-200 hover:text-neutral-50 hover:border-neutral-500 transition">
                   {prefs.hedef ? tt('Turu düzenle') : tt('Hedef tarih koy')}
                 </button>
-                <button onClick={endTour} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-400 hover:text-neutral-50 hover:border-neutral-600 transition">
+                <button onClick={endTour} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-400 hover:text-neutral-50 hover:border-neutral-600 transition">
                   {tt('Turu bitir')}
                 </button>
               </>
             ) : (
-              <button ref={tourBtn} onClick={openTourMenu} className={`${ACCENT_BTN} text-sm rounded-xl px-4 py-2`} style={accentBtn(u.color)}>
+              <button ref={tourBtn} onClick={openTourMenu} className={`${ACCENT_BTN} text-sm rounded-lg px-4 py-2`} style={accentBtn(u.color)}>
                 {tt('Baştan izleme turu başlat')}
               </button>
             )}
@@ -671,10 +737,10 @@ function UniverseView({
                 {!next.rowId ? ` · ${tt('arşivinde yok')}` : ''}
               </p>
             </div>
-            <button onClick={() => setSkip(next, true)} className="text-sm rounded-xl px-3 py-2 border border-neutral-700 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500 shrink-0" title={tt('İzlemeden geç, sayılmasın')}>
+            <button onClick={() => setSkip(next, true)} className="text-sm rounded-lg px-3 py-2 border border-neutral-700 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500 shrink-0" title={tt('İzlemeden geç, sayılmasın')}>
               {tt('Atla')}
             </button>
-            <button disabled={busy === next.key} onClick={nextAction(next).run} className={`${ACCENT_BTN} rounded-xl px-3 py-2 text-sm shrink-0`} style={accentBtn(u.color)}>
+            <button disabled={busy === next.key} onClick={nextAction(next).run} className={`${ACCENT_BTN} rounded-lg px-3 py-2 text-sm shrink-0`} style={accentBtn(u.color)}>
               {busy === next.key ? '…' : nextAction(next).label}
             </button>
           </div>
@@ -687,19 +753,19 @@ function UniverseView({
           {modeBtn('hikaye', u.builtin ? tt('Hikâye sırası') : tt('Benim sıram'))}
         </div>
         {hasDeps && (
-          <button onClick={() => setPrereq(null)} className="text-sm rounded-xl px-3 py-1.5 border transition text-neutral-50" style={{ borderColor: u.color, background: `${u.color}22` }} title={tt('Bir yapımı anlamak için önce neleri izlemen gerektiğini çıkarır')}>
+          <button onClick={() => setPrereq(null)} className="text-sm rounded-lg px-3 py-1.5 border transition text-neutral-50" style={{ borderColor: u.color, background: `${u.color}22` }} title={tt('Bir yapımı anlamak için önce neleri izlemen gerektiğini çıkarır')}>
             {tt('Bunu izlemeden önce…')}
           </button>
         )}
         {subset && (
-          <button onClick={() => setShowAll((v) => !v)} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+          <button onClick={() => setShowAll((v) => !v)} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
             {showAll ? tt('Sadece turdakiler') : tt('Bütün evreni göster')}
           </button>
         )}
         {extraCount > 0 && !subset && (
           <button
             onClick={() => onPrefs({ ek: !showExtra })}
-            className={`text-sm rounded-xl px-3 py-1.5 border transition ${showExtra ? 'text-neutral-50' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
+            className={`text-sm rounded-lg px-3 py-1.5 border transition ${showExtra ? 'text-neutral-50' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
             style={showExtra ? { borderColor: u.color, background: `${u.color}22` } : undefined}
             title={tt('Ana hikâyeye şart olmayan yapımlar (ör. Netflix dizileri, kısa animasyonlar)')}
           >
@@ -707,21 +773,21 @@ function UniverseView({
           </button>
         )}
         {s.missing > 0 && (
-          <button disabled={Boolean(bulk)} onClick={() => setBulkOpen(true)} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition disabled:opacity-60">
+          <button disabled={Boolean(bulk)} onClick={() => setBulkOpen(true)} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition disabled:opacity-60">
             {bulk ? tt('Ekleniyor {0}/{1}…', bulk.done, bulk.total) : tt('Arşivinde olmayanları ekle ({0})', s.missing)}
           </button>
         )}
         <span className="flex-1" />
         {u.builtin ? (
-          <button onClick={onCopy} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition" title={tt('Bu evrenin bir kopyasını oluştur, yapım ekle çıkar, sırasını değiştir')}>
+          <button onClick={onCopy} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition" title={tt('Bu evrenin bir kopyasını oluştur, yapım ekle çıkar, sırasını değiştir')}>
             {tt('Kopyala ve düzenle')}
           </button>
         ) : (
           <>
-            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} text-sm rounded-xl px-3 py-1.5`} style={accentBtn(u.color)}>
+            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} text-sm rounded-lg px-3 py-1.5`} style={accentBtn(u.color)}>
               {tt('+ Yapım ekle / sırala')}
             </button>
-            <button onClick={() => onEdit('settings')} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+            <button onClick={() => onEdit('settings')} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
               {tt('Ad ve renk')}
             </button>
           </>
@@ -731,7 +797,7 @@ function UniverseView({
       {!ordered.length && (
         <EmptyState art="evren" title={tt('Bu evrende henüz yapım yok.')}>
           {!u.builtin && (
-            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`} style={accentBtn(u.color)}>
+            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} rounded-lg px-4 py-2 text-sm`} style={accentBtn(u.color)}>
               {tt('+ Yapım ekle')}
             </button>
           )}
@@ -755,6 +821,7 @@ function UniverseView({
                 color={u.color}
                 tur={tur}
                 isNext={next?.key === it.key}
+                glow={glow === it.key}
                 skipped={skip.has(it.key)}
                 onUnskip={() => setSkip(it, false)}
                 busy={busy === it.key}
@@ -783,6 +850,17 @@ function UniverseView({
           onOld={!menu.item.rowId ? (d) => addOld(menu.item, d) : undefined}
           onSkip={!isDone(menu.item, tur) && !skip.has(menu.item.key) ? () => setSkip(menu.item, true) : undefined}
           onPrereq={u.deps?.[menu.item.key]?.need?.length ? () => { const k = menu.item.key; setMenu(null); setPrereq(k) } : undefined}
+          onRemoveAuto={
+            menu.item.auto
+              ? async () => {
+                  const it = menu.item
+                  setMenu(null)
+                  await api.evrenOtoRemove(u.id, it.key).catch(() => {})
+                  notify(tt('"{0}" listeden çıkarıldı.', it.title))
+                  onChanged()
+                }
+              : undefined
+          }
           onClose={() => setMenu(null)}
           onMark={(d, remove) => mark(menu.item, d, remove)}
           onAdd={!menu.item.rowId ? () => addToArchive(menu.item) : undefined}
@@ -826,12 +904,14 @@ function Card({
   onAdd,
   skipped,
   onUnskip,
+  glow = false,
 }: {
   it: EvrenItem
   n: number
   color: string
   tur?: string
   isNext: boolean
+  glow?: boolean
   busy: boolean
   skipped: boolean
   onUnskip: () => void
@@ -850,10 +930,10 @@ function Card({
   const doneStyle = { background: `${color}26`, color: '#f5f5f5', border: `1px solid ${color}80` }
   const arrow = 'shrink-0 rounded-md border border-neutral-700 text-neutral-300 hover:border-neutral-400 hover:text-neutral-50 text-[11px] px-2 transition'
   return (
-    <div className="min-w-0 flex flex-col">
+    <div id={`evren-kart-${it.key}`} className="min-w-0 flex flex-col scroll-mt-24">
       <div
-        className={`relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group ${isNext ? 'ring-2 ring-offset-2 ring-offset-neutral-950' : ''} ${!it.rowId ? 'outline outline-1 outline-dashed outline-neutral-700' : ''}`}
-        style={isNext ? { ['--tw-ring-color' as string]: color } : undefined}
+        className={`relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group transition-shadow duration-500 ${glow ? 'ring-4 ring-offset-2 ring-offset-neutral-950 animate-pulse' : isNext ? 'ring-2 ring-offset-2 ring-offset-neutral-950' : ''} ${!it.rowId ? 'outline outline-1 outline-dashed outline-neutral-700' : ''}`}
+        style={isNext || glow ? { ['--tw-ring-color' as string]: color } : undefined}
       >
         <button onClick={onOpen} className="block h-full w-full" title={it.archiveTitle || it.title}>
           {it.poster ? (
@@ -869,6 +949,15 @@ function Card({
           </span>
         )}
         {it.extra && !done && <span className="absolute top-1.5 right-1.5 text-[9px] font-semibold bg-black/75 text-neutral-300 rounded px-1 py-0.5 pointer-events-none">{tt('yan')}</span>}
+        {/* Kullanıcı "hikâyeye katkısı olmayanların yanına bir işaret koysak" dedi */}
+        {it.optional && !done && (
+          <span
+            title={tt('Ana hikâyeye katkısı yok: atlarsan bir şey kaçırmazsın')}
+            className="absolute bottom-1.5 right-1.5 text-[9px] font-semibold bg-black/75 text-amber-300 rounded px-1 py-0.5"
+          >
+            {tt('atlanabilir')}
+          </span>
+        )}
         {isNext && <span className="absolute bottom-1.5 left-1.5 text-[10px] font-bold rounded px-1.5 py-0.5 pointer-events-none" style={accentBtn(color)}>{tt('Sıradaki')}</span>}
       </div>
       {epPart && (
@@ -942,6 +1031,7 @@ function MarkMenu({
   onSkip,
   onPrereq,
   onOpen,
+  onRemoveAuto,
 }: {
   item: EvrenItem
   anchor: HTMLElement
@@ -950,6 +1040,7 @@ function MarkMenu({
   onOld?: (date: string) => void
   onSkip?: () => void
   onPrereq?: () => void
+  onRemoveAuto?: () => void
   onClose: () => void
   onMark: (date: string, remove?: boolean) => void
   onAdd?: () => void
@@ -1012,6 +1103,11 @@ function MarkMenu({
         )}
         <div className="border-t border-neutral-800 mt-1 pt-1">
           {onSkip && <button className={opt} onClick={onSkip}>{tt('Atla (izlemeden geç)')}</button>}
+          {onRemoveAuto && (
+            <button className={`${opt} text-neutral-400`} onClick={onRemoveAuto} title={tt('Bu yapım TMDB\'den kendiliğinden eklendi; yanlışsa listeden çıkar')}>
+              {tt('Listeden çıkar (yanlış eklendi)')}
+            </button>
+          )}
           {onPrereq && <button className={opt} onClick={onPrereq}>{tt('Bunu izlemeden önce neler var?')}</button>}
           {onAdd && <button className={opt} onClick={onAdd}>{item.type === 'movie' ? tt('İzlemedim, İzlenecek olarak ekle') : tt('İzlenecek olarak ekle')}</button>}
           <button className={opt} onClick={onOpen}>{tt('Detayı aç')}</button>
@@ -1185,11 +1281,11 @@ function PrereqModal({
               {tur && <p className="text-xs text-amber-400">{tt('Şu an süren tur bu listeyle değişir (başlangıç tarihi aynı kalır).')}</p>}
               <div className="flex flex-wrap gap-2 justify-end">
                 {groups[1]?.keys.length || groups[2]?.keys.length ? (
-                  <button onClick={() => onStart(shortKeys, target!)} className="text-sm rounded-xl px-4 py-2 border border-neutral-700 text-neutral-200 hover:border-neutral-500">
+                  <button onClick={() => onStart(shortKeys, target!)} className="text-sm rounded-lg px-4 py-2 border border-neutral-700 text-neutral-200 hover:border-neutral-500">
                     {tt('Kısa tur: {0} yapım · {1}', shortKeys.length, hoursText(minutes(shortKeys)))}
                   </button>
                 ) : null}
-                <button onClick={() => onStart(fullKeys, target!)} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`} style={accentBtn(u.color)}>
+                <button onClick={() => onStart(fullKeys, target!)} className={`${ACCENT_BTN} rounded-lg px-4 py-2 text-sm`} style={accentBtn(u.color)}>
                   {tt('Bu listeyle tur başlat: {0} yapım · {1}', fullKeys.length, hoursText(minutes(fullKeys)))}
                 </button>
               </div>
@@ -1262,13 +1358,13 @@ function BulkAddModal({ items, color, onClose, onAdd }: { items: EvrenItem[]; co
         </ol>
         <div className="p-4 border-t border-neutral-800 flex items-center gap-2">
           <p className="text-xs text-neutral-500 flex-1">{tt('{0} İzlenecek · {1} eskiden izledim', items.length - oldCount, oldCount)}</p>
-          <button onClick={onClose} className="text-sm rounded-xl px-4 py-2 text-neutral-300 hover:bg-neutral-800">{tt('Vazgeç')}</button>
+          <button onClick={onClose} className="text-sm rounded-lg px-4 py-2 text-neutral-300 hover:bg-neutral-800">{tt('Vazgeç')}</button>
           <button
             onClick={() => onAdd(items.map((item) => {
               const v = choice[item.key]
               return { item, old: v == null ? null : /^(19|20)\d\d$/.test(v) ? v : '?' }
             }))}
-            className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`}
+            className={`${ACCENT_BTN} rounded-lg px-4 py-2 text-sm`}
             style={accentBtn(color)}
           >
             {tt('{0} yapımı ekle', items.length)}
@@ -1337,13 +1433,13 @@ function UniverseEditor({
   const footer = (
     <div className="flex items-center gap-2 p-4 border-t border-neutral-800">
       {part === 'settings' && !isNew && (
-        <button onClick={remove} className="text-sm rounded-xl px-3 py-2 text-rose-400 hover:bg-rose-500/10">
+        <button onClick={remove} className="text-sm rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
           {tt('Evreni sil')}
         </button>
       )}
       <span className="flex-1" />
-      <button onClick={onClose} className="text-sm rounded-xl px-4 py-2 text-neutral-300 hover:bg-neutral-800">{tt('Vazgeç')}</button>
-      <button disabled={saving} onClick={save} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`} style={accentBtn(color)}>
+      <button onClick={onClose} className="text-sm rounded-lg px-4 py-2 text-neutral-300 hover:bg-neutral-800">{tt('Vazgeç')}</button>
+      <button disabled={saving} onClick={save} className={`${ACCENT_BTN} rounded-lg px-4 py-2 text-sm`} style={accentBtn(color)}>
         {saving ? tt('Kaydediliyor...') : isNew ? tt('Oluştur') : tt('Kaydet')}
       </button>
     </div>
@@ -1495,7 +1591,7 @@ function ContentSearch({ boardId, color, items, onAdd, onRemove }: { boardId: st
                           <button
                             key={s.season}
                             onClick={() => (on ? onRemove(k) : onAdd(make(c, s, seasonsFor.runtime)))}
-                            className={`text-[11px] rounded-md px-2 py-0.5 transition ${on ? 'font-semibold' : 'border border-neutral-700 text-neutral-300 hover:border-neutral-500'}`}
+                            className={`text-[11px] rounded-lg px-2 py-0.5 transition ${on ? 'font-semibold' : 'border border-neutral-700 text-neutral-300 hover:border-neutral-500'}`}
                             style={on ? accentBtn(color) : undefined}
                             title={s.date ? s.date.slice(0, 4) : ''}
                           >

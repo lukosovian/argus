@@ -15,6 +15,7 @@ import CellEditor from './CellEditor'
 import InlineValueEditor from './InlineValueEditor'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { isoDate, tt } from '../lib/i18n'
+import Icon from './Icon'
 
 const TITLE_DEFAULT_WIDTH = 220
 const ACTIONS_COLUMN_WIDTH = 44
@@ -485,7 +486,7 @@ function Cell({
 }) {
   if (property.type === 'rating') {
     const avg = ratingAverage(value, property)
-    return avg === null ? null : <span className="text-neutral-300">⭐ {avg.toFixed(1)}</span>
+    return avg === null ? null : <span className="text-neutral-300 inline-flex items-center gap-1"><Icon name="star" className="h-3.5 w-3.5 text-amber-400" />{avg.toFixed(1)}</span>
   }
 
   if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {

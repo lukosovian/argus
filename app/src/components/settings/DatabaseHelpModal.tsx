@@ -1,5 +1,6 @@
 import { BRAND_TEXT } from '../../lib/theme'
 import { tt } from '../../lib/i18n'
+import { GearIcon } from '../toolbarIcons'
 
 // Ayarlar → Veritabanı başlığının yanındaki "?" ile açılan, bu bölümün nasıl çalıştığını
 // Yardım Merkezi'yle aynı derinlikte anlatan pencere — her bir alt-sekme (Arşivler/Şablonlar/
@@ -199,7 +200,7 @@ const SECTIONS: { title: string; wireframe: React.ReactNode; text: React.ReactNo
     wireframe: <GearWireframe />,
     text: (
       <>
-        {tt('Tablonun üstündeki')}{' '}<strong className="text-neutral-200">⚙</strong>{' '}{tt('ikonundan, API\'nin hangi alanları doldurup dolduramayacağını tek tek açıp kapatırsın — zaten dolu bir alana asla dokunulmaz, bu sadece boşken doldurulsun mu diye seçer.')}
+        {tt('Tablonun üstündeki')}{' '}<GearIcon className="inline-block h-4 w-4 text-neutral-200 align-[-0.2em]" />{' '}{tt('ikonundan, API\'nin hangi alanları doldurup dolduramayacağını tek tek açıp kapatırsın — zaten dolu bir alana asla dokunulmaz, bu sadece boşken doldurulsun mu diye seçer.')}
       </>
     ),
   },

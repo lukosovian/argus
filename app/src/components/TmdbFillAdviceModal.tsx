@@ -3,6 +3,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from './Select'
 import { tt, ttx } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
+import Icon from './Icon'
 
 export interface FillField {
   key: string
@@ -62,7 +63,7 @@ export default function TmdbFillAdviceModal({
         </div>
 
         <div className="rounded-xl border border-[#00c0fa]/25 bg-[#00c0fa]/5 p-3.5 text-sm text-neutral-300 leading-relaxed">
-          💡 <span className="font-medium text-neutral-100">{tt('Önerimiz: hepsi gelsin.')}</span>{' '}{tt('Vitrin, detay penceresi, Ne İzlesem, İstatistikler ve Sağlık Kontrolü bu bilgilerle çalışıyor — alanların hepsi dolu olunca ARGUS hem daha iyi çalışır hem çok daha güzel görünür (büyük görseller, logolar, fragmanlar, oyuncu fotoğrafları...).')}
+          <Icon name="bulb" className="h-4 w-4 text-amber-300" /> <span className="font-medium text-neutral-100">{tt('Önerimiz: hepsi gelsin.')}</span>{' '}{tt('Vitrin, detay penceresi, Ne İzlesem, İstatistikler ve Sağlık Kontrolü bu bilgilerle çalışıyor — alanların hepsi dolu olunca ARGUS hem daha iyi çalışır hem çok daha güzel görünür (büyük görseller, logolar, fragmanlar, oyuncu fotoğrafları...).')}
         </div>
 
         {missing.length > 0 && (

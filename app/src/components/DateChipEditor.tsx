@@ -322,7 +322,7 @@ export default function DateChipEditor({
               key={label}
               type="button"
               onClick={() => pick(quick(off as number))}
-              className="text-[11px] rounded-md border border-neutral-700 px-2 py-1 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] transition"
+              className="text-[11px] rounded-lg border border-neutral-700 px-2 py-1 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] transition"
             >
               {label}
             </button>
@@ -336,7 +336,7 @@ export default function DateChipEditor({
                 setYearText(editingYear ? editingYear.slice(0, 4) : '')
               }}
               title={tt('Gününü hatırlamıyorsan sadece yılını yaz')}
-              className={`whitespace-nowrap text-[11px] rounded-md border px-2 py-1 transition ${
+              className={`whitespace-nowrap text-[11px] rounded-lg border px-2 py-1 transition ${
                 yearOpen ? 'border-[#00c0fa] text-[#7fdcff]' : 'border-neutral-700 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff]'
               }`}
             >
@@ -347,7 +347,7 @@ export default function DateChipEditor({
                 type="button"
                 onClick={() => save(UNKNOWN_DATE)}
                 title={tt('Ne zaman izlediğini hiç hatırlamıyorsan — İzlendi sayılır, takvime ve yıllık sayımlara girmez')}
-                className="whitespace-nowrap text-[11px] rounded-md border border-neutral-700 px-2 py-1 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] transition"
+                className="whitespace-nowrap text-[11px] rounded-lg border border-neutral-700 px-2 py-1 text-neutral-300 hover:border-[#00c0fa] hover:text-[#7fdcff] transition"
               >
                 {tt('Hatırlamıyorum')}
               </button>
@@ -382,7 +382,7 @@ export default function DateChipEditor({
             type="button"
             disabled={!yearValid}
             onClick={saveYear}
-            className="text-[11px] rounded-md bg-[#00c0fa] px-2.5 py-1 font-medium text-neutral-950 disabled:opacity-40 transition"
+            className="text-[11px] rounded-lg bg-[#00c0fa] px-2.5 py-1 font-medium text-neutral-950 disabled:opacity-40 transition"
           >
             {tt('Ekle')}
           </button>

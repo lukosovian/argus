@@ -5,6 +5,7 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { whiteLogo } from '../lib/whiteLogo'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx } from '../lib/i18n'
+import { fontReady } from '../lib/fontReady'
 
 // Koleksiyon'un paylaşılabilir görseli — kullanıcı "koleksiyonun görsel tablosunu oluşturma ekle, Flashback'teki
 // gibi PNG görselini alacağım" dedi. Raflar (sembolü, adı ve yapımlarıyla) ve istenirse tek başına olanlar,
@@ -178,7 +179,7 @@ async function draw(shelves: ImageShelf[], loose: ImageItem[], stats: string): P
   c.height = H
   const ctx = c.getContext('2d')!
   const srcs = [...new Set([...shelves.flatMap((s) => [s.symbol, ...s.items.flatMap((i) => [i.symbol, i.logo])]), ...looseShown.flatMap((i) => [i.symbol, i.logo])].filter((x): x is string => Boolean(x)))]
-  const [logo, loaded] = await Promise.all([whiteLogo(), Promise.all(srcs.map(loadImage))])
+  const [logo, loaded] = await Promise.all([whiteLogo(), Promise.all(srcs.map(loadImage)), fontReady()])
   const imgs = new Map(srcs.map((s, i) => [s, loaded[i]]))
 
   // arka plan
@@ -360,11 +361,11 @@ export default function KoleksiyonImage({
           {loose.length > 0 && (
             <button
               onClick={() => setWithLoose((v) => !v)}
-              className={`text-sm rounded-xl px-3 py-1.5 border transition ${withLoose ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-700 text-neutral-400 hover:text-neutral-100'}`}
+              className={`text-sm rounded-lg px-3 py-1.5 border transition ${withLoose ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-700 text-neutral-400 hover:text-neutral-100'}`}
             >
               {ttx('Tek başına olanlar da olsun ({0})', loose.length)}</button>
           )}
-          <button onClick={download} disabled={!url} style={primaryButtonStyle} className={`ml-auto text-sm px-4 py-2 rounded-xl ${PRIMARY_BUTTON} disabled:opacity-50`}>
+          <button onClick={download} disabled={!url} style={primaryButtonStyle} className={`ml-auto text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}>
             {tt('↓ PNG olarak indir')}
           </button>
         </div>

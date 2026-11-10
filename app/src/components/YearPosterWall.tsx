@@ -3,6 +3,7 @@ import { useToast } from '../hooks/useToast'
 import { whiteLogo } from '../lib/whiteLogo'
 import { withLocative } from '../lib/turkce'
 import { getLang, tt, ttx } from '../lib/i18n'
+import { fontReady } from '../lib/fontReady'
 
 // Yıllık Özet'teki "izleme sıran" duvarı — kullanıcı "izleme sırama göre izlediğim şeylerin dikey
 // posterlerini veren bir görsel oluştursun, istersem indirebileyim" dedi. Sayfada küçük önizleme var;
@@ -77,7 +78,7 @@ async function drawWall(items: WallItem[], year: string, showNumbers: boolean): 
   ctx.font = `400 28px ${font}`
   ctx.fillText(tt('{0} yapım · izleme sırasıyla', items.length), PAD, PAD + 170)
 
-  const [logo, images] = await Promise.all([whiteLogo(), Promise.all(items.map((it) => loadImage(it.poster)))])
+  const [logo, images] = await Promise.all([whiteLogo(), Promise.all(items.map((it) => loadImage(it.poster))), fontReady()])
   const top = PAD + header
   items.forEach((it, i) => {
     const x = PAD + (i % cols) * (CELL + GAP)

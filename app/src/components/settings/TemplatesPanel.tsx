@@ -24,6 +24,7 @@ import HelpHint from '../HelpHint'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
 import { tt, ttx } from '../../lib/i18n'
+import { LineSkeleton } from '../Skeleton'
 
 const NEW_COLUMN_TYPES: PropertyType[] = ['text', 'number', 'select', 'multiselect', 'checkbox', 'date', 'url', 'image', 'longtext']
 
@@ -109,7 +110,7 @@ export default function TemplatesPanel() {
       <div className="space-y-4">
         <TemplateCard template={builtin} deletable={false} createBoard={createBoard} onCreated={handleCreated} />
         {loading ? (
-          <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
+          <LineSkeleton />
         ) : (
           templates.map((t) => (
             <TemplateCard

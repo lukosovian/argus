@@ -1,22 +1,47 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
+import { isPermanentYouTubeError, loadYouTubeApi, type YTPlayer } from '../lib/youtubePlayer'
+import { replaceTrailer, resolveTrailer, type TrailerSource } from '../lib/trailerFallback'
 import { beginHoverVideo, endHoverVideo } from '../lib/videoGuard'
 import { tt } from '../lib/i18n'
+import Icon from './Icon'
 
 // Kart üzerine gelince kapak görseli yerine, sessiz başlayan (tarayıcıların otomatik oynatma
 // kuralı gereği) ama küçük bir hoparlör düğmesiyle sesi açılabilen bir YouTube önizlemesi
 // oynatır — kullanıcı "üzerine gelince açılan pencerede videoların sesi yok" dedi, ShowcaseBanner'
 // daki büyük oynatıcıyla aynı fikir (zoom + ortalama ile kenar taşmasını kırpma, sessiz-başla +
 // sesi aç düğmesi) ama kart küçük olduğu için daha basit.
-export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: string; startSeconds: number }) {
+export default function HoverPreviewVideo({
+  videoId: givenId,
+  startSeconds,
+  trailerSource,
+}: {
+  videoId: string
+  startSeconds: number
+  trailerSource?: TrailerSource
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YTPlayer | null>(null)
   const [ready, setReady] = useState(false)
   const [muted, setMuted] = useState(true)
+  // Oynamaya başlayana kadar görünmez: "Video kullanılamıyor" ekranı yerine kapak görseli kalır.
+  const [started, setStarted] = useState(false)
+  // Daha önce bozuk bulunduysa yerine geçen fragman (bkz. trailerFallback.ts)
+  const [videoId, setVideoId] = useState(() => resolveTrailer(givenId))
+  const sourceRef = useRef(trailerSource)
+  sourceRef.current = trailerSource
+  const aliveRef = useRef(true)
+  useEffect(() => {
+    aliveRef.current = true
+    return () => {
+      aliveRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
+    setReady(false)
+    setStarted(false)
+    if (!container || !videoId) return
     // Bu bileşen zaten sadece hover sırasında mount ediliyor ({hovering && yt ? ... : null}) —
     // mount/unmount'un kendisi "bir önizleme videosu şu an aktif" sinyali olarak yeterli,
     // vitrindeki/detay penceresindeki büyük videonun aynı anda oynamaması için (bkz. videoGuard.ts).
@@ -77,6 +102,18 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
             ro.observe(container)
             setReady(true)
           },
+          onStateChange: (e) => {
+            if (!cancelled && (e.data === 1 || e.data === 3)) setStarted(true)
+          },
+          onError: (e) => {
+            if (cancelled) return
+            const failed = videoId
+            setVideoId(null)
+            if (!isPermanentYouTubeError(e.data)) return
+            replaceTrailer(failed, sourceRef.current).then((next) => {
+              if (next && aliveRef.current) setVideoId(next)
+            })
+          },
         },
       })
     })
@@ -108,8 +145,11 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
 
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div ref={containerRef} className="absolute inset-0 pointer-events-none" />
-      {ready && (
+      <div
+        ref={containerRef}
+        className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${started ? 'opacity-100' : 'opacity-0'}`}
+      />
+      {ready && started && (
         <span
           role="button"
           tabIndex={0}
@@ -118,7 +158,7 @@ export default function HoverPreviewVideo({ videoId, startSeconds }: { videoId: 
           title={muted ? tt('Sesi aç') : tt('Sesi kapat')}
           className="absolute bottom-1.5 right-1.5 z-10 h-6 w-6 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white text-xs pointer-events-auto cursor-pointer transition"
         >
-          {muted ? '🔇' : '🔊'}
+          <Icon name={muted ? 'mute' : 'volume'} className="h-[1.1em] w-[1.1em]" />
         </span>
       )}
     </div>

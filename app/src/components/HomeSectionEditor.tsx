@@ -5,6 +5,7 @@ import { filterConditions, withConditions, type FilterCondition } from '../lib/f
 import ToggleSwitch from './ToggleSwitch'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
+import Icon from './Icon'
 
 // order dizisindeki sıraya göre diz; order'da olmayanlar (eski kayıtlar) kendi aralarındaki
 // sıra korunarak sona eklenir.
@@ -51,7 +52,7 @@ function SectionList({
               className="h-6 w-6 flex items-center justify-center rounded text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 transition"
               title={tt('Düzenle')}
             >
-              ✎
+              <Icon name="pencil" className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => onMove(s.id, -1)}
@@ -202,7 +203,7 @@ export default function HomeSectionEditor({
               onClick={handleSubmit}
               disabled={!name.trim() || conditions.length === 0 || (!pinnedToNav && !showInBody)}
               style={primaryButtonStyle}
-              className={`text-xs rounded-md px-3 py-1.5 ${PRIMARY_BUTTON}`}
+              className={`text-xs rounded-lg px-3 py-1.5 ${PRIMARY_BUTTON}`}
             >
               {editingId ? tt('Kaydet') : tt('Ekle')}
             </button>

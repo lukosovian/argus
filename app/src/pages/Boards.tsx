@@ -117,7 +117,7 @@ export default function Boards() {
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`relative shrink-0 md:w-full flex items-center gap-3 text-left rounded-xl px-3 py-2.5 border transition ${
+                className={`relative shrink-0 md:w-full flex items-center gap-3 text-left rounded-lg px-3 py-2.5 border transition ${
                   active
                     ? 'bg-[#00c0fa]/[0.07] border-[#00c0fa]/30 text-neutral-50'
                     : 'border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900'

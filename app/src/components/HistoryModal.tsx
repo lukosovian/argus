@@ -7,6 +7,8 @@ import { BRAND_GRADIENT } from '../lib/theme'
 import { HistoryIcon } from './toolbarIcons'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx } from '../lib/i18n'
+import Icon, { IconText } from './Icon'
+import { LineSkeleton } from './Skeleton'
 
 // Arşiv geçmişi penceresi — kullanıcı Notion'daki sayfa geçmişi gibi bir şey istedi. Solda gün gün ne
 // değiştiği (eklenen / değişen / silinen sayısı), sağda o günün değişiklikleri; her biri tek tek geri
@@ -177,7 +179,7 @@ export default function HistoryModal({
               settingsOpen ? 'border-[#00c0fa]/60 text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500'
             }`}
           >
-            {tt('⚙ Alan ayarları')}
+            <Icon name="gear" className="h-3.5 w-3.5" /> {tt('Alan ayarları')}
           </button>
           <button
             onClick={onClose}
@@ -266,13 +268,13 @@ export default function HistoryModal({
         <div className={onlyRow ? '' : 'grid grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] gap-4'}>
           {!onlyRow && (
             <div className="md:max-h-[60vh] md:overflow-y-auto space-y-1 md:pr-1">
-              {days === null && <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>}
+              {days === null && <LineSkeleton lines={5} />}
               {days?.length === 0 && <p className="text-sm text-neutral-500">{tt('Henüz kayıtlı bir değişiklik yok. Bundan sonra yaptıkların burada görünecek.')}</p>}
               {days?.map((d) => (
                 <button
                   key={d.day}
                   onClick={() => setDay(d.day)}
-                  className={`w-full text-left rounded-xl border px-3 py-2 transition ${
+                  className={`w-full text-left rounded-lg border px-3 py-2 transition ${
                     day === d.day ? 'border-[#00c0fa]/50 bg-[#00c0fa]/10' : 'border-neutral-800 hover:border-neutral-600'
                   }`}
                 >
@@ -307,7 +309,7 @@ export default function HistoryModal({
               </p>
             )}
             {entries === null ? (
-              <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
+              <LineSkeleton />
             ) : entries.length === 0 ? (
               <p className="text-sm text-neutral-500">{onlyRow ? tt('Bu kayıt için kayıtlı bir değişiklik yok.') : tt('Bu gün için değişiklik yok.')}</p>
             ) : (
@@ -340,8 +342,8 @@ export default function HistoryModal({
                         <div className="mt-1.5 space-y-0.5">
                           {e.changes!.slice(0, 8).map((c) => (
                             <p key={c.prop} className="text-xs text-neutral-500 truncate">
-                              <span className="text-neutral-400">{propName(board, c.prop)}:</span> {formatValue(board, c.prop, c.from)}{' '}
-                              <span className="text-neutral-600">→</span> <span className="text-neutral-300">{formatValue(board, c.prop, c.to)}</span>
+                              <span className="text-neutral-400">{propName(board, c.prop)}:</span> <IconText text={formatValue(board, c.prop, c.from)} />{' '}
+                              <span className="text-neutral-600">→</span> <span className="text-neutral-300"><IconText text={formatValue(board, c.prop, c.to)} /></span>
                             </p>
                           ))}
                           {e.changes!.length > 8 && <p className="text-xs text-neutral-600">{ttx('+{0} alan daha', e.changes!.length - 8)}</p>}

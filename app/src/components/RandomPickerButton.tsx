@@ -13,6 +13,7 @@ import TmdbPreviewModal from './TmdbPreviewModal'
 import PickResult, { type SeriesSwap } from './PickResult'
 import PickerPoolEditor, { DEFAULT_PICKER_TMDB, filterByYears } from './PickerPool'
 import { tt } from '../lib/i18n'
+import Icon from './Icon'
 
 // İki üst üste binen "poster kartı" — biri düz, biri hafif çapraz (kullanıcı: "yan yana duran
 // iki kart gibi olsun biri düz biri çapraz olarak"). Soldaki (düz) dolu, sağdaki (çapraz) boş
@@ -20,10 +21,7 @@ import { tt } from '../lib/i18n'
 // sonra çizildiği için düz olanın üstünde durur.
 export function StackedCardsIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <rect x="3" y="3" width="10" height="16" rx="2" fill="currentColor" stroke="none" />
-      <rect x="11" y="5" width="10" height="16" rx="2" transform="rotate(16 16 13)" />
-    </svg>
+    <Icon name="cards" className="h-5 w-5" />
   )
 }
 

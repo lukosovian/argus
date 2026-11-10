@@ -4,6 +4,7 @@ import { useToast } from '../../hooks/useToast'
 import { api } from '../../lib/api'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import { tt } from '../../lib/i18n'
+import { LineSkeleton } from '../Skeleton'
 
 // "API" sekmesi — TMDB API anahtarını profil başına burada saklıyoruz (bkz. server/index.js'teki
 // /api-key uçları). Bu anahtar, bir kaydın 🔄 (TMDB'den doldur) butonuna basıldığında ya da
@@ -68,7 +69,7 @@ export default function ApiPanel() {
       <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
         <label className="block text-sm font-medium text-neutral-200 mb-2">{tt('TMDB API Anahtarı')}</label>
         {loading ? (
-          <p className="text-sm text-neutral-500">{tt('Yükleniyor...')}</p>
+          <LineSkeleton lines={2} />
         ) : (
           <>
             <div className="relative">
@@ -84,7 +85,7 @@ export default function ApiPanel() {
               <button
                 type="button"
                 onClick={() => setReveal((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-neutral-50 px-2 py-1 rounded-md hover:bg-neutral-700 transition"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-neutral-50 px-2 py-1 rounded-lg hover:bg-neutral-700 transition"
               >
                 {reveal ? tt('Gizle') : tt('Göster')}
               </button>

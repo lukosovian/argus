@@ -1,4 +1,5 @@
 import { tt, ttx } from '../lib/i18n'
+import Icon from './Icon'
 // Genel Güncelleme sürerken (ve durdurulunca) tablonun üstünde duran ayrıntı kutusu. Kullanıcı
 // "genel güncelleme yaparken daha fazla detay görebiliyosak görelim, o an ne yapıyo" ve
 // "durdurup sonra kaldığı yerden devam ettirme" istedi.
@@ -67,17 +68,17 @@ export default function BulkUpdatePanel({
         </div>
         <div className="flex items-center gap-2">
           {state.running ? (
-            <button onClick={onStop} className="text-sm rounded-lg border border-rose-500/50 text-rose-300 hover:bg-rose-500/10 px-3 py-1.5 transition">
-              {tt('⏸ Durdur')}
+            <button onClick={onStop} className="text-sm rounded-lg border border-rose-500/50 text-rose-300 hover:bg-rose-500/10 px-3 py-1.5 transition inline-flex items-center gap-1.5">
+              <Icon name="pause" className="h-3.5 w-3.5" /> {tt('Durdur')}
             </button>
           ) : (
             <>
               {left > 0 && (
                 <button
                   onClick={onResume}
-                  className="text-sm font-semibold rounded-lg text-white px-3.5 py-1.5 bg-gradient-to-r from-[#00c0fa] to-[#015eea] hover:opacity-90 transition"
+                  className="text-sm font-semibold rounded-lg text-white px-3.5 py-1.5 bg-gradient-to-r from-[#00c0fa] to-[#015eea] hover:opacity-90 transition inline-flex items-center gap-1.5"
                 >
-                  {ttx('▶ Devam et ({0} kaldı)', left)}
+                  <Icon name="play" className="h-3.5 w-3.5" /> {ttx('Devam et ({0} kaldı)', left)}
                 </button>
               )}
               <button onClick={onDiscard} className="text-sm text-neutral-400 hover:text-neutral-100 px-2 py-1.5 transition">

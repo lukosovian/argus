@@ -5,6 +5,7 @@ import { resolveRole } from '../../lib/roles'
 import { showcaseMeta } from '../../lib/rowMeta'
 import OptionBadge from '../OptionBadge'
 import { tt } from '../../lib/i18n'
+import { IconText } from '../Icon'
 
 // ARGUS Android › Arşiv: kullanıcı "arşiv arşiv gibi değil, Netflix uygulamasındaki gibi olsun" dedi —
 // masaüstü tablosu yerine 3 sütunlu afiş ızgarası (Netflix'teki "Listem" gibi); sonra "liste görünümüne
@@ -128,7 +129,7 @@ export default function MobileBoardList({ board, rows, onOpen }: { board: Board;
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] leading-snug text-neutral-50 line-clamp-2">{title || tt('Adsız')}</span>
-                    {meta && <span className="block mt-0.5 text-xs text-neutral-500 truncate">{meta}</span>}
+                    {meta && <span className="block mt-0.5 text-xs text-neutral-500 truncate"><IconText text={meta} /></span>}
                   </span>
                   {status && (
                     <span className="shrink-0">

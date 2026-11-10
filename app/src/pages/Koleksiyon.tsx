@@ -16,6 +16,7 @@ import KoleksiyonImage, { type ImageItem, type ImageShelf } from '../components/
 import { autoShelf, commonTitle } from '../lib/shelves'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt, ttx } from '../lib/i18n'
+import Icon from '../components/Icon'
 
 // Koleksiyon — kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) bir yerde
 // sergileyeyim" dedi. İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım kendiliğinden gelir (sembolü yoksa
@@ -265,7 +266,7 @@ export default function Koleksiyon() {
         <p className="text-lg font-semibold text-neutral-100">{tt('Koleksiyon açılamadı')}</p>
         <p className="text-sm text-neutral-400 mt-2">{error}</p>
         <p className="text-sm text-neutral-500 mt-3">{tt('ARGUS yeni güncellendiyse sunucusu eski kalmış olabilir: ARGUS\'u kapatıp yeniden açmayı dene.')}</p>
-        <button onClick={load} className="mt-5 text-sm rounded-xl px-4 py-2 border border-neutral-700 text-neutral-200 hover:border-[#00c0fa]">
+        <button onClick={load} className="mt-5 text-sm rounded-lg px-4 py-2 border border-neutral-700 text-neutral-200 hover:border-[#00c0fa]">
           {tt('Tekrar dene')}
         </button>
       </div>
@@ -293,7 +294,7 @@ export default function Koleksiyon() {
         ) : (
           <span className="text-sm font-bold text-neutral-300 text-center leading-tight line-clamp-4">{it.title}</span>
         )}
-        <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✎</span>
+        <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><Icon name="pencil" className="h-3 w-3" /></span>
       </div>
       <p className="text-xs text-neutral-200 mt-1.5 line-clamp-1">{it.title}</p>
       <p className="text-[11px] text-neutral-500">{[it.year, it.isSeries ? tt('Dizi') : tt('Film')].filter(Boolean).join(' · ')}</p>
@@ -308,7 +309,7 @@ export default function Koleksiyon() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10" style={{ background: 'radial-gradient(ellipse at 20% 0%, rgba(0,192,250,0.14), transparent 60%), radial-gradient(ellipse at 90% 100%, rgba(120,60,200,0.12), transparent 60%), #0a0a0a' }}>
+      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10" style={{ background: 'radial-gradient(ellipse at 20% 0%, rgba(0,192,250,0.14), transparent 60%), radial-gradient(ellipse at 90% 100%, rgba(120,60,200,0.12), transparent 60%), var(--color-neutral-950)' }}>
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
         <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Koleksiyon')}</h1>
         <p className="text-neutral-300 mt-2 max-w-2xl">
@@ -341,14 +342,14 @@ export default function Koleksiyon() {
         </div>
         <button
           onClick={() => setOnlySymbols((v) => !v)}
-          className={`text-sm rounded-xl px-3 py-1.5 border transition ${onlySymbols ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
+          className={`text-sm rounded-lg px-3 py-1.5 border transition ${onlySymbols ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
         >
           {tt('Sadece sembolü olanlar')}
         </button>
-        <button onClick={() => setNewShelf('')} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+        <button onClick={() => setNewShelf('')} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
           {tt('+ Yeni raf')}
         </button>
-        <button onClick={openImage} className="text-sm rounded-xl px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
+        <button onClick={openImage} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition">
           {tt('Görsel oluştur')}
         </button>
         <input
@@ -375,7 +376,7 @@ export default function Koleksiyon() {
                   <span className="block text-xs text-neutral-500 mt-1">{tt('Rafa sembol ekle')}</span>
                 </span>
               )}
-              <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✎</span>
+              <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><Icon name="pencil" className="h-3 w-3" /></span>
             </div>
             <p className="text-lg font-bold text-neutral-50 mt-2 leading-tight">{s.name}</p>
             <p className="text-xs text-neutral-500">{ttx('{0} yapım', s.items.length)}</p>

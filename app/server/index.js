@@ -243,6 +243,7 @@ registerBackupRoutes(app)
 initSync({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId, appVersion: readAppVersion(), mobileDir: path.join(__dirname, '..', 'mobile') })
 registerSyncRoutes(app)
 initEvrenler({
+  dataDir: DATA_DIR, profileIds: () => readProfiles().map((p) => p.id),
   readJson, writeJson, makeId, profileDir, localDay: () => localDay(),
   profileEpisodesFile, profileWatchedFile, profileRowsFile, profileBoardsFile, readProfileApiKey,
   loadBoardAndRows: (...a) => loadBoardAndRows(...a), archiveLookup: (...a) => archiveLookup(...a),
@@ -2618,6 +2619,56 @@ app.get('/api/profiles/:profileId/tmdb-item/:boardId/:mediaType/:tmdbId', async 
   } catch (e) {
     console.error('tmdb-item hata:', e)
     res.status(500).json({ error: stt('İçerik bilgisi alınamadı') })
+  }
+})
+
+// Fragman oynatılamayınca (YouTube "Video kullanılamıyor": gömme kapalı, bölge/yaş kısıtı, silinmiş)
+// tarayıcı bunu sorup sıradaki fragmanı dener — kullanıcı "video kullanılamıyor yazıyor, güzel durmuyor;
+// ikinci bir video varsa onu göstersin ya da hiç göstermesin" dedi. oEmbed kontrolü gömme kapalı olanları
+// ayıklıyor ama bölge/yaş kısıtını yakalayamıyor; o yüzden tek bir adres yerine sıralı bir aday listesi.
+const trailerCandidateCache = new Map()
+app.get('/api/profiles/:profileId/fragman-adaylari', async (req, res) => {
+  try {
+    const { profileId } = req.params
+    let mediaType = req.query.mediaType
+    let tmdbId = Number(req.query.tmdbId)
+    if (typeof req.query.rowId === 'string' && req.query.rowId) {
+      const ref = readJson(profileTmdbFile(profileId), {})[req.query.rowId]
+      if (ref?.id) {
+        mediaType = ref.mediaType
+        tmdbId = Number(ref.id)
+      }
+    }
+    if ((mediaType !== 'movie' && mediaType !== 'tv') || !Number.isInteger(tmdbId)) return res.json({ keys: [] })
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) return res.json({ keys: [] })
+    const cacheKey = `${mediaType}:${tmdbId}`
+    const hit = trailerCandidateCache.get(cacheKey)
+    if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000) return res.json({ keys: hit.keys })
+    const [local, all] = await Promise.all([
+      tmdbGet(`/${mediaType}/${tmdbId}/videos`, { language: tmdbLang() }, apiKey).catch(() => null),
+      tmdbGet(`/${mediaType}/${tmdbId}/videos`, { include_video_language: `${serverLang()},en,null` }, apiKey).catch(() => null),
+    ])
+    // Sıra: bu dildeki fragmanlar, sonra diğer fragmanlar, en son tanıtımlar (Teaser).
+    const rank = (results, type) => {
+      const vids = (results ?? []).filter((v) => v.site === 'YouTube' && v.type === type)
+      return [...vids.filter((v) => v.official), ...vids.filter((v) => !v.official)]
+    }
+    const ordered = [
+      ...rank(local?.results, 'Trailer'),
+      ...rank(all?.results, 'Trailer'),
+      ...rank(local?.results, 'Teaser'),
+      ...rank(all?.results, 'Teaser'),
+    ]
+    const seen = new Set()
+    const unique = ordered.filter((v) => v.key && !seen.has(v.key) && seen.add(v.key)).slice(0, 8)
+    const ok = await Promise.all(unique.map((v) => isYoutubeVideoAvailable(v.key)))
+    const keys = unique.filter((_, i) => ok[i]).map((v) => v.key)
+    trailerCandidateCache.set(cacheKey, { at: Date.now(), keys })
+    res.json({ keys })
+  } catch (e) {
+    console.error('fragman-adaylari hata:', e)
+    res.json({ keys: [] })
   }
 })
 

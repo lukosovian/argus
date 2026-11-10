@@ -10,6 +10,7 @@ import CollectionSection from './CollectionSection'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
+import Icon, { IconText, type IconName } from './Icon'
 
 // Seride baştan başlatıldıysa (bkz. RandomPickerButton seriesStart): asıl çıkan film ve sıraları
 export type SeriesSwap = { pickedTitle: string; pickedNumber: number; number: number }
@@ -63,7 +64,7 @@ function DetailedWatchedForm({
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <span className="text-xs text-neutral-400">{tt('Puan')}</span>
-          <span className="text-sm font-semibold text-amber-400 tabular-nums">{avg === null ? tt('Puansız') : `★ ${avg.toFixed(1)}`}</span>
+          <span className="text-sm font-semibold text-amber-400 tabular-nums">{avg === null ? tt('Puansız') : <span className="inline-flex items-center gap-1"><Icon name="star" className="h-3.5 w-3.5" />{avg.toFixed(1)}</span>}</span>
         </div>
         {keys.map((k) => (
           <div key={k.id}>
@@ -97,7 +98,7 @@ function DetailedWatchedForm({
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <span className="text-[11px] text-neutral-500">{tt('Hepsine:')}</span>
             {[5, 6, 7, 8, 9, 10].map((n) => (
-              <button key={n} onClick={() => setAll(n)} className="text-[11px] rounded-md border border-neutral-700 hover:border-neutral-400 text-neutral-300 px-2 py-0.5">
+              <button key={n} onClick={() => setAll(n)} className="text-[11px] rounded-lg border border-neutral-700 hover:border-neutral-400 text-neutral-300 px-2 py-0.5">
                 {n}
               </button>
             ))}
@@ -302,7 +303,7 @@ export default function PickResult({
 
   // Arşivden gelen kayıt için duruma göre soru ve düğmeler.
   let question = ''
-  const actions: { label: string; onClick: () => void; primary?: boolean }[] = []
+  const actions: { label: string; icon?: IconName; onClick: () => void; primary?: boolean }[] = []
   if (r && !done) {
     if (statusId && statusId === izlendiId) {
       question = tt('Bunu daha önce izlemişsin. Yine mi izliyorsun?')
@@ -319,7 +320,8 @@ export default function PickResult({
       question = tt('Bu akşam bu olsun mu?')
       if (izleniyorId && durumProp)
         actions.push({
-          label: tt('▶ Başlıyorum'),
+          label: tt('Başlıyorum'),
+          icon: 'play',
           primary: true,
           onClick: () => patchRow((v) => ({ ...v, [durumProp.id]: izleniyorId }), tt('İzleniyor olarak işaretlendi.')),
         })
@@ -366,10 +368,10 @@ export default function PickResult({
 
             <div className="flex flex-wrap justify-center md:justify-start items-center gap-1.5">
               {score !== null && score !== undefined && (
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-neutral-950">★ {score.toFixed(1)}</span>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-neutral-950"><Icon name="star" className="h-[0.95em] w-[0.95em]" /> {score.toFixed(1)}</span>
               )}
               {!r && (item ?? tmdb)?.rating ? (
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-neutral-950">★ {(item ?? tmdb)!.rating}</span>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-neutral-950"><Icon name="star" className="h-[0.95em] w-[0.95em]" /> {(item ?? tmdb)!.rating}</span>
               ) : null}
               {position && (
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#00c0fa]/15 border border-[#00c0fa]/50 text-[#7fdcff]">
@@ -384,7 +386,7 @@ export default function PickResult({
               )}
               {meta.map((m) => (
                 <span key={m} className="text-xs px-2.5 py-1 rounded-full border border-neutral-600 text-neutral-200 bg-black/20">
-                  {m}
+                  <IconText text={m} />
                 </span>
               ))}
             </div>
@@ -408,11 +410,13 @@ export default function PickResult({
                   <div className="flex flex-wrap justify-center md:justify-start gap-2">
                     {actions.map((a) =>
                       a.primary ? (
-                        <button key={a.label} onClick={a.onClick} disabled={busy} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-full ${PRIMARY_BUTTON}`}>
+                        <button key={a.label} onClick={a.onClick} disabled={busy} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-full inline-flex items-center gap-1.5 ${PRIMARY_BUTTON}`}>
+                          {a.icon && <Icon name={a.icon} className="h-3.5 w-3.5" />}
                           {a.label}
                         </button>
                       ) : (
-                        <button key={a.label} onClick={a.onClick} disabled={busy} className={secondary}>
+                        <button key={a.label} onClick={a.onClick} disabled={busy} className={`${secondary} inline-flex items-center gap-1.5`}>
+                          {a.icon && <Icon name={a.icon} className="h-3.5 w-3.5" />}
                           {a.label}
                         </button>
                       ),

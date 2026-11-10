@@ -15,6 +15,7 @@ import { SettingsTabs } from '../components/settings/SettingsUi'
 import Select from '../components/Select'
 import { tt, ttx } from '../lib/i18n'
 import { COLUMN_NAMES, STATUS_NAMES, isName, nameOf } from '../lib/names'
+import Icon from '../components/Icon'
 
 function normalizeMatchText(s: string): string {
   return s
@@ -529,7 +530,7 @@ export default function Import() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-10">
         <div className="bg-emerald-600/10 border border-emerald-600/30 rounded-xl p-6 text-center">
-          <p className="text-emerald-400 font-medium">{ttx('{0} kayıt yeni bir arşive aktarıldı 🎉', rawRows.length)}</p>
+          <p className="text-emerald-400 font-medium">{ttx('{0} kayıt yeni bir arşive aktarıldı', rawRows.length)} <Icon name="party" className="h-4 w-4" /></p>
           <p className="text-sm text-neutral-400 mt-3 max-w-md mx-auto">
             {tt('Sırada: arşivi açıp üstteki')}{' '}<span className="text-neutral-200">{tt('Genel Güncelleme')}</span>{' '}{tt('ile eksikleri TMDB\'den doldur. Önerimiz bütün alanların gelmesi — posterler, logolar, fragmanlar ve oyuncularla ARGUS hem daha iyi çalışır hem çok daha güzel görünür. Tablonda olmayan bir sütun varsa (ör. Kapak Adı) doldurmadan önce sana sorulur.')}
           </p>

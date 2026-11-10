@@ -8,6 +8,7 @@ import { CompassIcon } from './toolbarIcons'
 import GenreTriPicker from './GenreTriPicker'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx } from '../lib/i18n'
+import Icon from './Icon'
 
 // Arşiv tablosunun araç çubuğundaki pusula — "Keşfet". Kullanıcının fikri: "sayısını
 // belirliycez dizi mi film mi... türünü belirliycez... bizde olmayan tablomuzda olmayan
@@ -120,7 +121,7 @@ export function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string 
         >
           {busy ? tt('Ekleniyor...') : tt('Kaydet')}
         </button>
-        <button onClick={onCancel} disabled={busy} className="text-[11px] rounded-md border border-neutral-700 text-neutral-400 px-2 py-1">
+        <button onClick={onCancel} disabled={busy} className="text-[11px] rounded-lg border border-neutral-700 text-neutral-400 px-2 py-1">
           {tt('Vazgeç')}
         </button>
       </div>
@@ -327,7 +328,7 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
                       )}
                       {c.rating !== null && c.rating > 0 && (
                         <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold text-white bg-black/70 rounded px-1.5 py-0.5">
-                          ★ {c.rating}
+                          <Icon name="star" className="h-[0.95em] w-[0.95em]" /> {c.rating}
                         </span>
                       )}
                       <button

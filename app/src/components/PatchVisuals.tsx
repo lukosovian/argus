@@ -1,6 +1,7 @@
 import { ACCENT, Box, Chip, Frame, Highlight, Label, Line, Pin } from './wireframe'
 import { CompassIcon, HealthIcon, InfoIcon } from './toolbarIcons'
 import { tt, EP, ttc } from '../lib/i18n'
+import Icon, { type IconName } from './Icon'
 
 // Yama Notları'nda "ne değişti/ne eklendi"yi gösteren küçük çizimler. Hepsi aynı boyutta
 // (320×180) — sayfada iki sütunlu bir ızgarada yan yana duruyorlar. Mavi (ACCENT) her zaman
@@ -3483,6 +3484,249 @@ export function KisayolVisual() {
         </g>
       ))}
       <Pin x={262} y={132} n={1} />
+    </Frame>
+  )
+}
+
+// v1.21.1 — emojiler yerine ARGUS'un kendi dolgulu ikonları
+export function IkonlarVisual() {
+  const icons: IconName[] = ['star', 'play', 'pause', 'clapper', 'calendar', 'tv', 'film', 'volume', 'search', 'pencil', 'bulb', 'flame']
+  return (
+    <Frame viewBox={VB}>
+      <text x={20} y={30} fontSize={7} className="fill-neutral-500" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('ÖNCE')}
+      </text>
+      <text x={20} y={56} fontSize={18} style={{ fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif' }}>
+        ⭐ ▶️ ⏸ 🎬 📅 📺
+      </text>
+      <path d="M150 74 l12 10 -12 10" fill="none" stroke={ACCENT} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+      <text x={20} y={104} fontSize={7} className="fill-neutral-500" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('ŞİMDİ')}
+      </text>
+      {icons.map((n, i) => (
+        <g key={n} transform={`translate(${20 + (i % 6) * 48} ${112 + Math.floor(i / 6) * 30})`}>
+          <rect width={40} height={24} rx={6} className="fill-neutral-800" />
+          <svg x={10} y={2} width={20} height={20} style={{ color: i % 3 === 0 ? ACCENT : '#e5e5e5' }}>
+            <Icon name={n} className="h-full w-full" style={{ verticalAlign: 'top' }} />
+          </svg>
+        </g>
+      ))}
+      <Pin x={300} y={110} n={1} />
+    </Frame>
+  )
+}
+
+// v1.21.1 — yeni yazı tipi, ince kaydırma çubuğu, klavye çerçevesi, tek tip düğmeler
+export function ArayuzCilaVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={10} y={12} w={270} h={156} r={8} />
+      <text x={24} y={52} fontSize={30} className="fill-neutral-100" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800 }}>
+        Aa
+      </text>
+      <text x={24} y={68} fontSize={7} className="fill-neutral-400" style={{ fontFamily: 'Inter, sans-serif' }}>
+        Inter · ğ ş ı İ ç ö ü
+      </text>
+      <Pin x={80} y={30} n={1} />
+      <rect x={120} y={30} width={60} height={16} rx={4} fill="none" stroke={ACCENT} strokeWidth={1.2} />
+      <text x={150} y={41} fontSize={6.5} textAnchor="middle" className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('Diziler')}
+      </text>
+      <Pin x={188} y={30} n={2} />
+      {[0, 1, 2].map((i) => (
+        <MiniButton key={i} x={24 + i * 66} y={100} w={58} text={[tt('Kaydet'), tt('Vazgeç'), tt('Düzenle')][i]} accent={i === 0} />
+      ))}
+      <Pin x={226} y={98} n={3} />
+      <rect x={24} y={128} width={240} height={26} rx={6} className="fill-neutral-800" />
+      <rect x={24} y={128} width={240} height={26} rx={6} fill={ACCENT} opacity={0.12} />
+      <Pin x={256} y={124} n={4} />
+      <rect x={292} y={12} width={18} height={156} rx={4} className="fill-neutral-900" />
+      <rect x={298} y={30} width={6} height={44} rx={3} className="fill-neutral-600" />
+      <Pin x={300} y={86} n={5} />
+    </Frame>
+  )
+}
+
+// v1.21.2 — oynatılamayan fragman yerine sıradaki fragman ya da kapak görseli
+export function FragmanYedekVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <text x={14} y={22} fontSize={7} className="fill-neutral-500" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('ÖNCE')}
+      </text>
+      <rect x={14} y={30} width={134} height={76} rx={6} className="fill-neutral-900" stroke="#525252" strokeWidth={0.7} />
+      <circle cx={81} cy={58} r={8} fill="none" stroke="#a3a3a3" strokeWidth={1.4} />
+      <path d="M81 53.5 v5.5 M81 62 v0.6" stroke="#a3a3a3" strokeWidth={1.6} strokeLinecap="round" />
+      <text x={81} y={80} fontSize={6.5} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {tt('Video kullanılamıyor')}
+      </text>
+      <path d="M150 68 l10 0 M156 63 l5 5 -5 5" fill="none" stroke={ACCENT} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+      <text x={170} y={22} fontSize={7} className="fill-neutral-500" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('ŞİMDİ')}
+      </text>
+      <Box x={170} y={30} w={136} h={76} r={6} strong />
+      <path d="M232 58 l14 9 -14 9 z" fill={ACCENT} />
+      <text x={238} y={98} fontSize={6} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {tt('sıradaki fragman')}
+      </text>
+      <Pin x={300} y={36} n={1} />
+      <rect x={170} y={116} width={136} height={54} rx={6} className="fill-neutral-800" />
+      <rect x={170} y={116} width={136} height={54} rx={6} fill={ACCENT} opacity={0.1} />
+      <text x={238} y={146} fontSize={6.5} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {tt('yedek yoksa kapak görseli')}
+      </text>
+      <Pin x={300} y={122} n={2} />
+    </Frame>
+  )
+}
+
+// v1.21.3 — MCU'ya Marvel Television dizileri (S.H.I.E.L.D., Agent Carter…) yan yapım olarak eklendi
+export function MarvelTvVisual() {
+  const cards: [string, boolean][] = [
+    ['Captain America', false],
+    ['Agent Carter', true],
+    ['Kış Askeri', false],
+    ['S.H.I.E.L.D. 1', true],
+    ['Ultron', false],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <text x={16} y={26} fontSize={7} className="fill-neutral-400" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('Hikâye sırası')}
+      </text>
+      {cards.map(([name, extra], i) => (
+        <g key={i} transform={`translate(${16 + i * 60} 36)`}>
+          <rect width={52} height={78} rx={5} className="fill-neutral-800" stroke={extra ? ACCENT : '#404040'} strokeWidth={extra ? 1.2 : 0.7} />
+          {extra && (
+            <g>
+              <rect x={30} y={4} width={18} height={10} rx={2} fill="rgba(0,0,0,0.75)" />
+              <text x={39} y={11.5} fontSize={5.5} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+                {tt('yan')}
+              </text>
+            </g>
+          )}
+          <text x={26} y={92} fontSize={5.5} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+            {name}
+          </text>
+        </g>
+      ))}
+      <Pin x={150} y={40} n={1} />
+      <rect x={16} y={140} width={150} height={20} rx={10} className="fill-neutral-800" stroke={ACCENT} strokeWidth={0.8} />
+      <text x={91} y={153} fontSize={6.5} textAnchor="middle" className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('Yan yapımlar ({0})', 31)}
+      </text>
+      <Pin x={172} y={142} n={2} />
+    </Frame>
+  )
+}
+
+// v1.21.4 — "atlanabilir" işareti, yarıda kalan yapım turda sıradaki, detayda evren düğmesi ve tam çıkış tarihi
+export function EvrenDetayVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={14} y={18} width={52} height={78} rx={5} className="fill-neutral-800" stroke={ACCENT} strokeWidth={1.4} />
+      <rect x={18} y={84} width={26} height={9} rx={2} fill={ACCENT} />
+      <text x={31} y={90.5} fontSize={5} textAnchor="middle" fill="#0a0a0a" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Sıradaki')}
+      </text>
+      <text x={14} y={106} fontSize={6} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        {tt('İzleniyor')}
+      </text>
+      <Pin x={70} y={22} n={1} />
+      <rect x={86} y={18} width={52} height={78} rx={5} className="fill-neutral-800" stroke="#404040" strokeWidth={0.7} />
+      <rect x={104} y={84} width={31} height={9} rx={2} fill="rgba(0,0,0,0.75)" />
+      <text x={119.5} y={90.5} fontSize={5} textAnchor="middle" fill="#fcd34d" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('atlanabilir')}
+      </text>
+      <Pin x={142} y={22} n={2} />
+      <Box x={160} y={18} w={150} h={144} r={8} strong />
+      <rect x={172} y={30} width={40} height={58} rx={4} className="fill-neutral-700" />
+      <rect x={220} y={56} width={70} height={8} rx={2} className="fill-neutral-600" />
+      <rect x={220} y={72} width={52} height={12} rx={6} fill="none" stroke="#737373" strokeWidth={0.7} />
+      <text x={246} y={80.5} fontSize={5.5} textAnchor="middle" className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('12 Haziran 2008')}
+      </text>
+      <Pin x={274} y={70} n={3} />
+      <rect x={220} y={90} width={34} height={12} rx={6} fill="none" stroke="#e23636" strokeWidth={0.9} />
+      <circle cx={228} cy={96} r={2.6} fill="#e23636" />
+      <text x={240} y={98.5} fontSize={5.5} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        MCU
+      </text>
+      <Pin x={258} y={88} n={4} />
+      <rect x={172} y={112} width={126} height={6} rx={2} className="fill-neutral-700" />
+      <rect x={172} y={124} width={100} height={6} rx={2} className="fill-neutral-700" />
+    </Frame>
+  )
+}
+
+// v1.21.5 — MCU'ya Sony Spider-Man, Fox Marvel ve One-Shot filmleri
+export function MarvelFilmleriVisual() {
+  const groups: [string, number, number][] = [
+    [tt('Sony Spider-Man filmleri'), 5, 6],
+    [tt('Fox Marvel filmleri (X-Men, Deadpool, Blade…)'), 7, 12],
+    [tt('Marvel One-Shot kısa filmleri'), 0, 5],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      {groups.map(([name, req, opt], g) => (
+        <g key={g} transform={`translate(14 ${14 + g * 54})`}>
+          <text x={0} y={8} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }} {...fit(name, 7, 230)}>
+            {name}
+          </text>
+          {Array.from({ length: Math.min(req + opt, 9) }, (_, i) => {
+            const skip = i >= req
+            return (
+              <g key={i} transform={`translate(${i * 32} 14)`}>
+                <rect width={26} height={34} rx={3} className="fill-neutral-800" stroke={skip ? '#404040' : ACCENT} strokeWidth={skip ? 0.6 : 1} />
+                {skip && <rect x={4} y={27} width={18} height={5} rx={1} fill="rgba(0,0,0,0.75)" />}
+                {skip && <rect x={6} y={28.6} width={14} height={1.8} rx={0.9} fill="#fcd34d" />}
+              </g>
+            )
+          })}
+        </g>
+      ))}
+      <Pin x={300} y={30} n={1} />
+      <Pin x={300} y={84} n={2} />
+      <Pin x={300} y={138} n={3} />
+    </Frame>
+  )
+}
+
+// v1.22 — Evrenler her hafta TMDB'den kendiliğinden güncelleniyor
+export function EvrenOtoVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={12} y={14} w={180} h={40} r={8} />
+      <text x={24} y={31} fontSize={6.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        {tt('Her hafta TMDB\'den kendiliğinden')}
+      </text>
+      <text x={24} y={44} fontSize={6.5} fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('Şimdi kontrol et')}
+      </text>
+      <Pin x={186} y={18} n={1} />
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i} transform={`translate(${12 + i * 46} 66)`}>
+          <rect width={38} height={56} rx={4} className="fill-neutral-800" stroke={i === 3 ? ACCENT : '#404040'} strokeWidth={i === 3 ? 1.3 : 0.6} strokeDasharray={i >= 2 ? '3 2' : undefined} />
+        </g>
+      ))}
+      <text x={150} y={132} fontSize={6} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        Black Panther 3
+      </text>
+      <Pin x={194} y={70} n={2} />
+      <Box x={214} y={14} w={96} h={60} r={8} strong />
+      <circle cx={228} cy={30} r={6} fill={ACCENT} opacity={0.2} />
+      <rect x={240} y={26} width={60} height={5} rx={2} className="fill-neutral-500" />
+      <rect x={240} y={36} width={46} height={4} rx={2} className="fill-neutral-700" />
+      <rect x={224} y={50} width={76} height={4} rx={2} className="fill-neutral-700" />
+      <Pin x={304} y={18} n={3} />
+      <Box x={214} y={86} w={96} h={40} r={8} />
+      <text x={224} y={102} fontSize={6} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        {tt('Atla (izlemeden geç)')}
+      </text>
+      <text x={224} y={116} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('Listeden çıkar (yanlış eklendi)')}
+      </text>
+      <Pin x={304} y={90} n={4} />
     </Frame>
   )
 }
