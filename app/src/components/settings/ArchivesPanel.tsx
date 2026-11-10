@@ -15,6 +15,7 @@ import Select from '../Select'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import { PanelHeader, SettingsTabs } from './SettingsUi'
 import { tt, ttx } from '../../lib/i18n'
+import EmptyState from '../EmptyState'
 
 function ArchiveIcon() {
   return (
@@ -199,7 +200,7 @@ export default function ArchivesPanel() {
           {loading ? (
             <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
           ) : boards.length === 0 ? (
-            <p className="text-neutral-500 text-sm">{tt('Henüz bir arşivin yok. Yukarıdan yeni bir tane oluştur.')}</p>
+            <EmptyState compact art="arsiv" title={tt('Henüz bir arşivin yok. Yukarıdan yeni bir tane oluştur.')} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {boards.map((b) => {

@@ -29,6 +29,8 @@ import CollectionSection from './CollectionSection'
 import SongsSection from './SongsSection'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { useEscape } from '../hooks/useEscape'
+import { useThemeMode } from '../hooks/useThemeMode'
+import { averageColor, darkTone } from '../lib/imageColor'
 import { isoDate, tt, ttx } from '../lib/i18n'
 
 const CAST_PREVIEW = 12
@@ -251,6 +253,22 @@ export default function RowDetailModal({
   const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
   const titleImage = titleImageProp ? ((row.values[titleImageProp.id] as string) ?? '') : ''
   const cover = coverProp ? ((row.values[coverProp.id] as string) ?? '') : ''
+  // Pencerenin arka planı yapımın görselinin rengine bürünür (koyu bir tonu; açık temada düz kalır)
+  const { theme } = useThemeMode()
+  const [tint, setTint] = useState<string | null>(null)
+  useEffect(() => {
+    if (theme === 'light' || !cover) {
+      setTint(null)
+      return
+    }
+    let alive = true
+    averageColor(cover).then((c) => alive && setTint(c ? darkTone(c, 0.13, 0.55) : null))
+    return () => {
+      alive = false
+    }
+  }, [cover, theme])
+  const base = '#171717'
+  const bg = tint ?? base
   const poster = posterProp ? ((row.values[posterProp.id] as string) ?? '') : ''
   const synopsis = synopsisProp ? ((row.values[synopsisProp.id] as string) ?? '') : ''
   const link = urlProp ? ((row.values[urlProp.id] as string) ?? '') : ''
@@ -447,6 +465,7 @@ export default function RowDetailModal({
       {/* Telefonda tam ekran */}
       <div
         className={MOBILE ? 'relative bg-neutral-900 w-full min-h-full' : 'relative bg-neutral-900 rounded-3xl w-full max-w-6xl mx-auto shadow-2xl shadow-black/60 ring-1 ring-white/5'}
+        style={tint ? { background: `linear-gradient(to bottom, ${tint} 0px, ${tint} 560px, ${base} 1300px)` } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Üst: büyük görsel (fragman varsa oynar). Başlık kendi bölümümüzde gösterildiği için görselin
@@ -460,10 +479,13 @@ export default function RowDetailModal({
             aspect="21/9"
             // Telefonda görsel/video ekranın büyük kısmını kaplasın (21:9 telefonda çok küçük kalıyordu)
             height={MOBILE ? 'max(58vh, 340px)' : undefined}
-            bottomFadeColor="#171717"
+            bottomFadeColor={bg}
             controlsTop
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
+          <div
+            className={`pointer-events-none absolute inset-0 ${tint ? '' : 'bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent'}`}
+            style={tint ? { background: `linear-gradient(to top, ${tint}, ${tint}66 50%, transparent)` } : undefined}
+          />
           <button
             onClick={onClose}
             aria-label={tt('Kapat')}

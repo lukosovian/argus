@@ -56,6 +56,16 @@ body {
   }
 }
 
+/* Profil seçilince uygulamanın karanlıktan belirmesi (bkz. App.tsx ProfileCurtain). */
+@keyframes argus-perde-ac {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* Ne İzlesem sonuç ekranının belirmesi (bkz. components/PickResult.tsx). */
 @keyframes pickIn {
   from {

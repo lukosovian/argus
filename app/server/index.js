@@ -204,7 +204,34 @@ app.use(cors({ origin: LOCAL_ORIGIN }))
 app.use(compression())
 app.use(express.json({ limit: '15mb' }))
 app.use(opDedupeMiddleware)
-app.use('/medya', express.static(MEDYA_DIR))
+// Eskiden (v1.14.4 öncesi) TMDB'nin SVG logoları da .png adıyla kaydediliyordu; tarayıcı PNG sanıp açamıyor,
+// kırık görsel çıkıyordu (ör. Stranger Things). Böyle dosyalar içine bakılarak SVG olarak gönderiliyor —
+// "Güncelle"ye basmadan da, veriye dokunmadan düzelsin. Sonuç dosyanın değişme zamanıyla birlikte saklanıyor.
+const svgSniff = new Map()
+function isSvgDisguised(filePath, mtimeMs) {
+  const hit = svgSniff.get(filePath)
+  if (hit && hit.mtimeMs === mtimeMs) return hit.svg
+  let svg = false
+  try {
+    const fd = fs.openSync(filePath, 'r')
+    const buf = Buffer.alloc(256)
+    const n = fs.readSync(fd, buf, 0, 256, 0)
+    fs.closeSync(fd)
+    svg = buf.subarray(0, n).toString('utf-8').trimStart().startsWith('<')
+  } catch {
+    svg = false
+  }
+  svgSniff.set(filePath, { mtimeMs, svg })
+  return svg
+}
+app.use(
+  '/medya',
+  express.static(MEDYA_DIR, {
+    setHeaders(res, filePath, stat) {
+      if (/\.png$/i.test(filePath) && isSvgDisguised(filePath, stat.mtimeMs)) res.setHeader('Content-Type', 'image/svg+xml')
+    },
+  }),
+)
 
 initHistory({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId })
 setHistoryWriter(writeJson)

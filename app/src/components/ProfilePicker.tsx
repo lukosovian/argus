@@ -5,7 +5,12 @@ import { useToast } from '../hooks/useToast'
 import ProfileSetupModal from './ProfileSetupModal'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
-import MobileProfileHero, { LAST_PROFILE_KEY } from './mobile/MobileProfileHero'
+import { darkTone } from '../lib/imageColor'
+import MobileProfileHero, { LAST_PROFILE_KEY, useHeroSlides } from './mobile/MobileProfileHero'
+
+// Profil seçilince App.tsx'e "ekranı karanlıktan aç" haberi (Navbar'daki profil değiştirme de kullanır)
+export const PROFILE_SWITCH_EVENT = 'argus-profil-gecis'
+const LEAVE_MS = 450
 
 function PencilIcon() {
   return (
@@ -26,13 +31,43 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
   const { confirm, notify } = useToast()
   const [managing, setManaging] = useState(false)
   const [editing, setEditing] = useState<Profile | 'new' | null>(null)
+  // Seçilen profil: kutusu hafifçe büyür, ekran kararır, sonra uygulama karanlıktan belirir (bkz. App.tsx ProfileCurtain)
+  const [leaving, setLeaving] = useState<string | null>(null)
 
   function pick(id: string) {
-    if (managing) return
-    if (MOBILE) localStorage.setItem(LAST_PROFILE_KEY, id)
-    setActiveProfileId(id)
-    onClose?.()
+    if (managing || leaving) return
+    try {
+      localStorage.setItem(LAST_PROFILE_KEY, id)
+    } catch {
+      /* önemli değil */
+    }
+    const go = () => {
+      window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
+      setActiveProfileId(id)
+      onClose?.()
+    }
+    if (embedded) return go()
+    setLeaving(id)
+    setTimeout(go, LEAVE_MS)
   }
+
+  // Klavyeyle seçim: 1, 2, 3… sıradaki profil (Ayarlar'daki gömülü hali ve bir pencere açıkken değil)
+  const pickRef = useRef(pick)
+  pickRef.current = pick
+  useEffect(() => {
+    if (embedded || editing || managing) return
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      const n = Number(e.key)
+      if (!Number.isInteger(n) || n < 1 || n > profiles.length) return
+      e.preventDefault()
+      pickRef.current(profiles[n - 1].id)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [embedded, editing, managing, profiles])
 
   async function handleSave(data: { username: string; photo: string }) {
     if (editing === 'new') {
@@ -68,13 +103,6 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
 
   const content = (
     <>
-      {!embedded && (
-        <>
-          <img src="/logoblue.png" alt={tt('ARGUS')} className="h-16 w-16 mb-6" />
-          <h1 className="text-3xl md:text-4xl font-semibold text-neutral-50 mb-8">{tt('Kim izliyor?')}</h1>
-        </>
-      )}
-
       <div className="flex flex-wrap justify-center gap-7 max-w-3xl mb-10">
         {profiles.map((p) => (
           <button
@@ -143,6 +171,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
       <MobilePicker
         profiles={profiles}
         managing={managing}
+        leaving={leaving}
         onPick={(id) => (managing ? setEditing(profiles.find((x) => x.id === id) ?? null) : pick(id))}
         onAdd={() => setEditing('new')}
         onToggleManage={() => setManaging((v) => !v)}
@@ -160,39 +189,39 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
     )
   }
 
+  // Ayarlar › Profil Ayarları sekmesi (bilgisayar ve telefon)
   if (embedded) {
     return <div className="flex flex-col items-center px-4 py-2">{content}</div>
   }
 
-  return <div className="fixed inset-0 z-50 bg-neutral-950 flex flex-col items-center justify-center px-4">{content}</div>
+  // Bilgisayarda Netflix'in "Kim izliyor?" ekranı gibi: arkada ekranı kaplayan yapım görseli, sol altta logosu,
+  // ortada altta profiller ve "Profil Yönetimi"
+  return (
+    <DesktopPicker
+      profiles={profiles}
+      managing={managing}
+      leaving={leaving}
+      onPick={(id) => (managing ? setEditing(profiles.find((x) => x.id === id) ?? null) : pick(id))}
+      onAdd={() => setEditing('new')}
+      onToggleManage={() => setManaging((v) => !v)}
+      onClose={onClose}
+    >
+      {editing && (
+        <ProfileSetupModal
+          profile={editing === 'new' ? undefined : editing}
+          onSave={handleSave}
+          onCancel={() => setEditing(null)}
+          onDelete={editing !== 'new' && profiles.length > 1 ? handleDelete : undefined}
+        />
+      )}
+    </DesktopPicker>
+  )
 }
 
-// Telefonda Netflix uygulamasındaki gibi: arkada ekranı kaplayan, birkaç saniyede bir değişen yapım görseli (bkz.
-// MobileProfileHero); altta görselin rengine bürünen, üstü kavisli bölümde "Profilini seç" ve 3 sütunlu kutular.
-// Görselin baskın renginden koyu ama canlı bir ton (HSL: doygunluk artırılır, açıklık sabit düşük)
-function tintOf([r, g, b]: [number, number, number]): string {
-  const rn = r / 255
-  const gn = g / 255
-  const bn = b / 255
-  const max = Math.max(rn, gn, bn)
-  const min = Math.min(rn, gn, bn)
-  let h = 0
-  const d = max - min
-  if (d) {
-    if (max === rn) h = ((gn - bn) / d) % 6
-    else if (max === gn) h = (bn - rn) / d + 2
-    else h = (rn - gn) / d + 4
-    h *= 60
-    if (h < 0) h += 360
-  }
-  const l = (max + min) / 2
-  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1))
-  return `hsl(${Math.round(h)}, ${Math.round(Math.min(0.75, s * 1.6) * 100)}%, 15%)`
-}
-
-function MobilePicker({
+function DesktopPicker({
   profiles,
   managing,
+  leaving,
   onPick,
   onAdd,
   onToggleManage,
@@ -201,6 +230,126 @@ function MobilePicker({
 }: {
   profiles: Profile[]
   managing: boolean
+  leaving: string | null
+  onPick: (id: string) => void
+  onAdd: () => void
+  onToggleManage: () => void
+  onClose?: () => void
+  children?: React.ReactNode
+}) {
+  // Bilgisayarda görsel daha yavaş değişsin (geniş ekranda sık değişmesi göz yorar)
+  const { slides, index } = useHeroSlides(
+    profiles.map((p) => p.id),
+    8000,
+  )
+  const current = slides[index]
+  const tile = 'relative h-32 w-32 rounded-lg overflow-hidden flex items-center justify-center transition duration-200'
+  return (
+    <div className="fixed inset-0 z-50 bg-neutral-950 overflow-hidden select-none">
+      {slides.map((s, i) => (
+        <img
+          key={s.image + i}
+          src={s.image}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[1500ms]"
+          style={{ opacity: i === index ? 1 : 0 }}
+        />
+      ))}
+      {/* Netflix'teki gibi sağa ve alta doğru kararan perde: yazılar ve profiller okunur kalsın */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.85) 100%)' }} />
+      <div className="absolute inset-x-0 bottom-0 h-3/5 pointer-events-none bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-32 pointer-events-none bg-gradient-to-b from-black/60 to-transparent" />
+
+      <img src="/logoblue-yatay.png" alt={tt('ARGUS')} className="absolute top-8 left-12 h-8 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]" />
+
+      {current && (
+        <div key={current.image} className="absolute left-12 bottom-10 max-w-[20vw] pointer-events-none" style={{ animation: 'argus-fade-in .8s ease-out' }}>
+          {current.logo ? (
+            <img src={current.logo} alt={current.title} className="max-h-24 max-w-full object-contain object-left drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]" />
+          ) : (
+            <p className="text-3xl font-bold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
+              {current.title}
+            </p>
+          )}
+          {current.caption && (
+            <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-white/85" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
+              <span className="leading-none">{current.icon}</span>
+              {current.caption}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 flex flex-col items-center px-6 pb-10" style={{ paddingTop: 0 }}>
+        <h1 className="text-[32px] font-bold text-white mb-7" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.7)' }}>
+          {managing ? tt('Profil Yönetimi') : tt('Kim izliyor?')}
+        </h1>
+        <div className="flex flex-wrap justify-center gap-x-10 gap-y-6 max-w-[62vw] mb-14">
+          {profiles.map((p) => (
+            <button key={p.id} onClick={() => onPick(p.id)} className="w-32 flex flex-col items-center gap-4 group outline-none">
+              <span className={`${tile} bg-white/10 ring-white group-hover:ring-[3px] group-focus-visible:ring-[3px] shadow-[0_6px_24px_rgba(0,0,0,0.5)] ${leaving === p.id ? 'scale-115 ring-[3px]' : 'group-hover:scale-105'}`}>
+                {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-5xl text-white/70">{p.username.slice(0, 1).toUpperCase()}</span>}
+                {managing && (
+                  <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white">
+                    <PencilIcon />
+                  </span>
+                )}
+              </span>
+              <span className="w-full truncate text-center text-[17px] font-semibold text-white/75 group-hover:text-white transition" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
+                {p.username}
+              </span>
+            </button>
+          ))}
+          <button onClick={onAdd} className="w-32 flex flex-col items-center gap-4 group outline-none">
+            <span className={`${tile} bg-black/40 backdrop-blur-sm border-2 border-dashed border-white/35 text-white/70 text-6xl font-light group-hover:border-white group-hover:text-white group-hover:scale-105`}>+</span>
+            <span className="text-[17px] font-semibold text-white/75 group-hover:text-white transition" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
+              {tt('Profil Ekle')}
+            </span>
+          </button>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onToggleManage}
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+              managing ? 'bg-white text-black hover:bg-white/85' : 'border border-white/70 text-white bg-black/30 backdrop-blur-sm hover:bg-white/15'
+            }`}
+          >
+            {!managing && (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+            )}
+            {managing ? tt('Bitti') : tt('Profil Yönetimi')}
+          </button>
+          {onClose && (
+            <button onClick={onClose} className="text-sm text-white/60 hover:text-white px-2">
+              {tt('Vazgeç')}
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Profil seçilince ekran kararır */}
+      <div className="absolute inset-0 z-40 bg-black pointer-events-none transition-opacity duration-300 delay-150" style={{ opacity: leaving ? 1 : 0 }} />
+      {children}
+    </div>
+  )
+}
+
+// Telefonda Netflix uygulamasındaki gibi: arkada ekranı kaplayan, birkaç saniyede bir değişen yapım görseli (bkz.
+// MobileProfileHero); altta görselin rengine bürünen, üstü kavisli bölümde "Profilini seç" ve 3 sütunlu kutular.
+function MobilePicker({
+  profiles,
+  managing,
+  leaving,
+  onPick,
+  onAdd,
+  onToggleManage,
+  onClose,
+  children,
+}: {
+  profiles: Profile[]
+  managing: boolean
+  leaving: string | null
   onPick: (id: string) => void
   onAdd: () => void
   onToggleManage: () => void
@@ -219,7 +368,7 @@ function MobilePicker({
   }, [])
   const onColor = useCallback((c: [number, number, number] | null) => setRgb(c), [])
   // Görselin renginin koyusu (Netflix'teki gibi alt bölüm görselle aynı renk ailesinde)
-  const tint = rgb ? tintOf(rgb) : 'rgb(23,23,23)'
+  const tint = rgb ? darkTone(rgb) : 'rgb(23,23,23)'
   const tile = 'w-full aspect-square rounded-lg overflow-hidden flex items-center justify-center'
   return (
     <div className="fixed inset-0 z-50 bg-black overflow-hidden" style={{ ['--profil-panel' as string]: `${panelH}px` }}>
@@ -234,7 +383,7 @@ function MobilePicker({
           <div className="grid grid-cols-3 gap-x-6 gap-y-4">
             {profiles.map((p) => (
               <button key={p.id} onClick={() => onPick(p.id)} className="flex flex-col items-center gap-2 min-w-0 active:scale-95 transition-transform">
-                <span className={`${tile} relative bg-white/10 ${managing ? 'ring-2 ring-white' : ''}`}>
+                <span className={`${tile} relative bg-white/10 transition-transform duration-300 ${managing ? 'ring-2 ring-white' : ''} ${leaving === p.id ? 'scale-110 ring-2 ring-white' : ''}`}>
                   {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-3xl text-white/70">{p.username.slice(0, 1).toUpperCase()}</span>}
                   {managing && (
                     <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white">
@@ -263,6 +412,8 @@ function MobilePicker({
           )}
         </div>
       </div>
+      {/* Profil seçilince ekran kararır */}
+      <div className="absolute inset-0 z-40 bg-black pointer-events-none transition-opacity duration-300 delay-150" style={{ opacity: leaving ? 1 : 0 }} />
       {children}
     </div>
   )

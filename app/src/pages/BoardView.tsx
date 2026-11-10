@@ -56,6 +56,8 @@ import {
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx } from '../lib/i18n'
 import { COLUMN_NAMES, nameOf } from '../lib/names'
+import EmptyState from '../components/EmptyState'
+import PageSkeleton from '../components/Skeleton'
 
 function CloseIcon() {
   return (
@@ -1314,23 +1316,21 @@ export default function BoardView() {
   )
   const incompleteRowsForHealth = useMemo(() => rows.filter(isIncomplete), [rows, isIncomplete])
 
-  if (boardLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (boardLoading || boardsLoading) return <PageSkeleton kind="table" />
   if (!board) {
     // boards.length 1 ya da >1 ise yukarıdaki effect zaten yönlendirmiş olacak (o gerçekleşene
     // kadar burası kısa bir an görünebilir) — burada sadece gerçekten arşivi olmayan (0 arşiv)
     // profil için kalıcı bir mesaj gösteriliyor.
     if (boards.length === 0) {
       return (
-        <div className="px-4 py-16 flex flex-col items-center text-center">
-          <h1 className="text-2xl font-semibold text-neutral-50 mb-2">{tt('Arşiv Bulunamadı')}</h1>
-          <p className="text-neutral-500 text-sm max-w-md">{tt('Bu hesabın henüz bir arşivi yok — önce bir arşiv oluşturman lazım.')}</p>
-          <button onClick={() => navigate('/arsivlerim')} style={primaryButtonStyle} className={`mt-6 text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
+        <EmptyState art="arsiv" title={tt('Arşiv Bulunamadı')} text={tt('Bu hesabın henüz bir arşivi yok — önce bir arşiv oluşturman lazım.')}>
+          <button onClick={() => navigate('/arsivlerim')} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
             {tt('Arşiv Oluştur')}
           </button>
-        </div>
+        </EmptyState>
       )
     }
-    return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+    return <PageSkeleton kind="table" />
   }
 
   // Dişli menüsündeki "Sende yok → + Ekle": o alanın sütununu (görevi otomatik tanınacak adla) ekler.
@@ -2187,7 +2187,7 @@ export default function BoardView() {
       )}
 
       {rowsLoading ? (
-        <p className="text-neutral-500 text-sm">{tt('Yükleniyor...')}</p>
+        <PageSkeleton kind="rows" />
       ) : MOBILE ? (
         <MobileBoardList board={board} rows={filteredRows} onOpen={setDetailRow} />
       ) : (

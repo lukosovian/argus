@@ -4,6 +4,7 @@ import { PRESET_AVATARS } from '../types'
 import { fileToCompressedDataUrl } from '../lib/imageUtils'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
+import { useEscape } from '../hooks/useEscape'
 
 // `profile` dışarıdan (zaten yüklenmiş bir listeden) veriliyor — bileşenin kendisi profili
 // asenkron çekmiyor, bu yüzden "veri daha gelmeden boş state ile mount olma" hatası
@@ -23,6 +24,7 @@ export default function ProfileSetupModal({
   const [photo, setPhoto] = useState(profile?.photo ?? '')
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  useEscape(!!onCancel, () => onCancel?.())
 
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]

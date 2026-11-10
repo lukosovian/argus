@@ -17,6 +17,7 @@ import YearPosterWall from '../components/YearPosterWall'
 import FlashbackStory, { type StoryData } from '../components/FlashbackStory'
 import BackgroundProgress from '../components/BackgroundProgress'
 import { tt, ttx, fmtDate, ttc } from '../lib/i18n'
+import PageSkeleton from '../components/Skeleton'
 
 // Flashback — yıllık özet (Spotify Wrapped gibi). Kullanıcı "adı Flashback olsun, dizi filmlere uyumlu"
 // dedi ve şu kutuları istedi: toplam ekran süresi (film + dizi), puanlama profili ve yılın en düşük
@@ -136,7 +137,7 @@ export default function Flashback() {
   if (features && !canSeeWrapped(features)) {
     return <p className="text-neutral-500 text-sm p-10 text-center">{tt('Flashback henüz açık değil.')}</p>
   }
-  if (!board || loading || !stats) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (!board || loading || !stats) return <PageSkeleton />
 
   const total = stats.filmMinutes + stats.seriesMinutes
   const busiestMonth = stats.months.indexOf(Math.max(...stats.months))

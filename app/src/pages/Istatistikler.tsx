@@ -13,6 +13,8 @@ import Select from '../components/Select'
 import { entryEnd } from '../lib/dateRange'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, getLang } from '../lib/i18n'
+import EmptyState from '../components/EmptyState'
+import PageSkeleton from '../components/Skeleton'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -608,20 +610,19 @@ export default function Istatistikler() {
   const { rows, loading: rowsLoading } = useRows(selectedBoardId ?? undefined)
   const stats = useStats(board, rows)
 
-  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (settingsLoading || boardsLoading) return <PageSkeleton />
 
   if (boards.length === 0) {
     return (
-      <div className="px-4 py-16 text-center">
-        <p className="text-neutral-500 text-sm mb-4">{tt('İstatistik gösterebilmek için önce en az bir arşivin olması lazım — henüz hiç arşivin yok.')}</p>
-        <Link to="/arsivlerim" style={primaryButtonStyle} className={`inline-block text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
+      <EmptyState art="istatistik" title={tt('Henüz istatistik yok')} text={tt('İstatistik gösterebilmek için önce en az bir arşivin olması lazım — henüz hiç arşivin yok.')}>
+        <Link to="/arsivlerim" style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
           {tt('Arşiv Oluştur')}
         </Link>
-      </div>
+      </EmptyState>
     )
   }
 
-  if (boardLoading || rowsLoading || !board || !stats) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (boardLoading || rowsLoading || !board || !stats) return <PageSkeleton />
 
   const year = new Date().getFullYear()
   const monthTotal = stats.months.reduce((s, m) => s + m.count, 0)

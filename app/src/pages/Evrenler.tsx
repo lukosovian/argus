@@ -13,6 +13,8 @@ import RowDetailModal from '../components/RowDetailModal'
 import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import AnchoredMenu from '../components/AnchoredMenu'
 import { fmtDate, tt, ttx } from '../lib/i18n'
+import EmptyState from '../components/EmptyState'
+import PageSkeleton from '../components/Skeleton'
 
 // Evrenler — kullanıcı "VisionQuest'i anlamak için önce şunları izle dedi, madem öyle Marvel'ı baştan izleyeyim;
 // evrendeki filmleri dizileri sıralasın, ben oradan işaretleyeyim, izlenmiş olarak arşivime ve takvime düşsün"
@@ -115,7 +117,7 @@ export default function Evrenler() {
 
   if (!boardId) return <p className="text-center text-neutral-500 py-20">{tt('Önce bir arşiv seç (Ayarlar → Ana Sayfa).')}</p>
   if (error && !data) return <p className="text-center text-rose-400 py-20">{error}</p>
-  if (!data || !board) return <p className="text-center text-neutral-500 py-20">{tt('Yükleniyor...')}</p>
+  if (!data || !board) return <PageSkeleton />
 
   const current = id ? data.universes.find((u) => u.id === id) : null
 
@@ -727,14 +729,13 @@ function UniverseView({
       </div>
 
       {!ordered.length && (
-        <div className="text-center py-14 text-neutral-500">
-          <p>{tt('Bu evrende henüz yapım yok.')}</p>
+        <EmptyState art="evren" title={tt('Bu evrende henüz yapım yok.')}>
           {!u.builtin && (
-            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm mt-3`} style={accentBtn(u.color)}>
+            <button onClick={() => onEdit('content')} className={`${ACCENT_BTN} rounded-xl px-4 py-2 text-sm`} style={accentBtn(u.color)}>
               {tt('+ Yapım ekle')}
             </button>
           )}
-        </div>
+        </EmptyState>
       )}
 
       {sections.map((sec) => (

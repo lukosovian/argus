@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from './Select'
 import { tt, ttx } from '../lib/i18n'
+import { useEscape } from '../hooks/useEscape'
 
 export interface FillField {
   key: string
@@ -31,6 +32,7 @@ export default function TmdbFillAdviceModal({
 }) {
   const [wanted, setWanted] = useState<Set<string>>(() => new Set([...missing, ...closed].map((f) => f.key)))
   const [mute, setMute] = useState(false)
+  useEscape(true, () => onDone(null))
   // Eksik alan için "şu var olan sütuna yaz" seçimi (boş = yeni sütun açılsın).
   const [columns, setColumns] = useState<Record<string, string>>({})
 

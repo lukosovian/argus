@@ -28,6 +28,8 @@ import { sortByOrder } from '../components/HomeSectionEditor'
 import { homeRowOrder } from '../lib/homeRows'
 import { PRIMARY_BUTTON, primaryButtonStyle, gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
 import { tt, ttx } from '../lib/i18n'
+import EmptyState from '../components/EmptyState'
+import PageSkeleton from '../components/Skeleton'
 
 function ChevronDownIcon() {
   return (
@@ -846,28 +848,30 @@ export default function AnaSayfa() {
 
   // Profil seçilmeden ("Kim izliyor?" ekranı açıkken) arkada bitmeyen bir "Yükleniyor..." görünmesin
   if (!activeProfileId) return null
-  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (settingsLoading || boardsLoading) return <PageSkeleton kind="home" />
 
   if (!settings.boardId) {
     // İki farklı durum, iki farklı mesaj: hiç arşiv yoksa önce bir tane oluşturması lazım
     // (seçecek bir şey yok); arşivi varsa ama ana sayfa için seçilmemişse asıl sorun sadece bu.
     const hasAnyBoard = boards.length > 0
     return (
-      <div className="px-4 py-16 flex flex-col items-center text-center">
-        <h1 className="text-2xl font-semibold text-neutral-50 mb-2">{tt('Ana Sayfa')}</h1>
-        <p className="text-neutral-500 text-sm max-w-md">
-          {hasAnyBoard
+      <EmptyState
+        art="arsiv"
+        title={hasAnyBoard ? tt('Ana sayfa için bir arşiv seç') : tt('ARGUS\'a hoş geldin!')}
+        text={
+          hasAnyBoard
             ? tt('Ana sayfada hangi arşivin gösterileceğini henüz seçmedin. Ayarlar → Ana Sayfa Ayarları → Görünüm\'den seçebilirsin.')
-            : tt('Henüz bir arşivin yok — burada bir şey göstermeden önce en az bir arşiv oluşturman lazım.')}
-        </p>
-        <Link to="/arsivlerim" style={primaryButtonStyle} className={`mt-6 text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
+            : tt('Henüz bir arşivin yok — burada bir şey göstermeden önce en az bir arşiv oluşturman lazım.')
+        }
+      >
+        <Link to="/arsivlerim" style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
           {hasAnyBoard ? tt('Ayarlara Git') : tt('Arşiv Oluştur')}
         </Link>
-      </div>
+      </EmptyState>
     )
   }
 
-  if (boardLoading || rowsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (boardLoading || rowsLoading) return <PageSkeleton kind="home" />
   if (!board) {
     return (
       <div className="px-4 py-16 text-center">
@@ -900,9 +904,17 @@ export default function AnaSayfa() {
   // yerleşiyor (1 = en üstte, "Tümü"den önce).
   const mainContentNode =
     scopedRows.length === 0 ? (
-      <p key="main" className="text-neutral-500 text-sm px-3 sm:px-6">
-        {adHocFilter ? tt('Bu değeri taşıyan başka kayıt yok.') : tt('Bu arşivde henüz kayıt yok.')}
-      </p>
+      adHocFilter ? (
+        <p key="main" className="text-neutral-500 text-sm px-3 sm:px-6">
+          {tt('Bu değeri taşıyan başka kayıt yok.')}
+        </p>
+      ) : (
+        <EmptyState key="main" art="kayit" title={tt('Bu arşivde henüz kayıt yok.')} text={tt('Arşiv tablosunda "+ Yeni Ekle" ile ya da pusula (Keşfet) düğmesiyle ilk yapımını ekleyebilirsin.')}>
+          <Link to={`/board/${board.id}`} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
+            {tt('İlk yapımını ekle')}
+          </Link>
+        </EmptyState>
+      )
     ) : activeFilter ? (
       // Bir oyuncu/seçenek rozetine tıklayınca gelinen liste (adHocFilter) VE üstteki
       // menüye eklenmiş, tıklanınca kendi sayfası açılan "bölüm"ler (activeSection) —

@@ -22,6 +22,7 @@ import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import { useEscape } from '../hooks/useEscape'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, dayNames, fmtDate, getLang, EP } from '../lib/i18n'
+import PageSkeleton from '../components/Skeleton'
 
 // Takvim — kullanıcı "Notion'daki gibi takvim; günlerde ne izlemişsin görelim, ay ay" dedi ve şu
 // özellikleri onayladı: dizilerde bölüm bölüm kayıt, ileriye bakma (çıkacak bölümler ve vizyonlar),
@@ -328,7 +329,7 @@ export default function Takvim() {
     return out
   })()
 
-  if (settingsLoading || boardsLoading) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (settingsLoading || boardsLoading) return <PageSkeleton kind="calendar" />
   if (boards.length === 0) {
     return (
       <div className="px-4 py-16 text-center">
@@ -339,7 +340,7 @@ export default function Takvim() {
       </div>
     )
   }
-  if (boardLoading || rowsLoading || !board) return <p className="text-neutral-500 text-sm p-6">{tt('Yükleniyor...')}</p>
+  if (boardLoading || rowsLoading || !board) return <PageSkeleton kind="calendar" />
 
   const hasDateProp = Boolean(resolveRole(board, 'izlemeTarihi'))
   // Adı izleme tarihine benzeyen ama tarih tipinde olmayan sütun (ör. içe aktarılmış, Metin kalmış 'İzlediğim Gün')

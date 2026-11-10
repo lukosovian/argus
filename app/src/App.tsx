@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { ProfilesProvider, useProfiles } from './hooks/useProfiles'
 import { ToastProvider } from './hooks/useToast'
@@ -6,7 +6,8 @@ import { useUpdateCheck } from './hooks/useUpdateCheck'
 import { useHistoryLimit } from './hooks/useHistoryLimit'
 import RatePrompt from './components/RatePrompt'
 import Navbar from './components/Navbar'
-import ProfilePicker from './components/ProfilePicker'
+import ProfilePicker, { PROFILE_SWITCH_EVENT } from './components/ProfilePicker'
+import KeyboardShortcuts from './components/KeyboardShortcuts'
 import AnaSayfa from './pages/AnaSayfa'
 import Boards from './pages/Boards'
 import BoardView from './pages/BoardView'
@@ -57,6 +58,18 @@ function useAppNavigation() {
   }, [navigate])
 }
 
+// Profil seçilince/değişince uygulama karanlıktan yavaşça belirsin (Netflix'teki gibi geçiş)
+function ProfileCurtain() {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    const on = () => setN((x) => x + 1)
+    window.addEventListener(PROFILE_SWITCH_EVENT, on)
+    return () => window.removeEventListener(PROFILE_SWITCH_EVENT, on)
+  }, [])
+  if (!n) return null
+  return <div key={n} className="fixed inset-0 z-[90] bg-black pointer-events-none" style={{ animation: 'argus-perde-ac .7s ease-out forwards' }} onAnimationEnd={() => setN(0)} />
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   // Netflix'teki "kim izliyor" ekranı gibi: aktif bir profil seçilmeden (ya da hiç profil
   // yokken ilk kurulumda) uygulamanın geri kalanı açılmaz, bu ekran zorunlu bir kapı olur.
@@ -71,6 +84,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       {!loading && !activeProfile && <ProfilePicker />}
       {children}
       <RatePrompt />
+      <KeyboardShortcuts />
+      <ProfileCurtain />
     </>
   )
 }

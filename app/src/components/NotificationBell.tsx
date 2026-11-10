@@ -8,6 +8,7 @@ import { useToast } from '../hooks/useToast'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx, locale } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
+import EmptyState from './EmptyState'
 
 // Üst menüdeki zil — kullanıcı "bildirimler için bir yer olsun" dedi. Dizi kendiliğinden İzlendi olunca,
 // bitmiş bir diziye yeni bölüm gelince ya da yeni sezon tarihi açıklanınca burada birikir. Okunmamış
@@ -203,10 +204,7 @@ export default function NotificationBell() {
               </div>
               <div className={`overflow-y-auto ${MOBILE ? 'flex-1 pb-8' : ''}`}>
                 {items.length === 0 ? (
-                  <p className="text-sm text-neutral-500 px-4 py-8 text-center">
-                    {tt('Henüz bildirim yok.')}
-                    <span className="block text-xs text-neutral-600 mt-1">{tt('Bir diziyi bitirince ya da izlediğin bir diziye yeni sezon gelince burada görünür.')}</span>
-                  </p>
+                  <EmptyState compact art="bildirim" title={tt('Henüz bildirim yok.')} text={tt('Bir diziyi bitirince ya da izlediğin bir diziye yeni sezon gelince burada görünür.')} />
                 ) : (
                   listEntries.map((entry) => {
                     if (entry.kind === 'group') {

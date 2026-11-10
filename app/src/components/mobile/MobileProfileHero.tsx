@@ -3,6 +3,7 @@ import type { Board, HomeSettings, Row } from '../../types'
 import { titleText } from '../../types'
 import { resolveRole, resolveStatusOption } from '../../lib/roles'
 import { locale, tt } from '../../lib/i18n'
+import { averageColor } from '../../lib/imageColor'
 
 // ARGUS Android › "Kim izliyor?" arka planı — kullanıcı "tam tam Netflix gibi olsun, üstteki içerik birkaç
 // saniyede bir değişiyor" dedi: arşivden birkaç yapım (önce yakında vizyona girecekler, sonra izlemekte olduğun /
@@ -38,41 +39,8 @@ function shuffle<T>(a: T[]): T[] {
   return b
 }
 
-// Görselin ortalama (baskın) rengi — küçültülmüş kopyasından
-function averageColor(src: string): Promise<[number, number, number] | null> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      try {
-        const c = document.createElement('canvas')
-        c.width = 24
-        c.height = 24
-        const g = c.getContext('2d')!
-        g.drawImage(img, 0, 0, 24, 24)
-        const d = g.getImageData(0, 0, 24, 24).data
-        let r = 0
-        let gr = 0
-        let b = 0
-        let n = 0
-        for (let i = 0; i < d.length; i += 4) {
-          const lum = (d[i] + d[i + 1] + d[i + 2]) / 3
-          if (lum < 18 || lum > 240) continue // simsiyah/bembeyaz kenarları sayma
-          r += d[i]
-          gr += d[i + 1]
-          b += d[i + 2]
-          n++
-        }
-        resolve(n ? [r / n, gr / n, b / n] : null)
-      } catch {
-        resolve(null)
-      }
-    }
-    img.onerror = () => resolve(null)
-    img.src = src
-  })
-}
-
-export default function MobileProfileHero({ profileIds, onColor }: { profileIds: string[]; onColor: (rgb: [number, number, number] | null) => void }) {
+// Arşivden sırayla gösterilecek yapımlar (telefonda ve bilgisayarda "Kim izliyor?" arka planı) + şu anki sıra
+export function useHeroSlides(profileIds: string[], rotateMs = ROTATE_MS) {
   const [slides, setSlides] = useState<HeroSlide[]>([])
   const [index, setIndex] = useState(0)
   // Profil listesi her çizimde yeni bir dizi olarak geliyor; sadece içerik değişince yeniden yüklensin
@@ -138,10 +106,15 @@ export default function MobileProfileHero({ profileIds, onColor }: { profileIds:
   // Birkaç saniyede bir sıradaki
   useEffect(() => {
     if (slides.length < 2) return
-    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), ROTATE_MS)
+    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), rotateMs)
     return () => clearInterval(t)
-  }, [slides.length])
+  }, [slides.length, rotateMs])
 
+  return { slides, index }
+}
+
+export default function MobileProfileHero({ profileIds, onColor }: { profileIds: string[]; onColor: (rgb: [number, number, number] | null) => void }) {
+  const { slides, index } = useHeroSlides(profileIds)
   const current = slides[index]
   useEffect(() => {
     if (!current) return

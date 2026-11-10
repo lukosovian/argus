@@ -13,6 +13,7 @@ import { APP_VERSION } from '../lib/version'
 import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
+import { PROFILE_SWITCH_EVENT } from './ProfilePicker'
 
 function SunIcon() {
   return (
@@ -286,6 +287,7 @@ export default function Navbar() {
                         <button
                           key={p.id}
                           onClick={() => {
+                            window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
                             setActiveProfileId(p.id)
                             setMenuOpen(false)
                           }}

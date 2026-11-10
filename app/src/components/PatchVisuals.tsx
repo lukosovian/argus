@@ -3372,3 +3372,117 @@ export function SezonNeZamanVisual() {
     </Frame>
   )
 }
+
+// v1.21 — bilgisayarda Netflix'teki gibi "Kim izliyor?": arkada yapım görseli, sol altta logosu, ortada profiller
+export function KimIzliyorPcVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={8} y={8} width={304} height={164} rx={5} className="fill-neutral-800" />
+      <path d="M150 20 L230 20 L255 120 L130 120 Z" className="fill-neutral-700" opacity={0.7} />
+      <rect x={8} y={100} width={304} height={72} rx={5} fill="#000" opacity={0.35} />
+      <text x={18} y={21} fontSize={9} fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 800 }}>
+        ARGUS
+      </text>
+      <text x={160} y={108} fontSize={9} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Kim izliyor?')}
+      </text>
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i}>
+          <rect x={101 + i * 31} y={115} width={25} height={25} rx={3} className={i === 3 ? 'fill-none' : 'fill-neutral-500'} stroke={i === 3 ? '#a3a3a3' : 'none'} strokeDasharray={i === 3 ? '2 1.5' : undefined} strokeWidth={0.7} />
+          <rect x={104 + i * 31} y={144} width={19} height={3} rx={1.5} className="fill-neutral-400" />
+        </g>
+      ))}
+      <rect x={136} y={152} width={48} height={11} rx={5.5} className="fill-none" stroke="#e5e5e5" strokeWidth={0.7} />
+      <text x={160} y={159.5} fontSize={5.2} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }} {...fit(tt('Profil Yönetimi'), 5.2, 42)}>
+        {tt('Profil Yönetimi')}
+      </text>
+      <rect x={18} y={140} width={50} height={14} rx={2} fill={ACCENT} opacity={0.85} />
+      <rect x={18} y={158} width={40} height={3.5} rx={1.5} className="fill-neutral-300" />
+      <Pin x={150} y={30} n={1} />
+      <Pin x={74} y={140} n={2} />
+      <Pin x={226} y={120} n={3} />
+    </Frame>
+  )
+}
+
+// v1.21 — detay penceresi yapımın görselinin rengine bürünür
+export function DetayRenkVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <defs>
+        <linearGradient id="detayRenk" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#1b2a4a" />
+          <stop offset="0.6" stopColor="#16223a" />
+          <stop offset="1" stopColor="#171717" />
+        </linearGradient>
+      </defs>
+      <rect x={40} y={10} width={240} height={160} rx={10} fill="url(#detayRenk)" stroke="#404040" strokeWidth={0.6} />
+      <rect x={40} y={10} width={240} height={70} rx={10} fill="#2c4470" opacity={0.6} />
+      <rect x={56} y={58} width={40} height={60} rx={4} className="fill-neutral-600" />
+      <rect x={104} y={92} width={80} height={12} rx={2} className="fill-neutral-300" />
+      <rect x={104} y={109} width={50} height={6} rx={3} fill="#f5b400" />
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={56} y={128 + i * 10} width={150 - i * 30} height={4} rx={2} className="fill-neutral-500" />
+      ))}
+      <rect x={216} y={126} width={52} height={34} rx={5} fill="none" stroke="#3b4c6e" strokeWidth={0.7} />
+      <Pin x={270} y={28} n={1} />
+      <Pin x={30} y={150} n={2} />
+    </Frame>
+  )
+}
+
+// v1.21 — yüklenirken iskelet kartlar, boş sayfada çizim + düğme
+export function IskeletBosVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={10} y={14} w={145} h={152} r={6} />
+      <rect x={20} y={24} width={125} height={50} rx={4} className="fill-neutral-800" />
+      {[0, 1].map((r) =>
+        [0, 1, 2, 3].map((c) => <rect key={`${r}${c}`} x={20 + c * 32} y={84 + r * 38} width={28} height={30} rx={3} className="fill-neutral-800" />),
+      )}
+      <Pin x={150} y={18} n={1} />
+      <Box x={165} y={14} w={145} h={152} r={6} />
+      <circle cx={237} cy={58} r={22} className="fill-neutral-800" />
+      <path d="M232 49l14 9-14 9z" fill={ACCENT} />
+      <rect x={197} y={90} width={80} height={7} rx={2} className="fill-neutral-300" />
+      <rect x={187} y={103} width={100} height={4} rx={2} className="fill-neutral-600" />
+      <rect x={202} y={111} width={70} height={4} rx={2} className="fill-neutral-600" />
+      <MiniButton x={207} y={126} w={60} text={tt('İlk yapımını ekle')} accent />
+      <Pin x={302} y={130} n={2} />
+    </Frame>
+  )
+}
+
+// v1.21 — "?" ile klavye kısayolları
+export function KisayolVisual() {
+  const rows: [string, string[]][] = [
+    [tt('Arama'), ['/']],
+    [tt('Açık pencereyi kapat'), ['Esc']],
+    [tt('Profil seç'), ['1', '2', '3']],
+    [tt('Bu listeyi aç / kapat'), ['?']],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={70} y={18} w={180} h={144} r={8} strong />
+      <text x={84} y={38} fontSize={8} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Klavye kısayolları')}
+      </text>
+      {rows.map(([label, keys], i) => (
+        <g key={i}>
+          <text x={84} y={62 + i * 26} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }} {...fit(label, 6.5, 90)}>
+            {label}
+          </text>
+          {keys.map((k, j) => (
+            <g key={k}>
+              <rect x={236 - (keys.length - j) * 17} y={52 + i * 26} width={14} height={14} rx={3} className="fill-neutral-800" stroke={i === 3 ? ACCENT : '#525252'} strokeWidth={0.7} />
+              <text x={243 - (keys.length - j) * 17} y={61.5 + i * 26} fontSize={6} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+                {k}
+              </text>
+            </g>
+          ))}
+        </g>
+      ))}
+      <Pin x={262} y={132} n={1} />
+    </Frame>
+  )
+}

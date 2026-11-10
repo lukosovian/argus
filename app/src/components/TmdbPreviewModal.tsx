@@ -11,6 +11,7 @@ import { WatchedForm } from './DiscoverModal'
 import ShowcaseBanner from './ShowcaseBanner'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { tt } from '../lib/i18n'
+import { useEscape } from '../hooks/useEscape'
 
 // Ne İzlesem'in TMDB modunda kazanan içerik arşivde olmadığı için normal detay penceresi
 // açılamıyor — bunun yerine bu önizleme: görsel, özet, türler, Türkiye'de nerede izlenir ve
@@ -36,6 +37,7 @@ export default function TmdbPreviewModal({
   // Ayrıntılar alınamazsa (ör. sunucu eski sürümde kaldıysa ya da internet yoksa) sonsuza kadar
   // "Yükleniyor..." yazmasın — eldeki kart bilgisiyle devam edilip bir not gösteriliyor.
   const [failed, setFailed] = useState(false)
+  useEscape(true, onClose)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<string | null>(null)
   const [watchedForm, setWatchedForm] = useState(false)

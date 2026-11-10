@@ -83,6 +83,10 @@ import {
   BildirimGrupVisual,
   SezonTarihVisual,
   SezonNeZamanVisual,
+  KimIzliyorPcVisual,
+  DetayRenkVisual,
+  IskeletBosVisual,
+  KisayolVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -97,6 +101,26 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.21',
+    date: tt('10 Kasım 2026'),
+    title: tt('Netflix gibi "Kim izliyor?" ve profil geçişi, yapımın renginde detay, yüklenirken taslak, boş sayfalar, klavye kısayolları'),
+    items: [
+      tt('Bilgisayarda açılıştaki "Kim izliyor?" ekranı telefondaki gibi yenilendi: arkada ekranı kaplayan, birkaç saniyede bir değişen arşivinden bir yapımın görseli, sol altta logosu ve neden çıktığı (vizyona girecek, izlemeye devam et, yüksek puan verdin…). Profiller ortada büyük kutular olarak duruyor, altta "Profil Yönetimi" düğmesi var.'),
+      tt('Profil seçince seçtiğin kutu hafifçe büyüyor, ekran kararıyor ve ARGUS karanlıktan yavaşça açılıyor. Profil menüsünden profil değiştirince de aynı geçiş var.'),
+      tt('Detay penceresinin arka planı yapımın görselinin rengine bürünüyor: Arcane lacivert, Stranger Things kırmızımsı… (açık temada düz kalıyor).'),
+      tt('Sayfalar yüklenirken düz "Yükleniyor..." yazısı yerine sayfanın silik taslağı görünüyor (ana sayfa, arşiv tablosu, takvim, istatistikler, evrenler, Flashback). Yükleme çok kısa sürerse hiç görünmüyor.'),
+      tt('Boş sayfalarda (henüz arşiv yok, arşivde kayıt yok, bildirim yok, evrende yapım yok…) küçük bir çizim, ne yapacağını anlatan bir cümle ve düğme var. Arşivi boş bir profilde ana sayfada "İlk yapımını ekle" düğmesi çıkıyor.'),
+      tt('Klavye kısayolları: "?" tuşuna basınca kısayol listesi açılıyor. "Kim izliyor?" ekranında 1, 2, 3… tuşlarıyla profil seçebilirsin. Esc ile kapanmayan son üç pencere (profil düzenleme, TMDB önizlemesi, TMDB doldurma) artık Esc ile kapanıyor.'),
+      tt('Bazı yapımların başlık logosu (ör. Stranger Things) kırık görsel olarak çıkıyordu: eskiden indirilmiş birkaç logo yanlış biçimde kaydedilmişti. Artık "Güncelle"ye basmana gerek kalmadan düzgün görünüyorlar.'),
+    ],
+    visuals: [
+      { caption: tt('1 arşivinden değişen yapım görseli · 2 yapımın logosu · 3 profiller ve Profil Yönetimi'), Visual: KimIzliyorPcVisual },
+      { caption: tt('1 üstte görselin rengi · 2 aşağı doğru normal arka plana geçiş'), Visual: DetayRenkVisual },
+      { caption: tt('1 yüklenirken sayfanın taslağı · 2 boş sayfada çizim ve düğme'), Visual: IskeletBosVisual },
+      { caption: tt('1 "?" ile açılan kısayol listesi'), Visual: KisayolVisual },
+    ],
+  },
   {
     version: 'v1.20.1',
     date: tt('9 Kasım 2026'),
