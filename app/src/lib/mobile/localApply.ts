@@ -1,6 +1,6 @@
 // PC yokken yapılan bir değişikliği telefondaki kopyaya hemen işler ve PC'ye gönderilecek hale getirir.
 // Sadece günlük işler çevrimdışı yapılabiliyor (kayıt düzenleme/ekleme/silme, bölüm işaretleme, ana sayfa
-// ayarları, Koleksiyon, bildirimleri okundu sayma). Arşiv yapısını değiştiren işler (sütun ekleme, toplu
+// ayarları, Koleksiyon, Aklımda, bildirimleri okundu sayma). Arşiv yapısını değiştiren işler (sütun ekleme, toplu
 // içe aktarma, TMDB doldurma…) PC'ye bağlıyken yapılır: null döner.
 //
 // Sunucudaki otomatik kurallar (bölüm işaretleyince İzleniyor, puan sorma…) burada çalışmaz; değişiklik
@@ -131,6 +131,25 @@ export async function applyOffline(op: QueuedOp): Promise<OfflineResult | null> 
       result = data
     }
     return { response: result ?? { items: {}, shelves: {} }, op }
+  }
+
+  // Aklımda: { items: { anahtar: {...} | null } } — null siler (sunucudakiyle aynı)
+  if (method === 'POST' && (m = /^\/api\/profiles\/([^/]+)\/aklimda$/.exec(path))) {
+    const cur = (await cacheGet<{ items?: Record<string, Record<string, unknown>>; tmdbOf?: Record<string, string> }>(path)) ?? {}
+    const items = { ...(cur.items ?? {}) }
+    const patch = (body?.items ?? {}) as Record<string, Record<string, unknown> | null>
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) delete items[k]
+      else {
+        const merged = { ...(items[k] ?? {}), ...v }
+        for (const [mk, mv] of Object.entries(merged)) if (mv === null) delete merged[mk]
+        if (!merged.addedAt) merged.addedAt = Date.now()
+        items[k] = merged
+      }
+    }
+    const limit = Number.isInteger(body?.limit) ? (body!.limit as number) : (cur as { limit?: number }).limit
+    await cacheSet(path, { ...cur, items, limit })
+    return { response: { items, limit }, op }
   }
 
   if (method === 'POST' && (m = /^\/api\/profiles\/([^/]+)\/notifications\/read$/.exec(path))) {

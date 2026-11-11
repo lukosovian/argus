@@ -16,6 +16,7 @@ import Istatistikler from './pages/Istatistikler'
 import Takvim from './pages/Takvim'
 import Flashback from './pages/Flashback'
 import Koleksiyon from './pages/Koleksiyon'
+import Aklimda from './pages/Aklimda'
 import Evrenler from './pages/Evrenler'
 import Abonelik from './pages/Abonelik'
 import YamaNotlari from './pages/YamaNotlari'
@@ -149,6 +150,14 @@ function AppRoutes() {
       />
       {/* Eski adı: Yıllık Özet */}
       <Route path="/ozet" element={<OzetRedirect />} />
+      <Route
+        path="/aklimda"
+        element={
+          <Shell>
+            <Aklimda />
+          </Shell>
+        }
+      />
       <Route
         path="/koleksiyon"
         element={

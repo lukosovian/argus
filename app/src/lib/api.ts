@@ -151,6 +151,30 @@ export type KoleksiyonPatch = {
   shelves?: Record<string, { image?: string | null; name?: string | null; manual?: boolean | null; rows?: string[] | null } | null>
 }
 
+// Aklımda (bkz. hooks/useAklimda.ts): "bir ara bakarım belki" dediğin yapımlar.
+// Anahtar arşivdeki kayıtsa rowId, arşivde olmayan TMDB önerisiyse "tmdb:movie:603".
+export interface AklimdaTmdb {
+  id: number
+  mediaType: 'movie' | 'tv'
+  title: string
+  poster: string | null
+  year: string
+}
+export interface AklimdaItem {
+  boardId?: string
+  tmdb?: AklimdaTmdb
+  note?: string
+  addedAt: number
+}
+export interface AklimdaData {
+  items: Record<string, AklimdaItem>
+  // arşiv kaydı → "movie:603" (TMDB önizlemesinde "aklında" görünsün diye)
+  tmdbOf?: Record<string, string>
+  // En fazla kaç yapım: 0 = sınırsız, yoksa AKLIMDA_DEFAULT_LIMIT
+  limit?: number
+}
+export type AklimdaPatch = { limit?: number; items: Record<string, Partial<{ [K in keyof AklimdaItem]: AklimdaItem[K] | null }> | null> }
+
 export interface BackupInfo {
   settings: { target: string; auto: 'off' | 'daily' | 'weekly'; keep: number; lastAt: number | null; lastError: string | null }
   snapshots: string[]
@@ -488,6 +512,8 @@ export const api = {
     request<{ seasons: { season: number; date: string; episodes: number; poster: string | null }[]; runtime: number | null }>(profilePath(`/evren-sezonlar/${tmdbId}`)),
   platformOzet: (boardId: string, items?: { type: 'movie' | 'tv'; tmdbId: number; title: string; poster: string | null; minutes: number }[]) =>
     request<PlatformOzet>(profilePath(`/platform-ozet/${boardId}`), { method: 'POST', ...json(items ? { items } : {}) }),
+  getAklimda: () => request<AklimdaData>(profilePath('/aklimda')),
+  saveAklimda: (patch: AklimdaPatch) => request<AklimdaData>(profilePath('/aklimda'), { method: 'POST', ...json(patch) }),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),
   saveKoleksiyon: (patch: KoleksiyonPatch) => request<KoleksiyonData>(profilePath('/koleksiyon'), { method: 'POST', ...json(patch) }),
   // İnternetteki bir görseli medya klasörüne indirir (Koleksiyon'da adres yapıştırarak sembol ekleme)

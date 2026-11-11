@@ -13,6 +13,7 @@ import { parseYouTubeUrl } from '../lib/youtube'
 import { tt } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
 import Icon from './Icon'
+import AklimdaButton from './AklimdaButton'
 import { surfaceHex } from '../lib/theme'
 import { useThemeMode } from '../hooks/useThemeMode'
 import { LineSkeleton } from './Skeleton'
@@ -177,6 +178,10 @@ export default function TmdbPreviewModal({
                 </button>
               </div>
             )}
+            <AklimdaButton
+              target={{ kind: 'tmdb', tmdb: { id: card.tmdbId, mediaType: card.mediaType, title: shown.title, poster: shown.poster ?? null, year: shown.year ?? '' } }}
+              title={shown.title}
+            />
             {onPickAgain && (
               <button onClick={onPickAgain} className="text-xs text-neutral-500 hover:text-neutral-50 transition">
                 {tt('↻ Başka bir şey seç')}

@@ -224,6 +224,7 @@ const ROW_HINTS: Record<string, string> = {
   'new-episodes': tt('yeni bölüm yoksa görünmez'),
   'top-rated': tt('puanlı içerik 3\'ten azsa görünmez'),
   forgotten: tt('hatırlatılacak bir şey yoksa görünmez'),
+  aklimda: tt('aklına bir şey eklemediysen görünmez'),
 }
 
 // "Satırların sırası": açık olan bütün satırlar tek listede (bkz. lib/homeRows.ts). ↑ ↓ ya da sürükle-bırak.
@@ -664,6 +665,22 @@ export default function HomeSettingsPanel() {
                   checked={settings.forgotten?.enabled ?? true}
                   onChange={(v) => saveSettings({ ...settings, forgotten: { position: settings.forgotten?.position ?? 2, enabled: v } })}
                   label={tt('Unuttukların satırını göster')}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">
+                  {tt('"Aklında kalanlar" satırını göster')}
+                  <span className="block text-xs text-neutral-600 mt-0.5">
+                    {tt('Detay penceresinde "Aklımda tut" dediğin yapımlar.')}
+                  </span>
+                </span>
+                <ToggleSwitch
+                  checked={settings.aklimdaRow?.enabled ?? true}
+                  onChange={(v) => saveSettings({ ...settings, aklimdaRow: { position: settings.aklimdaRow?.position ?? 1, enabled: v } })}
+                  label={tt('Aklında kalanlar satırını göster')}
                 />
               </div>
             </div>

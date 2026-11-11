@@ -247,6 +247,10 @@ html.argus-mobile body {
 :root[data-theme='light'] .text-emerald-400 {
   color: #047857;
 }
+:root[data-theme='light'] .text-violet-200,
+:root[data-theme='light'] .text-violet-300 {
+  color: #6d28d9;
+}
 :root[data-theme='light'] .text-rose-300,
 :root[data-theme='light'] .text-red-400 {
   color: #be123c;

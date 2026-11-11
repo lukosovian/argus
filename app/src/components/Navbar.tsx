@@ -24,6 +24,7 @@ const MENU_ICONS = {
   istatistik: 'chart',
   takvim: 'calendar',
   koleksiyon: 'trophy',
+  aklimda: 'bookmark',
   evren: 'planet',
   abonelik: 'tv',
   ozet: 'clock',
@@ -109,6 +110,7 @@ export default function Navbar() {
       ['/takvim', tt('Takvim')],
       ['/istatistikler', tt('İstatistikler')],
       ['/koleksiyon', tt('Koleksiyon')],
+      ['/aklimda', tt('Aklımda')],
       ['/evrenler', tt('Evrenler')],
       ['/abonelik', tt('Abonelik önerisi')],
       ['/flashback', 'Flashback'],
@@ -276,6 +278,7 @@ export default function Navbar() {
                     <MenuLink to="/arsivlerim" icon="ayarlar" label={tt('Ayarlar')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/istatistikler" icon="istatistik" label={tt('İstatistikler')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/takvim" icon="takvim" label={tt('Takvim')} onClick={() => setMenuOpen(false)} />
+                    <MenuLink to="/aklimda" icon="aklimda" label={tt('Aklımda')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/koleksiyon" icon="koleksiyon" label={tt('Koleksiyon')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/evrenler" icon="evren" label={tt('Evrenler')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/abonelik" icon="abonelik" label={tt('Abonelik önerisi')} onClick={() => setMenuOpen(false)} />

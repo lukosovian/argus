@@ -144,6 +144,8 @@ async function pathsForFile(file: string): Promise<string[]> {
       return [`${base}/notifications`]
     case 'recent-watch.json':
       return [`${base}/recent-watch`]
+    case 'aklimda.json':
+      return [`${base}/aklimda`]
     case 'koleksiyon.json': {
       const boards = ((await cacheGet<{ id: string }[]>(`${base}/boards`)) ?? []).map((b) => `${base}/koleksiyon/${b.id}`)
       return boards
@@ -206,7 +208,7 @@ async function pull(full: boolean) {
     // Dosyası olmayan ama ekranların ilk açılışta istediği okumalar
     const profiles = (await cacheGet<{ id: string }[]>('/api/profiles')) ?? []
     for (const p of profiles) {
-      for (const s of ['/home-settings', '/watched', '/notifications', '/recent-watch', '/templates']) {
+      for (const s of ['/home-settings', '/watched', '/notifications', '/recent-watch', '/templates', '/aklimda']) {
         const key = `/api/profiles/${p.id}${s}`
         if ((await cacheGet(key)) === undefined) await fetchAndStore(key).catch(() => {})
       }

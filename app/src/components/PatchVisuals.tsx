@@ -3730,3 +3730,42 @@ export function EvrenOtoVisual() {
     </Frame>
   )
 }
+
+// v1.23 Aklımda: detayda "Aklımda tut", ana sayfada "Aklında kalanlar", Aklımda sayfasında süzgeçler
+export function AklimdaVisual() {
+  const VIOLET = '#a78bfa'
+  return (
+    <Frame viewBox={VB}>
+      <Box x={12} y={14} w={150} h={112} r={8} />
+      <rect x={12} y={14} width={150} height={44} rx={8} className="fill-neutral-800" />
+      <rect x={22} y={64} width={70} height={7} rx={2} className="fill-neutral-400" />
+      <rect x={22} y={80} width={46} height={14} rx={7} fill={VIOLET} opacity={0.25} stroke={VIOLET} strokeWidth={0.8} />
+      <path d="M28 83.5h4c.4 0 .7.3.7.7v6.4l-2.7-1.8-2.7 1.8v-6.4c0-.4.3-.7.7-.7z" fill={VIOLET} />
+      <text x={36} y={90} fontSize={6} fill={VIOLET} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('Aklımda')}
+      </text>
+      <Pin x={66} y={78} n={1} />
+
+      <text x={176} y={24} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Aklında kalanlar')}
+      </text>
+      {[0, 1, 2].map((i) => (
+        <g key={i} transform={`translate(${176 + i * 44} 32)`}>
+          <rect width={36} height={52} rx={4} className="fill-neutral-800" stroke={i === 0 ? VIOLET : '#404040'} strokeWidth={i === 0 ? 1.2 : 0.6} />
+          <rect x={3} y={3} width={18} height={6} rx={1.5} fill={i === 1 ? '#fbbf24' : i === 2 ? '#8b5cf6' : ACCENT} />
+          <rect x={0} y={57} width={30} height={3.5} rx={1.5} className="fill-neutral-500" />
+          <rect x={0} y={64} width={24} height={3} rx={1.5} className="fill-neutral-700" />
+        </g>
+      ))}
+      <Pin x={306} y={30} n={2} />
+
+      <Box x={176} y={110} w={134} h={22} r={11} />
+      {[tt('Hepsi'), tt('İzlenecek'), tt('Yarım kalan')].map((t, i) => (
+        <text key={t} x={186 + i * 40} y={124} fontSize={5.6} fill={i === 0 ? ACCENT : undefined} className={i === 0 ? '' : 'fill-neutral-400'} style={{ fontFamily: 'inherit', fontWeight: i === 0 ? 600 : 400 }}>
+          {t}
+        </text>
+      ))}
+      <Pin x={306} y={112} n={3} />
+    </Frame>
+  )
+}

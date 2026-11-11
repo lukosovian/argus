@@ -91,6 +91,7 @@ import {
   EvrenDetayVisual,
   MarvelFilmleriVisual,
   EvrenOtoVisual,
+  AklimdaVisual,
   DetayRenkVisual,
   IskeletBosVisual,
   KisayolVisual,
@@ -108,6 +109,20 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23',
+    date: tt('12 Kasım 2026'),
+    title: tt('Aklımda: "bunu izlesem mi?" dediklerini kaybetme'),
+    items: [
+      tt('Bir yapımın detay penceresinde "Aklımda tut" düğmesi var: tek tıkla not edersin, bir daha aklından çıkmaz. İzlediklerin, yarım kalanlar ve izleneceklerin hepsi eklenebilir.'),
+      tt('Arşivinde olmayan yapımlar da eklenebiliyor: Benzer İçerikler, Ne İzlesem, oyuncu sayfası, Evrenler ve Takvim\'deki önizleme pencerelerinde de aynı düğme var. Sonradan arşive eklersen listede kalıyor.'),
+      tt('Ana sayfada "Aklında kalanlar" satırı: en son eklediklerin. Boşsa görünmüyor; Ana Sayfa Ayarları\'ndan kapatılabilir ve sırası değiştirilebilir.'),
+      tt('Profil menüsünde yeni Aklımda sayfası: hepsi bir arada, İzlenecek / Yarım kalan / İzlendi / Arşivinde yok diye süzülüyor. Arşivde olmayanı tek tıkla İzlenecek\'e alabilir ya da listeden çıkarabilirsin.'),
+      tt('Aklımda\'nın bir sınırı var (başta 20 yapım): liste dolunca yenisini eklemek için önce birini çıkarman gerekiyor, böylece liste şişip unutulmuyor. Sınırı Aklımda sayfasından 10, 20, 30, 50 ya da sınırsız yapabilirsin; arşivden sildiğin yapımlar listeden de düşüyor.'),
+      tt('Telefonda da çalışıyor, PC yokken eklediklerin bağlanınca bilgisayara geçiyor.'),
+    ],
+    visuals: [{ caption: tt('1 Aklımda tut · 2 ana sayfada Aklında kalanlar · 3 Aklımda sayfasında süzgeçler'), Visual: AklimdaVisual }],
+  },
   {
     version: 'v1.22',
     date: tt('11 Kasım 2026'),

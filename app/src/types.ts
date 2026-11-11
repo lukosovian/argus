@@ -498,6 +498,8 @@ export interface HomeSettings {
   myPlatforms?: number[]
   // "Unuttukların" satırı: uzun süredir dokunulmayan diziler ve listede en uzun bekleyenler. Yoksa açık, 2. sırada.
   forgotten?: { enabled: boolean; position: number }
+  // "Aklında kalanlar" satırı (Aklımda'ya eklenenler, bkz. AklimdaRow). Yoksa açık, 1. sırada.
+  aklimdaRow?: { enabled: boolean; position: number }
 }
 
 export interface RandomPickerTmdbSettings {

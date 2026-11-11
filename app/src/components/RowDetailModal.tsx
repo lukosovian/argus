@@ -34,6 +34,7 @@ import { averageColor, darkTone } from '../lib/imageColor'
 import { isoDate, locale, tt, ttx } from '../lib/i18n'
 import { universesOfRow, type RowUniverse } from '../lib/evrenLookup'
 import Icon from './Icon'
+import AklimdaButton from './AklimdaButton'
 import { surfaceHex } from '../lib/theme'
 
 const CAST_PREVIEW = 12
@@ -587,6 +588,7 @@ export default function RowDetailModal({
                   </button>
                 ))}
               </div>
+              <AklimdaButton target={{ kind: 'row', boardId: board.id, rowId: row.id }} title={title} />
               {editable && (durumProp || tarihProp || puanProp) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {durumProp?.options?.map((o) => {

@@ -2253,6 +2253,94 @@ app.post('/api/profiles/:profileId/koleksiyon', (req, res) => {
   res.json(data)
 })
 
+// "Aklımda" — kullanıcı "ARGUS'u açıyorum, karşıma bir film çıkıyor, bunu izlesem mi diyorum ama not etmeyince
+// aklımdan gidiyor" dedi. İzlenecekler'den farkı: orası "izleyeceğim", burası "bir ara bakarım belki". Arşivdeki
+// her yapım (izlenmiş, yarım, izlenecek) ya da arşivde olmayan bir TMDB önerisi buraya eklenebilir. data/profiles/<id>/aklimda.json: { items: { anahtar: {...} } }
+//   arşivdeki yapım: anahtar = rowId → { boardId, addedAt, note? }
+//   arşivde olmayan: anahtar = "tmdb:movie:603" → { tmdb: { id, mediaType, title, poster, year }, addedAt, note? }
+// Arşivde olmayan bir yapım sonradan arşive eklenince (tmdb-add ya da başka yoldan) kaydın anahtarı rowId olur.
+function profileAklimdaFile(profileId) {
+  return path.join(profileDir(profileId), 'aklimda.json')
+}
+
+function readAklimda(profileId) {
+  const data = readJson(profileAklimdaFile(profileId), { items: {} })
+  if (!data.items || typeof data.items !== 'object') data.items = {}
+  return data
+}
+
+// TMDB önerisi olarak eklenmiş ama artık arşivde olan yapımları arşiv kaydına bağlar. Değişiklik olduysa true.
+function linkAklimdaToArchive(profileId, data) {
+  const pending = Object.keys(data.items).filter((k) => k.startsWith('tmdb:'))
+  if (!pending.length) return false
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const byTmdb = new Map()
+  for (const [rowId, ref] of Object.entries(refs)) if (ref?.id && ref.mediaType) byTmdb.set(`tmdb:${ref.mediaType}:${ref.id}`, rowId)
+  let changed = false
+  let boardOf = null
+  for (const key of pending) {
+    const rowId = byTmdb.get(key)
+    if (!rowId) continue
+    if (!boardOf) {
+      boardOf = new Map()
+      for (const b of readJson(profileBoardsFile(profileId), [])) for (const r of readJson(profileRowsFile(profileId, b.id), [])) boardOf.set(r.id, b.id)
+    }
+    const boardId = boardOf.get(rowId)
+    if (!boardId) continue
+    const { tmdb: _t, ...rest } = data.items[key]
+    if (!data.items[rowId]) data.items[rowId] = { ...rest, boardId }
+    delete data.items[key]
+    changed = true
+  }
+  return changed
+}
+
+app.get('/api/profiles/:profileId/aklimda', (req, res) => {
+  const { profileId } = req.params
+  const data = readAklimda(profileId)
+  let changed = linkAklimdaToArchive(profileId, data)
+  // Arşivden silinmiş kayıtlar listeden de düşer (yoksa sınırı boşuna doldururlar)
+  const rowIds = new Map()
+  for (const [k, it] of Object.entries(data.items)) {
+    if (!it?.boardId) continue
+    if (!rowIds.has(it.boardId)) rowIds.set(it.boardId, new Set(readJson(profileRowsFile(profileId, it.boardId), []).map((r) => r.id)))
+    if (!rowIds.get(it.boardId).has(k)) {
+      delete data.items[k]
+      changed = true
+    }
+  }
+  if (changed) writeJson(profileAklimdaFile(profileId), data)
+  // Arşivdeki yapımların TMDB kimliği de gönderiliyor: TMDB önizlemesinde "zaten aklında" görünebilsin
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const tmdbOf = {}
+  for (const k of Object.keys(data.items)) if (refs[k]?.id && refs[k].mediaType) tmdbOf[k] = `${refs[k].mediaType}:${refs[k].id}`
+  res.json({ ...data, tmdbOf })
+})
+
+// Kısmi güncelleme: { items: { anahtar: {...} | null } } — null siler, alanlardaki null o alanı siler.
+app.post('/api/profiles/:profileId/aklimda', (req, res) => {
+  const file = profileAklimdaFile(req.params.profileId)
+  const data = readAklimda(req.params.profileId)
+  // limit: en fazla kaç yapım (0 = sınırsız, yoksa 20 — bkz. useAklimda)
+  const lim = req.body?.limit
+  if (Number.isInteger(lim) && lim >= 0 && lim <= 1000) data.limit = lim
+  const patch = req.body?.items
+  if (patch && typeof patch === 'object') {
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) delete data.items[k]
+      else if (typeof v === 'object') {
+        const merged = { ...(data.items[k] ?? {}), ...v }
+        for (const [mk, mv] of Object.entries(merged)) if (mv === null) delete merged[mk]
+        if (typeof merged.note === 'string') merged.note = merged.note.slice(0, 1000)
+        if (!merged.addedAt) merged.addedAt = Date.now()
+        data.items[k] = merged
+      }
+    }
+  }
+  writeJson(file, data)
+  res.json(data)
+})
+
 // Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,
 // tek tıkla ekleyeyim" dedi. Kişi TMDB'de adıyla aranır (arşivde kişi kimliği tutulmuyor), filmografisi
 // arşivde olanlar / olmayanlar diye ayrılır.
@@ -2458,6 +2546,16 @@ async function addRowFromTmdb(profileId, boardId, body) {
     rows.push(row)
     writeJson(boardsFile, boards)
     writeJson(rowsFile, rows)
+
+    // Aklımda'da TMDB önerisi olarak duruyorsa artık bu arşiv kaydına bağlı (notu korunur)
+    const akl = readAklimda(profileId)
+    const aklKey = `tmdb:${mediaType}:${tmdbId}`
+    if (akl.items[aklKey]) {
+      const { tmdb: _t, ...rest } = akl.items[aklKey]
+      akl.items[row.id] = { ...rest, boardId }
+      delete akl.items[aklKey]
+      writeJson(profileAklimdaFile(profileId), akl)
+    }
 
     const fill = await fillRowFromTmdb(profileId, boardId, row.id, { exclude, forced: { tmdbId, mediaType } })
     return { status: 200, json: { ok: true, rowId: row.id, title: card.title, filled: fill.status === 200 } }
