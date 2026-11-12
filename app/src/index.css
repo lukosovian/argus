@@ -79,6 +79,49 @@ body {
   }
 }
 
+/* İstatistik sütunlarının aşağıdan büyüyerek gelmesi */
+@keyframes argus-sutun-buyu {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Süslü vitrinde etkin slaytın çizgisinin dolması (bkz. AnaSayfa) */
+@keyframes argus-slayt-dol {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Süslü vitrinde görselin çok yavaş yakınlaşması (bkz. ShowcaseBanner) */
+@keyframes argus-yakinlas {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.12) translate(-1.5%, 1%);
+  }
+}
+
+/* Durum etiketlerinde "İzleniyor" noktasının nabız gibi atması (bkz. lib/statusTone.ts) */
+@keyframes argus-nabiz {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(251, 191, 36, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+
 /* Profil seçilince uygulamanın karanlıktan belirmesi (bkz. App.tsx ProfileCurtain). */
 @keyframes argus-perde-ac {
   from {
@@ -180,6 +223,21 @@ body {
 }
 .argus-sayfa {
   animation: argus-sayfa 0.22s ease-out;
+}
+
+/* Yükleme iskeletleri: koyu gri kutunun üstünden soldan sağa yumuşak bir ışık geçer (bkz. Skeleton.tsx) */
+@keyframes argus-parilti {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.argus-parilti {
+  background: linear-gradient(90deg, var(--color-neutral-900) 0%, var(--color-neutral-800) 20%, var(--color-neutral-900) 40%);
+  background-size: 300% 100%;
+  animation: argus-parilti 1.6s linear infinite;
 }
 
 /* Kaydırma çubuğu: Windows'un kalın gri çubuğu yerine ince, temaya uyan, üzerine gelince belirginleşen bir çubuk */

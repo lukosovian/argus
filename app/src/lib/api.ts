@@ -73,6 +73,8 @@ export interface PlatformOzet {
   totalMinutes: number
   mine: number[]
   combo: { ids: number[]; count: number; minutes: number } | null
+  // 3 aylık plan: her ay öncekilerde olmayanlardan en çok süreyi karşılayan platform (eski sunucuda yok)
+  plan?: { id: number; count: number; minutes: number; items: { title: string; poster: string | null; key: string }[] }[]
   needsApiKey?: boolean
 }
 // maraton: "baştan izliyorum" başlangıç günü; ek: yan yapımlar görünsün; sira: son seçilen sıralama
@@ -142,6 +144,8 @@ export interface KoleksiyonData {
 }
 export interface KoleksiyonInfo {
   collections: Record<string, { id: number; name: string }>
+  // İzlenecek'teki yapımların serisi (eski sunucuda yok)
+  laterCollections?: Record<string, { id: number; name: string }>
   mediaTypes: Record<string, 'movie' | 'tv'>
   pending: { done: number; total: number } | null
   data: KoleksiyonData
@@ -379,6 +383,7 @@ export const api = {
   addSong: (rowId: string, song: { key: string; title: string; artist: string; season: number | null; episode: number | null; atMs: number | null; manual: true }) =>
     request<{ ok: true; duplicate: boolean; song: Song }>(profilePath(`/songs/${rowId}`), { method: 'POST', ...json(song) }),
   // Yarım kalan filmde kaldığın yer (Nook yazıyor; bkz. server/index.js progress)
+  getAllProgress: () => request<Record<string, { atMs: number | null; durationMs: number | null; day: string; at?: number }>>(profilePath('/progress')),
   getProgress: (rowId: string) => request<{ atMs: number | null; durationMs: number | null; day: string } | null>(profilePath(`/progress/${rowId}`)),
   clearProgress: (rowId: string) => request<{ ok: true }>(profilePath(`/progress/${rowId}`), { method: 'DELETE' }),
   deleteSong: (rowId: string, songId: string) => request<{ ok: true }>(profilePath(`/songs/${rowId}/${songId}`), { method: 'DELETE' }),

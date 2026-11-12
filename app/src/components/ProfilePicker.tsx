@@ -5,7 +5,7 @@ import { useToast } from '../hooks/useToast'
 import ProfileSetupModal from './ProfileSetupModal'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
-import { darkTone } from '../lib/imageColor'
+import { averageColor, darkTone, type RGB } from '../lib/imageColor'
 import MobileProfileHero, { LAST_PROFILE_KEY, useHeroSlides } from './mobile/MobileProfileHero'
 import Icon from './Icon'
 
@@ -245,6 +245,19 @@ function DesktopPicker({
   )
   const current = slides[index]
   const tile = 'relative h-32 w-32 rounded-lg overflow-hidden flex items-center justify-center transition duration-200'
+  // Her profil resminin ortalama rengi — üstüne gelince o renkte parlasın
+  const [glow, setGlow] = useState<Record<string, string>>({})
+  useEffect(() => {
+    let alive = true
+    for (const p of profiles)
+      if (p.photo)
+        averageColor(p.photo).then((c: RGB | null) => {
+          if (alive && c) setGlow((g) => ({ ...g, [p.id]: `rgba(${c[0]},${c[1]},${c[2]},0.75)` }))
+        })
+    return () => {
+      alive = false
+    }
+  }, [profiles])
   return (
     <div className="fixed inset-0 z-50 bg-neutral-950 overflow-hidden select-none">
       {slides.map((s, i) => (
@@ -287,8 +300,11 @@ function DesktopPicker({
         </h1>
         <div className="flex flex-wrap justify-center gap-x-10 gap-y-6 max-w-[62vw] mb-14">
           {profiles.map((p) => (
-            <button key={p.id} onClick={() => onPick(p.id)} className="w-32 flex flex-col items-center gap-4 group outline-none">
-              <span className={`${tile} bg-white/10 ring-white group-hover:ring-[3px] group-focus-visible:ring-[3px] shadow-[0_6px_24px_rgba(0,0,0,0.5)] ${leaving === p.id ? 'scale-115 ring-[3px]' : 'group-hover:scale-105'}`}>
+            <button key={p.id} onClick={() => onPick(p.id)} className="w-32 flex flex-col items-center gap-4 group outline-none" style={{ ['--profil-isik' as string]: glow[p.id] ?? 'rgba(0,192,250,0.55)' }}>
+              {/* Üstüne gelince yaylanarak kalkar ve resminin renginde parlar (v1.23.3, öneri G5) */}
+              <span
+                className={`${tile} bg-white/10 ring-white group-hover:ring-[3px] group-focus-visible:ring-[3px] shadow-[0_6px_24px_rgba(0,0,0,0.5)] group-hover:shadow-[0_18px_50px_-8px_var(--profil-isik)] !duration-300 ease-[cubic-bezier(.3,1.5,.5,1)] ${leaving === p.id ? 'scale-115 ring-[3px]' : 'group-hover:scale-[1.07] group-hover:-translate-y-2'}`}
+              >
                 {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-5xl text-white/70">{p.username.slice(0, 1).toUpperCase()}</span>}
                 {managing && (
                   <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white">

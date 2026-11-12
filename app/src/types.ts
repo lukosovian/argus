@@ -500,6 +500,11 @@ export interface HomeSettings {
   forgotten?: { enabled: boolean; position: number }
   // "Aklında kalanlar" satırı (Aklımda'ya eklenenler, bkz. AklimdaRow). Yoksa açık, 1. sırada.
   aklimdaRow?: { enabled: boolean; position: number }
+  // "Kaldığın yerden" satırı (İzleniyor/Yarım olanlar, geniş kart + ilerleme çizgisi; bkz. ContinueRow). Yoksa kapalı.
+  continueRow?: { enabled: boolean; position: number }
+  // Vitrin süsleri (v1.23.3): kısa özet, Aklımda tut düğmesi, yavaş yakınlaşan görsel, dolan slayt çizgileri,
+  // fragman durunca görsele dönüş, satırların vitrine binmesi. Yoksa kapalı (eski vitrin).
+  showcaseExtras?: boolean
 }
 
 export interface RandomPickerTmdbSettings {

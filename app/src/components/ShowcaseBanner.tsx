@@ -39,6 +39,7 @@ export default function ShowcaseBanner({
   cinematic = false,
   controlsTop = false,
   trailerSource,
+  extras = false,
 }: {
   imageUrl: string
   videoId: string | null
@@ -65,6 +66,9 @@ export default function ShowcaseBanner({
   controlsTop?: boolean
   // Fragman oynatılamazsa ("Video kullanılamıyor") aynı yapımın başka fragmanını bulmak için (bkz. trailerFallback.ts)
   trailerSource?: TrailerSource
+  // Vitrin süsleri: görsel yavaşça yakınlaşır, fragman duraklayınca (ör. bir afişin videosu oynarken) siyah
+  // duraklatılmış kare yerine görsele dönülür
+  extras?: boolean
 }) {
   const [ended, setEnded] = useState(false)
   const [stopped, setStopped] = useState(false)
@@ -252,7 +256,7 @@ export default function ShowcaseBanner({
     wasPlayingRef.current = shouldPlay
   }, [shouldPlay])
 
-  const showImage = !activeId || !started || ended || stopped
+  const showImage = !activeId || !started || ended || stopped || (extras && !shouldPlay)
 
   useEffect(() => {
     onShowingVideoChange?.(!showImage)
@@ -271,7 +275,12 @@ export default function ShowcaseBanner({
         <img src="/logoblue.png" alt="" className="safe-shift absolute top-7 left-7 z-10 h-6 w-6 object-contain opacity-95 pointer-events-none" />
       )}
       {imageUrl ? (
-        <img src={imageUrl} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+        <img
+          src={imageUrl}
+          alt={title}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={extras ? { animation: 'argus-yakinlas 22s ease-in-out infinite alternate' } : undefined}
+        />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-neutral-600">{title}</div>
       )}

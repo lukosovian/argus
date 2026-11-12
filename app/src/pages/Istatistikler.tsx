@@ -14,6 +14,7 @@ import { entryEnd } from '../lib/dateRange'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, getLang } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
+import Icon, { type IconName } from '../components/Icon'
 import PageSkeleton from '../components/Skeleton'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
@@ -175,7 +176,13 @@ function useStats(board: Board | null | undefined, rows: Row[]) {
     })
     const monthIndex = new Map(months.map((m, i) => [m.key, i]))
     let thisYearRows = 0
+    let lastYearSoFar = 0
     let anyDate = false
+    // Geçen yılın bugüne kadarki kısmı (sayı kartındaki "geçen yıla göre" karşılaştırması için)
+    const lastYearCut = `${now.getFullYear() - 1}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const lastYearPrefix = String(now.getFullYear() - 1)
+    // Bu yılın her günü kaç izleme (yıl ısı haritası için)
+    const daily = new Map<string, number>()
     if (tarihProp) {
       const yearPrefix = String(now.getFullYear())
       for (const r of rows) {
@@ -184,7 +191,9 @@ function useStats(board: Board | null | undefined, rows: Row[]) {
         const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).map(entryEnd)
         if (dates.length) anyDate = true
         if (dates.some((d) => d.startsWith(yearPrefix))) thisYearRows++
+        if (dates.some((d) => d.startsWith(lastYearPrefix) && d.length >= 10 && d <= lastYearCut)) lastYearSoFar++
         for (const d of dates) {
+          if (d.startsWith(yearPrefix) && d.length >= 10) daily.set(d.slice(0, 10), (daily.get(d.slice(0, 10)) ?? 0) + 1)
           const i = monthIndex.get(d.slice(0, 7))
           if (i !== undefined) months[i].count++
         }
@@ -202,6 +211,8 @@ function useStats(board: Board | null | undefined, rows: Row[]) {
       ratedCount: ratings.length,
       ratingBins,
       thisYearRows,
+      lastYearSoFar,
+      daily,
       hasDates: Boolean(tarihProp) && anyDate,
       months,
       durumBreakdown: selectBreakdown(rows, durumProp),
@@ -252,17 +263,70 @@ function Card({ title, subtitle, children, className = '' }: { title: string; su
   )
 }
 
-function StatTile({ label, value, sub, hint, accent = false, progress }: { label: string; value: string; sub?: string; hint?: ReactNode; accent?: boolean; progress?: number }) {
+// Kartın arkasındaki küçük çizgi grafik (son 12 ay)
+function Spark({ points, color }: { points: number[]; color: string }) {
+  const max = Math.max(...points, 1)
+  const d = points.map((p, i) => `${i ? 'L' : 'M'}${((i / (points.length - 1)) * 100).toFixed(1)},${(40 - (p / max) * 34).toFixed(1)}`).join(' ')
+  const id = 'sp' + color.replace('#', '')
   return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 md:p-5 min-w-0">
-      <div className="flex items-center gap-1.5">
+    <svg className="pointer-events-none absolute right-0 bottom-0 h-9 w-1/2 opacity-60" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor={color} stopOpacity=".35" />
+          <stop offset="1" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${d} L100,40 L0,40Z`} fill={`url(#${id})`} />
+      <path d={d} fill="none" stroke={color} strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
+}
+
+function StatTile({
+  label,
+  value,
+  sub,
+  hint,
+  accent = false,
+  progress,
+  icon,
+  color,
+  spark,
+  delta,
+}: {
+  label: string
+  value: string
+  sub?: string
+  hint?: ReactNode
+  accent?: boolean
+  progress?: number
+  // v1.23.3 (öneri S1): her kartın kendi rengi ve ikonu, istenirse arkasında son 12 ay ve değişim oku
+  icon?: IconName
+  color?: string
+  spark?: number[]
+  delta?: { text: string; up: boolean }
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 md:p-5 min-w-0">
+      {spark && color && spark.some((n) => n > 0) && <Spark points={spark} color={color} />}
+      {icon && color && (
+        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `${color}22`, color }}>
+          <Icon name={icon} className="h-4 w-4" />
+        </span>
+      )}
+      <div className="relative flex items-center gap-1.5">
         <p className="text-[11px] uppercase tracking-wide text-neutral-500 truncate">{label}</p>
         {hint && <HelpHint>{hint}</HelpHint>}
       </div>
       <p className="text-2xl md:text-3xl font-bold mt-1 tracking-tight truncate" style={accent ? { color: BRAND_TEXT } : undefined}>
         <span className={accent ? undefined : 'text-neutral-50'}>{value}</span>
       </p>
-      {sub && <p className="text-xs text-neutral-500 mt-0.5 truncate">{sub}</p>}
+      {delta && (
+        <p className={`relative text-xs font-semibold mt-0.5 truncate ${delta.up ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {delta.up ? '▲' : '▼'} {delta.text}
+        </p>
+      )}
+      {sub && <p className="relative text-xs text-neutral-500 mt-0.5 truncate">{sub}</p>}
       {progress !== undefined && (
         <div className="h-1.5 rounded-full bg-neutral-800 mt-2.5 overflow-hidden">
           <div className="h-full rounded-full" style={{ width: `${Math.round(progress * 100)}%`, background: BRAND_GRADIENT }} />
@@ -349,19 +413,31 @@ function Columns({
   palette,
   height = 150,
   onPick,
+  highlightKey,
+  showAvg = false,
 }: {
-  data: { key: string; label: string; tipTitle: string; count: number; strong?: boolean }[]
+  data: { key: string; label: string; tipTitle: string; count: number; strong?: boolean; sublabel?: string }[]
   palette: Palette
   height?: number
   onPick?: (key: string) => void
+  // v1.23.3 (öneri S2): vurgulanan sütun (bu ay), kesik ortalama çizgisi, her sütunun sayısı üstüne gelince
+  highlightKey?: string
+  showAvg?: boolean
 }) {
   const { bind, node, active } = useTip()
   if (data.every((d) => d.count === 0)) return <Empty />
   const max = Math.max(...data.map((d) => d.count), 1)
   const maxKey = data.find((d) => d.count === max)?.key
+  const avg = data.reduce((s, d) => s + d.count, 0) / data.length
+  const fancy = Boolean(highlightKey || showAvg)
   return (
     <div>
-      <div className="flex items-end gap-1.5 sm:gap-2 border-b border-neutral-700" style={{ height }}>
+      <div className="relative flex items-end gap-1.5 sm:gap-2 border-b border-neutral-700" style={{ height }}>
+        {showAvg && avg > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 border-t-[1.5px] border-dashed border-white/25" style={{ bottom: Math.max((avg / max) * (height - 22), 3) }}>
+            <span className="absolute right-0 -top-4 px-1 text-[10px] text-neutral-400 bg-neutral-900">{tt('ort. {0}', avg.toFixed(1).replace('.', ','))}</span>
+          </div>
+        )}
         {data.map((d) => (
           <div
             key={d.key}
@@ -369,13 +445,21 @@ function Columns({
             onClick={onPick ? () => onPick(d.key) : undefined}
             {...bind(d.tipTitle, onPick ? tt('{0} kayıt · takvimde görmek için tıkla', d.count) : tt('{0} kayıt', d.count))}
           >
-            {d.key === maxKey && <span className="text-[11px] font-semibold text-neutral-300 mb-1 tabular-nums">{d.count}</span>}
+            {(fancy ? active === d.tipTitle || (!active && d.key === highlightKey) : d.key === maxKey) && (
+              <span className="text-[11px] font-semibold text-neutral-300 mb-1 tabular-nums">{d.count}</span>
+            )}
             <div
-              className="w-full max-w-[36px] rounded-t-[4px] transition-opacity"
+              className={`w-full max-w-[36px] transition-[opacity,filter] ${fancy ? 'rounded-t-[7px] rounded-b-[2px] origin-bottom' : 'rounded-t-[4px]'}`}
               style={{
                 height: d.count ? `${Math.max((d.count / max) * (height - 22), 3)}px` : 0,
-                background: palette.sequential,
+                background: !fancy
+                  ? palette.sequential
+                  : d.key === highlightKey
+                    ? 'linear-gradient(180deg,#00c0fa,#015eea)'
+                    : `linear-gradient(180deg,${palette.sequential},${palette.sequential}99)`,
+                boxShadow: fancy && d.key === highlightKey ? '0 0 22px rgba(0,192,250,.45)' : undefined,
                 opacity: active && active !== d.tipTitle ? 0.45 : 1,
+                animation: fancy ? 'argus-sutun-buyu .9s cubic-bezier(.2,.8,.2,1) both' : undefined,
               }}
             />
           </div>
@@ -383,10 +467,130 @@ function Columns({
       </div>
       <div className="flex gap-1.5 sm:gap-2 mt-1.5">
         {data.map((d) => (
-          <span key={d.key} className={`flex-1 min-w-0 text-center text-[10px] sm:text-[11px] truncate ${d.strong ? 'text-neutral-300 font-medium' : 'text-neutral-500'}`}>
+          <span
+            key={d.key}
+            className={`flex-1 min-w-0 text-center text-[10px] sm:text-[11px] truncate ${d.key === highlightKey ? 'text-neutral-50 font-bold' : d.strong ? 'text-neutral-300 font-medium' : 'text-neutral-500'}`}
+          >
             {d.label}
+            {d.sublabel && <span className="block text-[10px] font-bold" style={{ color: BRAND_TEXT }}>{d.sublabel}</span>}
           </span>
         ))}
+      </div>
+      {node}
+    </div>
+  )
+}
+
+// Parça-bütün için halka (Kategori): ortada toplam, yanında renkli açıklama (v1.23.3, öneri S3)
+function Donut({ buckets, palette }: { buckets: Bucket[]; palette: Palette }) {
+  const { bind, node, active } = useTip()
+  const total = buckets.reduce((s, b) => s + b.count, 0)
+  if (total === 0) return <Empty />
+  const color = (b: Bucket, i: number) => (b.id === '__other' ? palette.other : palette.categorical[i])
+  const pct = (n: number) => `%${Math.round((n / total) * 100)}`
+  const R = 15.9155
+  let acc = 0
+  return (
+    <div className="flex flex-wrap items-center gap-6">
+      <svg width="132" height="132" viewBox="0 0 42 42" className="shrink-0 -rotate-90">
+        <circle cx="21" cy="21" r={R} fill="none" stroke="var(--color-neutral-800)" strokeWidth="5" />
+        {buckets.map((b, i) => {
+          const p = (b.count / total) * 100
+          const gap = buckets.length > 1 ? 0.8 : 0
+          const el = (
+            <circle
+              key={b.id}
+              cx="21"
+              cy="21"
+              r={R}
+              fill="none"
+              stroke={color(b, i)}
+              strokeWidth={active === b.label ? 6.2 : 5}
+              strokeDasharray={`${Math.max(p - gap, 0.5)} ${100 - Math.max(p - gap, 0.5)}`}
+              strokeDashoffset={-acc}
+              className="transition-[stroke-width] cursor-default"
+              {...bind(b.label, tt('{0} kayıt · {1}', b.count, pct(b.count)))}
+            />
+          )
+          acc += p
+          return el
+        })}
+        <g className="rotate-90 origin-center">
+          <text x="21" y="21.5" textAnchor="middle" fill="var(--color-neutral-50)" fontSize="7" fontWeight="800">
+            {total}
+          </text>
+          <text x="21" y="27" textAnchor="middle" fill="var(--color-neutral-500)" fontSize="2.8">
+            {tt('kayıt')}
+          </text>
+        </g>
+      </svg>
+      <div className="flex-1 min-w-[160px] space-y-2.5">
+        {buckets.map((b, i) => (
+          <div key={b.id} className="flex items-center gap-2 text-sm min-w-0">
+            <span className="h-2.5 w-2.5 rounded-[3px] shrink-0" style={{ background: color(b, i) }} />
+            <span className="text-neutral-300 truncate">{b.label}</span>
+            <span className="ml-auto text-neutral-500 tabular-nums shrink-0">
+              {b.count} <span className="text-neutral-600">· {pct(b.count)}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      {node}
+    </div>
+  )
+}
+
+// Bütün yıl tek karede: her gün bir kare, izlediğin günler maviden parlak maviye (v1.23.3, öneri S3)
+function YearHeatmap({ daily, year, onPick }: { daily: Map<string, number>; year: number; onPick: (day: string) => void }) {
+  const { bind, node } = useTip()
+  const start = new Date(year, 0, 1)
+  const lead = (start.getDay() + 6) % 7
+  const today = new Date()
+  const end = year === today.getFullYear() ? today : new Date(year, 11, 31)
+  const cells: (string | null)[] = Array.from({ length: lead }, () => null)
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1))
+    cells.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+  const weeks = Math.ceil(cells.length / 7)
+  const max = Math.max(1, ...daily.values())
+  const active = [...daily.values()].filter((n) => n > 0).length
+  let best = 0
+  let run = 0
+  for (const c of cells) {
+    if (c && (daily.get(c) ?? 0) > 0) best = Math.max(best, ++run)
+    else if (c) run = 0
+  }
+  const lvl = (n: number) => (n === 0 ? 0 : Math.min(4, Math.ceil((n / max) * 4)))
+  const bg = ['var(--color-neutral-800)', '#0b3a6e', '#0b5ac0', '#0a85e8', '#00c0fa']
+  const monthStarts = Array.from({ length: 12 }, (_, m) => {
+    const idx = cells.indexOf(`${year}-${String(m + 1).padStart(2, '0')}-01`)
+    return idx < 0 ? null : { m, col: Math.floor(idx / 7) }
+  }).filter(Boolean) as { m: number; col: number }[]
+  return (
+    <div>
+      <p className="text-xs text-neutral-500 mb-3">{tt('{0} gün izledin · en uzun seri {1} gün', active, best)}</p>
+      <div className="overflow-x-auto no-scrollbar">
+        <div className="grid gap-[3px] min-w-[620px]" style={{ gridTemplateRows: 'repeat(7, minmax(0,1fr))', gridAutoFlow: 'column', gridTemplateColumns: `repeat(${weeks}, minmax(0,1fr))` }}>
+          {cells.map((c, i) =>
+            c ? (
+              <button
+                key={c}
+                onClick={() => onPick(c)}
+                {...bind(c.split('-').reverse().join('.'), (daily.get(c) ?? 0) ? tt('{0} izleme', daily.get(c) ?? 0) : tt('izleme yok'))}
+                className="aspect-square rounded-[3px] hover:ring-1 hover:ring-neutral-300 transition"
+                style={{ background: bg[lvl(daily.get(c) ?? 0)], boxShadow: lvl(daily.get(c) ?? 0) === 4 ? '0 0 6px rgba(0,192,250,.6)' : undefined }}
+              />
+            ) : (
+              <span key={'b' + i} />
+            ),
+          )}
+        </div>
+        <div className="relative h-4 mt-1.5 min-w-[620px]">
+          {monthStarts.map(({ m, col }) => (
+            <span key={m} className="absolute text-[10px] text-neutral-500" style={{ left: `${(col / weeks) * 100}%` }}>
+              {TR_MONTHS_SHORT[m]}
+            </span>
+          ))}
+        </div>
       </div>
       {node}
     </div>
@@ -627,6 +831,12 @@ export default function Istatistikler() {
   const year = new Date().getFullYear()
   const monthTotal = stats.months.reduce((s, m) => s + m.count, 0)
   const izlendiShare = stats.total ? stats.izlendiCount / stats.total : 0
+  const monthSeries = stats.months.map((m) => m.count)
+  const yearDelta =
+    stats.hasDates && stats.lastYearSoFar > 0
+      ? { up: stats.thisYearRows >= stats.lastYearSoFar, text: tt('geçen yıl {0}', stats.lastYearSoFar) }
+      : undefined
+  const thisMonthKey = stats.months[stats.months.length - 1]?.key
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
@@ -652,21 +862,29 @@ export default function Istatistikler() {
       </section>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatTile label={tt('Toplam kayıt')} value={String(stats.total)} accent />
+        <StatTile label={tt('Toplam kayıt')} value={String(stats.total)} accent icon="table" color="#3fa9ff" />
         <StatTile
+          icon="check"
+          color="#22c55e"
           label={tt('İzlenen')}
           value={stats.hasDurum ? String(stats.izlendiCount) : '—'}
           sub={stats.hasDurum && stats.total ? tt('arşivinin %{0}\'i', Math.round(izlendiShare * 100)) : undefined}
           progress={stats.hasDurum ? izlendiShare : undefined}
         />
-        <StatTile label={tt('İzlenecek')} value={stats.hasDurum ? String(stats.izlenecekCount) : '—'} sub={tt('listende bekliyor')} />
+        <StatTile icon="clock" color="#f97316" label={tt('İzlenecek')} value={stats.hasDurum ? String(stats.izlenecekCount) : '—'} sub={tt('listende bekliyor')} />
         <StatTile
+          icon="calendar"
+          color="#00c0fa"
+          spark={stats.hasDates ? monthSeries : undefined}
+          delta={yearDelta}
           label={tt('{0} izlediğin', getLang() === 'tr' ? withLocative(year) : tt('{0} yılında', year))}
           value={stats.hasDates ? String(stats.thisYearRows) : '—'}
-          sub={tt('izleme tarihine göre')}
+          sub={yearDelta ? undefined : tt('izleme tarihine göre')}
           hint={stats.hasDates ? undefined : tt('Bu sayı için kayıtlarda İzleme Tarihi dolu olmalı.')}
         />
         <StatTile
+          icon="tv"
+          color="#a78bfa"
           label={tt('Toplam süre')}
           value={stats.hasSureProp ? formatTotalMinutes(stats.totalMinutes).value : '—'}
           sub={stats.hasSureProp ? tt('{0}izlediklerinin', formatTotalMinutes(stats.totalMinutes).rest) : undefined}
@@ -677,6 +895,8 @@ export default function Istatistikler() {
           }
         />
         <StatTile
+          icon="star"
+          color="#eab308"
           label={tt('Ortalama puan')}
           value={stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—'}
           sub={stats.avgRating !== null ? tt('10 üzerinden · {0} kayıt', stats.ratedCount) : undefined}
@@ -687,11 +907,14 @@ export default function Istatistikler() {
         <Card title={tt('Son 12 ayda izlediklerin')} subtitle={tt('İzleme tarihine göre aylık · toplam {0} izleme (tekrar izlemeler dahil) · bir aya tıklayınca Takvim\'de açılır', monthTotal)}>
           <Columns
             palette={palette}
+            height={190}
+            highlightKey={thisMonthKey}
+            showAvg
             onPick={(key) => navigate(`/takvim?ay=${key}`)}
             data={stats.months.map((m) => ({
               key: m.key,
-              label: m.month === 0 ? String(m.year) : TR_MONTHS_SHORT[m.month],
-              strong: m.month === 0,
+              label: TR_MONTHS_SHORT[m.month],
+              sublabel: m.month === 0 ? String(m.year) : undefined,
               tipTitle: `${TR_MONTHS[m.month]} ${m.year}`,
               count: m.count,
             }))}
@@ -699,10 +922,16 @@ export default function Istatistikler() {
         </Card>
       )}
 
+      {stats.hasDates && (
+        <Card title={tt('{0} yılında izlediğin günler', year)} subtitle={tt('Her kare bir gün; ne kadar çok izlediysen o kadar parlak · bir güne tıklayınca Takvim\'de açılır')}>
+          <YearHeatmap daily={stats.daily} year={year} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}`)} />
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stats.kategoriBreakdown.length > 0 && (
           <Card title={tt('Kategori dağılımı')} subtitle={tt('Arşivindeki her şey, kategorisine göre')}>
-            <StackedBar buckets={stats.kategoriBreakdown} palette={palette} />
+            <Donut buckets={stats.kategoriBreakdown} palette={palette} />
           </Card>
         )}
         {stats.durumBreakdown.length > 0 && (

@@ -27,6 +27,7 @@ function parts(settings: HomeSettings) {
   if (settings.newEpisodesRow ?? true) specials.push({ key: 'new-episodes', label: tt('Yeni Bölümler'), position: settings.newEpisodesPosition ?? 1 })
   if (settings.onThisDay?.enabled ?? true) specials.push({ key: 'on-this-day', label: tt('Geçmiş yıllarda bugün'), position: settings.onThisDay?.position ?? 1 })
   if (settings.aklimdaRow?.enabled ?? true) specials.push({ key: 'aklimda', label: tt('Aklında kalanlar'), position: settings.aklimdaRow?.position ?? 1 })
+  if (settings.continueRow?.enabled) specials.push({ key: 'continue', label: tt('Kaldığın yerden'), position: settings.continueRow.position ?? 1 })
   if (settings.forgotten?.enabled ?? true) specials.push({ key: 'forgotten', label: tt('Unuttukların'), position: settings.forgotten?.position ?? 2 })
   if (settings.topRated?.enabled) specials.push({ key: 'top-rated', label: tt('Arşivindeki En İyi 10'), position: settings.topRated.position ?? 2 })
   if (settings.moodRow?.enabled) specials.push({ key: 'mood', label: settings.moodRow.title?.trim() || tt('Mod satırı'), position: settings.moodRow.position ?? 1 })

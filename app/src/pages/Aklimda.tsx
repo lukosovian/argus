@@ -116,11 +116,19 @@ export default function Aklimda() {
             {akl.limit > 0 ? tt('{0} / {1} yapım', akl.count, akl.limit) : tt('{0} yapım', akl.count)}
             {akl.full && <span className="ml-2 text-xs font-semibold text-amber-300">{tt('Dolu — yenisi için birini çıkar')}</span>}
           </p>
-          {akl.limit > 0 && (
-            <div className="mt-1.5 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${akl.full ? 'bg-amber-400' : 'bg-violet-400'}`} style={{ width: `${Math.min(100, (akl.count / akl.limit) * 100)}%` }} />
-            </div>
-          )}
+          {akl.limit > 0 &&
+            (akl.limit <= 50 ? (
+              // Sınır kadar küçük bölme: kaç yerin dolu olduğu tek bakışta (v1.23.3)
+              <div className="mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${akl.limit}, minmax(0,1fr))` }}>
+                {Array.from({ length: akl.limit }, (_, i) => (
+                  <span key={i} className={`h-2 rounded-[3px] transition-colors ${i < akl.count ? (akl.full ? 'bg-amber-400' : 'bg-gradient-to-r from-violet-500 to-violet-400') : 'bg-neutral-800'}`} />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-1.5 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${akl.full ? 'bg-amber-400' : 'bg-violet-400'}`} style={{ width: `${Math.min(100, (akl.count / akl.limit) * 100)}%` }} />
+              </div>
+            ))}
         </div>
         <label className="flex items-center gap-2 text-xs text-neutral-400">
           {tt('En fazla')}
@@ -154,30 +162,57 @@ export default function Aklimda() {
           </div>
 
           <div className={`grid gap-x-3 gap-y-5 ${MOBILE ? 'grid-cols-3' : 'grid-cols-[repeat(auto-fill,minmax(150px,1fr))]'}`}>
-            {list.map((e) => (
+            {list.map((e) => {
+              // Kaç gündür aklında: 30 günü geçince kırmızılaşır, karar vermen için dürter (v1.23.3, öneri M1)
+              const days = Math.max(0, Math.floor((Date.now() - e.item.addedAt) / 864e5))
+              const canAdd = e.status === 'yok' || e.status === 'diger'
+              return (
               <div key={e.key} className="min-w-0 flex flex-col">
-                <button
-                  onClick={() => (e.row ? setDetail(e.row) : setPreview(aklimdaCard(e)))}
-                  className="group relative block w-full aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-lg shadow-black/40"
-                  title={e.title}
-                >
-                  {e.poster ? (
-                    <img src={e.poster} alt={e.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  ) : (
-                    <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{e.title}</span>
-                  )}
+                <div className="group relative block w-full aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-lg shadow-black/40 transition duration-300 hover:-translate-y-1 hover:shadow-black/70 hover:ring-1 hover:ring-violet-400/50">
+                  <button onClick={() => (e.row ? setDetail(e.row) : setPreview(aklimdaCard(e)))} className="absolute inset-0" title={e.title}>
+                    {e.poster ? (
+                      <img src={e.poster} alt={e.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{e.title}</span>
+                    )}
+                  </button>
                   {(e.statusLabel || e.status === 'yok') && (
-                    <span className={`absolute top-1.5 left-1.5 text-[10px] font-semibold rounded px-1.5 py-0.5 ${STATUS_TONE[e.status]}`}>
+                    <span className={`pointer-events-none absolute top-1.5 left-1.5 text-[10px] font-semibold rounded px-1.5 py-0.5 ${STATUS_TONE[e.status]}`}>
                       {e.status === 'yok' ? tt('Arşivinde yok') : e.statusLabel}
                     </span>
                   )}
-                </button>
+                  <span
+                    className={`pointer-events-none absolute top-1.5 right-1.5 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-black/70 backdrop-blur-sm ${days > 30 ? 'text-rose-300' : 'text-neutral-200'}`}
+                    title={tt('eklendi: {0}', daysAgoLabel(e.item.addedAt))}
+                  >
+                    {days === 0 ? tt('bugün') : tt('{0} gündür', days)}
+                  </span>
+                  {/* Bilgisayarda düğmeler afişin üstüne gelince çıkar; telefonda altta kalır */}
+                  {!MOBILE && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-1 p-2 pt-10 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                      {canAdd && (
+                        <button
+                          onClick={() => toWatchlist(e)}
+                          disabled={busy === e.key}
+                          className="pointer-events-auto text-[11px] font-semibold rounded-md bg-violet-600 hover:bg-violet-500 text-white py-1.5 transition disabled:opacity-50"
+                        >
+                          {busy === e.key ? tt('Ekleniyor...') : tt('+ İzlenecek')}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => remove(e)}
+                        className="pointer-events-auto text-[11px] font-medium rounded-md bg-white/15 hover:bg-rose-500/80 text-white py-1.5 backdrop-blur-sm transition"
+                      >
+                        {tt('Aklımdan çıkar')}
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-neutral-200 mt-1.5 truncate" title={e.title}>
                   {e.title}
                   {e.year && <span className="text-neutral-500"> · {e.year}</span>}
                 </p>
-                <p className="text-[10px] text-neutral-600 mt-0.5">{tt('eklendi: {0}', daysAgoLabel(e.item.addedAt))}</p>
-                <div className="flex gap-1 mt-1.5">
+                {MOBILE && <div className="flex gap-1 mt-1.5">
                   {(e.status === 'yok' || e.status === 'diger') && (
                     <button
                       onClick={() => toWatchlist(e)}
@@ -194,9 +229,17 @@ export default function Aklimda() {
                   >
                     {tt('Çıkar')}
                   </button>
-                </div>
+                </div>}
               </div>
-            ))}
+              )
+            })}
+            {/* Sınıra kadar boş yuvalar: sayfa boş görünmez, kaç yer kaldığı belli olur (en fazla 2 sıra) */}
+            {!MOBILE && filter === 'hepsi' && akl.limit > 0 &&
+              Array.from({ length: Math.min(Math.max(0, akl.limit - akl.count), 16) }, (_, i) => (
+                <div key={`bos-${i}`} className="aspect-[2/3] rounded-lg border-[1.5px] border-dashed border-neutral-800 flex items-center justify-center text-2xl text-neutral-700" title={tt('Boş yer')}>
+                  +
+                </div>
+              ))}
           </div>
         </>
       )}

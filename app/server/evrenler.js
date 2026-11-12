@@ -420,8 +420,26 @@ export function registerPlatformRoutes(app) {
           const minutes = list.filter((it) => keys.has(`${it.type}:${it.tmdbId}`)).reduce((t, it) => t + it.minutes, 0)
           if (!combo || minutes > combo.minutes) combo = { ids: [top[a].id, top[b].id], count: keys.size, minutes }
         }
+      // 3 aylık plan (v1.23.3): her ay, daha önceki aylarda karşılanmayanlardan en çok süreyi karşılayan platform
+      const minutesOf = new Map(list.map((it) => [`${it.type}:${it.tmdbId}`, it.minutes]))
+      const covered = new Set()
+      const plan = []
+      for (let m = 0; m < 3; m++) {
+        let bestP = null
+        for (const p of providers.slice(0, 12)) {
+          if (plan.some((x) => x.id === p.id)) continue
+          const fresh = p.items.filter((x) => !covered.has(x.key))
+          const minutes = fresh.reduce((t, x) => t + (minutesOf.get(x.key) ?? 0), 0)
+          if (fresh.length && (!bestP || minutes > bestP.minutes || (minutes === bestP.minutes && fresh.length > bestP.count)))
+            bestP = { id: p.id, count: fresh.length, minutes, items: fresh.slice(0, 6) }
+        }
+        if (!bestP) break
+        for (const x of providers.find((p) => p.id === bestP.id).items) covered.add(x.key)
+        plan.push(bestP)
+      }
       const home = d.readJson(d.profileHomeSettingsFile(profileId), {})
       res.json({
+        plan,
         providers: providers.map((p) => ({ ...p, items: p.items.slice(0, 12) })),
         none: none.slice(0, 30),
         noneCount: none.length,

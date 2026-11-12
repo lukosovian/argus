@@ -17,20 +17,22 @@ function useDelayed() {
 }
 
 function Block({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
-  return <div className={`bg-neutral-800/70 rounded-lg ${className}`} style={style} />
+  // Üstünden soldan sağa ışık geçen gri kutu (v1.23.3, öneri G4; bkz. index.css .argus-parilti)
+  return <div className={`argus-parilti rounded-lg ${className}`} style={style} />
 }
 
-export type SkeletonKind = 'home' | 'table' | 'rows' | 'calendar' | 'page'
+export type SkeletonKind = 'home' | 'table' | 'rows' | 'calendar' | 'page' | 'posters'
 
 export default function PageSkeleton({ kind = 'page' }: { kind?: SkeletonKind }) {
   const show = useDelayed()
   return (
-    <div role="status" aria-label={tt('Yükleniyor...')} className="animate-pulse transition-opacity duration-300" style={{ opacity: show ? 1 : 0 }}>
+    <div role="status" aria-label={tt('Yükleniyor...')} className="transition-opacity duration-300" style={{ opacity: show ? 1 : 0 }}>
       {kind === 'home' && <HomeSkeleton />}
       {kind === 'table' && <TableSkeleton />}
       {kind === 'rows' && <RowsSkeleton />}
       {kind === 'calendar' && <CalendarSkeleton />}
       {kind === 'page' && <GenericSkeleton />}
+      {kind === 'posters' && <PostersSkeleton />}
     </div>
   )
 }
@@ -134,11 +136,30 @@ function GenericSkeleton() {
   )
 }
 
+// Afişli sayfalar (Evren detayı, Koleksiyon…): büyük başlık kutusu + afiş ızgarası
+function PostersSkeleton() {
+  return (
+    <div className="px-3 sm:px-6 py-8 max-w-6xl mx-auto">
+      <div className="rounded-3xl border border-neutral-800 p-6 sm:p-10 mb-6">
+        <Block className="h-3 w-16 mb-3" />
+        <Block className="h-10 w-96 max-w-full mb-4" />
+        <Block className="h-2 w-[min(560px,100%)] rounded-full mb-3" />
+        <Block className="h-3.5 w-72 max-w-full" />
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-7 gap-3">
+        {Array.from({ length: 14 }).map((_, i) => (
+          <Block key={i} className="aspect-[2/3]" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // Panel/pencere içinde küçük taslak: birkaç gri satır (Ayarlar panelleri, Geçmiş, TMDB bilgileri…)
 export function LineSkeleton({ lines = 3, className = '' }: { lines?: number; className?: string }) {
   const show = useDelayed()
   return (
-    <div role="status" aria-label={tt('Yükleniyor...')} className={`animate-pulse space-y-2.5 py-1 transition-opacity duration-300 ${className}`} style={{ opacity: show ? 1 : 0 }}>
+    <div role="status" aria-label={tt('Yükleniyor...')} className={`space-y-2.5 py-1 transition-opacity duration-300 ${className}`} style={{ opacity: show ? 1 : 0 }}>
       {Array.from({ length: lines }).map((_, i) => (
         <Block key={i} className="h-3.5" style={{ width: `${92 - ((i * 23) % 40)}%` }} />
       ))}

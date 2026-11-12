@@ -1,4 +1,5 @@
-import type { ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
+import Icon from '../components/Icon'
 import { useSearchParams } from 'react-router-dom'
 import { BRAND_GRADIENT } from '../lib/theme'
 import ArchivesPanel from '../components/settings/ArchivesPanel'
@@ -77,6 +78,30 @@ const TABS: { key: Tab; label: string; hint: string; icon: ComponentType }[] = [
   { key: 'profil', label: tt('Profil Ayarları'), hint: tt('Profil ekle, düzenle, değiştir'), icon: UserIcon },
 ]
 
+// Ayar arama dizini (v1.23.3, öneri Y1): "yedek" yazınca ilgili ayarlar ve hangi sekmede oldukları çıkar,
+// tıklayınca o sekme (ve alt sekmesi) açılır. Yeni bir ayar eklenince buraya da bir satır eklenir.
+const SEARCH: { label: string; tab: Tab; alt?: string; where: string; words?: string }[] = [
+  { label: tt('Yeni arşiv oluştur'), tab: 'veritabani', alt: 'arsivler', where: tt('Veritabanı › Arşivler'), words: 'tablo board' },
+  { label: tt('Sütun şablonları'), tab: 'veritabani', alt: 'sablonlar', where: tt('Veritabanı › Şablonlar'), words: 'şablon kolon' },
+  { label: tt('İçe aktar (CSV, Notion, Netflix)'), tab: 'veritabani', alt: 'ice-aktar', where: tt('Veritabanı › İçe Aktar'), words: 'import csv notion netflix' },
+  { label: tt('TMDB API anahtarı'), tab: 'veritabani', alt: 'api', where: tt('Veritabanı › API'), words: 'tmdb key anahtar' },
+  { label: tt('Yedekleme klasörü ve otomatik yedek'), tab: 'veritabani', alt: 'yedek', where: tt('Veritabanı › Yedekleme'), words: 'yedek backup' },
+  { label: tt('Yedekten geri yükle'), tab: 'veritabani', alt: 'yedek', where: tt('Veritabanı › Yedekleme'), words: 'yedek geri restore' },
+  { label: tt('Vitrin ve vitrin görünümü'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'vitrin sinema slayt klasik fragman' },
+  { label: tt('Vitrin süsleri'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'vitrin süs özet aklımda' },
+  { label: tt('Kart boyutu ve bilgileri her zaman göster'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'kart boyut' },
+  { label: tt('Satırlar ve sıraları'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'satır sıra kaldığın yerden aklında yeni bölümler unuttukların en iyi' },
+  { label: tt('Üst menüdeki sayfalar'), tab: 'ana-sayfa', alt: 'sayfalar', where: tt('Ana Sayfa › Sayfalar'), words: 'diziler filmler sayfa menü' },
+  { label: tt('Mod satırı'), tab: 'ana-sayfa', alt: 'mod', where: tt('Ana Sayfa › Modlar'), words: 'mod ruh hali' },
+  { label: tt('Ne İzlesem? havuzu ve animasyonu'), tab: 'ana-sayfa', alt: 'nizlesem', where: tt('Ana Sayfa › Ne İzlesem?'), words: 'ne izlesem rastgele' },
+  { label: tt('Bilgisayar açılınca başlat'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'açılış başlangıç' },
+  { label: tt('Kapatınca tepsiye küçült'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'kapatma tepsi' },
+  { label: tt('Bildirimler'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'bildirim' },
+  { label: tt('Güncellemeler'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'güncelleme sürüm' },
+  { label: tt('Yakınlaştırma ve kısayollar'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'zoom yakınlaştır kısayol ctrl' },
+  { label: tt('Profil ekle, adı ve resmi'), tab: 'profil', where: tt('Profil Ayarları'), words: 'profil resim ad' },
+]
+
 function isTab(v: string | null): v is Tab {
   return TABS.some((t) => t.key === v)
 }
@@ -91,16 +116,22 @@ export default function Boards() {
   const param = searchParams.get('sekme')
   const tab: Tab = isTab(param) ? param : 'veritabani'
 
-  function setTab(key: Tab) {
+  function setTab(key: Tab, alt?: string) {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
         next.set('sekme', key)
+        if (alt) next.set('alt', alt)
+        else next.delete('alt')
         return next
       },
       { replace: true },
     )
   }
+  const [q, setQ] = useState('')
+  const norm = (s: string) => s.toLocaleLowerCase('tr')
+  const hits = q.trim() ? SEARCH.filter((s) => norm(`${s.label} ${s.where} ${s.words ?? ''}`).includes(norm(q.trim()))) : []
+  const alt = searchParams.get('alt') ?? ''
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -110,7 +141,36 @@ export default function Boards() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-5 md:gap-8 items-stretch md:items-start">
-        <nav className="md:w-64 shrink-0 md:sticky md:top-24 flex md:flex-col gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="md:w-64 shrink-0 md:sticky md:top-24 space-y-3">
+        <label className="hidden md:flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-neutral-500 focus-within:border-[#00c0fa]/60 transition">
+          <Icon name="search" className="h-4 w-4 shrink-0" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && setQ('')}
+            placeholder={tt('Ayarlarda ara…')}
+            className="min-w-0 flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-500"
+          />
+        </label>
+        {q.trim() && (
+          <div className="hidden md:block overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/80">
+            {hits.length === 0 && <p className="px-3 py-2.5 text-xs text-neutral-500">{tt('Bu adla bir ayar bulunamadı.')}</p>}
+            {hits.map((h) => (
+              <button
+                key={h.label}
+                onClick={() => {
+                  setTab(h.tab, h.alt)
+                  setQ('')
+                }}
+                className="block w-full border-b border-neutral-800/70 last:border-0 px-3 py-2 text-left hover:bg-neutral-800/70 transition"
+              >
+                <span className="block text-sm text-neutral-100">{h.label}</span>
+                <span className="block text-[11px] text-neutral-500">{h.where}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <nav className="flex md:flex-col gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
           {TABS.map(({ key, label, hint, icon: Icon }) => {
             const active = tab === key
             return (
@@ -144,10 +204,11 @@ export default function Boards() {
             )
           })}
         </nav>
+        </div>
 
         <div className="flex-1 min-w-0 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-4 sm:p-6 md:p-7">
-          {tab === 'veritabani' && <ArchivesPanel />}
-          {tab === 'ana-sayfa' && <HomeSettingsPanel />}
+          {tab === 'veritabani' && <ArchivesPanel key={alt} />}
+          {tab === 'ana-sayfa' && <HomeSettingsPanel key={alt} />}
           {tab === 'uygulama' && <AppSettingsPanel />}
           {tab === 'profil' && <ProfileSettingsPanel />}
         </div>

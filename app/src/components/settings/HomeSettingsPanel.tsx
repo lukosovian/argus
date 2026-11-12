@@ -332,7 +332,10 @@ export default function HomeSettingsPanel() {
   const { boards } = useBoards()
   const { settings, saveSettings } = useHomeSettings()
   const board = boards.find((b) => b.id === settings.boardId)
-  const [tab, setTab] = useState<TabId>('gorunum')
+  const [tab, setTab] = useState<TabId>(() => {
+    const a = new URLSearchParams(window.location.search).get('alt')
+    return TABS.some((t) => t.id === a) ? (a as TabId) : 'gorunum'
+  })
 
   async function handleBoardIdChange(id: string) {
     // Farklı bir arşive geçiliyor — eski arşivin sütunlarına bağlı sayfalar/vitrin filtresi geçersiz
@@ -502,6 +505,22 @@ export default function HomeSettingsPanel() {
                       )
                     })}
                   </div>
+                </div>
+              )}
+
+              {settings.showcase && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-neutral-300">
+                    {tt('Vitrin süsleri')}
+                    <span className="block text-xs text-neutral-600 mt-0.5">
+                      {tt('Kısa özet ve "Aklımda tut" düğmesi, yavaşça yakınlaşan görsel, dolan slayt çizgileri, fragman durunca görsele dönüş.')}
+                    </span>
+                  </span>
+                  <ToggleSwitch
+                    checked={settings.showcaseExtras ?? false}
+                    onChange={(v) => saveSettings({ ...settings, showcaseExtras: v })}
+                    label={tt('Vitrin süsleri')}
+                  />
                 </div>
               )}
 
@@ -681,6 +700,22 @@ export default function HomeSettingsPanel() {
                   checked={settings.aklimdaRow?.enabled ?? true}
                   onChange={(v) => saveSettings({ ...settings, aklimdaRow: { position: settings.aklimdaRow?.position ?? 1, enabled: v } })}
                   label={tt('Aklında kalanlar satırını göster')}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-neutral-300">
+                  {tt('"Kaldığın yerden" satırını göster')}
+                  <span className="block text-xs text-neutral-600 mt-0.5">
+                    {tt('İzlediğin ve yarım bıraktıkların; geniş kartlar ve ne kadar ilerlediğini gösteren çizgiyle.')}
+                  </span>
+                </span>
+                <ToggleSwitch
+                  checked={settings.continueRow?.enabled ?? false}
+                  onChange={(v) => saveSettings({ ...settings, continueRow: { position: settings.continueRow?.position ?? 1, enabled: v } })}
+                  label={tt('Kaldığın yerden satırını göster')}
                 />
               </div>
             </div>

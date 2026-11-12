@@ -58,6 +58,12 @@ import {
   DilVisual,
   OtomatikIzleniyorVisual,
   BolumNumarasiVisual,
+  VitrinSusVisual,
+  KaldiginYerdenVisual,
+  TakvimCilaVisual,
+  IstatistikCilaVisual,
+  EvrenCilaVisual,
+  TabloCilaVisual,
   NeIzlesemFiltreVisual,
   NeIzlesemSiralamaVisual,
   SeriFilmVisual,
@@ -100,6 +106,24 @@ import {
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
+// Madde türü (v1.23.3, öneri N1): Yeni / İyileştirme / Düzeltme. Yeni maddelerde başına "yeni:", "iyi:" ya da
+// "duz:" yazılabilir; yazılmayan eski maddelerin türü cümlesinden tahmin edilir.
+type ItemKind = 'yeni' | 'iyi' | 'duz'
+const KIND_LABEL: Record<ItemKind, string> = { yeni: tt('Yeni'), iyi: tt('İyileştirme'), duz: tt('Düzeltme') }
+const KIND_STYLE: Record<ItemKind, string> = {
+  yeni: 'bg-emerald-500/15 text-emerald-400',
+  iyi: 'bg-sky-500/15 text-sky-400',
+  duz: 'bg-amber-500/15 text-amber-400',
+}
+function itemKind(raw: string): { kind: ItemKind; text: string } {
+  const m = /^(yeni|iyi|duz):\s*/.exec(raw)
+  if (m) return { kind: m[1] as ItemKind, text: raw.slice(m[0].length) }
+  const s = raw.toLocaleLowerCase('tr')
+  if (/düzelt|hata|sorun|bozul|giderildi|takıl|kayboluyordu|çıkmıyordu|görünmüyordu|olmuyordu|yanlış|unutuyordu|silinmiyordu/.test(s)) return { kind: 'duz', text: raw }
+  if (/eklendi|^yeni |yeni bir|yeni satır|yeni sayfa|artık .*(sayfa|satır|düğme|pencere)|sayfası|satırı geldi/.test(s)) return { kind: 'yeni', text: raw }
+  return { kind: 'iyi', text: raw }
+}
+
 interface PatchEntry {
   version: string
   date: string
@@ -111,6 +135,37 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.3',
+    date: tt('13 Kasım 2026'),
+    title: tt('Arayüz cilası: bütün sayfalar yenilendi'),
+    items: [
+      tt('iyi: Üst menüde seçili sayfa artık kutu içinde değil; altında sayfalar arasında kayan parlak bir çizgi var. Menü aşağı kayınca buzlu cam gibi oluyor. Arama her yerden Ctrl+K ile de açılıyor.'),
+      tt('iyi: Durumlar her yerde aynı renkte: İzlendi yeşil, İzlenecek turuncu, Yarım mavi, İzleniyor sarı. Başlarındaki noktadan anlaşılıyor; İzleniyor\'un noktası nabız gibi atıyor.'),
+      tt('yeni: Ana Sayfa Ayarları › Vitrin\'de "Vitrin süsleri" (isteğe bağlı): 3 satırlık özet, "Aklımda tut" düğmesi, yavaşça yakınlaşan görsel, dolan slayt çizgileri ve fragman durunca siyah kare yerine görsel. Sinema görünümünde satırlar vitrinin altına biraz biniyor.'),
+      tt('yeni: "Kaldığın yerden" satırı (isteğe bağlı, Ana Sayfa Ayarları › Satırlar): İzleniyor ve Yarım olanlar geniş kartla, altında ne kadar ilerlediğini gösteren çizgiyle.'),
+      tt('yeni: Ana sayfada afişin üstüne gelince büyüyen kartta tek tıkla "Aklımda tut" düğmesi.'),
+      tt('iyi: Takvim: günde tek bir şey izlediysen görselli büyük kartla görünüyor; vizyona girenler tek küçük satırda ("4 vizyon"), tıklayınca açılıyor. Bugün üstten parlıyor, hafta sonları hafif tonlu. Ayın üstünde her günün ne kadar dolu olduğunu gösteren ısı şeridi var.'),
+      tt('iyi: İstatistikler: sayı kartlarında ikon, renk ve son 12 ayın küçük çizgisi; geçen yılın aynı dönemiyle karşılaştırma. Aylık grafikte bu ay parlıyor, ortalama kesik çizgiyle görünüyor, sayılar üstüne gelince çıkıyor. Yeni: bütün yılın ısı haritası ve kategori halkası.'),
+      tt('iyi: Aklımda: sınıra kadar boş yuvalar, her afişte "kaç gündür aklında" etiketi (30 günü geçince kırmızı), düğmeler afişin üstüne gelince çıkıyor.'),
+      tt('iyi: Koleksiyon: sembolün çevresinde serinin kaçını izlediğini gösteren halka; raf sembolün renginde hafifçe parlıyor.'),
+      tt('iyi: Evrenler: kartlar kendi renginde parlıyor, yüzdeli halka ve sıradaki yapımın afişi kartta. Evren detayında başlık kutusunun sağında sıradaki yapımın görseli, afişlerin üstünde yıllara yayılan zaman çizgisi.'),
+      tt('yeni: Abonelik: "Sırayla al" 3 aylık plan (her ay öncekilerde olmayanlara göre) ve bütün platformlar yan yana renkli çubuklarla.'),
+      tt('iyi: Flashback\'te rakamlar sayarak geliyor, ekran süresi kartında ay ay grafik var.'),
+      tt('yeni: Ayarlar\'da arama kutusu ("yedek" yaz, ilgili ayara git) ve son eklenen afişlerle, durum dağılımıyla dolu arşiv kartı.'),
+      tt('iyi: Yardım Merkezi\'nde solda yapışkan içindekiler ve klavye kısayolları bölümü. Yama Notları dikey zaman çizgisinde; her madde Yeni, İyileştirme ya da Düzeltme etiketli ve süzülebiliyor.'),
+      tt('yeni: Arşiv tablosunda isteğe bağlı "Cilalı" görünüm (araç çubuğundaki ✦ düğmesi): türler renkli nokta ve tam adla, puan kırmızıdan yeşile dönen renkte ve çubukla.'),
+      tt('iyi: Yükleme iskeletlerinin üstünden ışık geçiyor; "Kim izliyor?" ekranında profil üstüne gelince yaylanıp resminin renginde parlıyor.'),
+    ],
+    visuals: [
+      { caption: tt('1 kısa özet · 2 Aklımda tut · 3 dolan slayt çizgisi · 4 satırlar vitrine biniyor'), Visual: VitrinSusVisual },
+      { caption: tt('1 ilerleme çizgisi · 2 üstüne gelince oynat'), Visual: KaldiginYerdenVisual },
+      { caption: tt('1 ısı şeridi · 2 günün kahramanı · 3 vizyonlar tek satır · 4 bugün'), Visual: TakvimCilaVisual },
+      { caption: tt('1 bu ay · 2 ortalama · 3 yıl ısı haritası · 4 kategori halkası'), Visual: IstatistikCilaVisual },
+      { caption: tt('1 evren halkası · 2 sıradaki · 3 koleksiyon halkası · 4 zaman çizgisi'), Visual: EvrenCilaVisual },
+      { caption: tt('1 Cilalı görünüm düğmesi · 2 renkli türler · 3 renkli puan çubuğu'), Visual: TabloCilaVisual },
+    ],
+  },
   {
     version: 'v1.23.2',
     date: tt('13 Kasım 2026'),
@@ -1062,14 +1117,6 @@ function splitDate(date: string) {
   return m ? { day: m[1], rest: m[2] } : { day: '', rest: date }
 }
 
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  )
-}
-
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
@@ -1129,12 +1176,14 @@ function EntryCard({
   open,
   onToggle,
   onZoom,
+  kindFilter,
 }: {
   entry: PatchEntry
   latest: boolean
   open: boolean
   onToggle: () => void
   onZoom: (v: Visual) => void
+  kindFilter: ItemKind | null
 }) {
   const visuals = entry.visuals ?? []
   const summary = [tt('{0} değişiklik', entry.items.length), visuals.length ? tt('{0} çizim', visuals.length) : ''].filter(Boolean).join(' · ')
@@ -1172,17 +1221,15 @@ function EntryCard({
       {open && (
         <div className="px-5 pb-5 -mt-1">
           <ul className="space-y-2">
-            {entry.items.map((item, j) => (
-              <li key={j} className="flex gap-3 text-sm text-neutral-300 leading-relaxed">
-                <span
-                  className="h-5 w-5 shrink-0 mt-px rounded-full flex items-center justify-center bg-[#00c0fa]/10"
-                  style={{ color: BRAND_TEXT }}
-                >
-                  <CheckIcon />
-                </span>
-                <span>{item}</span>
-              </li>
-            ))}
+            {entry.items
+              .map((item) => itemKind(item))
+              .filter((it) => !kindFilter || it.kind === kindFilter)
+              .map((it, j) => (
+                <li key={j} className="flex gap-3 text-sm text-neutral-300 leading-relaxed">
+                  <span className={`shrink-0 mt-0.5 h-fit w-[82px] text-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${KIND_STYLE[it.kind]}`}>{KIND_LABEL[it.kind]}</span>
+                  <span>{it.text}</span>
+                </li>
+              ))}
           </ul>
           {visuals.length > 0 && (
             <div className="grid gap-3 mt-5 sm:grid-cols-2">
@@ -1215,6 +1262,10 @@ export default function YamaNotlari() {
   const groups = useMemo(() => groupByDate(ENTRIES), [])
   const allOpen = openSet.size === ENTRIES.length
   const latest = ENTRIES[0]
+  const [kindFilter, setKindFilter] = useState<ItemKind | null>(null)
+  const shownGroups = kindFilter
+    ? groups.map((g) => ({ ...g, entries: g.entries.filter((e) => e.items.some((i) => itemKind(i).kind === kindFilter)) })).filter((g) => g.entries.length)
+    : groups
 
   function toggle(version: string) {
     setOpenSet((prev) => {
@@ -1268,6 +1319,20 @@ export default function YamaNotlari() {
               </button>
             ))}
           </div>
+          <div className="hidden sm:flex shrink-0 gap-1">
+            {(['yeni', 'iyi', 'duz'] as ItemKind[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => {
+                  setKindFilter(kindFilter === k ? null : k)
+                  if (kindFilter !== k) setOpenSet(new Set(ENTRIES.map((e) => e.version)))
+                }}
+                className={`text-xs rounded-full px-2.5 py-1.5 border transition ${kindFilter === k ? `${KIND_STYLE[k]} border-transparent font-semibold` : 'border-neutral-800 text-neutral-400 hover:text-neutral-50 hover:border-neutral-600'}`}
+              >
+                {KIND_LABEL[k]}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setOpenSet(allOpen ? new Set([latest.version]) : new Set(ENTRIES.map((e) => e.version)))}
             className="shrink-0 text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-full px-3 py-1.5 transition"
@@ -1277,13 +1342,23 @@ export default function YamaNotlari() {
         </div>
       </div>
 
-      {/* Güne göre zaman çizelgesi */}
-      <div className="space-y-10">
-        {groups.map((g) => {
+      {/* Güne göre zaman çizelgesi: günler dikey bir çizgiyle birbirine bağlı, en yenisi parlıyor */}
+      <div className="relative space-y-10">
+        <div
+          aria-hidden
+          className="hidden md:block absolute left-[123px] top-2 bottom-2 w-[2px] rounded-full"
+          style={{ background: 'linear-gradient(180deg, #00c0fa, var(--color-neutral-800) 25%, var(--color-neutral-800))' }}
+        />
+        {shownGroups.map((g, gi) => {
           const { day, rest } = splitDate(g.date)
           return (
             <section key={g.date} className="md:grid md:grid-cols-[112px_1fr] md:gap-6">
-              <div className="md:sticky md:top-32 self-start mb-3 md:mb-0 flex md:block items-baseline gap-2">
+              <div className="relative md:sticky md:top-32 self-start mb-3 md:mb-0 flex md:block items-baseline gap-2">
+                <span
+                  aria-hidden
+                  className={`hidden md:block absolute -right-[19px] top-2 h-3.5 w-3.5 rounded-full border-2 ${gi === 0 && !kindFilter ? 'border-[#00c0fa] bg-[#00c0fa]' : 'border-neutral-600 bg-neutral-950'}`}
+                  style={gi === 0 && !kindFilter ? { boxShadow: '0 0 0 4px rgba(0,192,250,.18), 0 0 14px rgba(0,192,250,.7)' } : undefined}
+                />
                 {day && <p className="text-2xl md:text-3xl font-bold text-neutral-100 leading-none">{day}</p>}
                 <p className="text-xs text-neutral-500 md:mt-1">{rest}</p>
                 <p className="text-[11px] text-neutral-600 md:mt-2">{g.entries.length > 1 ? tt('{0} güncelleme', g.entries.length) : ''}</p>
@@ -1297,6 +1372,7 @@ export default function YamaNotlari() {
                     open={openSet.has(entry.version)}
                     onToggle={() => toggle(entry.version)}
                     onZoom={setZoom}
+                    kindFilter={kindFilter}
                   />
                 ))}
               </div>

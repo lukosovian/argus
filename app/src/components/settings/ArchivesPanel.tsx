@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useBoards } from '../../hooks/useBoards'
 import { useHomeSettings } from '../../hooks/useHomeSettings'
 import { useTemplates } from '../../hooks/useTemplates'
@@ -14,26 +14,10 @@ import DatabaseHelpModal from './DatabaseHelpModal'
 import Select from '../Select'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import { PanelHeader, SettingsTabs } from './SettingsUi'
-import { tt, ttx } from '../../lib/i18n'
+import { tt } from '../../lib/i18n'
 import EmptyState from '../EmptyState'
 import { LineSkeleton } from '../Skeleton'
-
-function ArchiveIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M3 9h18M9 21V9" />
-    </svg>
-  )
-}
+import ArchiveCard from './ArchiveCard'
 
 const BLANK = '__blank__'
 const BUILTIN = '__builtin__'
@@ -49,7 +33,11 @@ export default function ArchivesPanel() {
   const { settings, saveSettings, selectBoardIfNone } = useHomeSettings()
   const { confirm } = useToast()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'arsivler' | 'sablonlar' | 'ice-aktar' | 'api' | 'yedek'>('arsivler')
+  // Ayar aramasından gelince (?alt=yedek gibi) doğrudan o alt sekme açılır
+  const [tab, setTab] = useState<'arsivler' | 'sablonlar' | 'ice-aktar' | 'api' | 'yedek'>(() => {
+    const a = new URLSearchParams(window.location.search).get('alt')
+    return a === 'sablonlar' || a === 'ice-aktar' || a === 'api' || a === 'yedek' ? a : 'arsivler'
+  })
   const [helpOpen, setHelpOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -204,38 +192,9 @@ export default function ArchivesPanel() {
             <EmptyState compact art="arsiv" title={tt('Henüz bir arşivin yok. Yukarıdan yeni bir tane oluştur.')} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {boards.map((b) => {
-                const onHome = settings.boardId === b.id
-                return (
-                  <Link
-                    key={b.id}
-                    to={`/board/${b.id}`}
-                    className="group flex items-center gap-4 bg-neutral-900/70 border border-neutral-800 hover:border-[#00c0fa]/40 rounded-2xl p-4 transition"
-                  >
-                    <span className="h-11 w-11 shrink-0 rounded-xl bg-[#00c0fa]/10 text-[#00c0fa] flex items-center justify-center">
-                      <ArchiveIcon />
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span className="text-base font-medium text-neutral-100 truncate">{b.name}</span>
-                        {onHome && (
-                          <span className="shrink-0 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5">
-                            {tt('Ana sayfada')}
-                          </span>
-                        )}
-                      </span>
-                      <span className="block text-xs text-neutral-500 mt-0.5">{ttx('{0} sütun', b.properties.length)}</span>
-                    </span>
-                    <button
-                      onClick={(e) => handleDelete(e, b.id)}
-                      className="text-neutral-600 hover:text-rose-400 text-xs opacity-0 group-hover:opacity-100 transition shrink-0"
-                    >
-                      {tt('Sil')}
-                    </button>
-                    <span className="text-neutral-600 group-hover:text-[#00c0fa] transition shrink-0">→</span>
-                  </Link>
-                )
-              })}
+              {boards.map((b) => (
+                <ArchiveCard key={b.id} board={b} onHome={settings.boardId === b.id} onDelete={(e) => handleDelete(e, b.id)} />
+              ))}
             </div>
           )}
         </div>

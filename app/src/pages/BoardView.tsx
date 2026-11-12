@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import RowEditorModal from '../components/RowEditorModal'
 import MobileBoardList from '../components/mobile/MobileBoardList'
 import { MOBILE } from '../lib/mobile/ui'
+import Icon from '../components/Icon'
+import { setPolishedTable, usePolishedTable } from '../lib/tableStyle'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
@@ -830,6 +832,7 @@ export default function BoardView() {
   // Hangi sütunların kapalı olduğu bu tarayıcıda kalıcı (localStorage) — sekme/tarayıcı/
   // bilgisayar kapansa da kaybolmasın diye. Arşive özel (id bazlı anahtar): farklı arşivlerin
   // sütunları birbirini etkilemesin.
+  const polished = usePolishedTable()
   // Satır sıklığı ("Rahat" / "Sıkı") — gizli sütunlar gibi bu tarayıcıda, arşive özel saklanıyor.
   const densityKey = id ? `argus_table_density_${id}` : null
   const [density, setDensity] = useState<'rahat' | 'siki'>('siki')
@@ -2011,6 +2014,13 @@ export default function BoardView() {
         hiddenIds={hiddenColumnIds}
         onToggle={toggleColumnHidden}
       />
+      <ToolbarIconButton
+        onClick={() => setPolishedTable(!polished)}
+        title={polished ? tt('Görünüm: Cilalı — sade görünüme dönmek için tıkla') : tt('Görünüm: Sade — renkli türler ve puan çubuklu cilalı görünüm için tıkla')}
+        active={polished}
+      >
+        <Icon name="sparkle" className="h-4 w-4" />
+      </ToolbarIconButton>
       <ToolbarIconButton
         onClick={toggleDensity}
         title={density === 'rahat' ? tt('Satırlar: Rahat — sıkıya geçmek için tıkla') : tt('Satırlar: Sıkı — rahata geçmek için tıkla')}

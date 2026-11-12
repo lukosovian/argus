@@ -8,6 +8,8 @@ import { useToast } from '../hooks/useToast'
 import { api } from '../lib/api'
 import { formatStamp, summarizeEntry, type HistoryEntry } from '../lib/history'
 import OptionBadge from './OptionBadge'
+import { OPTION_DOTS, scoreColor, usePolishedTable } from '../lib/tableStyle'
+import { splitFlagEmoji } from '../lib/flagEmoji'
 import Checkbox from './Checkbox'
 import AddPropertyPopover from './AddPropertyPopover'
 import ColumnMenu from './ColumnMenu'
@@ -484,9 +486,23 @@ function Cell({
   // bilgileri göstersin" dedi). Satır yüksekliği içeriğe göre büyür (bkz. useVirtualRows).
   roomy?: boolean
 }) {
+  const polished = usePolishedTable()
   if (property.type === 'rating') {
     const avg = ratingAverage(value, property)
-    return avg === null ? null : <span className="text-neutral-300 inline-flex items-center gap-1"><Icon name="star" className="h-3.5 w-3.5 text-amber-400" />{avg.toFixed(1)}</span>
+    if (avg === null) return null
+    if (polished) {
+      // Cilalı görünüm: puanın rengi kırmızıdan yeşile, yanında doluluk çubuğu
+      const c = scoreColor(avg)
+      return (
+        <span className="inline-flex items-center gap-2">
+          <b className="tabular-nums text-[13px] font-bold" style={{ color: c }}>{avg.toFixed(1)}</b>
+          <span className="h-[5px] w-11 rounded-full bg-neutral-800 overflow-hidden">
+            <span className="block h-full rounded-full" style={{ width: `${avg * 10}%`, background: c }} />
+          </span>
+        </span>
+      )
+    }
+    return <span className="text-neutral-300 inline-flex items-center gap-1"><Icon name="star" className="h-3.5 w-3.5 text-amber-400" />{avg.toFixed(1)}</span>
   }
 
   if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
@@ -539,6 +555,27 @@ function Cell({
     const propMap = optionMaps.get(property.id)
     const opts = ids.map((id) => propMap?.get(id)).filter(Boolean)
     if (opts.length === 0) return null
+    // Cilalı görünüm: resimsiz/bayraksız seçenekler (Tür gibi) kutu yerine renkli nokta + tam ad
+    if (polished && !roomy && opts.every((o) => !o!.image && !splitFlagEmoji(o!.label).flagCode)) {
+      // İlki tam adıyla (sığmazsa "…" ile), kalanlar "+N"; hepsi üstüne gelince görünür
+      const first = opts[0]!
+      return (
+        <span className="flex min-w-0 items-center gap-2 whitespace-nowrap" title={opts.map((o) => o!.label).join(', ')}>
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-[12px] text-neutral-200">
+            <span className="h-[7px] w-[7px] shrink-0 rounded-[2px]" style={{ background: OPTION_DOTS[first.colorIndex % OPTION_DOTS.length] }} />
+            <span className="truncate">{first.label}</span>
+          </span>
+          {opts.length > 1 && (
+            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-neutral-500">
+              {opts.slice(1, 4).map((o) => (
+                <span key={o!.id} className="h-[6px] w-[6px] rounded-[2px]" style={{ background: OPTION_DOTS[o!.colorIndex % OPTION_DOTS.length] }} />
+              ))}
+              +{opts.length - 1}
+            </span>
+          )}
+        </span>
+      )
+    }
     if (roomy)
       return (
         <WrapClamp

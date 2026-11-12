@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { SHORTCUTS } from '../components/KeyboardShortcuts'
 import { MOBILE } from '../lib/mobile/ui'
 import { GizliSutunVisual, GuncelleVisual, KesfetVisual, KoleksiyonVisual, SaglikVisual, YedekVisual, YeniBolumlerVisual } from '../components/PatchVisuals'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -982,6 +983,17 @@ export default function YardimMerkezi() {
   const isFirstVisit = searchParams.get('ilk') === '1'
   const [query, setQuery] = useState('')
   const [openFaq, setOpenFaq] = useState<number | null>(0)
+  // Solda yapışkan içindekiler: okuduğun bölüm işaretli (v1.23.3, öneri H1)
+  const [current, setCurrent] = useState<string>('')
+  useEffect(() => {
+    const els = [...document.querySelectorAll<HTMLElement>('[data-yardim-bolum]')]
+    const io = new IntersectionObserver(
+      (es) => es.forEach((e) => e.isIntersecting && setCurrent(e.target.getAttribute('data-yardim-bolum') ?? '')),
+      { rootMargin: '-35% 0px -60% 0px' },
+    )
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [query])
 
   function handleClose() {
     notify(tt('Yardım Merkezi\'ne istediğin zaman sağ üstteki profil menüsünden ulaşabilirsin.'))
@@ -1000,7 +1012,7 @@ export default function YardimMerkezi() {
   let topicIndex = 0
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
+    <div className={`${MOBILE ? 'max-w-5xl' : 'max-w-6xl'} mx-auto px-4 py-10`}>
       <section className="relative overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/60 px-6 pt-10 pb-7 mb-6">
         <div
           className="pointer-events-none absolute -top-28 left-1/2 -translate-x-1/2 h-64 w-[40rem] max-w-[140%] rounded-full blur-3xl opacity-20"
@@ -1038,7 +1050,7 @@ export default function YardimMerkezi() {
       </section>
 
       {!q && (
-        <div className="sticky top-16 z-10 -mx-4 px-4 py-2 mb-8 bg-neutral-950/85 backdrop-blur-sm">
+        <div className="lg:hidden sticky top-16 z-10 -mx-4 px-4 py-2 mb-8 bg-neutral-950/85 backdrop-blur-sm">
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
             {GROUPS.map((g) => (
               <button
@@ -1063,9 +1075,23 @@ export default function YardimMerkezi() {
         <p className="text-center text-sm text-neutral-500 py-10">{ttx('"{0}" ile ilgili bir şey bulamadım — başka bir kelimeyle dene.', query)}</p>
       )}
 
-      <div className="space-y-12">
+      <div className={q ? '' : 'lg:grid lg:grid-cols-[190px_1fr] lg:gap-10'}>
+      {!q && (
+        <nav className="hidden lg:flex flex-col self-start sticky top-24 border-l border-neutral-800 text-sm">
+          {[...GROUPS.map((g) => ({ id: g.id as string, label: g.label })), { id: 'kisayollar', label: tt('Klavye kısayolları') }, { id: 'sss', label: tt('Sık Sorulanlar') }].map((g) => (
+            <button
+              key={g.id}
+              onClick={() => jump(g.id)}
+              className={`-ml-px border-l-2 px-3.5 py-1.5 text-left transition ${current === g.id ? 'border-[#00c0fa] text-neutral-50 font-medium' : 'border-transparent text-neutral-500 hover:text-neutral-200'}`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </nav>
+      )}
+      <div className="space-y-12 min-w-0">
         {visibleGroups.map((g) => (
-          <section key={g.id} id={`yardim-${g.id}`} className="scroll-mt-32">
+          <section key={g.id} id={`yardim-${g.id}`} data-yardim-bolum={g.id} className="scroll-mt-32">
             <div className="flex items-baseline gap-3 mb-4">
               <h2 className="text-2xl font-bold text-neutral-50 tracking-tight">{g.label}</h2>
               <span className="text-xs text-neutral-500">{g.hint}</span>
@@ -1080,8 +1106,31 @@ export default function YardimMerkezi() {
           </section>
         ))}
 
+        {!q && !MOBILE && (
+          <section id="yardim-kisayollar" data-yardim-bolum="kisayollar" className="scroll-mt-32">
+            <div className="flex items-baseline gap-3 mb-4">
+              <h2 className="text-2xl font-bold text-neutral-50 tracking-tight">{tt('Klavye kısayolları')}</h2>
+              <span className="text-xs text-neutral-500">{tt('Her yerde "?" ile de açılır')}</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {SHORTCUTS.map((s) => (
+                <div key={s.label} className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-4 py-3.5 transition hover:border-[#00c0fa]/40 hover:bg-[#00c0fa]/[0.04]">
+                  <span className="text-sm text-neutral-200">{tt(s.label)}</span>
+                  <span className="flex shrink-0 gap-1">
+                    {s.keys.map((k) => (
+                      <kbd key={k} className="min-w-8 h-8 px-2 inline-flex items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700 border-b-[3px] text-xs font-semibold text-neutral-100 font-mono">
+                        {k}
+                      </kbd>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {faq.length > 0 && (
-          <section id="yardim-sss" className="scroll-mt-32">
+          <section id="yardim-sss" data-yardim-bolum="sss" className="scroll-mt-32">
             <div className="flex items-baseline gap-3 mb-4">
               <h2 className="text-2xl font-bold text-neutral-50 tracking-tight">{tt('Sık Sorulanlar')}</h2>
             </div>
@@ -1106,6 +1155,7 @@ export default function YardimMerkezi() {
             </div>
           </section>
         )}
+      </div>
       </div>
 
       {isFirstVisit && (

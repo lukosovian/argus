@@ -3,6 +3,7 @@ import type { Board, Row } from '../types'
 import { titleText } from '../types'
 import { resolveRole, resolveStatusOption } from './roles'
 import { isName, STATUS_NAMES } from './names'
+import { STATUS_STYLE } from './statusTone'
 import { tt } from './i18n'
 
 // Aklımda kayıtlarını ekranda gösterilecek hale getirir (ana sayfa satırı ve Aklımda sayfası ortak kullanıyor).
@@ -61,10 +62,11 @@ export function aklimdaEntries(board: Board | null, rows: Row[], items: Record<s
   return out.sort((a, b) => (b.item.addedAt ?? 0) - (a.item.addedAt ?? 0))
 }
 
+// Durum renkleri her yerde aynı (bkz. lib/statusTone.ts)
 export const STATUS_TONE: Record<AklimdaStatus, string> = {
-  izlenecek: 'bg-[#00c0fa] text-white',
-  yarim: 'bg-amber-400 text-neutral-950',
-  izlendi: 'bg-emerald-500 text-white',
+  izlenecek: STATUS_STYLE.izlenecek.solid,
+  yarim: STATUS_STYLE.yarim.solid,
+  izlendi: STATUS_STYLE.izlendi.solid,
   yok: 'bg-violet-500 text-white',
   diger: 'bg-black/70 text-neutral-100',
 }

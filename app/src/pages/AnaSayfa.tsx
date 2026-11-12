@@ -23,6 +23,9 @@ import NewEpisodesRow from '../components/NewEpisodesRow'
 import OnThisDayRow from '../components/OnThisDayRow'
 import ForgottenRow from '../components/ForgottenRow'
 import AklimdaRow from '../components/AklimdaRow'
+import ContinueRow from '../components/ContinueRow'
+import { useAklimda } from '../hooks/useAklimda'
+import { useToast } from '../hooks/useToast'
 import { stripFlags } from '../components/OptionDetailModal'
 import AgeRatingChip from '../components/AgeRatingChip'
 import { sortByOrder } from '../components/HomeSectionEditor'
@@ -261,12 +264,15 @@ export function HomeCard({
             ) : (
               <span />
             )}
-            <span
-              style={{ background: BRAND_GRADIENT }}
-              className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full text-white"
-              title={tt('Daha fazla bilgi')}
-            >
-              <ChevronDownIcon />
+            <span className="shrink-0 flex items-center gap-1.5">
+              {hovering && <CardAklimdaToggle boardId={board.id} rowId={row.id} title={title} />}
+              <span
+                style={{ background: BRAND_GRADIENT }}
+                className="h-7 w-7 flex items-center justify-center rounded-full text-white"
+                title={tt('Daha fazla bilgi')}
+              >
+                <ChevronDownIcon />
+              </span>
             </span>
           </div>
         )}
@@ -288,6 +294,9 @@ function FeaturedOverlay({
   synopsis,
   onMoreInfo,
   cinematic = false,
+  extras = false,
+  rowId,
+  boardId,
 }: {
   title: string
   titleImage: string
@@ -296,6 +305,10 @@ function FeaturedOverlay({
   synopsis: string
   onMoreInfo: () => void
   cinematic?: boolean
+  // Vitrin süsleri (Ana Sayfa Ayarları): kısa özet (3 satır, kaybolmaz) + "Aklımda tut" düğmesi
+  extras?: boolean
+  rowId?: string
+  boardId?: string
 }) {
   // Sinopsis 10 saniye ekranda kaldıktan sonra aşağı kayarak kayboluyor — vitrin uzun
   // süre açık kalırsa afiş sadeleşsin diye. Öne çıkan kayıt değiştiğinde (yeni sinopsis
@@ -303,9 +316,10 @@ function FeaturedOverlay({
   const [synopsisHidden, setSynopsisHidden] = useState(false)
   useEffect(() => {
     setSynopsisHidden(false)
+    if (extras) return
     const timer = setTimeout(() => setSynopsisHidden(true), 10000)
     return () => clearTimeout(timer)
-  }, [synopsis])
+  }, [synopsis, extras])
 
   return (
     <div
@@ -314,7 +328,7 @@ function FeaturedOverlay({
       }`}
     >
       <div
-        className={`${cinematic ? 'pl-6 sm:pl-10 md:pl-16 pb-24 md:pb-32' : 'pl-6 md:pl-10 pb-10 md:pb-12'} max-w-2xl pointer-events-auto`}
+        className={`${cinematic ? (extras ? 'pl-6 sm:pl-10 md:pl-16 pb-36 md:pb-44' : 'pl-6 sm:pl-10 md:pl-16 pb-24 md:pb-32') : 'pl-6 md:pl-10 pb-10 md:pb-12'} max-w-2xl pointer-events-auto`}
       >
         {titleImage ? (
           <img
@@ -348,16 +362,90 @@ function FeaturedOverlay({
               synopsisHidden ? 'max-h-0 opacity-0 -translate-y-4 mt-0 pointer-events-none' : 'max-h-64 opacity-100 translate-y-0 mt-2'
             }`}
           >
-            <p className="text-white/90 text-lg max-w-xl" style={OVERLAY_TEXT_SHADOW}>
+            <p className={`text-white/90 max-w-xl ${extras ? 'text-base leading-relaxed line-clamp-3' : 'text-lg'}`} style={OVERLAY_TEXT_SHADOW}>
               {synopsis}
             </p>
           </div>
         )}
-        <button onClick={onMoreInfo} style={primaryButtonStyle} className={`mt-5 text-base px-5 py-2.5 rounded-lg ${PRIMARY_BUTTON}`}>
-          {tt('Daha Fazla Bilgi')}
-        </button>
+        <div className="mt-5 flex flex-wrap items-center gap-2.5">
+          <button onClick={onMoreInfo} style={primaryButtonStyle} className={`text-base px-5 py-2.5 rounded-lg ${PRIMARY_BUTTON}`}>
+            {tt('Daha Fazla Bilgi')}
+          </button>
+          {extras && rowId && boardId && <HeroAklimdaButton boardId={boardId} rowId={rowId} title={title} />}
+        </div>
       </div>
     </div>
+  )
+}
+
+// Büyüyen kartın altındaki küçük "Aklımda tut" düğmesi (v1.23.3, öneri G2) — kartın kendisi bir düğme olduğu
+// için içine ikinci bir <button> konamıyor; tıklama kartı (detayı) açmasın diye yayılması durduruluyor.
+function CardAklimdaToggle({ boardId, rowId, title }: { boardId: string; rowId: string; title: string }) {
+  const akl = useAklimda()
+  const { notify } = useToast()
+  const inList = Boolean(akl.items[rowId])
+  async function toggle(e: React.SyntheticEvent) {
+    e.stopPropagation()
+    e.preventDefault()
+    try {
+      if (inList) {
+        await akl.remove(rowId)
+        notify(tt('"{0}" aklından çıkarıldı.', title))
+      } else {
+        await akl.addRow(boardId, rowId)
+        notify(tt('"{0}" aklına not edildi.', title), 'success')
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : tt('Kaydedilemedi.'), 'danger')
+    }
+  }
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={toggle}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle(e)}
+      title={inList ? tt('Aklımdan çıkar') : tt('Aklımda tut')}
+      className={`h-7 w-7 flex items-center justify-center rounded-full border-[1.5px] transition ${
+        inList ? 'border-violet-400 bg-violet-500/25 text-violet-200' : 'border-neutral-500 text-neutral-200 hover:border-white hover:text-white'
+      }`}
+    >
+      <Icon name="bookmark" className="h-3.5 w-3.5" />
+    </span>
+  )
+}
+
+// Vitrindeki "Aklımda tut" düğmesi — buzlu cam görünümünde, vitrinin üstünde okunaklı (bkz. AklimdaButton)
+function HeroAklimdaButton({ boardId, rowId, title }: { boardId: string; rowId: string; title: string }) {
+  const akl = useAklimda()
+  const { notify } = useToast()
+  const [busy, setBusy] = useState(false)
+  const inList = Boolean(akl.items[rowId])
+  async function toggle() {
+    setBusy(true)
+    try {
+      if (inList) {
+        await akl.remove(rowId)
+        notify(tt('"{0}" aklından çıkarıldı.', title))
+      } else {
+        await akl.addRow(boardId, rowId)
+        notify(tt('"{0}" aklına not edildi.', title), 'success')
+      }
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button
+      onClick={toggle}
+      disabled={busy}
+      className="inline-flex items-center gap-2 text-base font-medium px-4 py-2.5 rounded-lg text-white bg-white/15 hover:bg-white/25 border border-white/15 backdrop-blur-md transition disabled:opacity-60"
+    >
+      <Icon name="bookmark" className={`h-4 w-4 ${inList ? 'text-violet-300' : ''}`} />
+      {inList ? tt('Aklımda') : tt('Aklımda tut')}
+    </button>
   )
 }
 
@@ -884,6 +972,8 @@ export default function AnaSayfa() {
 
   // Vitrin görünümü "Sinema": kenardan kenara, menünün arkasına kadar uzanan büyük vitrin.
   const cinematic = (settings.showcaseStyle ?? 'klasik') === 'sinema'
+  const showcaseExtras = Boolean(settings.showcaseExtras)
+  const heroPeek = showcaseExtras && cinematic && Boolean(featured) && !adHocRequested && !MOBILE
   // Telefonda satırlar hep dikey afiş, ekrana 3 tane sığacak genişlikte (Netflix uygulamasındaki gibi)
   const landscape = MOBILE ? false : settings.layout !== 'izgara'
   // Telefonda satır başlıkları Netflix uygulamasındaki gibi küçük ve kalın
@@ -987,6 +1077,8 @@ export default function AnaSayfa() {
   rowNodes.set('on-this-day', <OnThisDayRow key="on-this-day" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.aklimdaRow?.enabled ?? true)
     rowNodes.set('aklimda', <AklimdaRow key="aklimda" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+  if (settings.continueRow?.enabled)
+    rowNodes.set('continue', <ContinueRow key="continue" board={board} rows={rows} episodes={episodes} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.forgotten?.enabled ?? true)
     rowNodes.set('forgotten', <ForgottenRow key="forgotten" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.topRated?.enabled)
@@ -1101,6 +1193,7 @@ export default function AnaSayfa() {
             title=""
             onShowingVideoChange={setVideoShowing}
             cinematic={cinematic}
+            extras={showcaseExtras}
           />
           {cinematic && (
             <>
@@ -1117,6 +1210,9 @@ export default function AnaSayfa() {
             ageRating={featuredAgeRating}
             synopsis={featuredSynopsis}
             onMoreInfo={() => setDetailRow(featured)}
+            extras={showcaseExtras}
+            rowId={featured.id}
+            boardId={board.id}
           />
           {slideshow && slides.length > 1 && (
             <div className={`absolute z-10 flex gap-1.5 ${cinematic ? 'bottom-24 right-8' : 'bottom-4 right-5'}`}>
@@ -1125,8 +1221,21 @@ export default function AnaSayfa() {
                   key={r.id}
                   onClick={() => setFeatured(r)}
                   title={titleProp ? titleText(titleProp, r.values[titleProp.id]) : ''}
-                  className={`h-1.5 rounded-full transition-all ${i === slideIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'}`}
-                />
+                  className={
+                    showcaseExtras
+                      ? `relative h-[3px] overflow-hidden rounded-full transition-all ${i === slideIndex ? 'w-11 bg-white/25' : 'w-5 bg-white/25 hover:bg-white/50'}`
+                      : `h-1.5 rounded-full transition-all ${i === slideIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'}`
+                  }
+                >
+                  {/* Süslü vitrinde etkin slaytın çizgisi 8 saniyede dolar (bkz. slayt zamanlayıcısı) */}
+                  {showcaseExtras && i === slideIndex && (
+                    <span
+                      key={r.id}
+                      className="absolute inset-0 bg-white origin-left"
+                      style={{ animation: 'argus-slayt-dol 8s linear forwards', animationPlayState: slidePaused || detailRow ? 'paused' : 'running' }}
+                    />
+                  )}
+                </button>
               ))}
             </div>
           )}
@@ -1158,7 +1267,14 @@ export default function AnaSayfa() {
         </div>
       )}
 
-      {activeFilter ? mainContentNode : defaultViewRows}
+      {heroPeek ? (
+        // Süslü sinema vitrininde satırlar vitrinin altına biraz biner
+        <div className="relative z-[6] -mt-28 space-y-10">{activeFilter ? mainContentNode : defaultViewRows}</div>
+      ) : activeFilter ? (
+        mainContentNode
+      ) : (
+        defaultViewRows
+      )}
 
       {openRow && <RowDetailModal board={board} row={openRow} onClose={closeDetail} />}
     </div>

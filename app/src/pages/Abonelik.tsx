@@ -3,13 +3,35 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useProfiles } from '../hooks/useProfiles'
 import { api, type Evren, type EvrenPrefs, type PlatformOzet } from '../lib/api'
-import { tt, ttx } from '../lib/i18n'
+import { tt, ttx, getLang } from '../lib/i18n'
 
 // Hangi aboneliği almalıyım? — kullanıcı "bu ay hangi platformu alsam" sorusunun cevabını istedi. İzlenecekler
 // listendeki (ya da bir evrende izlemediklerindeki) yapımların hangi abonelik platformunda olduğu toplanır; en çok
 // izleme süresini karşılayan platform en üstte, en iyi ikili ayrıca yazılır (bkz. server/evrenler.js platform-ozet).
 
 const hours = (min: number) => Math.round(min / 60)
+
+// Bilinen platformların marka renkleri (planda ve kıyas çubuklarında); bilinmeyen platform ARGUS mavisi
+const BRAND: [RegExp, string][] = [
+  [/netflix/i, '#e50914'],
+  [/disney/i, '#1f6feb'],
+  [/prime|amazon/i, '#00a8e1'],
+  [/hbo|max\b/i, '#7b2cf5'],
+  [/apple/i, '#a3a3a3'],
+  [/hulu/i, '#1ce783'],
+  [/mubi/i, '#2f6bff'],
+  [/blu ?tv/i, '#00b4f0'],
+  [/exxen/i, '#ffd400'],
+  [/gain/i, '#ff3d6e'],
+  [/tabii|trt/i, '#00b2a9'],
+  [/tod|bein/i, '#7c3aed'],
+]
+const brandColor = (name: string) => BRAND.find(([re]) => re.test(name))?.[1] ?? '#00c0fa'
+const monthName = (offset: number) => {
+  const d = new Date()
+  d.setMonth(d.getMonth() + offset, 1)
+  return d.toLocaleDateString(getLang() === 'tr' ? 'tr-TR' : 'en-US', { month: 'long' })
+}
 
 export default function Abonelik() {
   const { settings } = useHomeSettings()
@@ -123,6 +145,72 @@ export default function Abonelik() {
             </section>
           ) : null}
 
+          {/* 3 aylık plan: bu ay en iyisi, sonra kalanlara göre ikinci ve üçüncü (v1.23.3, öneri B1) */}
+          {data.plan && data.plan.length > 1 && (
+            <section>
+              <p className="text-xs uppercase tracking-wider text-neutral-500 mb-2">{tt('Sırayla al: 3 aylık plan')}</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {data.plan.map((step, i) => {
+                  const p = data.providers.find((x) => x.id === step.id)
+                  if (!p) return null
+                  const c = brandColor(p.name)
+                  return (
+                    <div
+                      key={step.id}
+                      className="relative rounded-2xl border p-4 transition"
+                      style={
+                        i === 0
+                          ? { borderColor: c, boxShadow: `0 0 0 1px ${c}, 0 20px 40px -22px ${c}`, background: `linear-gradient(180deg, ${c}22, transparent 65%)` }
+                          : { borderColor: 'var(--color-neutral-800)', background: 'color-mix(in srgb, var(--color-neutral-900) 50%, transparent)' }
+                      }
+                    >
+                      {i === 0 && (
+                        <span className="absolute top-3 right-3 text-[10px] font-bold rounded-full px-2 py-0.5 text-white" style={{ background: c }}>
+                          {tt('Şimdi')}
+                        </span>
+                      )}
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-neutral-500">{monthName(i)}</p>
+                      <div className="flex items-center gap-2.5 mt-2.5">
+                        {p.logo ? <img src={p.logo} alt="" className="h-9 w-9 rounded-xl" /> : <span className="h-9 w-9 rounded-xl" style={{ background: c }} />}
+                        <span className="font-bold text-neutral-50 truncate">{p.name}</span>
+                      </div>
+                      <p className="mt-2.5 text-sm text-neutral-400">
+                        <b className="text-2xl font-extrabold text-neutral-50 mr-1">{step.count}</b>
+                        {i === 0 ? tt('yapım') : tt('yeni yapım')} · {tt('{0} saat', hours(step.minutes))}
+                      </p>
+                      <div className="mt-3 flex">
+                        {step.items.map((it, k) => (
+                          <span key={it.key} className="h-14 aspect-[2/3] rounded-md overflow-hidden bg-neutral-800 ring-2 ring-neutral-950" style={{ marginLeft: k ? -10 : 0 }} title={it.title}>
+                            {it.poster && <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Tek bakışta kıyas: bütün platformlar yan yana, kendi renginde */}
+          {data.providers.length > 1 && (
+            <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-2">
+              {data.providers.slice(0, 8).map((p) => {
+                const max = data.providers[0]?.minutes || data.providers[0]?.count || 1
+                const val = data.providers[0]?.minutes ? p.minutes : p.count
+                return (
+                  <div key={p.id} className="grid grid-cols-[7.5rem_1fr_5.5rem] items-center gap-3 text-sm">
+                    <span className="truncate font-medium text-neutral-200">{p.name}</span>
+                    <span className="h-3 rounded-full bg-neutral-800 overflow-hidden">
+                      <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (val / max) * 100)}%`, background: brandColor(p.name) }} />
+                    </span>
+                    <span className="text-right text-xs text-neutral-500 tabular-nums">{tt('{0} saat', hours(p.minutes))}</span>
+                  </div>
+                )
+              })}
+            </section>
+          )}
+
           <div className="space-y-3">
             {data.providers.map((p) => {
               const share = data.totalMinutes ? Math.round((p.minutes / data.totalMinutes) * 100) : Math.round((p.count / data.total) * 100)
@@ -139,7 +227,7 @@ export default function Abonelik() {
                     </div>
                   </div>
                   <div className="mt-2 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
-                    <div className="h-full rounded-full bg-neutral-300" style={{ width: `${share}%` }} />
+                    <div className="h-full rounded-full" style={{ width: `${share}%`, background: brandColor(p.name) }} />
                   </div>
                   <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                     {p.items.map((it) => (

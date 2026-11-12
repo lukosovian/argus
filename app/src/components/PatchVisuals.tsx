@@ -3856,3 +3856,184 @@ export function FazsizVisual() {
     </Frame>
   )
 }
+
+// v1.23.3 — arayüz cilası: vitrin süsleri ve "Kaldığın yerden"
+export function VitrinSusVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={8} y={8} width={304} height={112} rx={6} className="fill-neutral-800" />
+      <rect x={8} y={8} width={150} height={112} rx={6} className="fill-neutral-900" opacity={0.7} />
+      <rect x={20} y={30} width={80} height={14} rx={2} className="fill-neutral-500" />
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={20} y={52 + i * 7} width={i === 2 ? 70 : 110} height={3.5} rx={1.5} className="fill-neutral-600" />
+      ))}
+      <MiniButton x={20} y={78} w={46} text={tt('Daha Fazla Bilgi')} accent />
+      <MiniButton x={70} y={78} w={44} text={tt('Aklımda tut')} />
+      {[0, 1, 2, 3].map((i) => (
+        <rect key={i} x={250 + i * 14} y={100} width={i === 1 ? 18 : 9} height={2.5} rx={1.2} fill={i === 1 ? '#fff' : '#525252'} />
+      ))}
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <Poster key={i} x={20 + i * 46} y={110} w={40} />
+      ))}
+      <Pin x={118} y={58} n={1} />
+      <Pin x={120} y={84} n={2} />
+      <Pin x={290} y={92} n={3} />
+      <Pin x={300} y={130} n={4} />
+    </Frame>
+  )
+}
+
+export function KaldiginYerdenVisual() {
+  const pct = [0.62, 0.35, 0.8]
+  return (
+    <Frame viewBox={VB}>
+      <text x={14} y={30} fontSize={8} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Kaldığın yerden')}
+      </text>
+      {pct.map((p, i) => (
+        <g key={i} transform={`translate(${14 + i * 100} 42)`}>
+          <rect width={92} height={52} rx={4} className="fill-neutral-700" />
+          <rect x={6} y={36} width={40} height={8} rx={1.5} className="fill-neutral-400" />
+          <rect y={52} width={92} height={3} className="fill-neutral-800" />
+          <rect y={52} width={92 * p} height={3} fill={ACCENT} />
+          <rect x={0} y={60} width={50} height={4} rx={1.5} className="fill-neutral-500" />
+          <rect x={64} y={60} width={28} height={4} rx={1.5} className="fill-neutral-600" />
+        </g>
+      ))}
+      <circle cx={60} cy={68} r={9} fill="none" stroke="#fff" strokeWidth={1.2} />
+      <path d="M57.5 64 v8 l6-4z" fill="#fff" />
+      <Pin x={106} y={96} n={1} />
+      <Pin x={74} y={56} n={2} />
+    </Frame>
+  )
+}
+
+// v1.23.3 — Takvim: günün kahramanı, tek satır vizyonlar, ısı şeridi
+export function TakvimCilaVisual() {
+  const heat = [0, 2, 0, 1, 3, 2, 1, 0, 2, 2, 1, 3, 4]
+  const tones = ['#262626', '#0b3a6e', '#0b5ac0', '#0a85e8', '#00c0fa']
+  return (
+    <Frame viewBox={VB}>
+      {Array.from({ length: 30 }, (_, i) => (
+        <rect key={i} x={10 + i * 10} y={12} width={8.5} height={8.5} rx={1.5} fill={tones[heat[i] ?? 0]} stroke={i === 12 ? '#fff' : 'none'} strokeWidth={0.8} />
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i} transform={`translate(${10 + i * 61} 32)`}>
+          <rect width={57} height={110} rx={3} className={i === 3 ? 'fill-neutral-800' : 'fill-neutral-900'} stroke={i === 3 ? ACCENT : '#333'} strokeWidth={i === 3 ? 1 : 0.5} />
+          <text x={5} y={11} fontSize={6.5} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+            {9 + i}
+          </text>
+        </g>
+      ))}
+      <rect x={14} y={48} width={49} height={28} rx={2} className="fill-neutral-600" />
+      <rect x={14} y={79} width={36} height={4} rx={1.5} className="fill-neutral-400" />
+      <rect x={75} y={48} width={49} height={14} rx={2} className="fill-neutral-700" />
+      <rect x={75} y={65} width={49} height={14} rx={2} className="fill-neutral-700" />
+      {[0, 1, 2].map((k) => (
+        <rect key={k} x={136 + k * 5} y={50} width={7} height={10} rx={1} className="fill-neutral-500" stroke="#0a0a0a" strokeWidth={0.8} />
+      ))}
+      <text x={156} y={58} fontSize={6} fill="#fcd34d" style={{ fontFamily: 'inherit' }}>
+        {tt('{0} vizyon', 4)}
+      </text>
+      <Pin x={300} y={16} n={1} />
+      <Pin x={38} y={62} n={2} />
+      <Pin x={176} y={56} n={3} />
+      <Pin x={226} y={40} n={4} />
+    </Frame>
+  )
+}
+
+// v1.23.3 — İstatistikler: vurgulu ay, ortalama çizgisi, yıl ısı haritası, halka
+export function IstatistikCilaVisual() {
+  const vals = [11, 10, 3, 6, 6, 1, 1, 3, 5, 1, 4, 4]
+  const tone = (v: number) => (v < 5 ? '#262626' : v < 7 ? '#0b3a6e' : v < 9 ? '#0b5ac0' : v < 10 ? '#0a85e8' : '#00c0fa')
+  return (
+    <Frame viewBox={VB}>
+      {vals.map((v, i) => (
+        <rect key={i} x={14 + i * 14} y={84 - v * 6} width={10} height={v * 6} rx={2} fill={i === 11 ? '#00c0fa' : '#2b6fd6'} opacity={i === 11 ? 1 : 0.75} />
+      ))}
+      <line x1={12} x2={182} y1={84 - 4.6 * 6} y2={84 - 4.6 * 6} stroke="#fff" strokeOpacity={0.4} strokeDasharray="3 2" />
+      <line x1={12} x2={182} y1={84} y2={84} stroke="#404040" />
+      {Array.from({ length: 7 * 12 }, (_, i) => (
+        <rect key={i} x={14 + Math.floor(i / 7) * 8} y={104 + (i % 7) * 8} width={6.5} height={6.5} rx={1} fill={tone((i * 37) % 11)} />
+      ))}
+      <circle cx={250} cy={60} r={30} fill="none" stroke="#262626" strokeWidth={10} />
+      <circle cx={250} cy={60} r={30} fill="none" stroke="#3987e5" strokeWidth={10} strokeDasharray={`${0.74 * 188} 188`} transform="rotate(-90 250 60)" />
+      <circle cx={250} cy={60} r={30} fill="none" stroke="#d95926" strokeWidth={10} strokeDasharray={`${0.26 * 188} 188`} strokeDashoffset={-0.74 * 188} transform="rotate(-90 250 60)" />
+      <Pin x={176} y={50} n={1} />
+      <Pin x={190} y={52} n={2} />
+      <Pin x={118} y={118} n={3} />
+      <Pin x={290} y={30} n={4} />
+    </Frame>
+  )
+}
+
+// v1.23.3 — Evrenler ve Koleksiyon: halkalar, sıradaki, zaman çizgisi
+export function EvrenCilaVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={8} y={8} width={148} height={78} rx={6} className="fill-neutral-900" stroke="#ef4444" strokeOpacity={0.6} />
+      <rect x={8} y={8} width={148} height={34} rx={6} fill="#ef4444" opacity={0.25} />
+      <circle cx={34} cy={62} r={14} fill="none" stroke="#262626" strokeWidth={4} />
+      <circle cx={34} cy={62} r={14} fill="none" stroke="#ef4444" strokeWidth={4} strokeDasharray="30 88" transform="rotate(-90 34 62)" />
+      <rect x={56} y={50} width={16} height={24} rx={2} className="fill-neutral-600" />
+      <rect x={78} y={54} width={52} height={5} rx={1.5} className="fill-neutral-300" />
+      <rect x={78} y={64} width={36} height={4} rx={1.5} className="fill-neutral-600" />
+      <rect x={168} y={8} width={144} height={78} rx={6} className="fill-neutral-900" />
+      <circle cx={204} cy={47} r={26} fill="none" stroke="#2a2410" strokeWidth={3} />
+      <circle cx={204} cy={47} r={26} fill="none" stroke="#eab308" strokeWidth={3} strokeDasharray="128 163" transform="rotate(-90 204 47)" />
+      <path d="M204 30 l14 26 h-28z" fill="none" stroke="#e8c35a" strokeWidth={1.5} />
+      {[0, 1, 2].map((i) => (
+        <Poster key={i} x={240 + i * 22} y={26} w={18} dim={i === 2} />
+      ))}
+      <line x1={14} x2={306} y1={130} y2={130} stroke="#404040" strokeWidth={2} />
+      <line x1={14} x2={92} y1={130} y2={130} stroke="#ef4444" strokeWidth={2} />
+      {Array.from({ length: 14 }, (_, i) => (
+        <circle key={i} cx={20 + i * 21} cy={130} r={i === 4 ? 4.5 : 3} fill={i < 4 ? '#ef4444' : i === 4 ? '#fff' : '#525252'} />
+      ))}
+      {['2008', '2012', '2016', '2020', '2024'].map((y, i) => (
+        <text key={y} x={20 + i * 70} y={148} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+          {y}
+        </text>
+      ))}
+      <Pin x={22} y={46} n={1} />
+      <Pin x={128} y={48} n={2} />
+      <Pin x={232} y={20} n={3} />
+      <Pin x={110} y={118} n={4} />
+    </Frame>
+  )
+}
+
+// v1.23.3 — Arşiv tablosu: isteğe bağlı cilalı görünüm
+export function TabloCilaVisual() {
+  const rows: [number, string, string][] = [
+    [10, '#22c55e', '#34d399'],
+    [7.3, '#eab308', '#38bdf8'],
+    [5.8, '#ef4444', '#a78bfa'],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <rect x={230} y={10} width={18} height={14} rx={3} fill={ACCENT} opacity={0.25} stroke={ACCENT} strokeWidth={0.8} />
+      <path d="M239 13 l1.4 3 3 .4-2.2 2 .6 3-2.8-1.5-2.8 1.5.6-3-2.2-2 3-.4z" fill={ACCENT} />
+      {rows.map(([s, c, g], i) => (
+        <g key={i} transform={`translate(10 ${40 + i * 34})`}>
+          <rect width={300} height={28} rx={3} className="fill-neutral-900" />
+          <rect x={6} y={4} width={13} height={20} rx={2} className="fill-neutral-600" />
+          <rect x={25} y={9} width={70} height={5} rx={1.5} className="fill-neutral-300" />
+          <rect x={110} y={11} width={5} height={5} rx={1} fill={g} />
+          <rect x={118} y={11.5} width={34} height={4} rx={1.5} className="fill-neutral-400" />
+          <rect x={160} y={11} width={5} height={5} rx={1} fill="#fb923c" />
+          <rect x={168} y={11.5} width={30} height={4} rx={1.5} className="fill-neutral-400" />
+          <text x={214} y={16.5} fontSize={7} fontWeight={700} fill={c} style={{ fontFamily: 'inherit' }}>
+            {s.toFixed(1)}
+          </text>
+          <rect x={232} y={12} width={44} height={3.5} rx={1.5} className="fill-neutral-800" />
+          <rect x={232} y={12} width={4.4 * s} height={3.5} rx={1.5} fill={c} />
+        </g>
+      ))}
+      <Pin x={262} y={16} n={1} />
+      <Pin x={150} y={36} n={2} />
+      <Pin x={290} y={36} n={3} />
+    </Frame>
+  )
+}

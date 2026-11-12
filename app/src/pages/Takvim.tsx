@@ -591,6 +591,7 @@ function rowLook(board: Board) {
     title: (row: Row) => (titleProp ? titleText(titleProp, row.values[titleProp.id]) : '') || tt('İsimsiz'),
     poster: (row: Row) =>
       ((posterProp && (row.values[posterProp.id] as string)) || (bannerProp && (row.values[bannerProp.id] as string)) || '') as string,
+    banner: (row: Row) => ((bannerProp && (row.values[bannerProp.id] as string)) || '') as string,
     kategori: (row: Row) => (kategoriProp ? kategoriProp.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '' : ''),
     minutes: (row: Row) => (sureProp && typeof row.values[sureProp.id] === 'number' ? (row.values[sureProp.id] as number) : 0),
   }
@@ -706,6 +707,14 @@ function MonthView({
   const releasesByDay = new Map<string, ReleaseCard[]>()
   if (showReleases) for (const c of releases) releasesByDay.set(c.releaseDate, [...(releasesByDay.get(c.releaseDate) ?? []), c])
 
+  // Gün başına aç/kapa: vizyon kartları önce tek küçük satır ("4 vizyon"), tıklayınca açılır (v1.23.3, öneri T1)
+  const [openReleaseDays, setOpenReleaseDays] = useState<Set<string>>(new Set())
+  // Ayın ısı şeridi (öneri T2): o gün kaç şey izledin (film/dizi bitirme + bölüm günleri)
+  const monthDays = days.filter((d) => d.startsWith(monthPrefix))
+  const heat = monthDays.map((d) => (byDay.get(d) ?? []).filter((e) => (e.kind === 'watch' && e.part !== 'start') || e.kind === 'episodes').length)
+  const heatMax = Math.max(1, ...heat)
+  const busiest = heat.indexOf(Math.max(...heat))
+
   const agendaDays = days.filter((d) => d.startsWith(monthPrefix) && ((byDay.get(d)?.length ?? 0) > 0 || releasesByDay.has(d)))
 
   return (
@@ -750,11 +759,37 @@ function MonthView({
         </div>
       </div>
 
+      {/* Ayın ısı şeridi: her gün bir kare, ne kadar çok izlediysen o kadar parlak (tıklayınca o gün açılır) */}
+      {!MOBILE && (
+        <div className="hidden md:block">
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${monthDays.length}, minmax(0,1fr))` }}>
+            {monthDays.map((d, i) => {
+              const v = heat[i]
+              const lvl = v === 0 ? 0 : Math.min(4, Math.ceil((v / heatMax) * 4))
+              const bg = ['bg-neutral-900', 'bg-[#0b3a6e]', 'bg-[#0b5ac0]', 'bg-[#0a85e8]', 'bg-[#00c0fa] shadow-[0_0_10px_rgba(0,192,250,.55)]'][lvl]
+              return (
+                <button
+                  key={d}
+                  onClick={() => onOpenDay(d)}
+                  title={`${dayLabel(d)} · ${v ? tt('{0} izleme', v) : tt('izleme yok')}`}
+                  className={`h-5 rounded-[4px] transition hover:ring-1 hover:ring-neutral-400 ${bg} ${d === today ? 'ring-2 ring-white ring-offset-1 ring-offset-neutral-950' : ''} ${d > today ? 'opacity-40' : ''}`}
+                />
+              )
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-neutral-600 mt-1">
+            <span>1</span>
+            {heat[busiest] > 0 && <span className="text-neutral-500">{tt('en yoğun gün: {0} · {1} izleme', dayLabel(monthDays[busiest]), heat[busiest])}</span>}
+            <span>{monthDays.length}</span>
+          </div>
+        </div>
+      )}
+
       {/* Masaüstü: Notion gibi ızgara — günün kutusu içindekilere göre uzuyor */}
       <div className="hidden md:block rounded-2xl border border-neutral-800 overflow-hidden">
         <div className="grid grid-cols-7 bg-neutral-900/80 border-b border-neutral-800">
           {TR_DAYS.map((d) => (
-            <div key={d} className="px-2 py-2 text-xs font-medium text-neutral-500">
+            <div key={d} className={`px-2 py-2 text-xs font-medium ${TR_DAYS.indexOf(d) >= 5 ? 'text-[#7d8ea3]' : 'text-neutral-500'}`}>
               {d}
             </div>
           ))}
@@ -764,11 +799,23 @@ function MonthView({
             const inMonth = d.startsWith(monthPrefix)
             const list = byDay.get(d) ?? []
             const isToday = d === today
+            const weekend = i % 7 >= 5
+            const future = d > today
+            // Günde tek bir izleme varsa görselli büyük kart: o günün kahramanı (v1.23.3, öneri T1)
+            const solo = list.length === 1 && list[0].kind === 'watch' && !future && look.banner(list[0].row) ? list[0] : null
+            const rel = inMonth ? (releasesByDay.get(d) ?? []) : []
+            const relOpen = openReleaseDays.has(d)
             return (
               <div
                 key={d}
                 className={`group min-h-[7.5rem] p-1.5 border-neutral-800 ${i % 7 !== 6 ? 'border-r' : ''} ${i < days.length - 7 ? 'border-b' : ''} ${
-                  inMonth ? 'bg-neutral-950/30' : 'bg-neutral-950/70'
+                  isToday
+                    ? 'bg-gradient-to-b from-[#00c0fa]/10 to-transparent shadow-[inset_0_2px_0_#00c0fa]'
+                    : !inMonth
+                      ? 'bg-neutral-950/70'
+                      : weekend
+                        ? 'bg-sky-500/[0.025]'
+                        : 'bg-neutral-950/30'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -788,11 +835,50 @@ function MonthView({
                     +
                   </button>
                 </div>
-                <div className={`space-y-1 ${inMonth ? '' : 'opacity-50'}`}>
-                  {list.map((ev) => (
-                    <EventItem key={ev.key} ev={ev} look={look} onClick={() => onOpenRow(ev.row)} />
-                  ))}
-                  {inMonth && releasesByDay.get(d)?.map((c) => <ReleaseItem key={c.tmdbId} card={c} onClick={() => setPreview(c)} />)}
+                <div className={`space-y-1 ${inMonth ? (future ? 'opacity-70' : '') : 'opacity-50'}`}>
+                  {solo ? (
+                    <button
+                      onClick={() => onOpenRow(solo.row)}
+                      title={look.title(solo.row)}
+                      className="block w-full overflow-hidden rounded-lg bg-neutral-800/60 text-left transition hover:ring-1 hover:ring-neutral-500"
+                    >
+                      <span className="block aspect-video bg-neutral-800">
+                        <img src={look.banner(solo.row)} alt="" loading="lazy" className="h-full w-full object-cover" />
+                      </span>
+                      <span className="block px-1.5 py-1">
+                        <span className="block truncate text-[11px] font-semibold text-neutral-100">{look.title(solo.row)}</span>
+                        {(solo.sub || look.kategori(solo.row)) && (
+                          <span className={`block truncate text-[10px] ${solo.rewatch ? 'text-amber-400' : solo.finished ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                            {solo.rewatch ? '↻ ' : ''}
+                            {solo.sub || look.kategori(solo.row)}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ) : (
+                    list.map((ev) => <EventItem key={ev.key} ev={ev} look={look} onClick={() => onOpenRow(ev.row)} />)
+                  )}
+                  {rel.length > 0 &&
+                    (rel.length === 1 || relOpen ? (
+                      rel.map((c) => <ReleaseItem key={c.tmdbId} card={c} onClick={() => setPreview(c)} />)
+                    ) : (
+                      // Vizyona girenler tek satırda: üst üste binmiş minik afişler + sayı; tıklayınca açılır
+                      <button
+                        onClick={() => setOpenReleaseDays((s) => new Set(s).add(d))}
+                        title={rel.map((c) => c.title).join(', ')}
+                        className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-[10.5px] text-amber-300/90 hover:bg-amber-400/10 transition"
+                      >
+                        <span className="flex shrink-0">
+                          {rel.slice(0, 4).map((c, k) => (
+                            <span key={c.tmdbId} className="h-6 w-4 overflow-hidden rounded-[3px] bg-neutral-800 ring-[1.5px] ring-neutral-950" style={{ marginLeft: k ? -6 : 0 }}>
+                              {c.poster && <img src={c.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                            </span>
+                          ))}
+                        </span>
+                        <Icon name="clapper" className="h-3 w-3 shrink-0" />
+                        {tt('{0} vizyon', rel.length)}
+                      </button>
+                    ))}
                 </div>
               </div>
             )

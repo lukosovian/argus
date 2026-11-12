@@ -882,6 +882,11 @@ app.delete('/api/profiles/:profileId/songs/:rowId/:songId', (req, res) => {
 // dakikayı detay penceresinde göstersin" dedi. Nook izlerken kaldığın yeri buraya yazıyor, film bitince
 // siliyor. progress.json: { [rowId]: { atMs (bilinmiyorsa null), durationMs, day (o izleme için yazılan
 // tarih), at } }. day gönderilmezse öncekisi korunur.
+// Hepsi birden: ana sayfadaki "Kaldığın yerden" satırı için (v1.23.3)
+app.get('/api/profiles/:profileId/progress', (req, res) => {
+  res.json(readJson(profileProgressFile(req.params.profileId), {}))
+})
+
 app.get('/api/profiles/:profileId/progress/:rowId', (req, res) => {
   res.json(readJson(profileProgressFile(req.params.profileId), {})[req.params.rowId] ?? null)
 })
@@ -2253,11 +2258,23 @@ app.get('/api/profiles/:profileId/koleksiyon/:boardId', (req, res) => {
     mediaTypes[row.id] = ref.mediaType
     if (ref.collection) collections[row.id] = { id: ref.collection.id, name: ref.collection.en ?? ref.collection.name }
   }
+  // İzlenecek'teki yapımların serisi (rafta "kaçını izledin" halkası için; v1.23.3)
+  const laterCollections = {}
+  const durumProp = resolveRole(loaded.board, 'durum')
+  const later = resolveStatusOption(loaded.board, 'izlenecek')
+  if (durumProp && later)
+    for (const row of loaded.rows) {
+      if (row.values[durumProp.id] !== later) continue
+      const ref = refs[row.id]
+      if (ref?.collection) laterCollections[row.id] = { id: ref.collection.id, name: ref.collection.en ?? ref.collection.name }
+      if (ref?.mediaType) mediaTypes[row.id] = ref.mediaType
+    }
   const apiKey = readProfileApiKey(profileId)
   if (apiKey) fillKoleksiyonCollections(profileId, boardId, apiKey).catch(() => {})
   const job = koleksiyonJobs.get(profileId)
   res.json({
     collections,
+    laterCollections,
     mediaTypes,
     pending: job?.running ? { done: job.done, total: job.total } : null,
     data: readJson(profileKoleksiyonFile(profileId), { items: {}, shelves: {} }),

@@ -5,7 +5,8 @@ import { useEscape } from '../hooks/useEscape'
 import { MOBILE } from '../lib/mobile/ui'
 
 // "?" tuşuna basınca açılan klavye kısayolları listesi (bilgisayarda). Yazı yazılan bir kutudayken açılmaz.
-const SHORTCUTS: { keys: string[]; label: string }[] = [
+export const SHORTCUTS: { keys: string[]; label: string }[] = [
+  { keys: ['Ctrl', 'K'], label: 'Her yerden ara' },
   { keys: ['/'], label: 'Arama' },
   { keys: ['Esc'], label: 'Açık pencereyi kapat' },
   { keys: ['1', '2', '3', '…'], label: '"Kim izliyor?" ekranında profil seç' },

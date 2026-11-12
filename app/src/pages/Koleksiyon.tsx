@@ -15,6 +15,7 @@ import ShelfPicker from '../components/ShelfPicker'
 import KoleksiyonImage, { type ImageItem, type ImageShelf } from '../components/KoleksiyonImage'
 import { autoShelf, commonTitle } from '../lib/shelves'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
+import { averageColor } from '../lib/imageColor'
 import { tt, ttx } from '../lib/i18n'
 import Icon from '../components/Icon'
 
@@ -197,6 +198,45 @@ export default function Koleksiyon() {
     return { shelves: list, loose: rest }
   }, [items, info])
 
+  // Her rafta henüz izlemediğin (İzlenecek'teki) yapımlar: sembolün çevresindeki halka "kaçını izledin"i gösterir
+  // (v1.23.3, öneri K1). Raf anahtarı koleksiyondakilerle aynı yolla bulunuyor.
+  const laterByShelf = useMemo(() => {
+    const out = new Map<string, number>()
+    if (!board || !info) return out
+    const durum = resolveRole(board, 'durum')
+    const later = resolveStatusOption(board, 'izlenecek')
+    if (!durum || !later) return out
+    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+    const orig = resolveRole(board, 'orjinalAdi')
+    const kategori = resolveRole(board, 'kategori')
+    for (const r of rows) {
+      if (r.values[durum.id] !== later) continue
+      const title = tp ? titleText(tp, r.values[tp.id]) : ''
+      const original = (orig && typeof r.values[orig.id] === 'string' ? (r.values[orig.id] as string) : '') || title
+      if (!original) continue
+      const col = info.laterCollections?.[r.id]
+      const isSeries = info.mediaTypes[r.id] ? info.mediaTypes[r.id] === 'tv' : /dizi/i.test(kategori?.options?.find((o) => o.id === r.values[kategori.id])?.label ?? '')
+      const k = autoShelf(col?.name ?? original, isSeries, Boolean(col)).key
+      if (k) out.set(k, (out.get(k) ?? 0) + 1)
+    }
+    return out
+  }, [board, rows, info])
+
+  // Rafın ışığı sembolün renginden (Star Trek altın, Harry Potter gümüş…)
+  const [tints, setTints] = useState<Record<string, string>>({})
+  useEffect(() => {
+    let alive = true
+    for (const s of shelves)
+      if (s.symbol && !tints[s.symbol])
+        averageColor(s.symbol).then((c) => {
+          if (alive && c) setTints((t) => ({ ...t, [s.symbol as string]: `${c[0]},${c[1]},${c[2]}` }))
+        })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shelves])
+
   const match = (it: Item) =>
     (kind === 'hepsi' || (kind === 'dizi') === it.isSeries) &&
     (!onlySymbols || Boolean(it.symbol)) &&
@@ -279,7 +319,7 @@ export default function Koleksiyon() {
           {tt('Koleksiyonun hazırlanıyor…')}
         </div>
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-48 rounded-3xl border border-neutral-800 bg-neutral-900/40 animate-pulse" />
+          <div key={i} className="h-48 rounded-3xl border border-neutral-800 argus-parilti" />
         ))}
       </div>
     )
@@ -360,16 +400,52 @@ export default function Koleksiyon() {
         />
       </div>
 
-      {filteredShelves.map((s) => (
-        <section key={s.key} className="rounded-3xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 flex flex-col sm:flex-row gap-5">
+      {filteredShelves.map((s) => {
+        const tint = s.symbol ? tints[s.symbol] : undefined
+        const missing = s.manual ? 0 : (laterByShelf.get(s.key) ?? 0)
+        const total = s.items.length + missing
+        const ratio = total ? s.items.length / total : 0
+        const ringColor = tint ? `rgb(${tint})` : '#00c0fa'
+        return (
+        <section
+          key={s.key}
+          className="relative overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 flex flex-col sm:flex-row gap-5"
+          style={tint ? { background: `radial-gradient(ellipse at 8% 50%, rgba(${tint},0.13), transparent 55%), color-mix(in srgb, var(--color-neutral-900) 50%, transparent)` } : undefined}
+        >
           <button
             onClick={() => setEditing({ kind: 'shelf', key: s.key, name: s.name, symbol: info.data.shelves[s.key]?.image ?? null, fallback: DEFAULT_SHELF_SYMBOLS[s.key] ?? null })}
             className="group shrink-0 w-32 sm:w-48 text-left"
             title={tt('Rafın sembolünü ve adını değiştir')}
           >
-            <div className="relative aspect-square rounded-2xl border border-neutral-800 group-hover:border-neutral-600 flex items-center justify-center p-6 transition" style={{ background: SPOT }}>
+            <div
+              className="relative aspect-square rounded-2xl border border-neutral-800 group-hover:border-neutral-600 flex items-center justify-center p-9 sm:p-11 transition"
+              style={{ background: tint ? `radial-gradient(circle at 50% 45%, rgba(${tint},0.16), #0a0a0a 72%)` : SPOT }}
+            >
+              {/* İlerleme halkası: bu raftaki serinin kaçını izledin (İzlenecek'tekiler eksik sayılır) */}
+              {s.items.length > 0 && (
+                <svg className="pointer-events-none absolute inset-2 sm:inset-3 -rotate-90" viewBox="0 0 100 100" aria-hidden>
+                  <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="46"
+                    fill="none"
+                    stroke={ringColor}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    pathLength={100}
+                    strokeDasharray={`${Math.max(ratio * 100, 1)} 100`}
+                    style={{ filter: `drop-shadow(0 0 5px ${ringColor})` }}
+                  />
+                </svg>
+              )}
               {s.symbol ? (
-                <img src={s.symbol} alt="" className="max-h-full max-w-full object-contain drop-shadow-[0_0_22px_rgba(255,255,255,0.2)] group-hover:scale-105 transition" />
+                <img
+                  src={s.symbol}
+                  alt=""
+                  className="relative max-h-full max-w-full object-contain group-hover:scale-105 transition"
+                  style={{ filter: `drop-shadow(0 0 22px ${tint ? `rgba(${tint},0.45)` : 'rgba(255,255,255,0.2)'})` }}
+                />
               ) : (
                 <span className="text-center">
                   <span className="block text-3xl text-neutral-700">＋</span>
@@ -379,7 +455,9 @@ export default function Koleksiyon() {
               <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><Icon name="pencil" className="h-3 w-3" /></span>
             </div>
             <p className="text-lg font-bold text-neutral-50 mt-2 leading-tight">{s.name}</p>
-            <p className="text-xs text-neutral-500">{ttx('{0} yapım', s.items.length)}</p>
+            <p className="text-xs" style={{ color: tint ? `rgb(${tint})` : undefined }}>
+              {missing > 0 ? tt('{0} yapımın {1} tanesini izledin', total, s.items.length) : ttx('{0} yapım', s.items.length)}
+            </p>
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex gap-3 overflow-x-auto pb-3">
@@ -397,11 +475,15 @@ export default function Koleksiyon() {
                 </div>
               </button>
             </div>
-            {/* cam raf */}
-            <div className="h-1.5 rounded-full bg-gradient-to-r from-transparent via-white/15 to-transparent shadow-[0_6px_14px_rgba(0,0,0,0.6)]" />
+            {/* cam raf — sembolün renginde hafif ışıklı */}
+            <div
+              className="h-1.5 rounded-full shadow-[0_6px_14px_rgba(0,0,0,0.6)]"
+              style={{ background: `linear-gradient(90deg, transparent, ${tint ? `rgba(${tint},0.45)` : 'rgba(255,255,255,0.15)'}, transparent)` }}
+            />
           </div>
         </section>
-      ))}
+        )
+      })}
 
       {filteredLoose.length > 0 && (
         <section className="rounded-3xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5">

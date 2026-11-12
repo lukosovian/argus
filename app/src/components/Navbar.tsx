@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useProfiles } from '../hooks/useProfiles'
@@ -8,7 +8,6 @@ import { sortByOrder } from './HomeSectionEditor'
 import GlobalSearch from './GlobalSearch'
 import RandomPickerButton, { StackedCardsIcon } from './RandomPickerButton'
 import NotificationBell from './NotificationBell'
-import { gradientBorderStyle } from '../lib/theme'
 import { APP_VERSION } from '../lib/version'
 import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
 import { tt } from '../lib/i18n'
@@ -126,6 +125,21 @@ export default function Navbar() {
       : (currentPage ?? '')
   const pinnedSections = sortByOrder((settings.sections ?? []).filter((s) => s.pinnedToNav), settings.navOrder ?? [])
   const [menuOpen, setMenuOpen] = useState(false)
+  // Seçili sayfanın altındaki parlak çizgi: kutu yerine sayfalar arasında kayarak gider (v1.23.3, öneri G1)
+  const navRef = useRef<HTMLElement>(null)
+  const [bar, setBar] = useState<{ left: number; width: number } | null>(null)
+  useLayoutEffect(() => {
+    function place() {
+      const nav = navRef.current
+      const el = nav?.querySelector<HTMLElement>('[data-nav-active="1"]')
+      if (!nav || !el) return setBar(null)
+      setBar({ left: el.offsetLeft + 10, width: Math.max(el.offsetWidth - 20, 12) })
+    }
+    place()
+    window.addEventListener('resize', place)
+    document.fonts?.ready.then(place).catch(() => {})
+    return () => window.removeEventListener('resize', place)
+  }, [location.pathname, activeSection, currentPage, pinnedSections.length])
   const otherProfiles = profiles.filter((p) => p.id !== activeProfileId)
 
   // En üstteyken navbar saydam (altındaki vitrinin üzerinde durur), aşağı kayınca arkasında
@@ -152,7 +166,7 @@ export default function Navbar() {
     <>
       <header
         className={`sticky top-0 z-20 transition-colors duration-300 ${
-          scrolled ? 'bg-neutral-950/95 backdrop-blur-sm' : 'bg-transparent'
+          scrolled ? 'bg-neutral-950/75 backdrop-blur-xl backdrop-saturate-150 shadow-[0_1px_0_rgba(255,255,255,0.05)]' : 'bg-transparent'
         }`}
         // Telefonda sayfa durum çubuğunun arkasına uzanıyor; menü onun altından başlasın
         style={MOBILE ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}
@@ -175,16 +189,16 @@ export default function Navbar() {
             // Telefonda (Netflix'teki gibi) logonun yanında büyük sayfa adı
             <span className="flex-1 min-w-0 truncate pl-2.5 text-[22px] font-bold tracking-tight text-neutral-50">{mobileTitle}</span>
           ) : (
-          <nav data-navbar-links className="flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <nav ref={navRef} data-navbar-links className="relative flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar">
             {[{ id: null as string | null, name: tt('Ana Sayfa'), to: '/' }, ...pinnedSections.map((s) => ({ id: s.id as string | null, name: s.name, to: `/?bolum=${s.id}` }))].map((l) => {
               const active = l.id === null ? isHome : activeSection === l.id
               return (
                 <Link
                   key={l.id ?? 'home'}
                   to={l.to}
-                  style={active ? gradientBorderStyle() : undefined}
-                  className={`shrink-0 whitespace-nowrap text-sm sm:text-base font-medium rounded-lg px-2.5 sm:px-3 py-1.5 transition border-[1.5px] ${
-                    active ? 'text-white' : 'text-neutral-300 hover:text-neutral-50 border-transparent'
+                  data-nav-active={active ? '1' : undefined}
+                  className={`shrink-0 whitespace-nowrap text-sm sm:text-base rounded-lg px-2.5 sm:px-3 py-2 transition-colors ${
+                    active ? 'text-white font-semibold' : 'font-medium text-neutral-400 hover:text-neutral-50'
                   }`}
                 >
                   {l.name}
@@ -194,9 +208,16 @@ export default function Navbar() {
             {/* Menüde bağlantısı olmayan bir sayfadaysan (Arşiv Tablosu, Takvim…) adı seçili olarak görünür —
                 yeni kullanıcı denemesinde her sayfada sadece "Ana Sayfa" yazdığı için nerede olduğu belli değildi. */}
             {currentPage && (
-              <span style={gradientBorderStyle()} className="shrink-0 whitespace-nowrap text-sm sm:text-base font-medium rounded-lg px-2.5 sm:px-3 py-1.5 border-[1.5px] text-white">
+              <span data-nav-active="1" className="shrink-0 whitespace-nowrap text-sm sm:text-base font-semibold rounded-lg px-2.5 sm:px-3 py-2 text-white">
                 {currentPage}
               </span>
+            )}
+            {bar && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute bottom-0.5 h-[2.5px] rounded-full transition-all duration-[400ms] ease-[cubic-bezier(.3,1.4,.5,1)]"
+                style={{ left: bar.left, width: bar.width, background: 'linear-gradient(90deg,#015eea,#00c0fa)', boxShadow: '0 0 12px rgba(0,192,250,.75)' }}
+              />
             )}
           </nav>
           )}

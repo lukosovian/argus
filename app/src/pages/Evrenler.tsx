@@ -6,6 +6,8 @@ import { useRows } from '../hooks/useRows'
 import { useProfiles } from '../hooks/useProfiles'
 import { useToast } from '../hooks/useToast'
 import { useEscape } from '../hooks/useEscape'
+import { resolveRole } from '../lib/roles'
+import { MOBILE } from '../lib/mobile/ui'
 import { api, type Evren, type EvrenItem, type EvrenPrefs, type EvrenSave, type EvrenSaveItem, type TmdbCard } from '../lib/api'
 import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { todayIso, type Row } from '../types'
@@ -118,7 +120,7 @@ export default function Evrenler() {
 
   if (!boardId) return <p className="text-center text-neutral-500 py-20">{tt('Önce bir arşiv seç (Ayarlar → Ana Sayfa).')}</p>
   if (error && !data) return <p className="text-center text-rose-400 py-20">{error}</p>
-  if (!data || !board) return <PageSkeleton />
+  if (!data || !board) return <PageSkeleton kind="posters" />
 
   const current = id ? data.universes.find((u) => u.id === id) : null
 
@@ -303,11 +305,18 @@ function UniverseList({ universes, prefs, onNew, onChanged }: { universes: Evren
           const s = stats(u, p)
           const posters = orderItems(u, 'cikis', false).filter((i) => i.poster).slice(0, 5)
           const pct = s.total ? Math.round((s.done / s.total) * 100) : 0
+          // Sıradaki yapım (detaydakiyle aynı kural, v1.23.3 öneri E1)
+          const skip = new Set(p.atla ?? [])
+          const acik = (i: EvrenItem) => i.released && !isDone(i, p.maraton) && !skip.has(i.key) && inScope(i, p)
+          const ord = orderItems(u, p.sira ?? 'cikis', true)
+          const next = (p.maraton ? ord.find((i) => acik(i) && i.tour?.active) : undefined) ?? ord.find(acik)
+          const C = 2 * Math.PI * 24
           return (
             <Link
               key={u.id}
               to={`/evrenler/${u.id}`}
-              className="group rounded-3xl border border-neutral-800 hover:border-neutral-600 bg-neutral-900/60 overflow-hidden transition"
+              className="group rounded-3xl border border-neutral-800 bg-neutral-900/60 overflow-hidden transition duration-300 hover:-translate-y-1 hover:[border-color:var(--evren)] hover:shadow-[0_20px_44px_-14px_var(--evren)]"
+              style={{ ['--evren' as string]: `${u.color}99` }}
             >
               <div className="relative h-36 overflow-hidden" style={{ background: `linear-gradient(135deg, ${u.color}55, #0a0a0a 75%)` }}>
                 <div className="absolute inset-0 flex justify-end gap-1.5 pr-3 pt-3 opacity-80 group-hover:opacity-100 transition">
@@ -321,15 +330,45 @@ function UniverseList({ universes, prefs, onNew, onChanged }: { universes: Evren
                   <p className="text-xl font-black text-neutral-50 leading-tight">{u.name}</p>
                 </div>
               </div>
-              <div className="p-4 space-y-2">
-                <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: u.color }} />
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-neutral-300">
-                    {p.maraton ? ttx('Turda {0}/{1}', <b className="text-neutral-50">{s.done}</b>, s.total) : ttx('{0}/{1} izledin', <b className="text-neutral-50">{s.done}</b>, s.total)}
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-3.5">
+                  {/* İlerleme halkası: evrenin kendi renginde */}
+                  <span className="relative h-14 w-14 shrink-0">
+                    <svg viewBox="0 0 58 58" className="h-full w-full -rotate-90">
+                      <circle cx="29" cy="29" r="24" fill="none" stroke="var(--color-neutral-800)" strokeWidth="5" />
+                      <circle
+                        cx="29"
+                        cy="29"
+                        r="24"
+                        fill="none"
+                        stroke={u.color}
+                        strokeWidth="5"
+                        strokeLinecap="round"
+                        strokeDasharray={`${Math.max((pct / 100) * C, 2)} ${C}`}
+                        style={{ filter: `drop-shadow(0 0 4px ${u.color})` }}
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-[13px] font-extrabold text-neutral-50">%{pct}</span>
                   </span>
-                  <span className="text-neutral-500 text-xs">{s.left ? tt('kalan {0}', hoursText(s.left)) : s.total ? tt('hepsini izledin') : ''}</span>
+                  {next ? (
+                    <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                      {next.poster && <img src={next.poster} alt="" loading="lazy" className="h-12 aspect-[2/3] shrink-0 rounded object-cover" />}
+                      <span className="min-w-0">
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-500">{tt('Sıradaki')}</span>
+                        <span className="block truncate text-sm font-semibold text-neutral-100">{next.archiveTitle || next.title}</span>
+                        <span className="block truncate text-[11px] text-neutral-500">
+                          {p.maraton ? tt('Turda {0}/{1}', s.done, s.total) : tt('{0}/{1} izledin', s.done, s.total)}
+                          {s.left ? ` · ${tt('kalan {0}', hoursText(s.left))}` : ''}
+                        </span>
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-500">{s.total ? tt('Tamamlandı') : ''}</span>
+                      <span className="block text-sm font-semibold text-neutral-100">{s.total ? tt('hepsini izledin') : tt('Henüz yapım yok')}</span>
+                      <span className="block text-[11px] text-neutral-500">{tt('{0}/{1} izledin', s.done, s.total)}</span>
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-[11px]">
                   {p.maraton && <span className="rounded-full px-2 py-0.5 text-neutral-50" style={{ background: `${u.color}33` }}>{tt('Tur sürüyor')}</span>}
@@ -602,6 +641,14 @@ function UniverseView({
     </button>
   )
 
+  // Başlık kutusunun sağ yarısında sıradaki yapımın arka plan görseli (v1.23.3, öneri E2): arşivdeyse banner'ı,
+  // değilse afişi (bulanık değil, sağa yaslı ve soldan karartılmış)
+  const bannerRole = board ? resolveRole(board, 'banner') : undefined
+  const nextRow = next?.rowId ? rows.find((r) => r.id === next.rowId) : undefined
+  const heroImage = (bannerRole && nextRow && (nextRow.values[bannerRole.id] as string)) || next?.poster || ''
+  // Zaman çizgisi: çıkmış yapımlar tarih sırasıyla, izlediklerin evrenin renginde, şu an olduğun yer parlıyor
+  const timeline = orderItems(u, 'cikis', showExtra).filter((i) => i.released && i.date && (!subset || showAll || subset.includes(i.key)) && !skip.has(i.key))
+
   const nextAction = (it: EvrenItem) => {
     if (it.type === 'movie') return { label: tt('✓ İzledim'), run: () => mark(it, todayIso()) }
     if (!it.rowId) return { label: tt('+ Arşive ekle'), run: () => addToArchive(it, true) }
@@ -611,11 +658,18 @@ function UniverseView({
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-7 sm:px-10" style={{ background: `radial-gradient(ellipse at 10% 0%, ${u.color}40, transparent 60%), var(--color-neutral-950)` }}>
+        {!MOBILE && heroImage && (
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-[62%] hidden md:block">
+            <img key={heroImage} src={heroImage} alt="" className="h-full w-full object-cover object-center" style={{ animation: 'argus-fade-in .8s ease-out' }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, var(--color-neutral-950) 0%, color-mix(in srgb, var(--color-neutral-950) 80%, transparent) 30%, transparent 75%), linear-gradient(0deg, color-mix(in srgb, var(--color-neutral-950) 70%, transparent), transparent 45%)` }} />
+            <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 0% 0%, ${u.color}30, transparent 55%)` }} />
+          </div>
+        )}
         <Link to="/evrenler" className="text-sm text-neutral-400 hover:text-neutral-100">{tt('← Evrenler')}</Link>
-        {u.short && <p className="text-sm font-black tracking-widest mt-3" style={{ color: u.color }}>{u.short}</p>}
-        <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight">{u.name}</h1>
+        {u.short && <p className="relative text-sm font-black tracking-widest mt-3" style={{ color: u.color }}>{u.short}</p>}
+        <h1 className="relative text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight">{u.name}</h1>
 
-        <div className="mt-4 max-w-xl space-y-1.5">
+        <div className="relative mt-4 max-w-xl space-y-1.5">
           {subset && (
             <p className="text-sm font-semibold text-neutral-100">
               {subsetTarget ? tt('Kısa tur: {0} öncesi ({1} yapım)', subsetTarget.archiveTitle || subsetTarget.title, subset.length) : tt('Kısa tur ({0} yapım)', subset.length)}
@@ -722,7 +776,7 @@ function UniverseView({
         )}
 
         {next && (
-          <div className="mt-5 flex items-center gap-3 rounded-2xl bg-black/40 border border-neutral-800 p-2.5 max-w-xl">
+          <div className="relative mt-5 flex items-center gap-3 rounded-2xl bg-black/50 backdrop-blur-md border border-white/10 p-2.5 max-w-xl">
             {next.poster && <img src={next.poster} alt="" className="h-16 aspect-[2/3] object-cover rounded-md" />}
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-wider text-neutral-500">{tt('Sıradaki')}</p>
@@ -799,6 +853,8 @@ function UniverseView({
           )}
         </EmptyState>
       )}
+
+      {!MOBILE && timeline.length > 2 && <EvrenTimeline items={timeline} color={u.color} tur={tur} nextKey={next?.key} />}
 
       {sections.map((sec) => (
         <section key={sec.id}>
@@ -887,6 +943,75 @@ function UniverseView({
 
 // Kapak + altında bilgiler ve düğmeler (kullanıcı "butonlar kapakların üzerinde olmasın, altında olsun, kapakları
 // kapatıyo" dedi). Kapakta sadece sıra numarası, izlendi işareti ve "yan" etiketi kalır.
+// Yıllara yayılan zaman çizgisi (v1.23.3, öneri E2): her yapım bir nokta, izlediklerin evrenin renginde, sıradaki
+// beyaz ve parlıyor. Üstüne gelince adı, tıklayınca aşağıdaki kartına kayar.
+function EvrenTimeline({ items, color, tur, nextKey }: { items: EvrenItem[]; color: string; tur?: string; nextKey?: string }) {
+  const years = items.map((i) => Number(i.date.slice(0, 4)))
+  const first = Math.min(...years)
+  const last = Math.max(...years)
+  const span = Math.max(1, last - first)
+  const doneCount = items.filter((i) => isDone(i, tur)).length
+  const nextIdx = items.findIndex((i) => i.key === nextKey)
+  const reach = nextIdx >= 0 ? nextIdx : doneCount
+  // Aynı yıldaki yapımlar üst üste binmesin: yıl içinde sırayla biraz kaydırılır
+  const perYear = new Map<number, number>()
+  const pos = items.map((_, n) => {
+    const y = years[n]
+    const k = perYear.get(y) ?? 0
+    perYear.set(y, k + 1)
+    return ((y - first) / (span + 1)) * 100 + k * 0.9
+  })
+  const maxPos = Math.max(...pos, 1)
+  const at = (p: number) => `${(p / maxPos) * 100}%`
+  const tickYears = Array.from({ length: span + 1 }, (_, k) => first + k).filter((y, _k, a) => a.length <= 14 || (y - first) % Math.ceil(a.length / 12) === 0)
+  return (
+    <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 px-5 pt-4 pb-7">
+      <div className="flex items-baseline justify-between mb-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{tt('Zaman çizgisi')}</p>
+        <p className="text-xs text-neutral-500">
+          {first} – {last}
+        </p>
+      </div>
+      <div className="relative h-6 mx-2">
+        <div className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-neutral-800" />
+        <div
+          className="absolute left-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full"
+          style={{ width: reach > 0 ? at(pos[Math.min(reach, pos.length - 1)]) : 0, background: color, boxShadow: `0 0 10px ${color}` }}
+        />
+        {items.map((it, n) => {
+          const done = isDone(it, tur)
+          const isNext = it.key === nextKey
+          return (
+            <button
+              key={it.key}
+              onClick={() => document.getElementById(`evren-kart-${it.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              title={`${it.archiveTitle || it.title} · ${it.date.slice(0, 4)}${done ? ' · ' + tt('izledin') : ''}`}
+              className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 p-1"
+              style={{ left: at(pos[n]) }}
+            >
+              <span
+                className={`block rounded-full transition-transform group-hover:scale-150 ${isNext ? 'h-3.5 w-3.5 bg-white' : 'h-2.5 w-2.5'} ${it.extra ? 'opacity-60' : ''}`}
+                style={
+                  isNext
+                    ? { boxShadow: `0 0 0 3px var(--color-neutral-950), 0 0 0 5px ${color}, 0 0 14px ${color}` }
+                    : { background: done ? color : 'var(--color-neutral-700)', boxShadow: '0 0 0 2px var(--color-neutral-950)' }
+                }
+              />
+            </button>
+          )
+        })}
+      </div>
+      <div className="relative mx-2 mt-1">
+        {tickYears.map((y) => (
+          <span key={y} className="absolute top-0 -translate-x-1/2 text-[10px] text-neutral-500 tabular-nums" style={{ left: at(((y - first) / (span + 1)) * 100) }}>
+            {y}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Card({
   it,
   n,

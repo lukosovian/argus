@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
@@ -16,7 +16,7 @@ import RowDetailModal from '../components/RowDetailModal'
 import YearPosterWall from '../components/YearPosterWall'
 import FlashbackStory, { type StoryData } from '../components/FlashbackStory'
 import BackgroundProgress from '../components/BackgroundProgress'
-import { tt, ttx, fmtDate, ttc } from '../lib/i18n'
+import { tt, ttx, fmtDate, ttc, monthNames } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
 import Icon from '../components/Icon'
 
@@ -37,6 +37,38 @@ function Title({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
       {sub && <p className="text-xs text-neutral-500 mt-0.5">{sub}</p>}
     </div>
   )
+}
+
+// Ekrana girince sıfırdan sayarak yükselen sayı (v1.23.3, öneri F1). Yıl değişince yeniden sayar.
+function CountUp({ value, format = (n) => String(Math.round(n)) }: { value: number; format?: (n: number) => string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let raf = 0
+    const run = () => {
+      const t0 = performance.now()
+      const step = (t: number) => {
+        const p = Math.min((t - t0) / 1400, 1)
+        setShown(value * (1 - Math.pow(1 - p, 3)))
+        if (p < 1) raf = requestAnimationFrame(step)
+      }
+      raf = requestAnimationFrame(step)
+    }
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        io.disconnect()
+        run()
+      }
+    }, { threshold: 0.3 })
+    io.observe(el)
+    return () => {
+      io.disconnect()
+      cancelAnimationFrame(raf)
+    }
+  }, [value])
+  return <span ref={ref}>{format(shown)}</span>
 }
 
 function Bars({ values, labels, highlight, height = 'h-24' }: { values: number[]; labels: string[]; highlight: number; height?: string }) {
@@ -298,12 +330,20 @@ export default function Flashback() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-2 relative overflow-hidden rounded-3xl border border-neutral-800 p-6" style={{ background: 'radial-gradient(ellipse at 0% 0%, rgba(0,192,250,0.18), transparent 60%), radial-gradient(ellipse at 100% 100%, rgba(139,92,246,0.18), transparent 60%), #0b0b0f' }}>
           <p className="text-sm text-neutral-400">{tt('Toplam ekran süren')}</p>
-          <p className="text-5xl sm:text-6xl font-black text-neutral-50 tracking-tight mt-1">{fmtDuration(total)}</p>
+          <p className="text-5xl sm:text-6xl font-black text-neutral-50 tracking-tight mt-1">
+            <CountUp key={year} value={total} format={(n) => fmtDuration(Math.round(n))} />
+          </p>
           <p className="text-sm text-neutral-400 mt-2">
             {ttx('Film {0} saat · Dizi {1} saat', Math.round(stats.filmMinutes / 60), Math.round(stats.seriesMinutes / 60))}
           </p>
           <p className="text-[11px] text-neutral-600 mt-1">
             {ttx('Dizi süresi, izlediğin bölüm sayısı × dizinin ortalama bölüm süresi{0}.', stats.seriesEstimated ? tt(' (süresi bilinmeyen birkaç dizi için yaklaşık 42 dk sayıldı)') : '')}</p>
+          {/* Kartın boş kalan altında ay ay ne kadar izlediğin */}
+          {stats.months.some((n) => n > 0) && (
+            <div className="mt-6">
+              <Bars values={stats.months} labels={monthNames('short')} highlight={stats.months.indexOf(Math.max(...stats.months))} height="h-20" />
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-3 md:grid-cols-1 gap-3">
           {[
@@ -312,7 +352,9 @@ export default function Flashback() {
             [stats.episodes, tt('bölüm'), ''],
           ].map(([n, l, s]) => (
             <div key={l as string} className="rounded-3xl border border-neutral-800 bg-neutral-900/60 px-5 py-4">
-              <p className="text-3xl font-black text-neutral-50 tabular-nums">{n}</p>
+              <p className="text-3xl font-black text-neutral-50 tabular-nums">
+                <CountUp key={year} value={Number(n)} />
+              </p>
               <p className="text-sm text-neutral-300">{l}</p>
               {s && <p className="text-[11px] text-neutral-500">{s}</p>}
             </div>

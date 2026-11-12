@@ -185,6 +185,12 @@ export default function GlobalSearch() {
   // Klavyeden "/" ile aramayı aç (bir yazı kutusunun içindeyken değil).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Ctrl+K her yerden (yazı kutusunun içindeyken de) açar; "/" sadece yazı kutusu dışındayken
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setOpen(true)
+        return
+      }
       if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
@@ -344,7 +350,7 @@ export default function GlobalSearch() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition relative z-40"
-        title={tt('Ara (klavyeden "/")')}
+        title={tt('Ara (Ctrl+K ya da "/")')}
       >
         <Icon name="search" className="h-[22px] w-[22px]" />
       </button>
