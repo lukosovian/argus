@@ -93,6 +93,7 @@ import {
   EvrenOtoVisual,
   AklimdaVisual,
   KaldiginYerVisual,
+  FazsizVisual,
   DetayRenkVisual,
   IskeletBosVisual,
   KisayolVisual,
@@ -110,6 +111,15 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.2',
+    date: tt('13 Kasım 2026'),
+    title: tt('Evrenler: fazsız tek liste'),
+    items: [
+      tt('Çıkış sırasında yapımlar artık fazlara ve ayrı yan yapım bölümlerine ayrılmıyor: hepsi tarihine göre tek listede. Yan yapımlar ana yapımların arasına giriyor; afişlerindeki "yan" etiketinden, ana hikâyeye katkısı olmayanlar da "atlanabilir" yazısından anlaşılıyor.'),
+    ],
+    visuals: [{ caption: tt('1 hepsi tarihine göre tek listede · 2 yan yapımlar etiketli'), Visual: FazsizVisual }],
+  },
   {
     version: 'v1.23.1',
     date: tt('12 Kasım 2026'),

@@ -448,14 +448,10 @@ function UniverseView({
   const [bulkOpen, setBulkOpen] = useState(false)
   const numbers = new Map(ordered.map((i, n) => [i.key, n + 1]))
 
-  // Çıkış sırasında fazlara göre bölümler; hikâye sırasında tek liste
-  const sections = useMemo(() => {
-    if (mode === 'hikaye' || !u.groups.length) return [{ id: '', name: '', items: ordered }]
-    const out = u.groups.map((g) => ({ id: g.id, name: g.name, items: ordered.filter((i) => i.group === g.id) }))
-    const rest = ordered.filter((i) => !i.group || !u.groups.some((g) => g.id === i.group))
-    if (rest.length) out.push({ id: '_', name: tt('Diğer'), items: rest })
-    return out.filter((x) => x.items.length)
-  }, [mode, u.groups, ordered])
+  // Tek liste, fazlara bölünmeden: kullanıcı "fazlar işi bozdu, yan yapımlar ayrı kategori olmasın, hepsini
+  // fazsız dizelim, yan hikâye olanlar anlaşılır olsun, atlanabilirler yine yazsın" dedi — yan yapımlar
+  // tarihine göre ana yapımların arasına giriyor, kartlarındaki "yan" ve "atlanabilir" etiketleriyle ayrılıyor.
+  const sections = [{ id: '', name: '', items: ordered }]
 
   const pendingRow = openAfterAdd ? rows.find((r) => r.id === openAfterAdd) : null
   useEffect(() => {

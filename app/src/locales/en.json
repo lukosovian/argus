@@ -3038,5 +3038,10 @@
  "1 detayda kaldığın yer · 2 iki günde izlenen film tek izleme": "1 where you left off in the details · 2 a movie watched over two days is one watch",
  "9 Kasım: yarıda kaldı": "Nov 9: stopped halfway",
  "12 Kasım: devam, bitti": "Nov 12: continued, finished",
- "Tek izleme: 09.11 → 12.11": "One watch: 09.11 → 12.11"
+ "Tek izleme: 09.11 → 12.11": "One watch: 09.11 → 12.11",
+ "Evrenler: fazsız tek liste": "Universes: one list, no phases",
+ "Çıkış sırasında yapımlar artık fazlara ve ayrı yan yapım bölümlerine ayrılmıyor: hepsi tarihine göre tek listede. Yan yapımlar ana yapımların arasına giriyor; afişlerindeki \"yan\" etiketinden, ana hikâyeye katkısı olmayanlar da \"atlanabilir\" yazısından anlaşılıyor.": "In release order, titles are no longer split into phases and separate side-production sections: everything is in one list by date. Side productions sit between the main titles; you can tell them by the \"side\" tag on their posters, and the ones that add nothing to the main story by the \"skippable\" label.",
+ "1 hepsi tarihine göre tek listede · 2 yan yapımlar etiketli": "1 everything in one list by date · 2 side productions are tagged",
+ "Çıkış sırası · tek liste": "Release order · one list",
+ "13 Kasım 2026": "November 13, 2026"
 }

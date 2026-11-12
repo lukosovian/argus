@@ -3813,3 +3813,46 @@ export function KaldiginYerVisual() {
     </Frame>
   )
 }
+
+// ---- v1.23.2 -------------------------------------------------------------------------------
+
+export function FazsizVisual() {
+  const cards: { year: string; yan?: boolean; atla?: boolean }[] = [
+    { year: '1998', yan: true, atla: true },
+    { year: '2008' },
+    { year: '2008' },
+    { year: '2009', yan: true, atla: true },
+    { year: '2010' },
+    { year: '2012', yan: true },
+  ]
+  return (
+    <Frame viewBox={VB}>
+      {cards.map((c, i) => (
+        <g key={i} transform={`translate(${14 + i * 50} 40)`}>
+          <rect width={42} height={63} rx={4} className="fill-neutral-800" stroke={c.yan ? ACCENT : '#404040'} strokeWidth={c.yan ? 1 : 0.6} />
+          {c.yan && (
+            <g>
+              <rect x={22} y={3} width={17} height={9} rx={2} fill="#000" opacity={0.75} />
+              <text x={30.5} y={9.5} fontSize={5.5} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+                {tt('yan')}
+              </text>
+            </g>
+          )}
+          {c.atla && (
+            <text x={21} y={58} fontSize={5} textAnchor="middle" fill="#fbbf24" style={{ fontFamily: 'inherit' }} {...fit(tt('atlanabilir'), 5, 38)}>
+              {tt('atlanabilir')}
+            </text>
+          )}
+          <text x={21} y={74} fontSize={6} textAnchor="middle" className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+            {c.year}
+          </text>
+        </g>
+      ))}
+      <text x={14} y={26} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Çıkış sırası · tek liste')}
+      </text>
+      <Pin x={306} y={36} n={1} />
+      <Pin x={60} y={36} n={2} />
+    </Frame>
+  )
+}
