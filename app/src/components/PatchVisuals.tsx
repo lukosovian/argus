@@ -3769,3 +3769,47 @@ export function AklimdaVisual() {
     </Frame>
   )
 }
+
+// ---- v1.23.1 -------------------------------------------------------------------------------
+
+export function KaldiginYerVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={12} y={22} w={150} h={96} r={8} />
+      <text x={22} y={38} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('İzleme')}
+      </text>
+      <text x={22} y={54} fontSize={5.6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('Kaldığın yer')}
+      </text>
+      <text x={22} y={67} fontSize={8} className="fill-neutral-100" style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        1:12:30
+      </text>
+      <text x={58} y={67} fontSize={6.5} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        / 2:15:00
+      </text>
+      <rect x={22} y={73} width={130} height={3.5} rx={1.75} className="fill-neutral-800" />
+      <rect x={22} y={73} width={70} height={3.5} rx={1.75} fill={ACCENT} />
+      <Pin x={150} y={50} n={1} />
+      <text x={22} y={94} fontSize={5.6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('İzlediğin tarih')}
+      </text>
+      <rect x={22} y={99} width={62} height={12} rx={3} className="fill-neutral-800" />
+      <text x={53} y={107.5} fontSize={6} textAnchor="middle" className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        09.11 → 12.11
+      </text>
+
+      <text x={184} y={40} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {tt('9 Kasım: yarıda kaldı')}
+      </text>
+      <text x={184} y={60} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {tt('12 Kasım: devam, bitti')}
+      </text>
+      <rect x={184} y={76} width={110} height={16} rx={4} fill={ACCENT} opacity={0.2} stroke={ACCENT} strokeWidth={0.8} />
+      <text x={239} y={87} fontSize={6.5} textAnchor="middle" fill={ACCENT} style={{ fontFamily: 'inherit', fontWeight: 600 }}>
+        {tt('Tek izleme: 09.11 → 12.11')}
+      </text>
+      <Pin x={300} y={74} n={2} />
+    </Frame>
+  )
+}

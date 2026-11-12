@@ -27,6 +27,7 @@ import { showLabel, useShowInfo } from '../lib/showStatus'
 import PersonModal from './PersonModal'
 import CollectionSection from './CollectionSection'
 import SongsSection from './SongsSection'
+import ResumePoint from './ResumePoint'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { useEscape } from '../hooks/useEscape'
 import { useThemeMode } from '../hooks/useThemeMode'
@@ -778,6 +779,7 @@ export default function RowDetailModal({
                     </span>
                   </div>
                 )}
+                {!seasons?.length && <ResumePoint rowId={row.id} watchDates={watchDates} formatDate={formatDate} />}
                 {watchDates.length > 0 && (
                   <div>
                     <p className="text-xs text-neutral-500 mb-1.5">{watchDates.length === 1 ? tt('İzlediğin tarih') : tt('{0} kez izledin', watchDates.length)}</p>

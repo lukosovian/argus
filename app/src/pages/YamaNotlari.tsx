@@ -92,6 +92,7 @@ import {
   MarvelFilmleriVisual,
   EvrenOtoVisual,
   AklimdaVisual,
+  KaldiginYerVisual,
   DetayRenkVisual,
   IskeletBosVisual,
   KisayolVisual,
@@ -109,6 +110,16 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.1',
+    date: tt('12 Kasım 2026'),
+    title: tt('Yarım kalan film: kaldığın yer ve başlangıç–bitiş tarihi'),
+    items: [
+      tt('Nook izlerken bir filmi yarıda bırakırsan kaldığın dakika detay penceresinin İzleme kartında görünüyor: kaçıncı dakikada kaldığın, filmin ne kadarını izlediğin ve hangi gün. Film bitince kendiliğinden siliniyor; istersen ✕ ile sen de silebilirsin.'),
+      tt('Yarım kalan filme başka bir gün devam edince tekrar izleme sayılmıyor: aynı izleme başlangıç–bitiş tarihi oluyor (ör. 09.11 → 12.11).'),
+    ],
+    visuals: [{ caption: tt('1 detayda kaldığın yer · 2 iki günde izlenen film tek izleme'), Visual: KaldiginYerVisual }],
+  },
   {
     version: 'v1.23',
     date: tt('12 Kasım 2026'),

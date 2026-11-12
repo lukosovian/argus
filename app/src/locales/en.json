@@ -3028,5 +3028,15 @@
  "Dolu — yenisi için birini çıkar": "Full — remove one to add another",
  "En fazla": "At most",
  "Sınırsız": "Unlimited",
- "Aklımda'nın bir sınırı var (başta 20 yapım): liste dolunca yenisini eklemek için önce birini çıkarman gerekiyor, böylece liste şişip unutulmuyor. Sınırı Aklımda sayfasından 10, 20, 30, 50 ya da sınırsız yapabilirsin; arşivden sildiğin yapımlar listeden de düşüyor.": "On My Mind has a limit (20 titles to start): once it is full, remove one before adding another, so the list never bloats and gets forgotten. Set it to 10, 20, 30, 50 or unlimited on the On My Mind page; titles you delete from your archive drop off the list too."
+ "Aklımda'nın bir sınırı var (başta 20 yapım): liste dolunca yenisini eklemek için önce birini çıkarman gerekiyor, böylece liste şişip unutulmuyor. Sınırı Aklımda sayfasından 10, 20, 30, 50 ya da sınırsız yapabilirsin; arşivden sildiğin yapımlar listeden de düşüyor.": "On My Mind has a limit (20 titles to start): once it is full, remove one before adding another, so the list never bloats and gets forgotten. Set it to 10, 20, 30, 50 or unlimited on the On My Mind page; titles you delete from your archive drop off the list too.",
+ "Kaldığın yer": "Where you left off",
+ "Kaldığın yeri sil": "Clear where you left off",
+ "Yarım kaldı": "Unfinished",
+ "Yarım kalan film: kaldığın yer ve başlangıç–bitiş tarihi": "Unfinished movies: where you left off and start–end dates",
+ "Nook izlerken bir filmi yarıda bırakırsan kaldığın dakika detay penceresinin İzleme kartında görünüyor: kaçıncı dakikada kaldığın, filmin ne kadarını izlediğin ve hangi gün. Film bitince kendiliğinden siliniyor; istersen ✕ ile sen de silebilirsin.": "If you stop a movie halfway while Nook is watching, the minute you stopped at shows on the Watching card of the detail window: where you left off, how much of the movie you've seen and on which day. It's cleared automatically when you finish the movie, or you can clear it yourself with ✕.",
+ "Yarım kalan filme başka bir gün devam edince tekrar izleme sayılmıyor: aynı izleme başlangıç–bitiş tarihi oluyor (ör. 09.11 → 12.11).": "Continuing an unfinished movie on another day no longer counts as a rewatch: the same watch gets a start–end date (e.g. 09.11 → 12.11).",
+ "1 detayda kaldığın yer · 2 iki günde izlenen film tek izleme": "1 where you left off in the details · 2 a movie watched over two days is one watch",
+ "9 Kasım: yarıda kaldı": "Nov 9: stopped halfway",
+ "12 Kasım: devam, bitti": "Nov 12: continued, finished",
+ "Tek izleme: 09.11 → 12.11": "One watch: 09.11 → 12.11"
 }

@@ -378,6 +378,9 @@ export const api = {
   getSongs: (rowId: string) => request<Song[]>(profilePath(`/songs/${rowId}`)),
   addSong: (rowId: string, song: { key: string; title: string; artist: string; season: number | null; episode: number | null; atMs: number | null; manual: true }) =>
     request<{ ok: true; duplicate: boolean; song: Song }>(profilePath(`/songs/${rowId}`), { method: 'POST', ...json(song) }),
+  // Yarım kalan filmde kaldığın yer (Nook yazıyor; bkz. server/index.js progress)
+  getProgress: (rowId: string) => request<{ atMs: number | null; durationMs: number | null; day: string } | null>(profilePath(`/progress/${rowId}`)),
+  clearProgress: (rowId: string) => request<{ ok: true }>(profilePath(`/progress/${rowId}`), { method: 'DELETE' }),
   deleteSong: (rowId: string, songId: string) => request<{ ok: true }>(profilePath(`/songs/${rowId}/${songId}`), { method: 'DELETE' }),
   // Sunucu, dizinin çıkmış bütün bölümleri işaretlenince durumu kendiliğinden İzlendi yapıyor
   // (autoWatched) — o zaman açık ekranlar yenilensin ve zil baksın.

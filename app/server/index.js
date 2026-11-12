@@ -126,6 +126,9 @@ function profileEpisodesFile(profileId) {
 function profileWatchedFile(profileId) {
   return path.join(profileDir(profileId), 'watched.json')
 }
+function profileProgressFile(profileId) {
+  return path.join(profileDir(profileId), 'progress.json')
+}
 function profileSongsFile(profileId) {
   return path.join(profileDir(profileId), 'songs.json')
 }
@@ -872,6 +875,36 @@ app.delete('/api/profiles/:profileId/songs/:rowId/:songId', (req, res) => {
   if (next.length) all[req.params.rowId] = next
   else delete all[req.params.rowId]
   writeJson(file, all)
+  res.json({ ok: true })
+})
+
+// Yarım kalan filmler: kullanıcı "yarım kalan filmi devam ettirince tekrar izleme olarak yazmasın, kaldığım
+// dakikayı detay penceresinde göstersin" dedi. Nook izlerken kaldığın yeri buraya yazıyor, film bitince
+// siliyor. progress.json: { [rowId]: { atMs (bilinmiyorsa null), durationMs, day (o izleme için yazılan
+// tarih), at } }. day gönderilmezse öncekisi korunur.
+app.get('/api/profiles/:profileId/progress/:rowId', (req, res) => {
+  res.json(readJson(profileProgressFile(req.params.profileId), {})[req.params.rowId] ?? null)
+})
+
+app.put('/api/profiles/:profileId/progress/:rowId', (req, res) => {
+  const b = req.body ?? {}
+  const file = profileProgressFile(req.params.profileId)
+  const all = readJson(file, {})
+  const old = all[req.params.rowId] ?? {}
+  const day = typeof b.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.day) ? b.day : old.day
+  if (!day) return res.status(400).json({ error: stt('Gün eksik') })
+  all[req.params.rowId] = { atMs: cleanInt(b.atMs), durationMs: cleanInt(b.durationMs), day, at: Date.now() }
+  writeJson(file, all)
+  res.json({ ok: true })
+})
+
+app.delete('/api/profiles/:profileId/progress/:rowId', (req, res) => {
+  const file = profileProgressFile(req.params.profileId)
+  const all = readJson(file, {})
+  if (req.params.rowId in all) {
+    delete all[req.params.rowId]
+    writeJson(file, all)
+  }
   res.json({ ok: true })
 })
 
