@@ -3,6 +3,7 @@ import type { Board, Row, WatchedMap } from '../types'
 import { ratingAverage, titleText } from '../types'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
+import { useProfiles } from '../hooks/useProfiles'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { api } from './api'
 import { resolveRole, resolveStatusOption } from './roles'
@@ -119,18 +120,27 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap): Pr
   }
 }
 
-export function useProfileStats(enabled: boolean): ProfileStats | null {
+export function useProfileStats(wanted: boolean): ProfileStats | null {
   const { settings } = useHomeSettings()
+  // Profil seçilmeden (Kim izliyor? ekranı) hiçbir şey çekilmesin — api profil yokken hemen hata fırlatıyor
+  const { activeProfileId } = useProfiles()
+  const enabled = wanted && Boolean(activeProfileId)
   const boardId = enabled ? (settings.boardId ?? undefined) : undefined
   const { board } = useBoard(boardId)
   const { rows } = useRows(boardId)
   const [watched, setWatched] = useState<WatchedMap>({})
   useEffect(() => {
     if (!enabled) return
-    const load = () => api.getWatched().then(setWatched).catch(() => {})
+    const load = () => {
+      try {
+        api.getWatched().then(setWatched).catch(() => {})
+      } catch {
+        /* profil yoksa boş kalsın */
+      }
+    }
     load()
     return onDataChanged(() => load())
-  }, [enabled])
+  }, [enabled, activeProfileId])
   // saat değişince (duygu avatarı) arada bir yenile
   const [tick, setTick] = useState(0)
   useEffect(() => {

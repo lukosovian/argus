@@ -3,19 +3,34 @@ import { ratingAverage } from '../types'
 import { resolveRole, resolveStatusOption } from './roles'
 import { entryEnd, toEntries } from './dateRange'
 import { tt } from './i18n'
+import type { IconName } from '../components/Icon'
 
-// Başarımlar (v1.23.4, Ayarlar › Ekstralar › Başarımlar): arşivden ve bölüm tiklerinden hesaplanan kalıcı rozetler.
-// Kazanılanlar profil başına hatırlanır; yenisi kazanılınca zile bildirim düşer (bkz. Navbar).
+// Başarımlar (v1.23.4; v1.23.5'te bronz/gümüş/altın seviyeli, emojisiz madalyalar): arşivden ve bölüm tiklerinden
+// hesaplanan kalıcı rozetler. Kazanılan seviyeler profil başına hatırlanır; yenisinde zile bildirim düşer (bkz. AchievementWatcher).
+
+export type Tier = 0 | 1 | 2 | 3 // 0 kilitli, 1 bronz, 2 gümüş, 3 altın
 
 export interface Achievement {
   id: string
-  emoji: string
+  icon: IconName
   title: string
+  // {0} yerine sıradaki seviyenin hedefi gelir (ör. "{0} yapım izle")
   hint: string
   colors: [string, string]
   value: number
+  tiers: [number, number, number]
+  level: Tier
+  // sıradaki seviyenin hedefi (altındaysa son hedef)
   goal: number
 }
+
+export const TIER_NAMES = () => [tt('Kilitli'), tt('Bronz'), tt('Gümüş'), tt('Altın')]
+export const TIER_COLORS: [string, string][] = [
+  ['#3f3f46', '#71717a'],
+  ['#8a4b24', '#f0b07a'],
+  ['#6b7280', '#f1f5f9'],
+  ['#a16207', '#fde68a'],
+]
 
 export function computeAchievements(board: Board, rows: Row[], watched: WatchedMap, extra: { universesDone: number } = { universesDone: 0 }): Achievement[] {
   const durum = resolveRole(board, 'durum')
@@ -48,6 +63,7 @@ export function computeAchievements(board: Board, rows: Row[], watched: WatchedM
         perDayEp.set(k, (perDayEp.get(k) ?? 0) + 1)
       }
   const maxDayEp = Math.max(0, ...perDayEp.values())
+  const totalEp = [...perDayEp.values()].reduce((x, y) => x + y, 0)
   let best = 0
   let run = 0
   let prev = ''
@@ -59,23 +75,38 @@ export function computeAchievements(board: Board, rows: Row[], watched: WatchedM
     best = Math.max(best, run)
     prev = d
   }
-  const A = (id: string, emoji: string, title: string, hint: string, c: [string, string], value: number, goal: number): Achievement => ({ id, emoji, title, hint, colors: c, value: Math.min(value, goal), goal })
+  const A = (id: string, icon: IconName, title: string, hint: string, c: [string, string], value: number, tiers: [number, number, number]): Achievement => {
+    const level = (tiers.filter((t) => value >= t).length as Tier)
+    return { id, icon, title, hint, colors: c, value, tiers, level, goal: tiers[Math.min(level, 2)] }
+  }
+  const movies = done.filter((r) => !isSeries(r)).length
   return [
-    A('ilk10', '🎬', tt('İlk Adım'), tt('10 yapım izle'), ['#1e3a8a', '#3b82f6'], done.length, 10),
-    A('ilk100', '🍿', tt('İlk 100'), tt('100 yapım izle'), ['#831843', '#f472b6'], done.length, 100),
-    A('efsane', '👑', tt('Efsane'), tt('1000 yapım izle'), ['#422006', '#fbbf24'], done.length, 1000),
-    A('maraton', '🏃', tt('Maratoncu'), tt('Bir günde 6 bölüm'), ['#065f46', '#34d399'], maxDayEp, 6),
-    A('dizici', '🔪', tt('Seri Katili'), tt('10 dizi bitir'), ['#7f1d1d', '#ef4444'], done.filter(isSeries).length, 10),
-    A('zaman', '⏳', tt('Zaman Yolcusu'), tt("60'lardan bugüne her on yıldan bir film"), ['#78350f', '#f59e0b'], decades.size, 7),
-    A('dunya', '🌍', tt('Dünya Turu'), tt('10 farklı ülkeden yapım'), ['#0c4a6e', '#38bdf8'], countries.size, 10),
-    A('tur', '🎭', tt('Her Telden'), tt('15 farklı türden yapım'), ['#134e4a', '#2dd4bf'], genres.size, 15),
-    A('evren', '🪐', tt('Evren Fatihi'), tt('Bir evrenin hepsini izle'), ['#4c1d95', '#a78bfa'], extra.universesDone, 1),
-    A('sadik', '📅', tt('Sadık'), tt('30 gün üst üste izle'), ['#1e293b', '#94a3b8'], best, 30),
-    A('comert', '💯', tt('Cömert'), tt('20 kez 10 puan ver'), ['#713f12', '#fde047'], scores.filter((s) => s >= 10).length, 20),
-    A('elestirmen', '✍️', tt('Eleştirmen'), tt('100 yapıma puan ver'), ['#3f3f46', '#e4e4e7'], scores.length, 100),
-    A('korkusuz', '🧟', tt('Korkusuz'), tt('25 korku filmi'), ['#14532d', '#4ade80'], horror, 25),
-    A('tekrar', '🔁', tt('Tekrarcı'), tt('10 yapımı yeniden izle'), ['#155e75', '#22d3ee'], rewatch, 10),
+    A('izleyici', 'play', tt('Sinefil'), tt('{0} yapım izle'), ['#1e3a8a', '#3b82f6'], done.length, [10, 100, 1000]),
+    A('film', 'clapper', tt('Film Kurdu'), tt('{0} film izle'), ['#831843', '#f472b6'], movies, [50, 200, 500]),
+    A('dizici', 'tv', tt('Seri Katili'), tt('{0} dizi bitir'), ['#7f1d1d', '#ef4444'], done.filter(isSeries).length, [10, 25, 50]),
+    A('bolum', 'film', tt('Bölüm Avcısı'), tt('{0} bölüm işaretle'), ['#312e81', '#818cf8'], totalEp, [100, 500, 1500]),
+    A('maraton', 'flame', tt('Maratoncu'), tt('Bir günde {0} bölüm'), ['#065f46', '#34d399'], maxDayEp, [6, 10, 15]),
+    A('sadik', 'calendar', tt('Sadık'), tt('{0} gün üst üste izle'), ['#1e293b', '#94a3b8'], best, [7, 14, 30]),
+    A('zaman', 'clock', tt('Zaman Yolcusu'), tt("60'lardan bugüne {0} farklı on yıldan film"), ['#78350f', '#f59e0b'], decades.size, [3, 5, 7]),
+    A('dunya', 'globe', tt('Dünya Turu'), tt('{0} farklı ülkeden yapım'), ['#0c4a6e', '#38bdf8'], countries.size, [5, 10, 20]),
+    A('tur', 'sparkle', tt('Her Telden'), tt('{0} farklı türden yapım'), ['#134e4a', '#2dd4bf'], genres.size, [6, 10, 15]),
+    A('evren', 'planet', tt('Evren Fatihi'), tt('{0} evrenin hepsini izle'), ['#4c1d95', '#a78bfa'], extra.universesDone, [1, 3, 5]),
+    A('comert', 'star', tt('Cömert'), tt('{0} kez 10 puan ver'), ['#713f12', '#fde047'], scores.filter((s) => s >= 10).length, [5, 20, 50]),
+    A('elestirmen', 'pencil', tt('Eleştirmen'), tt('{0} yapıma puan ver'), ['#3f3f46', '#e4e4e7'], scores.length, [25, 100, 300]),
+    A('korkusuz', 'moon', tt('Korkusuz'), tt('{0} korku yapımı izle'), ['#14532d', '#4ade80'], horror, [10, 25, 50]),
+    A('tekrar', 'repeat', tt('Tekrarcı'), tt('{0} yapımı yeniden izle'), ['#155e75', '#22d3ee'], rewatch, [3, 10, 25]),
   ]
 }
 
 export const unlockedKey = (profileId: string) => `argus_basarim_${profileId}`
+// Seviyeli sürüm (v1.23.5): "id:seviye" listesi ve kazanılma tarihleri { "id:seviye": "2026-11-13" }
+export const unlockedKey2 = (profileId: string) => `argus_basarim2_${profileId}`
+export const unlockedDatesKey = (profileId: string) => `argus_basarim_tarih_${profileId}`
+
+// Bitirilen evrenler: çıkmış bütün (yan olmayan) yapımları izlenmiş evren sayısı
+export function countDone(universes: { items: { released: boolean; extra: boolean; watched: boolean }[] }[]): number {
+  return universes.filter((u) => {
+    const main = u.items.filter((i) => i.released && !i.extra)
+    return main.length > 0 && main.every((i) => i.watched)
+  }).length
+}

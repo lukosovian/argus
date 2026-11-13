@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { AklimdaTmdb } from '../lib/api'
 import { useAklimda } from '../hooks/useAklimda'
 import { useToast } from '../hooks/useToast'
@@ -8,7 +8,8 @@ import Icon from './Icon'
 // Detay penceresinde ve TMDB önizlemesinde "Aklımda" düğmesi: tek tıkla eklenir/çıkarılır.
 export type AklimdaTarget = { kind: 'row'; boardId: string; rowId: string } | { kind: 'tmdb'; tmdb: AklimdaTmdb }
 
-export default function AklimdaButton({ target, title }: { target: AklimdaTarget; title: string }) {
+// children: yanına dizilecek başka düğmeler (ör. detay penceresindeki "Paylaş")
+export default function AklimdaButton({ target, title, children }: { target: AklimdaTarget; title: string; children?: ReactNode }) {
   const akl = useAklimda()
   const { notify } = useToast()
   const key = target.kind === 'row' ? (akl.items[target.rowId] ? target.rowId : null) : akl.keyForTmdb(target.tmdb.mediaType, target.tmdb.id)
@@ -45,6 +46,7 @@ export default function AklimdaButton({ target, title }: { target: AklimdaTarget
         <Icon name="bookmark" className={`h-[1em] w-[1em] ${key ? 'text-violet-300' : ''}`} />
         {key ? tt('Aklımda') : tt('Aklımda tut')}
       </button>
+      {children}
     </div>
   )
 }

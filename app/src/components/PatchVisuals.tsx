@@ -4140,3 +4140,123 @@ export function MenuEkstraVisual() {
     </Frame>
   )
 }
+
+// v1.23.5 — Ayarlar › Açılış: giriş animasyonu (Sırayla), Şimdi izle, ARGUS göz açılışı
+export function GirisAnimVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={10} width={74} height={160} rx={6} className="fill-neutral-900" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x={16} y={20 + i * 22} width={62} height={14} rx={3} className={i === 4 ? 'fill-neutral-700' : 'fill-neutral-800'} stroke={i === 4 ? ACCENT : 'none'} strokeWidth={0.8} />
+      ))}
+      <text x={22} y={118.5} fontSize={6.5} fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Açılış')}
+      </text>
+      <rect x={94} y={14} width={120} height={20} rx={4} className="fill-neutral-900" stroke={ACCENT} strokeWidth={0.8} />
+      <text x={102} y={27} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }} {...fit(tt('Sırayla (her açılışta sıradaki)'), 6.5, 104)}>
+        {tt('Sırayla (her açılışta sıradaki)')}
+      </text>
+      {[0, 1, 2, 3].map((i) => (
+        <rect key={i} x={94 + i * 30} y={42} width={26} height={11} rx={5.5} className="fill-neutral-800" stroke="#525252" strokeWidth={0.6} />
+      ))}
+      <g transform="translate(94 64)">
+        <rect width={120} height={100} rx={6} fill="#000" />
+        <path d="M18 50 Q60 14 102 50 Q60 86 18 50Z" fill="#06223f" stroke="#5fd8ff" strokeWidth={1} />
+        <circle cx={60} cy={50} r={17} fill={ACCENT} />
+        <circle cx={60} cy={50} r={7} fill="#000" />
+        <circle cx={55} cy={45} r={2.5} fill="#fff" />
+        {[0, 1].map((i) => (
+          <circle key={i} cx={60} cy={50} r={28 + i * 12} fill="none" stroke={ACCENT} strokeOpacity={0.4 - i * 0.15} />
+        ))}
+      </g>
+      <g transform="translate(226 64)">
+        <rect width={86} height={100} rx={6} className="fill-neutral-900" />
+        <rect x={12} y={14} width={62} height={34} rx={2} fill="#3d1d0a" />
+        <path d="M43 98 L14 48 L72 48 Z" fill="#fde68a" opacity={0.18} />
+        {[0, 1, 2, 3].map((i) => (
+          <rect key={i} x={6 + i * 20} y={70} width={14} height={30} rx={7} className="fill-neutral-800" />
+        ))}
+      </g>
+      <Pin x={208} y={16} n={1} />
+      <Pin x={214} y={44} n={2} />
+      <Pin x={208} y={70} n={3} />
+      <Pin x={306} y={70} n={4} />
+    </Frame>
+  )
+}
+
+// v1.23.5 — Başarımlar madalyaları ve Sahneden bil'de gerçek sahne
+export function BasarimSahneVisual() {
+  const seal = Array.from({ length: 24 }, (_, i) => {
+    const r = i % 2 ? 19 : 22
+    const a = (i / 24) * Math.PI * 2
+    return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`
+  }).join(' ')
+  const metals = ['#f0b07a', '#e2e8f0', '#fde68a', '#52525b']
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={10} width={140} height={160} rx={8} className="fill-neutral-900" />
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i} transform={`translate(${46 + (i % 2) * 68} ${50 + Math.floor(i / 2) * 76})`}>
+          <polygon points={seal} fill={metals[i]} opacity={i === 3 ? 0.5 : 1} />
+          <circle r={15} fill={['#3b82f6', '#ef4444', '#a78bfa', '#3f3f46'][i]} />
+          <path d="M-5 -7 L7 0 L-5 7 Z" fill="#fff" opacity={i === 3 ? 0.35 : 1} />
+          {[0, 1, 2].map((t) => (
+            <rect key={t} x={-13 + t * 9} y={28} width={7} height={2.5} rx={1.2} fill={i < 3 && t <= i ? metals[t] : '#404040'} />
+          ))}
+        </g>
+      ))}
+      <g transform="translate(162 14)">
+        <rect width={150} height={84} rx={6} fill="#0b1726" />
+        <rect x={0} y={52} width={150} height={32} fill="#13283f" />
+        <circle cx={110} cy={30} r={12} fill="#fde68a" opacity={0.5} />
+        <path d="M20 84 L38 50 L52 84 Z" className="fill-neutral-700" />
+        <rect x={0} y={80} width={110} height={4} fill={ACCENT} />
+      </g>
+      {[0, 1, 2, 3].map((i) => (
+        <rect key={i} x={162 + (i % 2) * 77} y={106 + Math.floor(i / 2) * 32} width={73} height={26} rx={5} className="fill-neutral-900" stroke={i === 1 ? '#10b981' : '#404040'} strokeWidth={0.8} />
+      ))}
+      <Pin x={22} y={20} n={1} />
+      <Pin x={138} y={150} n={2} />
+      <Pin x={306} y={18} n={3} />
+      <Pin x={306} y={110} n={4} />
+    </Frame>
+  )
+}
+
+// v1.23.5 — Detayda Aklımda tut + Paylaş yan yana, yıllık hedef İstatistikler'de
+export function PaylasHedefVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={10} width={160} height={160} rx={8} className="fill-neutral-900" />
+      <rect x={10} y={10} width={160} height={70} rx={8} className="fill-neutral-700" opacity={0.5} />
+      <rect x={20} y={88} width={110} height={8} rx={2} className="fill-neutral-600" />
+      <g transform="translate(20 106)">
+        <rect width={62} height={16} rx={8} fill="none" stroke="#525252" />
+        <text x={31} y={11} fontSize={6.5} textAnchor="middle" className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+          {tt('Aklımda tut')}
+        </text>
+        <rect x={68} width={48} height={16} rx={8} fill="none" stroke="#10b981" />
+        <text x={92} y={11} fontSize={6.5} textAnchor="middle" fill="#a7f3d0" style={{ fontFamily: 'inherit' }}>
+          {tt('Paylaş')}
+        </text>
+      </g>
+      <g transform="translate(182 14)">
+        <rect width={130} height={152} rx={8} className="fill-neutral-900" />
+        <text x={12} y={18} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+          {tt('İstatistikler')}
+        </text>
+        <circle cx={40} cy={62} r={22} fill="none" stroke="#404040" strokeWidth={6} />
+        <circle cx={40} cy={62} r={22} fill="none" stroke="#22c55e" strokeWidth={6} strokeDasharray="90 140" transform="rotate(-90 40 62)" strokeLinecap="round" />
+        {[8, 14, 10, 18, 12, 6].map((h, i) => (
+          <rect key={i} x={72 + i * 9} y={70 - h} width={6} height={h} rx={1} fill={ACCENT} opacity={0.7} />
+        ))}
+        {[0, 1, 2].map((i) => (
+          <rect key={i} x={12 + i * 38} y={100} width={34} height={40} rx={4} className="fill-neutral-800" />
+        ))}
+      </g>
+      <Pin x={92} y={100} n={1} />
+      <Pin x={232} y={48} n={2} />
+    </Frame>
+  )
+}

@@ -595,12 +595,18 @@ export default function RowDetailModal({
                   </button>
                 ))}
               </div>
-              <AklimdaButton target={{ kind: 'row', boardId: board.id, rowId: row.id }} title={title} />
-              {extrasOn.shareCard && poster && (
-                <button onClick={() => setShareOpen(true)} className="text-xs rounded-full border border-emerald-500/40 px-3 py-1.5 text-emerald-200 hover:bg-emerald-500/10 transition">
-                  📤 {tt('Bunu izle! kartı')}
-                </button>
-              )}
+              <AklimdaButton target={{ kind: 'row', boardId: board.id, rowId: row.id }} title={title}>
+                {extrasOn.shareCard && poster && (
+                  <button
+                    onClick={() => setShareOpen(true)}
+                    title={tt('Arkadaşına göndermek için "Bunu izle!" kartı hazırla')}
+                    className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 border border-neutral-600 text-neutral-300 bg-black/20 hover:border-emerald-400/70 hover:text-emerald-200 transition"
+                  >
+                    <Icon name="share" className="h-[1em] w-[1em]" />
+                    {tt('Paylaş')}
+                  </button>
+                )}
+              </AklimdaButton>
               {shareOpen && <ShareCard poster={poster} title={title} score={avgScore} onClose={() => setShareOpen(false)} />}
               {editable && (durumProp || tarihProp || puanProp) && (
                 <div className="flex flex-wrap items-center gap-1.5">

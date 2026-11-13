@@ -365,12 +365,17 @@ function createWindow() {
   view.webContents.on('did-finish-load', applyZoom)
   // Arayüzde dil değişince sayfa yeniden yüklenir — tepsi menüsü de yeni dile geçsin
   view.webContents.on('did-finish-load', applyTray)
-  view.webContents.once('did-finish-load', () => {
+  view.webContents.once('did-finish-load', async () => {
     layout()
     if (hidden) return
+    // Kullanıcı "splash screen gitmeden uygulama gelmesin" dedi (v1.23.5): ARGUS.exe'nin açılış penceresine "hazırım"
+    // denir, pencere kapanış animasyonunu bitirip "bitti" yazana kadar (en çok 4 sn) beklenir, sonra gösterilir.
+    await waitForSplash()
     win.show()
     win.focus()
     view.webContents.focus()
+    // Giriş animasyonu pencere görünür olana kadar bekliyor (bkz. src/components/IntroFx.tsx)
+    view.webContents.executeJavaScript("window.__argusGorundu = true; window.dispatchEvent(new Event('argus-pencere-gorundu'))").catch(() => {})
   })
   win.on('focus', () => view && view.webContents.focus())
   win.on('close', (e) => {
@@ -440,6 +445,30 @@ function createWindow() {
     if (code === -3) return // iptal (yönlendirme)
     setTimeout(() => view && view.webContents.loadURL(URL), 1000)
   })
+}
+
+// Açılış penceresiyle el sıkışma: ARGUS.exe ARGUS.bat'a (dolayısıyla bize) ARGUS_STATUS_FILE verir; oraya "hazir"
+// yazılınca açılış penceresi kapanış animasyonunu oynatır ve %TEMP%\argus-splash.txt'ye "bitti" yazar. Açılış penceresi
+// yoksa (ARGUS.bat elle açıldı, dosya eski) beklenmez.
+async function waitForSplash() {
+  const status = process.env.ARGUS_STATUS_FILE
+  if (!status) return
+  try {
+    fs.writeFileSync(status, 'hazir')
+  } catch {
+    return
+  }
+  const flag = path.join(require('node:os').tmpdir(), 'argus-splash.txt')
+  const open = () => {
+    try {
+      const st = fs.statSync(flag)
+      return Date.now() - st.mtimeMs < 30 * 60 * 1000 && fs.readFileSync(flag, 'utf8').trim() === 'acik'
+    } catch {
+      return false
+    }
+  }
+  const until = Date.now() + 4000
+  while (open() && Date.now() < until) await new Promise((r) => setTimeout(r, 60))
 }
 
 // İlk açılışta tarayıcıdaki eski arayüz tercihlerini (kapatılan sütunlar, tema…) uygulamaya taşı: uygulamanın

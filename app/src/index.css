@@ -79,62 +79,6 @@ body {
   }
 }
 
-/* Giriş animasyonları (Ekstralar › Giriş animasyonu, bkz. IntroFx.tsx) */
-@keyframes argus-intro-zoom {
-  0% {
-    opacity: 0;
-    transform: scale(0.6);
-    filter: blur(10px);
-  }
-  35% {
-    opacity: 1;
-    transform: scale(1);
-    filter: blur(0) drop-shadow(0 0 30px #00c0fa);
-  }
-  75% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(9);
-    filter: blur(4px);
-  }
-}
-@keyframes argus-intro-isik {
-  0%,
-  30% {
-    opacity: 0;
-  }
-  45% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes argus-intro-bitis {
-  to {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-@keyframes argus-perde-sol {
-  to {
-    transform: translateX(-100%);
-  }
-}
-@keyframes argus-perde-sag {
-  to {
-    transform: translateX(100%);
-  }
-}
-@keyframes argus-gren {
-  50% {
-    transform: translate(-6px, 4px);
-  }
-}
-
 /* PIN yanlışsa noktalar sallanır */
 @keyframes argus-salla {
   25% {

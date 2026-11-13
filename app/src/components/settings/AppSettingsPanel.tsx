@@ -8,6 +8,7 @@ import { useToast } from '../../hooks/useToast'
 import type { AppSettings } from '../../lib/desktopApp'
 import { LANGS, getLang, setLang, tt } from '../../lib/i18n'
 import { LineSkeleton } from '../Skeleton'
+import { NotifyExtras } from './ExtraSettings'
 
 // Ayarlar › Uygulama Ayarları — kullanıcı "ana sayfa ayarlarının altına Windows ayarları gibi bir yer; bilgisayar
 // açılırken açılsın, kapatınca tepsiye küçülsün" dedi, sonra önerilenlerin hepsini istedi (bildirimler, yazı
@@ -82,6 +83,7 @@ export default function AppSettingsPanel() {
       ) : (
         <PhonePanel />
       )}
+      {!mobile && <NotifyExtras />}
       {mobile ? null : !bridge ? (
         <p className="text-sm text-neutral-400 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
           {tt('Bu ayarlar ARGUS uygulamasında çalışır. Şu an ARGUS\'u tarayıcıda açmışsın; masaüstündeki ARGUS simgesinden açınca buradan değiştirebilirsin.')}

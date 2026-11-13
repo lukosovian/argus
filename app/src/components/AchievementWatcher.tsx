@@ -1,52 +1,75 @@
 import { useEffect, useState } from 'react'
 import type { WatchedMap } from '../types'
+import { todayIso } from '../types'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useToast } from '../hooks/useToast'
 import { api } from '../lib/api'
-import { computeAchievements, unlockedKey } from '../lib/achievements'
+import { computeAchievements, countDone, TIER_NAMES, unlockedDatesKey, unlockedKey2 } from '../lib/achievements'
 import { onDataChanged } from '../lib/dataEvents'
 import { tt } from '../lib/i18n'
 
-// Ekstralar › Başarımlar (v1.23.4): veri değişince rozetleri yeniden hesaplar; yeni kazanılan rozet için zile bildirim
-// ve ekranda kısa bir kutlama. İlk açılışta zaten kazanılmış olanlar sessizce kaydedilir (geriye dönük yağmur olmasın).
+// Başarımlar (v1.23.4, seviyeli v1.23.5): veri değişince rozetleri yeniden hesaplar; yeni kazanılan seviye için zile
+// bildirim ve ekranda kısa bir kutlama. İlk açılışta zaten kazanılmış olanlar sessizce kaydedilir (geriye dönük yağmur olmasın).
 export default function AchievementWatcher({ profileId }: { profileId: string }) {
   const { settings } = useHomeSettings()
   const { board } = useBoard(settings.boardId ?? undefined)
   const { rows, loading } = useRows(settings.boardId ?? undefined)
   const { notify } = useToast()
   const [watched, setWatched] = useState<WatchedMap | null>(null)
+  const [universesDone, setUniversesDone] = useState<number | null>(null)
   useEffect(() => {
     const load = () => api.getWatched().then(setWatched).catch(() => {})
     load()
     return onDataChanged(() => load())
   }, [profileId])
   useEffect(() => {
-    if (!board || loading || !watched || !rows.length) return
-    const got = computeAchievements(board, rows, watched).filter((a) => a.value >= a.goal)
+    if (settings.boardId)
+      api
+        .getEvrenler(settings.boardId)
+        .then((d) => setUniversesDone(countDone(d.universes)))
+        .catch(() => setUniversesDone(0))
+    else setUniversesDone(0)
+  }, [settings.boardId])
+  useEffect(() => {
+    if (!board || loading || !watched || !rows.length || universesDone === null) return
+    const list = computeAchievements(board, rows, watched, { universesDone })
+    const keys = list.flatMap((a) => Array.from({ length: a.level }, (_, i) => `${a.id}:${i + 1}`))
     let seen: string[] | null = null
+    let dates: Record<string, string> = {}
     try {
-      const raw = localStorage.getItem(unlockedKey(profileId))
+      const raw = localStorage.getItem(unlockedKey2(profileId))
       seen = raw ? JSON.parse(raw) : null
+      dates = JSON.parse(localStorage.getItem(unlockedDatesKey(profileId)) ?? '{}')
     } catch {
       seen = null
     }
-    const ids = got.map((a) => a.id)
+    const fresh = seen ? keys.filter((k) => !seen!.includes(k)) : []
+    for (const k of fresh) dates[k] = todayIso()
     try {
-      localStorage.setItem(unlockedKey(profileId), JSON.stringify([...new Set([...(seen ?? []), ...ids])]))
+      localStorage.setItem(unlockedKey2(profileId), JSON.stringify([...new Set([...(seen ?? []), ...keys])]))
+      localStorage.setItem(unlockedDatesKey(profileId), JSON.stringify(dates))
     } catch {
       /* önemsiz */
     }
-    if (!seen) return
-    for (const a of got.filter((x) => !seen!.includes(x.id))) {
-      notify(tt('{0} Yeni başarım: {1}!', a.emoji, a.title), 'success')
+    // aynı rozetin birden çok seviyesi birden geldiyse sadece en yükseği duyurulur
+    const best = new Map<string, number>()
+    for (const k of fresh) {
+      const [id, lv] = k.split(':')
+      best.set(id, Math.max(best.get(id) ?? 0, Number(lv)))
+    }
+    for (const [id, lv] of best) {
+      const a = list.find((x) => x.id === id)
+      if (!a) continue
+      const name = `${a.title} (${TIER_NAMES()[lv]})`
+      notify(tt('Yeni başarım: {0}!', name), 'success')
       fetch(`/api/profiles/${profileId}/notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: `basarim:${a.id}`, type: 'achievement', title: tt('Yeni başarım: {0}', a.title), text: a.hint, link: '/basarimlar' }),
+        body: JSON.stringify({ key: `basarim:${id}:${lv}`, type: 'achievement', title: tt('Yeni başarım: {0}', name), text: a.hint.replace('{0}', String(a.tiers[lv - 1])), link: '/basarimlar' }),
       }).catch(() => {})
     }
-  }, [board, rows, watched, loading])
+  }, [board, rows, watched, loading, universesDone])
   return null
 }

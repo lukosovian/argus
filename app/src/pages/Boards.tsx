@@ -6,10 +6,11 @@ import ArchivesPanel from '../components/settings/ArchivesPanel'
 import HomeSettingsPanel from '../components/settings/HomeSettingsPanel'
 import ProfileSettingsPanel from '../components/settings/ProfileSettingsPanel'
 import AppSettingsPanel from '../components/settings/AppSettingsPanel'
-import ExtrasPanel from '../components/settings/ExtrasPanel'
+import { OpeningPanel } from '../components/settings/ExtraSettings'
+import { PanelHeader } from '../components/settings/SettingsUi'
 import { tt } from '../lib/i18n'
 
-type Tab = 'veritabani' | 'ana-sayfa' | 'uygulama' | 'profil' | 'ekstralar'
+type Tab = 'veritabani' | 'ana-sayfa' | 'uygulama' | 'profil' | 'acilis'
 
 function DatabaseIcon() {
   return (
@@ -77,7 +78,7 @@ const TABS: { key: Tab; label: string; hint: string; icon: ComponentType }[] = [
   { key: 'ana-sayfa', label: tt('Ana Sayfa Ayarları'), hint: tt('Görünüm, sayfalar, modlar, Ne İzlesem'), icon: HomeGearIcon },
   { key: 'uygulama', label: tt('Uygulama Ayarları'), hint: tt('Başlangıç, kapatma, tepsi'), icon: MonitorIcon },
   { key: 'profil', label: tt('Profil Ayarları'), hint: tt('Profil ekle, düzenle, değiştir'), icon: UserIcon },
-  { key: 'ekstralar', label: tt('Ekstralar'), hint: tt('İsteğe bağlı yenilikler'), icon: SparkleIcon },
+  { key: 'acilis', label: tt('Açılış'), hint: tt('Giriş animasyonu, açılış penceresi'), icon: SparkleIcon },
 ]
 
 // Ayar arama dizini (v1.23.3, öneri Y1): "yedek" yazınca ilgili ayarlar ve hangi sekmede oldukları çıkar,
@@ -102,7 +103,14 @@ const SEARCH: { label: string; tab: Tab; alt?: string; where: string; words?: st
   { label: tt('Güncellemeler'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'güncelleme sürüm' },
   { label: tt('Yakınlaştırma ve kısayollar'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'zoom yakınlaştır kısayol ctrl' },
   { label: tt('Profil ekle, adı ve resmi'), tab: 'profil', where: tt('Profil Ayarları'), words: 'profil resim ad pin kilit çocuk' },
-  { label: tt('Ekstralar: isteğe bağlı yenilikler'), tab: 'ekstralar', where: tt('Ekstralar'), words: 'ekstra animasyon çark slot açılış intro perde mevsim kar menü arama avatar çerçeve birlikte başarım rozet hedef takip plan oyun haftalık paylaş' },
+  { label: tt('Ne İzlesem? seçim animasyonu, üç aday, bu akşam soruları'), tab: 'ana-sayfa', alt: 'nizlesem', where: tt('Ana Sayfa › Ne İzlesem?'), words: 'çark slot deste şerit aday sihirbaz bitiş saati' },
+  { label: tt('Giriş animasyonu'), tab: 'acilis', where: tt('Açılış'), words: 'intro sinema perde geri sayım göz sırayla rastgele ses' },
+  { label: tt('Açılış penceresi afiş duvarı'), tab: 'acilis', where: tt('Açılış'), words: 'splash afiş logo' },
+  { label: tt('Profil seçince avatar ekrana yayılsın'), tab: 'acilis', where: tt('Açılış'), words: 'kim izliyor geçiş avatar' },
+  { label: tt('Duygu avatarı, avatar sekmeleri, kırpma, çerçeveler'), tab: 'profil', where: tt('Profil Ayarları'), words: 'avatar fotoğraf çerçeve kırp duygu' },
+  { label: tt('Birlikte izle, zevk uyumu, Başarımlar, Sahneden bil'), tab: 'profil', where: tt('Profil Ayarları'), words: 'birlikte zevk başarım rozet sahne oyun' },
+  { label: tt('Dizi bitirme planı ve paylaşım kartı'), tab: 'profil', where: tt('Profil Ayarları'), words: 'plan paylaş kart' },
+  { label: tt('Oyuncu takibi ve haftalık özet'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'takip haftalık özet bildirim' },
 ]
 
 function SparkleIcon() {
@@ -218,7 +226,12 @@ export default function Boards() {
           {tab === 'ana-sayfa' && <HomeSettingsPanel key={alt} />}
           {tab === 'uygulama' && <AppSettingsPanel />}
           {tab === 'profil' && <ProfileSettingsPanel />}
-          {tab === 'ekstralar' && <ExtrasPanel />}
+          {tab === 'acilis' && (
+            <div>
+              <PanelHeader title={tt('Açılış')} description={tt('ARGUS bu bilgisayarda açılırken görünenler.')} />
+              <OpeningPanel />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -16,6 +16,7 @@ import { tt, ttx, monthNames, getLang } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
 import Icon, { type IconName } from '../components/Icon'
 import PageSkeleton from '../components/Skeleton'
+import GoalRow from '../components/GoalRow'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -860,6 +861,8 @@ export default function Istatistikler() {
           )}
         </div>
       </section>
+
+      {selectedBoardId === settings.boardId && <GoalRow titleClass="text-lg font-semibold text-neutral-100" />}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatTile label={tt('Toplam kayıt')} value={String(stats.total)} accent icon="table" color="#3fa9ff" />

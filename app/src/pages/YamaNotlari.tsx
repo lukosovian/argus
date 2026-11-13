@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,28 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.5',
+    date: tt('13 Kasım 2026'),
+    title: tt('Ekstralar yerlerine taşındı, yeni açılış ve giriş animasyonları'),
+    items: [
+      tt('iyi: Ekstralar sekmesi kalktı, ayarlar ilgili yerlerine taşındı: Ne İzlesem ayarları Ana Sayfa Ayarları › Ne İzlesem\'de, profil fotoğrafı ve profil menüsündeki sayfalar Profil Ayarları\'nda, oyuncu takibi ve haftalık özet Uygulama Ayarları\'nda. Giriş animasyonu, açılış penceresi ve Kim izliyor geçişi için yeni Açılış sekmesi var.'),
+      tt('yeni: Açılış penceresi yenilendi: arkada dolaşan ışıklar ve yıldız tozları, yaylanarak gelen logo ve yayılan halkalar, harf harf gelen ARGUS yazısı, logonun üstünden geçen ışık. ARGUS penceresi artık açılış penceresi kapanmadan gelmiyor: açılış penceresi logo büyüyüp parlarken soluyor, sonra uygulama açılıyor.'),
+      tt('yeni: Giriş animasyonları baştan yapıldı: yeni ARGUS göz açılışı (karanlıkta bir çizgi, göz açılır, iris döner, göz kırpınca logo gelir), sinema projektörü (salona vuran ışık, toz zerreleri, perdede titreyen eski film), film geri sayımı (akan film şeridi, 3-2-1 ve bip, film yanığıyla logo) ve tiyatro perdesi (saçaklı kadife perde, spot ışığı). "Sırayla" seçersen her açılışta sıradaki oynar, "Rastgele" de var; Açılış sekmesinden hepsini hemen izleyebilirsin.'),
+      tt('iyi: Profil seçince avatarın ekrana yayılması yenilendi: diğer profiller geri çekiliyor, avatar ortaya gelip kendi renginde parlıyor, "Hoş geldin" yazıyor, bir halka yayılıyor ve avatar bütün ekranı kaplayarak ana sayfaya dönüşüyor.'),
+      tt('iyi: Yeni profil menüsü artık herkeste, ayrı bir seçenek değil.'),
+      tt('iyi: Başarımlar yenilendi: emojiler yerine madalyalar, her rozetin bronz, gümüş ve altın seviyesi var; sıradaki seviyeye ilerleme halkası, "Yakında" listesi ve Açtıklarım / Devam edenler süzgeci. İki yeni rozet: Film Kurdu ve Bölüm Avcısı.'),
+      tt('yeni: Sahneden bil artık gerçekten sahne gösteriyor: arşivindeki yapımların TMDB\'deki yazısız film kareleri geliyor. Kolay, Normal (yakından başlayıp uzaklaşır) ve Zor (bulanık, siyah beyaz) zorluk, "Başka sahne" düğmesi, arka arkaya bildikçe büyüyen çarpan ve tur sonunda bütün sahneler.'),
+      tt('iyi: Detay penceresindeki paylaşım kartı düğmesi artık "Aklımda tut"un yanında, emojisiz bir "Paylaş" düğmesi.'),
+      tt('iyi: Yıllık hedef ana sayfadan kalktı, İstatistikler\'in en üstünde; hedefi oradan koyup değiştirebilirsin.'),
+      tt('iyi: Kaldırıldı: açılış penceresindeki "bugünün haberi", mevsimlik dokunuşlar ve gelişmiş arama.'),
+    ],
+    visuals: [
+      { caption: tt('1 Sırayla seçeneği · 2 Şimdi izle · 3 ARGUS göz açılışı · 4 sinema projektörü'), Visual: GirisAnimVisual },
+      { caption: tt('1 bronz, gümüş, altın madalyalar · 2 seviye çizgileri · 3 gerçek sahne · 4 dört şık'), Visual: BasarimSahneVisual },
+      { caption: tt('1 Aklımda tut ve Paylaş yan yana · 2 yıllık hedef İstatistikler\'de'), Visual: PaylasHedefVisual },
+    ],
+  },
   {
     version: 'v1.23.4',
     date: tt('13 Kasım 2026'),

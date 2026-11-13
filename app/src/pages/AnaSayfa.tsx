@@ -24,8 +24,6 @@ import OnThisDayRow from '../components/OnThisDayRow'
 import ForgottenRow from '../components/ForgottenRow'
 import AklimdaRow from '../components/AklimdaRow'
 import ContinueRow from '../components/ContinueRow'
-import GoalRow from '../components/GoalRow'
-import { SeasonFx } from '../components/IntroFx'
 import { useAklimda } from '../hooks/useAklimda'
 import { useToast } from '../hooks/useToast'
 import { stripFlags } from '../components/OptionDetailModal'
@@ -1079,7 +1077,6 @@ export default function AnaSayfa() {
   rowNodes.set('on-this-day', <OnThisDayRow key="on-this-day" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.aklimdaRow?.enabled ?? true)
     rowNodes.set('aklimda', <AklimdaRow key="aklimda" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
-  if ((settings.yearGoal ?? 0) > 0) rowNodes.set('goal', <GoalRow key="goal" goal={settings.yearGoal!} titleClass={titleClass} />)
   if (settings.continueRow?.enabled)
     rowNodes.set('continue', <ContinueRow key="continue" board={board} rows={rows} episodes={episodes} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.forgotten?.enabled ?? true)
@@ -1217,7 +1214,6 @@ export default function AnaSayfa() {
             rowId={featured.id}
             boardId={board.id}
           />
-          <SeasonFx />
           {slideshow && slides.length > 1 && (
             <div className={`absolute z-10 flex gap-1.5 ${cinematic ? 'bottom-24 right-8' : 'bottom-4 right-5'}`}>
               {slides.map((r, i) => (

@@ -11,29 +11,70 @@ import Icon from './Icon'
 import { deviceOn } from '../lib/extras'
 import { frameFor } from '../lib/profileStats'
 
-// Ekstralar › Profil seçince avatar ekrana yayılsın (v1.23.4): tıklanan avatarın kopyası tam ekrana büyür, bulanıp
-// solarken arkasında ana sayfa açılır (siyah perde yerine)
-function morphFrom(el: HTMLElement | null, photo: string, done: () => void) {
-  if (!el || !photo) return done()
+// Ayarlar › Açılış › Profil seçince avatar ekrana yayılsın (v1.23.4, v1.23.5'te yenilendi — kullanıcı "daha iyi olsun"
+// dedi): diğer profiller geri çekilir, seçilen avatar ekranın ortasına süzülüp daireye dönüşür ve kendi renginde parlar,
+// altında "Hoş geldin" yazar; bir halka dalgası yayılır, sonra avatar bütün ekranı kaplayacak kadar büyüyüp bulanıklaşır
+// ve solarken arkasından ana sayfa açılır.
+function morphFrom(el: HTMLElement | null, photo: string, name: string, done: () => void) {
+  if (!el || !photo || typeof el.animate !== 'function') return done()
   const r = el.getBoundingClientRect()
-  const g = document.createElement('div')
-  Object.assign(g.style, {
-    position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '120', borderRadius: '12px', overflow: 'hidden',
-    transition: 'all .7s cubic-bezier(.7,0,.2,1)', pointerEvents: 'none', backgroundImage: `url("${photo}")`, backgroundSize: 'cover', backgroundPosition: 'center',
+  const btn = el.closest('button')
+  const glow = (btn ? getComputedStyle(btn).getPropertyValue('--profil-isik').trim() : '') || 'rgba(0,192,250,0.55)'
+  const W = window.innerWidth
+  const H = window.innerHeight
+  const S = Math.round(Math.min(W, H) * 0.3)
+  const D = Math.ceil(Math.hypot(W, H) * 1.08)
+  const T = 1300
+  document.querySelectorAll<HTMLElement>('[data-profil-kutu]').forEach((o) => {
+    if (o === el) return
+    o.closest('button')?.animate([{ opacity: 1 }, { opacity: 0, transform: 'scale(.85) translateY(12px)' }], { duration: 380, easing: 'ease-in', fill: 'forwards' })
   })
-  document.body.appendChild(g)
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      const s = Math.max(window.innerWidth, window.innerHeight) * 1.3
-      Object.assign(g.style, { left: (window.innerWidth - s) / 2 + 'px', top: (window.innerHeight - s) / 2 + 'px', width: s + 'px', height: s + 'px', borderRadius: '0', filter: 'blur(6px) brightness(.55)' })
-    }),
+  const layer = document.createElement('div')
+  Object.assign(layer.style, { position: 'fixed', inset: '0', zIndex: '120', pointerEvents: 'none' })
+  const dim = document.createElement('div')
+  Object.assign(dim.style, { position: 'absolute', inset: '0', background: 'radial-gradient(circle at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.92))' })
+  const ring = document.createElement('div')
+  Object.assign(ring.style, { position: 'absolute', left: (W - S) / 2 + 'px', top: (H - S) / 2 + 'px', width: S + 'px', height: S + 'px', borderRadius: '50%', border: `2px solid ${glow}`, boxShadow: `0 0 30px ${glow}`, opacity: '0' })
+  const ghost = document.createElement('div')
+  Object.assign(ghost.style, { position: 'absolute', overflow: 'hidden', backgroundImage: `url("${photo}")`, backgroundSize: 'cover', backgroundPosition: 'center' })
+  const hello = document.createElement('div')
+  hello.textContent = tt('Hoş geldin, {0}', name)
+  Object.assign(hello.style, { position: 'absolute', left: '0', right: '0', top: (H + S) / 2 + 28 + 'px', textAlign: 'center', color: '#fff', fontSize: '26px', fontWeight: '700', letterSpacing: '.01em', textShadow: `0 0 24px ${glow}, 0 2px 10px rgba(0,0,0,.8)`, opacity: '0' })
+  layer.append(dim, ring, ghost, hello)
+  document.body.appendChild(layer)
+  const box = (x: number, y: number, w: number, h: number) => ({ left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' })
+  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out', fill: 'forwards' })
+  ghost.animate(
+    [
+      { ...box(r.left, r.top, r.width, r.height), borderRadius: '11px', boxShadow: `0 0 0 0 ${glow}`, filter: 'none', offset: 0, easing: 'cubic-bezier(.3,0,.2,1)' },
+      { ...box((W - S) / 2, (H - S) / 2, S, S), borderRadius: '50%', boxShadow: `0 0 90px 18px ${glow}`, filter: 'none', offset: 0.36, easing: 'ease-in-out' },
+      { ...box((W - S * 1.05) / 2, (H - S * 1.05) / 2, S * 1.05, S * 1.05), borderRadius: '50%', boxShadow: `0 0 120px 28px ${glow}`, filter: 'none', offset: 0.5, easing: 'cubic-bezier(.7,0,.25,1)' },
+      { ...box((W - D) / 2, (H - D) / 2, D, D), borderRadius: '50%', boxShadow: `0 0 0 0 ${glow}`, filter: 'blur(22px) brightness(.5) saturate(1.3)', offset: 1 },
+    ],
+    { duration: T, fill: 'forwards' },
+  )
+  ring.animate(
+    [
+      { opacity: 0.95, transform: 'scale(1)' },
+      { opacity: 0, transform: 'scale(3.4)' },
+    ],
+    { duration: 800, delay: T * 0.4, easing: 'cubic-bezier(.1,.6,.3,1)', fill: 'forwards' },
+  )
+  hello.animate(
+    [
+      { opacity: 0, transform: 'translateY(10px)', offset: 0 },
+      { opacity: 1, transform: 'none', offset: 0.45 },
+      { opacity: 1, transform: 'none', offset: 0.62 },
+      { opacity: 0, transform: 'translateY(-6px)', offset: 0.8 },
+      { opacity: 0, offset: 1 },
+    ],
+    { duration: T, delay: 180, fill: 'forwards' },
   )
   setTimeout(() => {
     done()
-    g.style.transition = 'opacity .8s ease-out'
-    g.style.opacity = '0'
-    setTimeout(() => g.remove(), 850)
-  }, 720)
+    layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 750, easing: 'ease-out', fill: 'forwards' }).onfinish = () => layer.remove()
+    setTimeout(() => layer.remove(), 1200)
+  }, T)
 }
 
 // Profil seçilince App.tsx'e "ekranı karanlıktan aç" haberi (Navbar'daki profil değiştirme de kullanır)
@@ -79,7 +120,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
     const prof = profiles.find((p) => p.id === id)
     if (!MOBILE && deviceOn('argus_profil_gecis') && prof?.photo && !prof.pin) {
       setLeaving(id)
-      morphFrom(document.querySelector<HTMLElement>(`[data-profil-kutu="${id}"]`), prof.photo, () => {
+      morphFrom(document.querySelector<HTMLElement>(`[data-profil-kutu="${id}"]`), prof.photo, prof.username, () => {
         setActiveProfileId(id)
         setLeaving(null)
         onClose?.()

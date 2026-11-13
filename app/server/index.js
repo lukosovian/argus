@@ -3146,13 +3146,59 @@ async function checkWatchlist(profileId, boardId, apiKey, force = false) {
   }
 }
 
-// Ekstralar › Açılış penceresi (v1.23.4): ARGUS.exe açılırken buradaki afişleri ve "bugünün haberi" satırlarını gösterir
+// Ayarlar › Açılış › Açılış penceresinde afiş duvarı: ARGUS.exe açılırken buradaki afişleri arkada akıtır
 app.post('/api/splash-info', (req, res) => {
   const text = typeof req.body?.text === 'string' ? req.body.text.slice(0, 20000) : ''
   try {
     fs.writeFileSync(path.join(DATA_DIR, 'splash-info.txt'), text, 'utf8')
   } catch {}
   res.json({ ok: true })
+})
+
+// Sahneden bil (v1.23.5): kullanıcı "adı sahneden bil olacaksa gerçekten sahne göstereceksin" dedi. Arşivdeki
+// yapımların TMDB'deki YAZISIZ sahne görselleri (backdrop) — en çok oy alan genelde resmi afiş/banner olduğu için o
+// atlanır. İstemci aday kayıt kimliklerini yollar; TMDB kimliği bilinen (tmdb.json) kayıtlardan rastgele n tanesi için
+// 3'er sahne döner. Görsel listesi yapım başına bellekte tutulur.
+const scenesCache = new Map()
+app.post('/api/profiles/:profileId/sahneler', async (req, res) => {
+  try {
+    const { profileId } = req.params
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) return res.json({ needsApiKey: true, items: [] })
+    const want = Math.min(20, Math.max(1, Number(req.body?.n) || 12))
+    const ids = Array.isArray(req.body?.rowIds) ? req.body.rowIds.filter((x) => typeof x === 'string') : []
+    const refs = readJson(profileTmdbFile(profileId), {})
+    const cand = ids.filter((id) => refs[id]?.id && (refs[id].mediaType === 'movie' || refs[id].mediaType === 'tv'))
+    for (let i = cand.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[cand[i], cand[j]] = [cand[j], cand[i]]
+    }
+    const pick = (list, n) => [...list].sort(() => Math.random() - 0.5).slice(0, n)
+    const items = []
+    for (let i = 0; i < cand.length && items.length < want && i < 80; i += 6) {
+      const got = await Promise.all(
+        cand.slice(i, i + 6).map(async (rowId) => {
+          const ref = refs[rowId]
+          const key = `${ref.mediaType}:${ref.id}`
+          let list = scenesCache.get(key)
+          if (!list) {
+            const d = await tmdbGet(`/${ref.mediaType}/${ref.id}/images`, { include_image_language: 'null' }, apiKey)
+            const bs = (d?.backdrops ?? []).filter((b) => (!b.iso_639_1 || b.iso_639_1 === 'xx') && (b.width ?? 0) >= 1000)
+            bs.sort((a, b) => (b.vote_count ?? 0) - (a.vote_count ?? 0))
+            list = (bs.length > 2 ? bs.slice(1) : bs).map((b) => `${TMDB_IMG_BASE}/w1280${b.file_path}`)
+            scenesCache.set(key, list)
+          }
+          // tek görseli olan yapımın o görseli büyük ihtimalle resmi banner — sahne sayılmaz
+          return list.length >= 2 ? { rowId, scenes: pick(list, 3) } : null
+        }),
+      )
+      for (const g of got) if (g && items.length < want) items.push(g)
+    }
+    res.json({ items })
+  } catch (e) {
+    console.error('sahneler hata:', e)
+    res.json({ items: [] })
+  }
 })
 
 // Ekstralar › Dizi bitirme planı (v1.23.4): data/profiles/<id>/planlar.json { [rowId]: { start, end } }

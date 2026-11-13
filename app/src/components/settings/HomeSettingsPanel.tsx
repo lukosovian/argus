@@ -22,6 +22,7 @@ import Select from '../Select'
 import { BRAND_TEXT } from '../../lib/theme'
 import { PanelHeader, SettingsSection, SettingsTabs, choiceClass } from './SettingsUi'
 import { tt } from '../../lib/i18n'
+import { PickerExtras } from './ExtraSettings'
 
 const TABS = [
   { id: 'gorunum', label: tt('Görünüm') },
@@ -813,7 +814,9 @@ export default function HomeSettingsPanel() {
           <PickerPoolEditor board={board} settings={settings} onSave={saveSettings} />
           </SettingsSection>
 
-          <SettingsSection title={tt('Animasyon')} description={tt('Seçim yapılırken ekranda dağılan posterler.')}>
+          <PickerExtras />
+
+          <SettingsSection title={tt('Posterler')} description={tt('Seçim yapılırken ekranda dağılan posterler.')}>
           <div>
             <label className="block text-xs text-neutral-400 mb-1">
               {tt('Hangi görsel kullanılsın (seçilmezse önce dikey görsel, o yoksa yatay olan gelir)')}

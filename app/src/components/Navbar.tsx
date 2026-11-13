@@ -135,7 +135,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   // Ekstralar (v1.23.4): yeni menü, duygu avatarı, çerçeve, yeni sayfaların bağlantıları, kısayollar
   const ext = settings.extras ?? {}
-  const stats = useProfileStats(Boolean(ext.menuV2 || ext.moodAvatar || ext.avatarFrames))
+  const stats = useProfileStats(!MOBILE || Boolean(ext.moodAvatar || ext.avatarFrames))
   const navigate = useNavigate()
   const avatarSrc = ext.moodAvatar && stats ? `/avatars/profil${stats.mood.avatar}.png` : activeProfile?.photo
   const frame = ext.avatarFrames && stats ? frameFor(stats.watchedCount) : null
@@ -157,9 +157,9 @@ export default function Navbar() {
       /* önemsiz */
     }
   }, [location.pathname])
-  // Kısayollar (yeni menü açıkken): G sonra harf, Ctrl+, ayarlar, Alt+1..9 profil
+  // Kısayollar (bilgisayarda): G sonra harf, Ctrl+, ayarlar, Alt+1..9 profil
   useEffect(() => {
-    if (!ext.menuV2 || MOBILE) return
+    if (MOBILE) return
     let gAt = 0
     const map: Record<string, string> = { a: settings.boardId ? `/board/${settings.boardId}` : '/arsivlerim', m: '/aklimda', k: '/koleksiyon', e: '/evrenler', i: '/istatistikler', 'ı': '/istatistikler', t: '/takvim', h: '/' }
     function onKey(e: KeyboardEvent) {
@@ -192,7 +192,7 @@ export default function Navbar() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [ext.menuV2, settings.boardId, profiles, activeProfileId])
+  }, [settings.boardId, profiles, activeProfileId])
   // Seçili sayfanın altındaki parlak çizgi: kutu yerine sayfalar arasında kayarak gider (v1.23.3, öneri G1)
   const navRef = useRef<HTMLElement>(null)
   const [bar, setBar] = useState<{ left: number; width: number } | null>(null)
@@ -326,9 +326,9 @@ export default function Navbar() {
                       ? 'fixed inset-x-0 z-40 max-h-[75vh] overflow-y-auto bg-neutral-900 border-t border-neutral-800 rounded-t-2xl pb-3 shadow-2xl shadow-black/60'
                       : 'absolute right-0 top-13 mt-1 z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-2xl pb-1.5 shadow-2xl shadow-black/40 overflow-hidden'
                   }
-                  style={{ ...(MOBILE ? { bottom: TABBAR_OFFSET } : {}), animation: 'argus-toast-in .15s ease-out', ...(ext.menuV2 && !MOBILE ? { width: 340 } : {}) }}
+                  style={{ ...(MOBILE ? { bottom: TABBAR_OFFSET } : {}), animation: 'argus-toast-in .15s ease-out', ...(!MOBILE ? { width: 340 } : {}) }}
                 >
-                  {ext.menuV2 ? (
+                  {!MOBILE ? (
                     <ProfileMenuV2
                       active={activeProfile ?? null}
                       others={otherProfiles}

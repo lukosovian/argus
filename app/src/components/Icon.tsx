@@ -41,6 +41,9 @@ export type IconName =
   | 'home'
   | 'grid'
   | 'menu'
+  | 'share'
+  | 'globe'
+  | 'repeat'
 
 // Her ikon: dolgulu parçalar (d) ve istenirse "oyuk" parçalar (cut: arka plana göre boşluk — evenodd ile)
 const PATHS: Partial<Record<IconName, string>> = {
@@ -79,11 +82,13 @@ const PATHS: Partial<Record<IconName, string>> = {
   bell: 'M12 2.5a6.5 6.5 0 0 1 6.5 6.5c0 4.2 1 6.4 2 7.6.5.6.1 1.4-.65 1.4H4.15c-.75 0-1.15-.8-.65-1.4 1-1.2 2-3.4 2-7.6A6.5 6.5 0 0 1 12 2.5zM9.6 19.6h4.8a2.4 2.4 0 0 1-4.8 0z',
   home: 'M10.7 3.5a2 2 0 0 1 2.6 0l7 5.9c.45.38.7.94.7 1.53V19c0 1.1-.9 2-2 2h-3.5c-.55 0-1-.45-1-1v-4.5c0-.55-.45-1-1-1h-3c-.55 0-1 .45-1 1V20c0 .55-.45 1-1 1H5c-1.1 0-2-.9-2-2v-8.07c0-.59.26-1.15.7-1.53z',
   grid: 'M5 3.5h4c.83 0 1.5.67 1.5 1.5v4c0 .83-.67 1.5-1.5 1.5H5c-.83 0-1.5-.67-1.5-1.5V5c0-.83.67-1.5 1.5-1.5zM15 3.5h4c.83 0 1.5.67 1.5 1.5v4c0 .83-.67 1.5-1.5 1.5h-4c-.83 0-1.5-.67-1.5-1.5V5c0-.83.67-1.5 1.5-1.5zM5 13.5h4c.83 0 1.5.67 1.5 1.5v4c0 .83-.67 1.5-1.5 1.5H5c-.83 0-1.5-.67-1.5-1.5v-4c0-.83.67-1.5 1.5-1.5zM15 13.5h4c.83 0 1.5.67 1.5 1.5v4c0 .83-.67 1.5-1.5 1.5h-4c-.83 0-1.5-.67-1.5-1.5v-4c0-.83.67-1.5 1.5-1.5z',
+  share:
+    'M12 2.8c.3 0 .58.12.8.34l3.6 3.6a1.1 1.1 0 0 1-1.56 1.56L13.1 6.56V14a1.1 1.1 0 0 1-2.2 0V6.56L9.16 8.3A1.1 1.1 0 0 1 7.6 6.74l3.6-3.6c.22-.22.5-.34.8-.34zM5 11.5c.6 0 1.1.5 1.1 1.1v5.4c0 .5.4.9.9.9h10c.5 0 .9-.4.9-.9v-5.4a1.1 1.1 0 0 1 2.2 0v5.4c0 1.7-1.4 3.1-3.1 3.1H7c-1.7 0-3.1-1.4-3.1-3.1v-5.4c0-.6.5-1.1 1.1-1.1z',
   menu: 'M4.5 4.9h15a1.35 1.35 0 0 1 0 2.7h-15a1.35 1.35 0 0 1 0-2.7zM4.5 10.65h15a1.35 1.35 0 0 1 0 2.7h-15a1.35 1.35 0 0 1 0-2.7zM4.5 16.4h15a1.35 1.35 0 0 1 0 2.7h-15a1.35 1.35 0 0 1 0-2.7z',
 }
 
 // Yumuşatma çizgisi istenmeyenler (ince detaylı, oyuklu ya da zaten yuvarlak çizilmiş olanlar)
-const NO_SOFTEN = new Set<IconName>(['tv', 'calendar', 'film', 'clapper', 'search', 'pin', 'gear', 'external', 'volume', 'mute', 'party', 'sparkle', 'flame', 'pencil', 'check', 'bell', 'home', 'grid', 'menu'])
+const NO_SOFTEN = new Set<IconName>(['tv', 'calendar', 'film', 'clapper', 'search', 'pin', 'gear', 'external', 'volume', 'mute', 'party', 'sparkle', 'flame', 'pencil', 'check', 'bell', 'home', 'grid', 'menu', 'share'])
 
 // Birden fazla parçadan oluşan ikonlar: dolgu (d), kalın yuvarlak uçlu çizgiler (line — güneşin ışınları, kupanın
 // kulpları gibi) ve şeklin içinden oyulan çizgiler (cut — soru işareti, saat ibresi, tablo çizgileri). Oyma, arka
@@ -140,6 +145,16 @@ const COMPLEX: Partial<Record<IconName, Complex>> = {
     lw: 2,
   },
   moon: { d: ['M20.4 14.7A8.5 8.5 0 1 1 9.3 3.6a7 7 0 0 0 11.1 11.1z'] },
+  globe: {
+    d: ['M12 2.5a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19z'],
+    cut: 'M3 12h18M12 2.8c2.5 2.7 3.8 5.8 3.8 9.2s-1.3 6.5-3.8 9.2M12 2.8C9.5 5.5 8.2 8.6 8.2 12s1.3 6.5 3.8 9.2',
+    cw: 1.5,
+  },
+  repeat: {
+    d: ['M15.8 2.9l4.2 3.1-4.2 3.1z', 'M8.2 14.9L4 18l4.2 3.1z'],
+    line: 'M4.8 11.2V9.6A3.6 3.6 0 0 1 8.4 6H17M19.2 12.8v1.6a3.6 3.6 0 0 1-3.6 3.6H7',
+    lw: 2.4,
+  },
 }
 
 export default function Icon({ name, className = 'h-4 w-4', style, title }: { name: IconName; className?: string; style?: CSSProperties; title?: string }) {

@@ -2,19 +2,16 @@ import { useSyncExternalStore } from 'react'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { tt } from './i18n'
 
-// "Ekstralar" (v1.23.4): ikinci öneri sunumundaki bütün yenilikler isteğe bağlı — kullanıcı "ana sayfadakiler gibi
-// isteğe bağlı olsun" dedi. Hepsi varsayılan KAPALI, Ayarlar › Ekstralar'dan açılır.
-// İki çeşit var:
+// İsteğe bağlı özellikler (v1.23.4'te "Ekstralar" sekmesindeydi, v1.23.5'ten beri ilgili ayar sekmelerinde). Hepsi
+// varsayılan KAPALI. İki çeşit:
 //  - profil: o profilin ana sayfa ayarlarında (home-settings.json → extras) saklanır
-//  - cihaz: profil seçilmeden önce çalışanlar (açılış, Kim izliyor geçişi, mevsim) — localStorage'da, ui-prefs ile
-//    data/ui-prefs.json'a eşlenir; ARGUS.exe açılış penceresi de oradan okur (argus_splash_*, argus_mevsim).
+//  - cihaz: profil seçilmeden önce çalışanlar (giriş animasyonu, Kim izliyor geçişi, açılış penceresi) — localStorage'da,
+//    ui-prefs ile data/ui-prefs.json'a eşlenir; ARGUS.exe açılış penceresi de oradan okur (argus_splash_ciz).
 
 export type ProfileExtra =
   | 'pickerTrio'
   | 'pickerWizard'
   | 'pickerEndTime'
-  | 'menuV2'
-  | 'searchV2'
   | 'moodAvatar'
   | 'avatarTabs'
   | 'avatarCrop'
@@ -28,10 +25,10 @@ export type ProfileExtra =
   | 'weekly'
   | 'shareCard'
 
-export type DeviceExtra = 'argus_profil_gecis' | 'argus_mevsim' | 'argus_splash_ciz' | 'argus_splash_bilgi'
+export type DeviceExtra = 'argus_profil_gecis' | 'argus_splash_ciz' | 'argus_intro_ses'
 
 export type PickerAnim = 'klasik' | 'cark' | 'slot' | 'deste' | 'serit' | 'karisik'
-export type IntroStyle = 'kapali' | 'sinema' | 'geri-sayim' | 'perde'
+export type IntroStyle = 'kapali' | 'argus' | 'sinema' | 'geri-sayim' | 'perde' | 'sirayla' | 'rastgele'
 
 export function useExtras() {
   const { settings, saveSettings } = useHomeSettings()
@@ -71,17 +68,6 @@ export function useDevice(k: string): string | null {
   )
 }
 export const deviceOn = (k: DeviceExtra) => read(k) === '1'
-
-// Mevsim: Aralık–Ocak başı kış, 25–31 Ekim Cadılar Bayramı, 28 Aralık–3 Ocak yılbaşı
-export type Season = 'kis' | 'cadilar' | 'yilbasi' | null
-export function currentSeason(d = new Date()): Season {
-  const m = d.getMonth() + 1
-  const day = d.getDate()
-  if ((m === 12 && day >= 28) || (m === 1 && day <= 3)) return 'yilbasi'
-  if (m === 10 && day >= 25) return 'cadilar'
-  if (m === 12 || m === 1 || (m === 2 && day <= 15)) return 'kis'
-  return null
-}
 
 export const PICKER_ANIMS: { id: PickerAnim; label: string }[] = [
   { id: 'klasik', label: tt('Klasik (dağıl-ele-büyü)') },

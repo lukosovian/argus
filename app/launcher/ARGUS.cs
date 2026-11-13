@@ -246,25 +246,32 @@ static class Program
     }
 }
 
+// Açılış penceresi. v1.23.5'te animasyonlar yenilendi (kullanıcı "splash screendeki animasyonlar daha iyi olsun, splash
+// gitmeden uygulama gelmesin" dedi):
+//  - arkada yavaşça dolaşan mavi ışık bulutları ve yukarı süzülen yıldız tozları,
+//  - logo yaylanarak büyür, arkasından iki halka dalgası yayılır; beklerken birkaç saniyede bir hafif nabız ve logonun
+//    üstünden geçen ışık,
+//  - ARGUS yazısı harf harf gelir, durum yazısı değişirken yumuşakça geçer, yükleniyor çubuğunun ucu parlar,
+//  - hazır olunca: logo büyüyüp parlarken pencere solar. ARGUS'un penceresi (Electron, app\desktop\main.cjs) "hazir"
+//    yazar ve bu pencere %TEMP%\argus-splash.txt'ye "bitti" yazana kadar kendini göstermez.
+// Ayarlar › Açılış › "Arkada afiş duvarı" açıksa (data\ui-prefs.json argus_splash_ciz) son eklenenlerin afişleri arkada
+// akar; liste data\splash-info.txt'de (ARGUS'un kendisi yazar).
 class Splash : Form
 {
-    const int W = 440, H = 290;
+    const int W = 460, H = 300, L = 92;
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly System.Windows.Forms.Timer anim = new System.Windows.Forms.Timer();
     readonly bool guncelleme;
     Image logo;
-    string status, version = "";
+    Bitmap beyazLogo;
+    string status, eskiStatus, version = "";
+    long statusAt = -10000;
     volatile bool ready, gorunur;
     long readyAt = -1;
     Thread watcher;
-    // Ekstralar (v1.23.4, ARGUS'ta Ayarlar › Ekstralar › Açılış): logo çizimi + afiş duvarı, bugünün haberi, mevsim.
-    // Ayarlar data\ui-prefs.json'dan, afiş/haber listesi data\splash-info.txt'den (ARGUS'un kendisi yazar) okunur.
-    bool ciz, bilgi;
-    string mevsim;
     Bitmap duvar;
-    readonly List<string[]> haberler = new List<string[]>();
-    readonly List<Image> haberAfis = new List<Image>();
-    float[] px, py, pr, pv, pt;
+    readonly float[] sx = new float[46], sy = new float[46], sr = new float[46], sv = new float[46], sp = new float[46];
+    public static string SplashFile = Path.Combine(Path.GetTempPath(), "argus-splash.txt");
 
     public Splash(bool guncelleme, bool zatenAcik)
     {
@@ -272,7 +279,7 @@ class Splash : Form
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(W, H);
-        BackColor = Color.FromArgb(11, 11, 14);
+        BackColor = Color.FromArgb(8, 9, 14);
         ShowInTaskbar = true;
         TopMost = true;
         Text = "ARGUS";
@@ -282,6 +289,7 @@ class Splash : Form
         string ico = Path.Combine(Program.App, @"public\argus.ico");
         try { if (File.Exists(ico)) Icon = new Icon(ico); } catch { }
         try { logo = Image.FromFile(Path.Combine(Program.App, @"public\logoblue.png")); } catch { }
+        try { if (logo != null) beyazLogo = Beyaz(logo, L * 2); } catch { }
         try
         {
             var m = Regex.Match(File.ReadAllText(Path.Combine(Program.App, @"src\lib\version.ts")), "APP_VERSION\\s*=\\s*'([^']+)'");
@@ -289,7 +297,13 @@ class Splash : Form
         }
         catch { }
         status = zatenAcik ? Program.T("ARGUS zaten açık, öne getiriliyor…") : Program.Metin(guncelleme ? "guncelleme" : "update");
-        try { Ekstralar(); } catch { }
+        try { AfisDuvari(); } catch { duvar = null; }
+        var rnd = new Random();
+        for (int i = 0; i < sx.Length; i++)
+        {
+            sx[i] = (float)(rnd.NextDouble() * W); sy[i] = (float)(rnd.NextDouble() * H);
+            sr[i] = 0.6f + (float)(rnd.NextDouble() * 1.5); sv[i] = 0.08f + (float)(rnd.NextDouble() * 0.3); sp[i] = (float)(rnd.NextDouble() * 6.28);
+        }
         if (zatenAcik) { ready = true; readyAt = 0; }
 
         var path = new GraphicsPath();
@@ -302,12 +316,14 @@ class Splash : Form
         Region = new Region(path);
 
         KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) Close(); };
+        FormClosed += (s, e) => Isaret("bitti");
         anim.Interval = 15;
         anim.Tick += (s, e) => Tick();
         Shown += (s, e) =>
         {
             WindowState = FormWindowState.Normal;
             Activate();
+            Isaret("acik");
             anim.Start();
             if (!zatenAcik)
             {
@@ -317,72 +333,66 @@ class Splash : Form
         };
     }
 
+    static void Isaret(string v)
+    {
+        try { File.WriteAllText(SplashFile, v); } catch { }
+    }
+
+    // Logonun beyaz silueti (üstünden geçen ışık bununla çiziliyor)
+    static Bitmap Beyaz(Image src, int size)
+    {
+        var bmp = new Bitmap(size, size);
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            var cm = new System.Drawing.Imaging.ColorMatrix(new float[][] {
+                new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 },
+                new float[] { 0, 0, 0, 1, 0 }, new float[] { 1, 1, 1, 0, 1 } });
+            var ia = new System.Drawing.Imaging.ImageAttributes();
+            ia.SetColorMatrix(cm);
+            g.DrawImage(src, new Rectangle(0, 0, size, size), 0, 0, src.Width, src.Height, GraphicsUnit.Pixel, ia);
+        }
+        return bmp;
+    }
+
     static bool Tercih(string prefs, string key)
     {
         return Regex.IsMatch(prefs, "\"" + key + "\"\\s*:\\s*\"1\"");
     }
 
-    void Ekstralar()
+    void AfisDuvari()
     {
         string prefsFile = Path.Combine(Program.Root, @"data\ui-prefs.json");
-        if (!File.Exists(prefsFile)) return;
-        string prefs = File.ReadAllText(prefsFile);
-        ciz = Tercih(prefs, "argus_splash_ciz");
-        bilgi = Tercih(prefs, "argus_splash_bilgi");
-        if (Tercih(prefs, "argus_mevsim"))
-        {
-            var d = DateTime.Now;
-            if ((d.Month == 12 && d.Day >= 28) || (d.Month == 1 && d.Day <= 3)) mevsim = "yilbasi";
-            else if (d.Month == 10 && d.Day >= 25) mevsim = "cadilar";
-            else if (d.Month == 12 || d.Month == 1 || (d.Month == 2 && d.Day <= 15)) mevsim = "kis";
-        }
-        var rnd = new Random();
-        if (mevsim != null)
-        {
-            int n = mevsim == "cadilar" ? 9 : mevsim == "yilbasi" ? 40 : 70;
-            px = new float[n]; py = new float[n]; pr = new float[n]; pv = new float[n]; pt = new float[n];
-            for (int i = 0; i < n; i++)
-            {
-                px[i] = (float)(rnd.NextDouble() * W); py[i] = (float)(rnd.NextDouble() * H);
-                pr[i] = 1 + (float)(rnd.NextDouble() * 2.2); pv[i] = 0.3f + (float)(rnd.NextDouble() * 0.9); pt[i] = (float)(rnd.NextDouble() * 6.28);
-            }
-        }
+        if (!File.Exists(prefsFile) || !Tercih(File.ReadAllText(prefsFile), "argus_splash_ciz")) return;
         string infoFile = Path.Combine(Program.Root, @"data\splash-info.txt");
-        if ((!ciz && !bilgi) || !File.Exists(infoFile)) return;
+        if (!File.Exists(infoFile)) return;
         var afisler = new List<Image>();
         foreach (string line in File.ReadAllLines(infoFile))
         {
             string[] p = line.Split('\t');
-            if (p.Length >= 2 && p[0] == "P" && ciz && afisler.Count < 24)
+            if (p.Length >= 2 && p[0] == "P" && afisler.Count < 24)
             {
                 Image im = Resim(p[1]);
                 if (im != null) afisler.Add(im);
             }
-            else if (p.Length >= 3 && p[0] == "L" && bilgi && haberler.Count < 6)
-            {
-                haberler.Add(new[] { p[1], p[2] });
-                haberAfis.Add(p.Length >= 4 ? Resim(p[3]) : null);
-            }
         }
-        if (afisler.Count >= 4)
+        if (afisler.Count < 4) return;
+        // 8 sütun, iki kat boy (yukarı kayarken döngü), çok soluk
+        int cw = W / 8, chh = cw * 3 / 2, rows = (H * 2) / chh + 2;
+        duvar = new Bitmap(W, rows * chh);
+        using (var g = Graphics.FromImage(duvar))
         {
-            // Afiş duvarı: 8 sütun, iki kat boy (yukarı kayarken döngü), çok soluk
-            int cw = W / 8, chh = cw * 3 / 2, rows = (H * 2) / chh + 2;
-            duvar = new Bitmap(W, rows * chh);
-            using (var g = Graphics.FromImage(duvar))
-            {
-                g.Clear(Color.Transparent);
-                var cm = new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.16f };
-                var ia = new System.Drawing.Imaging.ImageAttributes();
-                ia.SetColorMatrix(cm);
-                int k = 0;
-                for (int r = 0; r < rows; r++)
-                    for (int c = 0; c < 8; c++)
-                    {
-                        Image im = afisler[k++ % afisler.Count];
-                        g.DrawImage(im, new Rectangle(c * cw + 2, r * chh + 2, cw - 4, chh - 4), 0, 0, im.Width, im.Height, GraphicsUnit.Pixel, ia);
-                    }
-            }
+            g.Clear(Color.Transparent);
+            var cm = new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.14f };
+            var ia = new System.Drawing.Imaging.ImageAttributes();
+            ia.SetColorMatrix(cm);
+            int k = 0;
+            for (int r = 0; r < rows; r++)
+                for (int c = 0; c < 8; c++)
+                {
+                    Image im = afisler[k++ % afisler.Count];
+                    g.DrawImage(im, new Rectangle(c * cw + 2, r * chh + 2, cw - 4, chh - 4), 0, 0, im.Width, im.Height, GraphicsUnit.Pixel, ia);
+                }
         }
     }
 
@@ -402,191 +412,254 @@ class Splash : Form
         catch { return null; }
     }
 
-    // Arka planda: durum dosyası ve arayüzün hazır olup olmadığı (pencere hiç beklemez)
+    void SetStatus(string t)
+    {
+        if (t == null || t == status) return;
+        eskiStatus = status;
+        status = t;
+        statusAt = clock.ElapsedMilliseconds;
+    }
+
+    // Arka planda: durum dosyası ve hazır olup olmadığı (pencere hiç beklemez). Hazır = ARGUS penceresi "hazir" yazdı;
+    // uygulama motoru yoksa (tarayıcıda açılıyor) arayüz cevap verince; bir terslik olursa arayüz açıldıktan 40 sn sonra.
     void Watch()
     {
         var started = DateTime.Now;
+        DateTime portAt = DateTime.MinValue;
+        bool motorVar = File.Exists(Path.Combine(Program.App, @"node_modules\electron\dist\electron.exe"));
         while (!IsDisposed && !ready)
         {
-            try
+            string code = null;
+            try { if (File.Exists(Program.StatusFile)) code = File.ReadAllText(Program.StatusFile).Trim(); } catch { }
+            if (code == "gorunur") { gorunur = true; return; }
+            if (code == "hazir")
             {
-                if (File.Exists(Program.StatusFile))
-                {
-                    string code = File.ReadAllText(Program.StatusFile).Trim();
-                    if (code == "gorunur") { gorunur = true; return; }
-                    string t = Program.Metin(code);
-                    if (t != null) status = t;
-                }
-            }
-            catch { }
-            if (Program.PortAcik(250))
-            {
-                status = guncelleme ? Program.T("Güncellendi, ARGUS açılıyor…") : Program.T("Hazır! ARGUS açılıyor…");
+                SetStatus(guncelleme ? Program.T("Güncellendi, ARGUS açılıyor…") : Program.T("Hazır! ARGUS açılıyor…"));
                 ready = true;
                 return;
             }
+            if (code != null) SetStatus(Program.Metin(code));
+            if (Program.PortAcik(200))
+            {
+                if (portAt == DateTime.MinValue) portAt = DateTime.Now;
+                if (!motorVar || (DateTime.Now - portAt).TotalSeconds > 40)
+                {
+                    SetStatus(guncelleme ? Program.T("Güncellendi, ARGUS açılıyor…") : Program.T("Hazır! ARGUS açılıyor…"));
+                    ready = true;
+                    return;
+                }
+            }
             double mins = (DateTime.Now - started).TotalMinutes;
             if (mins > 15) { gorunur = true; return; }
-            if (mins > 3 && status == Program.Metin("modules")) status = Program.T("Beklenenden uzun sürüyor, biraz daha bekle…");
-            Thread.Sleep(300);
+            if (mins > 3 && status == Program.Metin("modules")) SetStatus(Program.T("Beklenenden uzun sürüyor, biraz daha bekle…"));
+            Thread.Sleep(150);
         }
     }
+
+    const int OUTRO = 750;
 
     void Tick()
     {
         long ms = clock.ElapsedMilliseconds;
-        if (Opacity < 1) Opacity = Math.Min(1.0, ms / 250.0);
         if (gorunur) { Close(); return; }
-        if (ready && readyAt < 0) readyAt = ms;
-        if (readyAt >= 0 && ms - readyAt > 1200) { Close(); return; }
-        if (px != null)
-            for (int i = 0; i < px.Length; i++)
-            {
-                pt[i] += 0.02f;
-                if (mevsim == "kis") { py[i] += pv[i]; px[i] += (float)Math.Sin(pt[i]) * 0.4f; }
-                else if (mevsim == "cadilar") { px[i] += pv[i] * 1.2f; py[i] += (float)Math.Sin(pt[i] * 2) * 0.7f; }
-                if (py[i] > H + 5) py[i] = -5;
-                if (px[i] > W + 20) px[i] = -20;
-            }
+        if (ready && readyAt < 0) readyAt = Math.Max(ms, 1300); // giriş animasyonu yarıda kesilmesin
+        double q = readyAt >= 0 && ms > readyAt ? Math.Min(1.0, (ms - readyAt) / (double)OUTRO) : 0;
+        if (q >= 1) { Isaret("bitti"); Close(); return; }
+        double fadeIn = Math.Min(1.0, ms / 300.0);
+        Opacity = Math.Max(0, Math.Min(fadeIn, 1 - q * q));
+        for (int i = 0; i < sx.Length; i++)
+        {
+            sy[i] -= sv[i];
+            sp[i] += 0.03f;
+            if (sy[i] < -4) { sy[i] = H + 4; }
+        }
         Invalidate();
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        // Ekstralar çiziminde bir sorun olsa bile açılış penceresi çökmesin
+        // Çizimde bir sorun olsa bile açılış penceresi çökmesin
         try { Ciz(e.Graphics); }
-        catch { ciz = false; duvar = null; px = null; haberler.Clear(); }
+        catch { duvar = null; }
+    }
+
+    static double Clamp(double v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+    static double EaseOut(double p) { return 1 - Math.Pow(1 - p, 3); }
+    static double EaseBack(double p) { const double c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.Pow(p - 1, 3) + c1 * Math.Pow(p - 1, 2); }
+    static int A(double a) { return Math.Max(0, Math.Min(255, (int)(a * 255))); }
+
+    static void Glow(Graphics g, float cx, float cy, float rx, float ry, Color c)
+    {
+        if (c.A == 0 || rx < 1 || ry < 1) return;
+        using (var gp = new GraphicsPath())
+        {
+            gp.AddEllipse(cx - rx, cy - ry, rx * 2, ry * 2);
+            using (var pb = new PathGradientBrush(gp) { CenterColor = c, SurroundColors = new[] { Color.FromArgb(0, c.R, c.G, c.B) } })
+                g.FillPath(pb, gp);
+        }
+    }
+
+    void Ring(Graphics g, float cx, float cy, double p, double strength, double rest)
+    {
+        if (p <= 0 || p >= 1) return;
+        float rr = (float)(36 + EaseOut(p) * 150);
+        using (var pen = new Pen(Color.FromArgb(A((1 - p) * strength * rest), 0, 192, 250), (float)(2.2 * (1 - p) + 0.6)))
+            g.DrawEllipse(pen, cx - rr, cy - rr, rr * 2, rr * 2);
     }
 
     void Ciz(Graphics g)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-        long ms0 = clock.ElapsedMilliseconds;
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        long t = clock.ElapsedMilliseconds;
+        double q = readyAt >= 0 && t > readyAt ? Clamp((t - readyAt) / (double)OUTRO) : 0;
+        double rest = 1 - q; // kapanırken her şey solar
+        float cx = W / 2f, cy = 98;
+
+        // afiş duvarı
         if (duvar != null)
         {
-            int off = (int)((ms0 / 45) % (duvar.Height / 2));
+            int off = (int)((t / 45) % (duvar.Height / 2));
             g.DrawImage(duvar, 0, -off);
         }
-        // hafif ışıma (mevsimde mevsimin renginde)
-        using (var glow = new GraphicsPath())
+        // dolaşan ışık bulutları
+        double s = t / 1000.0;
+        Glow(g, (float)(W * 0.25 + Math.Sin(s * 0.6) * 60), (float)(H * 0.30 + Math.Cos(s * 0.5) * 30), 210, 150, Color.FromArgb(A(0.22 * rest), 0, 90, 220));
+        Glow(g, (float)(W * 0.78 + Math.Cos(s * 0.45) * 50), (float)(H * 0.62 + Math.Sin(s * 0.7) * 30), 200, 140, Color.FromArgb(A(0.16 * rest), 0, 170, 250));
+        Glow(g, (float)(W * 0.5 + Math.Sin(s * 0.3) * 80), (float)(H * 1.05), 260, 120, Color.FromArgb(A(0.18 * rest), 40, 50, 200));
+        // yıldız tozu
+        for (int i = 0; i < sx.Length; i++)
         {
-            glow.AddEllipse(-120, -170, W + 240, 380);
-            using (var pb = new PathGradientBrush(glow))
+            double tw = (Math.Sin(sp[i] * 1.7) + 1) / 2;
+            using (var b = new SolidBrush(Color.FromArgb(A((0.15 + 0.5 * tw) * rest * Clamp(t / 600.0)), 170, 225, 255)))
+                g.FillEllipse(b, sx[i], sy[i], sr[i] * 2, sr[i] * 2);
+        }
+
+        // halka dalgaları: girişte iki tane, beklerken 3,2 sn'de bir hafif nabız
+        Ring(g, cx, cy, (t - 250) / 1300.0, 0.85, rest);
+        Ring(g, cx, cy, (t - 600) / 1300.0, 0.6, rest);
+        if (t > 2400) Ring(g, cx, cy, ((t - 2400) % 3200) / 1600.0, 0.35, rest);
+
+        // logo: yaylanarak gelir, hafifçe nefes alır; kapanırken büyüyüp parlar
+        double pIn = Clamp((t - 80) / 850.0);
+        double sc = 0.55 + 0.45 * EaseBack(pIn);
+        double breathe = 1 + 0.015 * Math.Sin(t / 520.0);
+        sc *= breathe * (1 + 0.32 * EaseOut(q));
+        float lw = (float)(L * sc);
+        float lx = cx - lw / 2, ly = cy - lw / 2;
+        double glowA = (0.30 + 0.12 * Math.Sin(t / 400.0)) * Clamp(pIn * 1.5) + 0.5 * q;
+        Glow(g, cx, cy, lw * 1.05f, lw * 0.95f, Color.FromArgb(A(Math.Min(1, glowA) * (q > 0 ? 1 - q * 0.6 : 1)), 0, 150, 255));
+        if (logo != null)
+        {
+            var cm = new System.Drawing.Imaging.ColorMatrix { Matrix33 = (float)(Clamp(pIn * 1.8) * rest) };
+            var ia = new System.Drawing.Imaging.ImageAttributes();
+            ia.SetColorMatrix(cm);
+            g.DrawImage(logo, new Rectangle((int)lx, (int)ly, (int)lw, (int)lw), 0, 0, logo.Width, logo.Height, GraphicsUnit.Pixel, ia);
+            // üstünden geçen ışık: 1,3 sn'de bir kez, sonra 3 sn'de bir
+            long st = t - 1300;
+            if (beyazLogo != null && st > 0 && q == 0)
             {
-                pb.CenterColor = mevsim == "cadilar" ? Color.FromArgb(80, 249, 115, 22) : mevsim == "yilbasi" ? Color.FromArgb(60, 250, 204, 21) : Color.FromArgb(70, 0, 110, 200);
-                pb.SurroundColors = new[] { Color.FromArgb(0, 0, 0, 0) };
-                g.FillPath(pb, glow);
+                double sp2 = (st % 3000) / 700.0;
+                if (sp2 < 1)
+                {
+                    float bx = (float)(lx - 40 + sp2 * (lw + 80));
+                    var old = g.Clip;
+                    using (var band = new GraphicsPath())
+                    {
+                        band.AddPolygon(new[] { new PointF(bx, ly - 4), new PointF(bx + 22, ly - 4), new PointF(bx + 4, ly + lw + 4), new PointF(bx - 18, ly + lw + 4) });
+                        g.SetClip(band, CombineMode.Intersect);
+                        var cm2 = new System.Drawing.Imaging.ColorMatrix { Matrix33 = (float)(0.75 * Math.Sin(sp2 * Math.PI)) };
+                        var ia2 = new System.Drawing.Imaging.ImageAttributes();
+                        ia2.SetColorMatrix(cm2);
+                        g.DrawImage(beyazLogo, new Rectangle((int)lx, (int)ly, (int)lw, (int)lw), 0, 0, beyazLogo.Width, beyazLogo.Height, GraphicsUnit.Pixel, ia2);
+                    }
+                    g.Clip = old;
+                }
             }
         }
-        if (logo != null && ciz)
+
+        // ARGUS: harf harf aşağıdan gelir
+        using (var f = new Font("Segoe UI", 22, FontStyle.Bold))
         {
-            // Logo aşağıdan yukarı "çizilerek" gelir, önünde parlak bir çizgi; sonra hafif parlar
-            float p0 = Math.Min(1f, ms0 / 1400f);
-            int lh = (int)(84 * p0);
-            var old = g.Clip;
-            g.SetClip(new Rectangle((W - 84) / 2 - 4, 40 + 84 - lh, 92, lh));
-            g.DrawImage(logo, (W - 84) / 2, 40, 84, 84);
-            g.Clip = old;
-            if (p0 < 1)
-                using (var pen = new Pen(Color.FromArgb(220, 0, 192, 250), 2))
-                    g.DrawLine(pen, (W - 84) / 2 - 6, 40 + 84 - lh, (W + 84) / 2 + 6, 40 + 84 - lh);
+            string word = "ARGUS";
+            float gap = 7;
+            var widths = new float[word.Length];
+            float total = 0;
+            var fmt = StringFormat.GenericTypographic;
+            for (int i = 0; i < word.Length; i++) { widths[i] = g.MeasureString(word[i].ToString(), f, 100, fmt).Width; total += widths[i] + (i > 0 ? gap : 0); }
+            float x = cx - total / 2;
+            for (int i = 0; i < word.Length; i++)
+            {
+                double pl = EaseOut(Clamp((t - 650 - i * 85) / 480.0));
+                using (var b = new SolidBrush(Color.FromArgb(A(pl * rest), 255, 255, 255)))
+                    g.DrawString(word[i].ToString(), f, b, x, (float)(158 + (1 - pl) * 12), fmt);
+                x += widths[i] + gap;
+            }
+        }
+
+        // durum yazısı: değişince eskisi solar, yenisi belirir
+        var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        double sf = Clamp((t - statusAt) / 380.0);
+        double textIn = Clamp((t - 1000) / 400.0);
+        using (var f = new Font("Segoe UI", 9.5f))
+        {
+            // önce eskisi yukarı kayıp solar, sonra yenisi aşağıdan gelir (üst üste binmesinler)
+            if (sf < 0.5 && eskiStatus != null)
+                using (var b = new SolidBrush(Color.FromArgb(A((1 - sf * 2) * textIn * rest * 0.75), 170, 175, 190)))
+                    g.DrawString(eskiStatus, f, b, new RectangleF(20, 200 - (float)(sf * 2 * 8), W - 40, 36), center);
+            double nf = eskiStatus == null ? sf : Clamp(sf * 2 - 1);
+            using (var b = new SolidBrush(Color.FromArgb(A(nf * textIn * rest * 0.75), 170, 175, 190)))
+                g.DrawString(status ?? "", f, b, new RectangleF(20, 200 + (float)((1 - nf) * 8), W - 40, 36), center);
+        }
+
+        // yükleniyor çubuğu: yuvarlak uçlu iz, üstünde kayan parlak baş (kapanırken dolup solar)
+        int tw2 = 220, th = 4, tx = (W - tw2) / 2, ty = 246;
+        double barIn = Clamp((t - 900) / 400.0) * rest;
+        using (var track = new SolidBrush(Color.FromArgb(A(0.16 * barIn), 255, 255, 255)))
+        using (var tp = Yuvarlak(tx, ty, tw2, th))
+            g.FillPath(track, tp);
+        var clip = g.Clip;
+        using (var tp = Yuvarlak(tx, ty, tw2, th))
+        {
+            g.SetClip(tp, CombineMode.Intersect);
+            if (q > 0)
+            {
+                using (var full = new SolidBrush(Color.FromArgb(A(barIn), 0, 192, 250)))
+                    g.FillRectangle(full, tx, ty, tw2, th);
+            }
             else
             {
-                int a = (int)(60 + 50 * Math.Sin(ms0 / 300.0));
-                using (var gp = new GraphicsPath())
+                double p = (t % 1500) / 1500.0;
+                double eased = p < 0.5 ? 2 * p * p : 1 - Math.Pow(-2 * p + 2, 2) / 2;
+                int bw = 90;
+                float bx = (float)(tx - bw + eased * (tw2 + bw));
+                using (var lg = new LinearGradientBrush(new RectangleF(bx, ty, bw, th), Color.Transparent, Color.Transparent, 0f))
                 {
-                    gp.AddEllipse((W - 150) / 2, 20, 150, 124);
-                    using (var pb2 = new PathGradientBrush(gp) { CenterColor = Color.FromArgb(Math.Max(0, a), 0, 192, 250), SurroundColors = new[] { Color.FromArgb(0, 0, 0, 0) } })
-                        g.FillPath(pb2, gp);
+                    var blend = new ColorBlend();
+                    blend.Colors = new[] { Color.FromArgb(0, 1, 94, 234), Color.FromArgb(A(barIn), 0, 192, 250), Color.FromArgb(A(barIn), 200, 245, 255), Color.FromArgb(0, 0, 192, 250) };
+                    blend.Positions = new[] { 0f, 0.6f, 0.85f, 1f };
+                    lg.InterpolationColors = blend;
+                    g.FillRectangle(lg, bx, ty, bw, th);
                 }
-                g.DrawImage(logo, (W - 84) / 2, 40, 84, 84);
             }
-        }
-        else if (logo != null) g.DrawImage(logo, (W - 84) / 2, 40, 84, 84);
-        var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        using (var f = new Font("Segoe UI", 22, FontStyle.Bold))
-            g.DrawString("ARGUS", f, Brushes.White, new RectangleF(0, 134, W, 44), center);
-        using (var f = new Font("Segoe UI", 10))
-        using (var b = new SolidBrush(Color.FromArgb(165, 165, 175)))
-            g.DrawString(status ?? "", f, b, new RectangleF(20, haberler.Count > 0 ? 172 : 182, W - 40, haberler.Count > 0 ? 26 : 42), center);
-        if (haberler.Count > 0)
-        {
-            // Bugünün haberi: 2,6 saniyede bir sıradaki
-            int hi = (int)((ms0 / 2600) % haberler.Count);
-            float fade = Math.Min(1f, (ms0 % 2600) / 350f);
-            int aa = (int)(255 * fade);
-            var box = new Rectangle(28, 200, W - 56, 34);
-            using (var bg = new SolidBrush(Color.FromArgb((int)(18 * fade), 255, 255, 255)))
-                g.FillRectangle(bg, box);
-            int tx0 = box.X + 10;
-            Image ha = haberAfis[hi];
-            if (ha != null) { g.DrawImage(ha, box.X + 6, box.Y + 3, 19, 28); tx0 = box.X + 32; }
-            var left = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Near, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
-            using (var f1 = new Font("Segoe UI", 8, FontStyle.Bold))
-            using (var b1 = new SolidBrush(Color.FromArgb(aa, 127, 220, 255)))
-                g.DrawString(haberler[hi][0], f1, b1, new RectangleF(tx0, box.Y + 2, box.Right - tx0 - 6, 15), left);
-            using (var f2 = new Font("Segoe UI", 8.5f))
-            using (var b2 = new SolidBrush(Color.FromArgb(aa, 230, 230, 236)))
-                g.DrawString(haberler[hi][1], f2, b2, new RectangleF(tx0, box.Y + 16, box.Right - tx0 - 6, 16), left);
-        }
-        // çubuk: zamana göre (kare atlasa bile hız sabit), iki ucu yumuşak
-        int tw = 240, bw = 80, tx = (W - tw) / 2, ty = haberler.Count > 0 ? 246 : 236;
-        using (var track = new SolidBrush(Color.FromArgb(38, 38, 44)))
-            g.FillRectangle(track, tx, ty, tw, 3);
-        double p = (clock.ElapsedMilliseconds % 1400) / 1400.0;
-        double eased = p < 0.5 ? 2 * p * p : 1 - Math.Pow(-2 * p + 2, 2) / 2;
-        float bx = (float)(tx - bw + eased * (tw + bw));
-        var clip = g.Clip;
-        g.SetClip(new Rectangle(tx, ty, tw, 3));
-        using (var lg = new LinearGradientBrush(new RectangleF(bx, ty, bw, 3), Color.FromArgb(0, 0, 192, 250), Color.FromArgb(0, 0, 192, 250), 0f))
-        {
-            var blend = new ColorBlend
-            {
-                Colors = new[] { Color.FromArgb(0, 0, 192, 250), Color.FromArgb(255, 0, 192, 250), Color.FromArgb(0, 0, 192, 250) },
-                Positions = new[] { 0f, 0.5f, 1f },
-            };
-            lg.InterpolationColors = blend;
-            g.FillRectangle(lg, bx, ty, bw, 3);
         }
         g.Clip = clip;
+
         using (var f = new Font("Segoe UI", 8))
-        using (var b = new SolidBrush(Color.FromArgb(90, 90, 100)))
-            g.DrawString(version, f, b, new RectangleF(0, haberler.Count > 0 ? 262 : 256, W, 18), center);
-        if (px != null)
-            for (int i = 0; i < px.Length; i++)
-            {
-                if (mevsim == "kis")
-                    using (var sb = new SolidBrush(Color.FromArgb(205, 255, 255, 255))) g.FillEllipse(sb, px[i], py[i], pr[i] * 2, pr[i] * 2);
-                else if (mevsim == "cadilar")
-                {
-                    float s = pr[i] * 3, fl = (float)Math.Sin(pt[i] * 8) * s * 0.6f;
-                    using (var gp = new GraphicsPath())
-                    {
-                        gp.AddBezier(px[i], py[i], px[i] - s * 1.5f, py[i] - fl, px[i] - s * 2.5f, py[i] - fl, px[i] - s * 3, py[i]);
-                        gp.AddBezier(px[i] - s * 3, py[i], px[i] - s * 1.5f, py[i] + s * 0.4f, px[i] + s * 1.5f, py[i] + s * 0.4f, px[i] + s * 3, py[i]);
-                        gp.AddBezier(px[i] + s * 3, py[i], px[i] + s * 2.5f, py[i] - fl, px[i] + s * 1.5f, py[i] - fl, px[i], py[i]);
-                        using (var sb = new SolidBrush(Color.FromArgb(230, 12, 6, 3))) g.FillPath(sb, gp);
-                    }
-                }
-                else
-                {
-                    int a2 = (int)(255 * (Math.Sin(pt[i] * 3) + 1) / 2);
-                    using (var sb = new SolidBrush(Color.FromArgb(a2, 253, 224, 71)))
-                    {
-                        var pts = new PointF[10];
-                        for (int k = 0; k < 10; k++)
-                        {
-                            double an = k * Math.PI / 5 - Math.PI / 2;
-                            float rr = k % 2 == 0 ? pr[i] * 2.6f : pr[i];
-                            pts[k] = new PointF(px[i] + (float)Math.Cos(an) * rr, py[i] + (float)Math.Sin(an) * rr);
-                        }
-                        g.FillPolygon(sb, pts);
-                    }
-                }
-            }
-        using (var pen = new Pen(Color.FromArgb(40, 255, 255, 255)))
+        using (var b = new SolidBrush(Color.FromArgb(A(barIn * 0.45), 150, 150, 165)))
+            g.DrawString(version, f, b, new RectangleF(0, 262, W, 18), center);
+        using (var pen = new Pen(Color.FromArgb(34, 255, 255, 255)))
             g.DrawRectangle(pen, 0, 0, W - 1, H - 1);
+    }
+
+    static GraphicsPath Yuvarlak(int x, int y, int w, int h)
+    {
+        var p = new GraphicsPath();
+        p.AddArc(x, y, h, h, 90, 180);
+        p.AddArc(x + w - h, y, h, h, 270, 180);
+        p.CloseFigure();
+        return p;
     }
 }
 

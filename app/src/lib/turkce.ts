@@ -28,3 +28,17 @@ export function locativeSuffix(word: string | number): string {
 export function withLocative(word: string | number): string {
   return `${word}'${locativeSuffix(word)}`
 }
+
+// Türkçe karakter esnek karşılaştırma için: "Şehir" → "sehir" (Birlikte izle aramasında kullanılır)
+export const fold = (s: string) =>
+  s
+    .toLocaleLowerCase('tr')
+    .replace(/ş/g, 's')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+
