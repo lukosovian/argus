@@ -202,7 +202,13 @@ const MINUTE_OPTIONS: { value: number | null; label: string }[] = [
 
 // Abone olunan platformlar: logolu düğmeler, tıklayınca seçilir/kaldırılır. Bu seçim "platforma geldi"
 // bildirimlerinde de kullanılıyor (seçiliyse sadece bu platformlar için haber gelir).
-export function MyPlatformsPicker({ value, onChange }: { value: number[]; onChange: (ids: number[]) => void }) {
+// prefer: önce gösterilecek platformlar (ör. Abonelik sayfasında listende geçenler), sırasıyla
+const rank = (list: number[], id: number) => {
+  const i = list.indexOf(id)
+  return i === -1 ? 1e6 : i
+}
+
+export function MyPlatformsPicker({ value, onChange, prefer }: { value: number[]; onChange: (ids: number[]) => void; prefer?: number[] }) {
   const [items, setItems] = useState<{ id: number; name: string; logo: string | null }[]>([])
   useEffect(() => {
     let alive = true
@@ -217,7 +223,7 @@ export function MyPlatformsPicker({ value, onChange }: { value: number[]; onChan
   if (items.length === 0) return <p className="text-xs text-neutral-600">{tt('Platformlar yükleniyor...')}</p>
   return (
     <div className="flex flex-wrap gap-1.5">
-      {items.map((p) => {
+      {(prefer?.length ? [...items].sort((a, b) => rank(prefer, a.id) - rank(prefer, b.id)) : items).map((p) => {
         const on = value.includes(p.id)
         return (
           <button

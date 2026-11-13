@@ -4538,3 +4538,89 @@ export function BiletTasarimVisual() {
     </Frame>
   )
 }
+
+// v1.23.13: Koleksiyon › Ödüller — paket, yelpaze kartlar, albüm ve çerçeveler
+export function OdulPaketVisual() {
+  const fan = [0, 1, 2, 3, 4]
+  const rc = ['#9aa4bf', '#9aa4bf', '#3fa9ff', '#3fa9ff', '#b065ff']
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={18} strong />
+      <Label x={16} y={20} size={8} muted>{tt('Raflar   Biletlerim')}</Label>
+      <rect x={112} y={11} width={44} height={12} rx={3} className="fill-neutral-700" />
+      <Label x={134} y={20} size={8} anchor="middle">{tt('Ödüller')}</Label>
+      <rect x={20} y={40} width={44} height={66} rx={3} fill="#2b3080" />
+      <path d="M20 54 h44" stroke="#fff" strokeOpacity={0.5} strokeDasharray="3 2" />
+      <path d="M30 62 l26 -4 M28 76 l30 -2" stroke="#ff50c8" strokeOpacity={0.5} strokeWidth={6} />
+      <Label x={42} y={92} size={8} anchor="middle">ARGUS</Label>
+      {fan.map((i) => (
+        <rect key={i} x={92 + i * 34} y={44 + Math.abs(i - 2) * 4} width={30} height={44} rx={3} className="fill-neutral-800" stroke={rc[i]} strokeWidth={1.4} transform={`rotate(${(i - 2) * 5} ${107 + i * 34} ${66})`} />
+      ))}
+      <path d="M70 70 h14" stroke={ACCENT} strokeWidth={1.6} markerEnd="" />
+      <path d="M84 70 l-4 -3 v6 z" fill={ACCENT} />
+      <Line x={20} y={124} w={60} />
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <rect key={i} x={20 + i * 30} y={134} width={24} height={34} rx={2} className="fill-neutral-800" stroke={['#ffbf1f', '#b065ff', '#3fa9ff', '#3fa9ff', '#9aa4bf', '#9aa4bf'][i]} strokeWidth={1} />
+      ))}
+      {[0, 1, 2].map((i) => (
+        <circle key={i} cx={228 + i * 30} cy={150} r={11} className="fill-neutral-800" stroke={['#ff5f6d', '#b065ff', '#ffbf1f'][i]} strokeWidth={3} />
+      ))}
+      <Pin x={20} y={36} n={1} />
+      <Pin x={262} y={40} n={2} />
+      <Pin x={20} y={130} n={3} />
+      <Pin x={222} y={132} n={4} />
+    </Frame>
+  )
+}
+
+// v1.23.13: ilk "Güncelle" adı düzeltir, sonra elle değiştirilen ada dokunmaz
+export function AdDuzeltVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={14} y={26} w={130} h={26} />
+      <Label x={22} y={43} size={10} muted>dünya varmış</Label>
+      <path d="M150 39 h22" stroke={ACCENT} strokeWidth={1.6} />
+      <path d="M172 39 l-4 -3 v6 z" fill={ACCENT} />
+      <Box x={178} y={26} w={128} h={26} strong />
+      <Label x={186} y={43} size={10}>Dünya Varmış</Label>
+      <Box x={14} y={106} w={130} h={26} />
+      <Label x={22} y={123} size={10}>Dünya varmış (2026)</Label>
+      <path d="M150 119 h22" stroke={ACCENT} strokeWidth={1.6} />
+      <path d="M172 119 l-4 -3 v6 z" fill={ACCENT} />
+      <Box x={178} y={106} w={128} h={26} strong />
+      <Label x={186} y={123} size={10}>Dünya varmış (2026)</Label>
+      <Label x={14} y={18} size={8} muted>{tt('1. Güncelle')}</Label>
+      <Label x={14} y={98} size={8} muted>{tt('Sen değiştirdin, sonra Güncelle')}</Label>
+      <Pin x={300} y={22} n={1} />
+      <Pin x={300} y={102} n={2} />
+    </Frame>
+  )
+}
+
+// v1.23.13: Sağlık Kontrolü — tarihsiz bölümler (seç, tarih ver) ve TMDB'de olmayanlar
+export function SaglikTarihsizVisual() {
+  const rows = [0, 1, 2]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={10} y={10} w={300} h={160} />
+      <Label x={20} y={26} size={9}>{tt('İzlendi ama bölümleri tarihsiz diziler')}</Label>
+      {rows.map((i) => (
+        <g key={i}>
+          <rect x={22} y={38 + i * 24} width={10} height={10} rx={2} fill={i < 2 ? ACCENT : 'none'} className={i < 2 ? '' : 'stroke-neutral-600'} strokeWidth={1} />
+          <Line x={40} y={41 + i * 24} w={[70, 56, 64][i]} />
+          <Chip x={130} y={36 + i * 24} w={30} color={i < 2 ? ACCENT : '#525252'} text="S1" />
+          <Chip x={164} y={36 + i * 24} w={30} color={i === 0 ? ACCENT : '#525252'} text="S2" />
+        </g>
+      ))}
+      <rect x={20} y={112} width={280} height={24} rx={6} className="fill-neutral-800" stroke={ACCENT} strokeOpacity={0.5} />
+      <Chip x={28} y={118} w={70} color={ACCENT} text={tt('Kayıttan')} />
+      <Chip x={104} y={118} w={50} color="#737373" text={tt('Gün')} />
+      <Chip x={160} y={118} w={44} color="#737373" text={tt('Yıl')} />
+      <Chip x={210} y={118} w={80} color="#737373" text={tt('Hatırlamıyorum')} />
+      <Label x={20} y={156} size={8} muted>{tt("TMDB'de olmayanlar: yönetmen yok · ↻ her güncellemede yeniden bakılır")}</Label>
+      <Pin x={14} y={34} n={1} />
+      <Pin x={300} y={108} n={2} />
+      <Pin x={14} y={150} n={3} />
+    </Frame>
+  )
+}

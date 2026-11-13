@@ -24,6 +24,7 @@ export type ProfileExtra =
   | 'quiz'
   | 'weekly'
   | 'shareCard'
+  | 'rewards'
 
 export type DeviceExtra = 'argus_profil_gecis' | 'argus_splash_ciz' | 'argus_intro_ses'
 

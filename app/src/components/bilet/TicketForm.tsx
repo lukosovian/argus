@@ -6,6 +6,8 @@ import { useEscape } from '../../hooks/useEscape'
 import { useToast } from '../../hooks/useToast'
 import { tt } from '../../lib/i18n'
 import { todayIso, type Board, type Row } from '../../types'
+import { useExtras } from '../../lib/extras'
+import { useOdulData } from '../../lib/oduller'
 import { artOf, styleOf, TicketBack, TicketFront, TICKET_RATIO, TICKET_STYLES, type BiletItem } from './Ticket'
 
 // Bilet ekleme / düzenleme penceresi. Solda canlı önizleme (ön / arka), sağda bilgiler. Arşivden açıldıysa yapım hazır
@@ -17,6 +19,7 @@ const SWATCH: Record<string, string> = {
   sinema: 'linear-gradient(90deg, #1d3a52 70%, #f2ece1 70%)',
   klasik: 'linear-gradient(90deg, #efe3c6 70%, #6e1d1d 70%)',
   altin: 'linear-gradient(90deg, #0c0b09 70%, #d9b56a 70%)',
+  neon: 'linear-gradient(90deg, #ff3fd0, #5b2bff 45%, #3ff0ff 70%, #120a2e 70%)',
 }
 
 export default function TicketForm({
@@ -38,6 +41,8 @@ export default function TicketForm({
 }) {
   const { notify } = useToast()
   const [b, setB] = useState<Bilet>(() => initial ?? { title: '', date: todayIso() })
+  // Neon tasarım ödül paketinden çıkınca seçilebilir (v1.24)
+  const neonOwned = Boolean(useOdulData(useExtras().on('rewards'))?.items['bilet:neon'])
   const [side, setSide] = useState<'front' | 'back'>('front')
   const [busy, setBusy] = useState(false)
   const [q, setQ] = useState('')
@@ -237,7 +242,7 @@ export default function TicketForm({
           <div>
             <span className={lbl}>{tt('Tasarım')}</span>
             <div className="mt-1.5 grid grid-cols-3 gap-2">
-              {TICKET_STYLES.map((t) => (
+              {TICKET_STYLES.filter((t) => t.id !== 'neon' || neonOwned || styleOf(b) === 'neon').map((t) => (
                 <button
                   key={t.id}
                   onClick={() => {

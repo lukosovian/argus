@@ -12,14 +12,16 @@ export type BiletItem = Bilet & { id: string }
 export const TICKET_RATIO = 2.4
 export const STUB = 0.27 // koçanın genişliği (oran)
 
-export type TicketStyle = 'sinema' | 'klasik' | 'altin'
+export type TicketStyle = 'sinema' | 'klasik' | 'altin' | 'neon'
 export const TICKET_STYLES: { id: TicketStyle; label: () => string }[] = [
   { id: 'sinema', label: () => tt('Sinema') },
   { id: 'klasik', label: () => tt('Klasik') },
   { id: 'altin', label: () => tt('Altın') },
+  // v1.24: Ödüller'deki kart paketlerinden çıkar (bilet:neon); çıkmadıysa seçicide görünmez
+  { id: 'neon', label: () => tt('Neon') },
 ]
 export function styleOf(b: Bilet): TicketStyle {
-  return b.style === 'klasik' || b.style === 'altin' ? b.style : 'sinema'
+  return b.style === 'klasik' || b.style === 'altin' || b.style === 'neon' ? b.style : 'sinema'
 }
 
 const PAPER = '#f2ece1'
@@ -143,6 +145,7 @@ export function TicketFront({ b, no, glare }: { b: BiletItem; no: number; glare?
   const s = styleOf(b)
   if (s === 'klasik') return <KlasikFront b={b} no={no} glare={glare} />
   if (s === 'altin') return <AltinFront b={b} no={no} glare={glare} />
+  if (s === 'neon') return <NeonFront b={b} no={no} glare={glare} />
   return <SinemaFront b={b} no={no} glare={glare} />
 }
 
@@ -372,9 +375,85 @@ function AltinFront({ b, no, glare }: { b: BiletItem; no: number; glare?: boolea
   )
 }
 
+// ── Neon (v1.24, ödül paketinden): gece mavisi zemin, pembe-camgöbeği ışıklı çerçeve ve yazı, renkleri kaydırılmış görsel ──
+const NEON_P = '#ff3fd0'
+const NEON_C = '#3ff0ff'
+const neonText = (c: string): CSSProperties => ({ color: '#fff', textShadow: `0 0 0.15em #fff, 0 0 0.35em ${c}, 0 0 0.8em ${c}, 0 0 1.6em ${c}` })
+function NeonFront({ b, no, glare }: { b: BiletItem; no: number; glare?: boolean }) {
+  return (
+    <div className="relative flex h-full w-full overflow-hidden rounded-[0.9em]" style={{ ...notchMask(1 - STUB), background: '#07051a' }}>
+      <div className="relative h-full overflow-hidden" style={{ width: `${(1 - STUB) * 100}%` }}>
+        <ArtImg b={b} style={{ filter: 'grayscale(1) contrast(1.15) brightness(.9)' }} />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(120deg, ${NEON_P}, #5b2bff 50%, ${NEON_C})`, mixBlendMode: 'color', opacity: 0.85 }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, #07051a 0%, #07051ad0 26%, #07051a30 60%, transparent 100%), linear-gradient(0deg, #07051a 0%, transparent 45%)' }} />
+        <div className="absolute inset-0 opacity-30" style={{ background: 'repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 0.08em, transparent 0.08em 0.32em)' }} />
+        <div className="absolute rounded-[0.6em]" style={{ inset: '0.7em', boxShadow: `inset 0 0 0 0.12em ${NEON_P}, inset 0 0 0.9em ${NEON_P}, 0 0 0.9em ${NEON_P}`, animation: 'argus-neon-flicker 6s infinite' }} />
+        <div className="relative flex h-full flex-col justify-between" style={{ padding: '1.7em 2.2em 1.6em' }}>
+          <div className="flex items-center gap-[0.6em]">
+            <span style={{ fontSize: '0.62em', letterSpacing: '0.5em', fontWeight: 800, ...neonText(NEON_C) }}>{tt('ARGUS SİNEMA')}</span>
+            {b.format && (
+              <span className="ml-auto rounded-[0.3em]" style={{ fontSize: '0.58em', padding: '0.2em 0.6em', letterSpacing: '0.18em', fontWeight: 800, color: NEON_C, boxShadow: `inset 0 0 0 0.1em ${NEON_C}, 0 0 0.6em ${NEON_C}` }}>
+                {b.format.toLocaleUpperCase('tr')}
+              </span>
+            )}
+          </div>
+          <div style={{ maxWidth: '64%' }}>
+            {b.logo ? (
+              <img src={b.logo} alt={b.title} className="object-contain object-left" style={{ maxHeight: '4.4em', maxWidth: '100%', filter: `brightness(0) invert(1) drop-shadow(0 0 0.25em ${NEON_P}) drop-shadow(0 0 0.6em ${NEON_P})` }} draggable={false} />
+            ) : (
+              <p className="font-black leading-[1.05] line-clamp-2" style={{ fontSize: '2.4em', letterSpacing: '0.01em', ...neonText(NEON_P) }}>
+                {b.title}
+              </p>
+            )}
+            {b.year && <p style={{ fontSize: '0.7em', marginTop: '0.6em', letterSpacing: '0.3em', fontWeight: 700, ...neonText(NEON_C) }}>{b.year}</p>}
+          </div>
+          <div style={{ color: '#f5e9ff' }}>
+            <p className="font-semibold capitalize" style={{ fontSize: '1em' }}>
+              {dayLine(b)}
+              {b.time && <span style={{ color: NEON_C }}>{' · '}{b.time}</span>}
+            </p>
+            {b.cinema && (
+              <p className="uppercase" style={{ fontSize: '0.62em', letterSpacing: '0.28em', opacity: 0.75, marginTop: '0.45em', fontWeight: 600 }}>
+                {b.cinema}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+      {/* koçan */}
+      <div className="relative flex flex-1 flex-col justify-between" style={{ background: 'linear-gradient(180deg,#120a2e,#07051a)', color: '#f5e9ff', padding: '1.3em 1.3em 1.1em 1.5em', borderLeft: `0.14em dashed ${NEON_C}88` }}>
+        <div className="absolute left-0 right-0 top-0" style={{ height: '0.3em', background: `linear-gradient(90deg, ${NEON_P}, ${NEON_C})`, boxShadow: `0 0 0.8em ${NEON_P}` }} />
+        <HoloSeal size={2.6} style={{ right: '1.1em', bottom: '5.1em' }} />
+        <div className="relative">
+          <Label style={{ color: NEON_C, opacity: 0.9 }}>{tt('Giriş')}</Label>
+          <div className="mt-[0.5em] grid grid-cols-2 gap-x-[0.8em] gap-y-[0.6em]">
+            <div>
+              <Label>{tt('Salon')}</Label>
+              <p className="font-black leading-none" style={{ fontSize: '1.7em', marginTop: '0.12em', ...neonText(NEON_P) }}>{b.hall || '—'}</p>
+            </div>
+            <div>
+              <Label>{tt('Koltuk')}</Label>
+              <p className="font-black leading-none" style={{ fontSize: '1.7em', marginTop: '0.12em', ...neonText(NEON_P) }}>{b.seat || '—'}</p>
+            </div>
+          </div>
+          <p className="font-semibold" style={{ fontSize: '0.7em', marginTop: '0.9em', opacity: 0.75 }}>{shortDay(b.date)}{b.time ? `  ${b.time}` : ''}</p>
+          <p className="font-bold leading-tight line-clamp-2" style={{ fontSize: '0.78em', marginTop: '0.7em' }}>{b.title}</p>
+          {b.price && <p style={{ fontSize: '0.62em', marginTop: '0.35em', opacity: 0.6 }}>{priceText(b.price)}</p>}
+        </div>
+        <div className="relative" style={{ color: NEON_C, filter: `drop-shadow(0 0 0.25em ${NEON_C})` }}>
+          <Barcode seed={b.id} n={30} style={{ height: '2.1em' }} />
+          <p className="font-mono" style={{ fontSize: '0.5em', marginTop: '0.5em', letterSpacing: '0.12em', opacity: 0.8 }}>{serialOf(no, b.date)}</p>
+        </div>
+      </div>
+      {glare && <Glare />}
+    </div>
+  )
+}
+
 // Arka yüzün renkleri tasarıma göre
 function backTheme(s: TicketStyle, accent: string) {
   if (s === 'klasik') return { bg: CREAM, ink: MAROON, line: 'rgba(110,29,29,.35)', bar: MAROON, noise: 0.7, blend: 'multiply' as const, title: { fontFamily: SERIF, color: '#3d0f0f' } as CSSProperties }
+  if (s === 'neon') return { bg: '#07051a', ink: '#f5e9ff', line: 'rgba(63,240,255,.45)', bar: `linear-gradient(90deg, ${NEON_P}, ${NEON_C})`, noise: 0.15, blend: 'screen' as const, title: neonText(NEON_P) }
   if (s === 'altin') return { bg: '#100f0c', ink: GOLD, line: 'rgba(217,181,106,.35)', bar: `linear-gradient(90deg, #8a6a2f, #f4dc93, #8a6a2f)`, noise: 0.25, blend: 'screen' as const, title: foil({ fontFamily: SERIF }) }
   return { bg: PAPER, ink: INK, line: 'rgba(26,22,18,.35)', bar: accent, noise: 0.6, blend: 'multiply' as const, title: {} as CSSProperties }
 }

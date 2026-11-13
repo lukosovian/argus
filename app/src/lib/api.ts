@@ -72,6 +72,9 @@ export interface PlatformOzet {
   total: number
   totalMinutes: number
   mine: number[]
+  // Abone olunanlarla izlenebilenler ve onlara eklemek için en iyi platform (abonelik işaretliyse)
+  mineCover?: { count: number; minutes: number } | null
+  bestNew?: { id: number; count: number; minutes: number } | null
   combo: { ids: number[]; count: number; minutes: number } | null
   // 3 aylık plan: her ay öncekilerde olmayanlardan en çok süreyi karşılayan platform (eski sunucuda yok)
   plan?: { id: number; count: number; minutes: number; items: { title: string; poster: string | null; key: string }[] }[]
@@ -154,6 +157,37 @@ export type KoleksiyonPatch = {
   items?: Record<string, { image?: string | null; shelf?: string | null } | null>
   shelves?: Record<string, { image?: string | null; name?: string | null; manual?: boolean | null; rows?: string[] | null } | null>
 }
+
+// Koleksiyon › Ödüller (v1.24, bkz. lib/oduller.ts): kart paketleri
+export type OdulTier = 'bronz' | 'gumus' | 'altin'
+export interface OdulCard {
+  n: number
+  at: number
+  r: number
+  title: string
+  poster: string
+  year?: string
+  rating?: number | null
+  foil?: boolean
+}
+export interface OdulData {
+  startedAt: string | null
+  opened: Partial<Record<OdulTier, number>>
+  bonus: Partial<Record<OdulTier, number>>
+  makara: number
+  pity: number
+  items: Record<string, { n: number; at: number; r: number }>
+  cards: Record<string, OdulCard>
+  equip: { frame?: string; back?: string }
+}
+export type OdulReward =
+  | { kind: 'item'; key: string; r: number }
+  | { kind: 'card'; rowId: string; r: number; title: string; poster: string; year?: string; rating?: number | null; foil?: boolean }
+export type OdulAction =
+  | { action: 'start' }
+  | { action: 'open'; tier: OdulTier; opId: string; pity: number; rewards: OdulReward[] }
+  | { action: 'equip'; slot: 'frame' | 'back'; key: string | null }
+  | { action: 'buy'; tier: OdulTier }
 
 // Koleksiyon › Biletlerim (bkz. pages/Biletlerim.tsx): sinemada izlediklerinin koleksiyonluk biletleri
 export interface Bilet {
@@ -388,9 +422,15 @@ export const api = {
   clearColumn: (boardId: string, propertyId: string) =>
     request<{ ok: true; count: number }>(profilePath(`/boards/${boardId}/clear-column/${propertyId}`), { method: 'POST' }),
   getBoardHealth: (boardId: string) =>
-    request<{ brokenImages: { rowId: string; propertyId: string; propertyName: string; value: string }[]; duplicates: { rowIds: string[] }[] }>(
-      profilePath(`/boards/${boardId}/health`),
-    ),
+    request<{
+      brokenImages: { rowId: string; propertyId: string; propertyName: string; value: string }[]
+      duplicates: { rowIds: string[] }[]
+      tmdbMissing?: Record<string, { props: string[]; at: number | null }>
+      undatedSeries?: { rowId: string; seasons: { season: number; total: number; undated: number }[] }[]
+    }>(profilePath(`/boards/${boardId}/health`)),
+  // Sağlık Kontrolü: tarihsiz bölümlere tarih yaz (date: YYYY-MM-DD, YYYY, "?" ya da "kayit")
+  dateEpisodes: (boardId: string, items: { rowId: string; seasons?: number[] }[], date: string) =>
+    request<{ ok: boolean; episodes: number }>(profilePath(`/boards/${boardId}/date-episodes`), { method: 'POST', ...json({ items, date }) }),
   getDuplicates: (boardId: string) => request<{ duplicates: { rowIds: string[] }[] }>(profilePath(`/boards/${boardId}/duplicates`)),
   mergeRows: (boardId: string, keepId: string, removeIds: string[]) =>
     request<{ ok: true; movedFields: string[] }>(profilePath(`/boards/${boardId}/merge-rows`), { method: 'POST', ...json({ keepId, removeIds }) }),
@@ -564,6 +604,8 @@ export const api = {
   biletGorselIndir: (path: string, kind: 'sahne' | 'afis') => request<{ url: string }>(profilePath('/bilet-gorsel'), { method: 'POST', ...json({ path, kind }) }),
   saveBiletler: (items: Record<string, Partial<Record<keyof Bilet, string | null>> | null>) =>
     request<BiletData>(profilePath('/biletler'), { method: 'POST', ...json({ items }) }),
+  getOduller: () => request<OdulData>(profilePath('/oduller')),
+  odulAction: (a: OdulAction) => request<OdulData>(profilePath('/oduller'), { method: 'POST', ...json(a) }),
   getAklimda: () => request<AklimdaData>(profilePath('/aklimda')),
   saveAklimda: (patch: AklimdaPatch) => request<AklimdaData>(profilePath('/aklimda'), { method: 'POST', ...json(patch) }),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),

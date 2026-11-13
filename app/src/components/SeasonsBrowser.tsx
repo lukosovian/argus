@@ -242,7 +242,7 @@ export default function SeasonsBrowser({
         )}
         {dateMenu && (
           <AnchoredMenu anchorRef={toggleRef} align="right" width={248} onClose={() => setDateMenu(false)}>
-            <div className="py-1">
+            <div className="py-1 rounded-xl border border-neutral-700 bg-neutral-900 shadow-xl overflow-hidden">
               <p className="px-3 pt-1 pb-1 text-[11px] uppercase tracking-wider text-neutral-500">{tt('Ne zaman izledin?')}</p>
               <button className={opt} onClick={() => markWith(today)}>{tt('Bugün')}</button>
               <div className="flex gap-1.5 px-3 py-1">

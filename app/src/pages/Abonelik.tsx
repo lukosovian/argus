@@ -4,6 +4,7 @@ import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useProfiles } from '../hooks/useProfiles'
 import { api, type Evren, type EvrenPrefs, type PlatformOzet } from '../lib/api'
 import { tt, ttx, getLang } from '../lib/i18n'
+import { MyPlatformsPicker } from '../components/PickerPool'
 
 // Hangi aboneliği almalıyım? — kullanıcı "bu ay hangi platformu alsam" sorusunun cevabını istedi. İzlenecekler
 // listendeki (ya da bir evrende izlemediklerindeki) yapımların hangi abonelik platformunda olduğu toplanır; en çok
@@ -34,7 +35,9 @@ const monthName = (offset: number) => {
 }
 
 export default function Abonelik() {
-  const { settings } = useHomeSettings()
+  const { settings, saveSettings } = useHomeSettings()
+  const myPlatforms = settings.myPlatforms ?? []
+  const [editMine, setEditMine] = useState(false)
   const { activeProfileId } = useProfiles()
   const boardId = settings.boardId ?? undefined
   const [params, setParams] = useSearchParams()
@@ -87,10 +90,12 @@ export default function Abonelik() {
     return () => {
       alive = false
     }
-  }, [boardId, activeProfileId, source, evrenItems])
+  }, [boardId, activeProfileId, source, evrenItems, myPlatforms.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = result?.source === source ? result.data : null
-  const best = data?.providers[0]
+  // Abone olduğun platformlar işaretliyse öneri, onlarda olmayanlar için en iyi EK platform
+  const bestNewP = data?.bestNew ? data.providers.find((p) => p.id === data.bestNew!.id) : undefined
+  const best = myPlatforms.length && data?.bestNew ? bestNewP : data?.providers[0]
   const comboNames = data?.combo ? data.combo.ids.map((id) => data.providers.find((p) => p.id === id)?.name).filter(Boolean) : []
   const chip = (on: boolean) => `text-sm rounded-xl px-3 py-1.5 border transition ${on ? 'border-neutral-400 text-neutral-50 bg-neutral-800' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`
 
@@ -118,6 +123,45 @@ export default function Abonelik() {
         ))}
       </div>
 
+      {/* Abone olduğum platformlar (v1.23.13): kullanıcı "abone olduğum platformları işaretleyebileyim" dedi. Ne İzlesem'deki
+          "sadece abone olduklarım" ayarıyla aynı liste. */}
+      <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-neutral-50">{tt('Abone olduğum platformlar')}</p>
+            <p className="text-xs text-neutral-500">
+              {myPlatforms.length ? tt('{0} platform işaretli. Öneri, bunlarda olmayanlar için yapılır.', myPlatforms.length) : tt('İşaretlersen hangilerini zaten izleyebildiğini görür, öneriyi ona göre alırsın.')}
+            </p>
+          </div>
+          <button onClick={() => setEditMine((v) => !v)} className="text-xs rounded-lg border border-neutral-700 px-3 py-1.5 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500 transition">
+            {editMine ? tt('Bitti') : myPlatforms.length ? tt('Düzenle') : tt('İşaretle')}
+          </button>
+        </div>
+        {!editMine && myPlatforms.length > 0 && data && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {myPlatforms.map((id) => {
+              const p = data.providers.find((x) => x.id === id)
+              return p ? (
+                <span key={id} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 pl-1 pr-2 py-1 text-xs text-emerald-300">
+                  {p.logo ? <img src={p.logo} alt="" className="h-5 w-5 rounded" /> : null}
+                  {p.name}
+                </span>
+              ) : null
+            })}
+          </div>
+        )}
+        {editMine && (
+          <div className="mt-3">
+            <MyPlatformsPicker value={myPlatforms} prefer={data?.providers.map((p) => p.id)} onChange={(ids) => saveSettings({ ...settings, myPlatforms: ids })} />
+          </div>
+        )}
+        {data?.mineCover && data.total > 0 && (
+          <p className="mt-3 text-sm text-neutral-300">
+            {tt('Aboneliklerinle {0} yapımın {1} tanesini izleyebilirsin, yaklaşık {2} saat.', data.total, data.mineCover.count, hours(data.mineCover.minutes))}
+          </p>
+        )}
+      </section>
+
       {error && <p className="text-rose-400 text-sm">{error}</p>}
       {!data && !error && <p className="text-neutral-500 text-sm">{tt('Platformlar toplanıyor... (ilk seferde biraz sürebilir)')}</p>}
       {data?.needsApiKey && <p className="text-amber-400 text-sm">{tt('Bunun için Ayarlar → Veritabanı → API sekmesinden bir TMDB anahtarı girmelisin.')}</p>}
@@ -130,13 +174,15 @@ export default function Abonelik() {
             <section className="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-5 sm:p-6 flex flex-col sm:flex-row gap-5 items-start">
               {best.logo && <img src={best.logo} alt="" className="h-20 w-20 rounded-2xl" />}
               <div className="min-w-0 space-y-1.5">
-                <p className="text-xs uppercase tracking-wider text-neutral-500">{tt('Önerim')}</p>
+                <p className="text-xs uppercase tracking-wider text-neutral-500">{myPlatforms.length ? tt('Aboneliklerine eklemek için') : tt('Önerim')}</p>
                 <p className="text-2xl font-black text-neutral-50">{ttx('Bu ay {0} al', best.name)}</p>
                 <p className="text-neutral-300">
-                  {tt('{0} yapımın {1} tanesi orada, yaklaşık {2} saatlik izleme.', data.total, best.count, hours(best.minutes))}
+                  {myPlatforms.length && data.bestNew
+                    ? tt('Aboneliklerinde olmayan {0} yapım daha açılır, yaklaşık {1} saat.', data.bestNew.count, hours(data.bestNew.minutes))
+                    : tt('{0} yapımın {1} tanesi orada, yaklaşık {2} saatlik izleme.', data.total, best.count, hours(best.minutes))}
                   {data.mine.includes(best.id) && <span className="text-emerald-400"> {tt('Zaten abonesin.')}</span>}
                 </p>
-                {data.combo && comboNames.length === 2 && data.combo.count > best.count && (
+                {!myPlatforms.length && data.combo && comboNames.length === 2 && data.combo.count > best.count && (
                   <p className="text-sm text-neutral-400">
                     {tt('{0} ve {1} birlikte: {2} yapım, yaklaşık {3} saat.', comboNames[0], comboNames[1], data.combo.count, hours(data.combo.minutes))}
                   </p>

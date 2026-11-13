@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual, BiletlerimVisual, BiletTasarimVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual, BiletlerimVisual, BiletTasarimVisual, OdulPaketVisual, AdDuzeltVisual, SaglikTarihsizVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,32 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.13',
+    date: tt('13 Kasım 2026'),
+    title: tt('Ödüller, yeni Sağlık Kontrolü ve aboneliklerin'),
+    items: [
+      tt('yeni: İzledikçe kart paketi kazanıyorsun. Her 4 bölümde Bronz, her bitirdiğin filmde Gümüş, sinemada izleyince (ve her 10 filmde, 40 bölümde) Altın paket. Sadece özelliği açtığın günden sonra izlediklerin sayılıyor. Ayarlar › Profil\'den "Ödüller" ile açılıyor, varsayılan kapalı.'),
+      tt('yeni: Koleksiyon\'da Ödüller sekmesi. Paketin üst kenarını fareyle soldan sağa sürükleyerek yırtıyorsun (ya da pakete tıkla, kendisi yırtılsın). İçinden 5 kart çıkıp yelpaze gibi açılıyor, tek tek çeviriyorsun. Nadir kartların arkası çevirmeden önce parlıyor, efsanevi olan havaya kalkıp titriyor.'),
+      tt('yeni: Kartlardan izlediğin yapımların film kartları çıkıyor; nadirliği o yapıma verdiğin puandan geliyor (7+ nadir, 8.5+ epik, 9.5+ efsanevi). Bazıları parlak çıkıyor. Topladıkların albümde duruyor, tıklayınca büyüyor.'),
+      tt('yeni: Paketten avatar çerçeveleri (taktığın sağ üstteki avatarında görünür), kart arkaları ve yeni bir bilet tasarımı (Neon) da çıkıyor.'),
+      tt('yeni: Elindeki bir ödül tekrar çıkarsa makaraya dönüyor; makarayla paket alabiliyorsun. 10 paket üst üste epik çıkmazsa bir sonrakinde epik garanti. Yeni paket kazanınca küçük bir bildirim geliyor.'),
+      tt('yeni: Sağlık Kontrolü\'nde "İzlendi ama bölümleri tarihsiz diziler" listesi. Dizileri tek tek ya da hepsini seçebilir, istersen sadece bazı sezonlarını işaretleyebilirsin; sonra bir gün, bir yıl, "Kaydın izleme tarihinden" (tarih aralığıysa bölümler o günlere sırayla dağıtılır) ya da "Hatırlamıyorum" dersin. Bu sırada dizinin durumu ve izleme tarihi değişmez, yeni izleme tarihi eklenmez.'),
+      tt('değişti: Sağlık Kontrolü\'nde TMDB\'de gerçekten olmayan bilgiler (ör. yönetmeni yok) artık eksik diye görünmüyor; ayrı bir "TMDB\'de olmayan bilgiler" listesinde duruyor. Toplu ya da tek güncellemede yeniden bakılıyor, TMDB\'ye eklenirse kendiliğinden doluyor.'),
+      tt('değişti: Sağlık Kontrolü\'ndeki listeler alfabetik sırada.'),
+      tt('yeni: Abonelik sayfasında abone olduğun platformları işaretleyebiliyorsun. Aboneliklerinle kaç yapımı izleyebileceğin yazıyor; öneri, aboneliklerinde olmayanlar için en çok işine yarayacak platform oluyor.'),
+      tt('değişti: Arşiv tablosundaki "Cilalı" görünüm (✦ düğmesi) kaldırıldı; tablo hep sade görünümde.'),
+      tt('duz: Arşiv tablosunda seçtiğin sıralama (ör. başlığa göre) başka sayfaya gidip dönünce sıfırlanıyordu; artık hatırlanıyor.'),
+      tt('duz: Sezonu izlendi yaparken açılan "Ne zaman izledin?" menüsünün arka planı yoktu, arkadaki yazılarla karışıyordu.'),
+      tt('duz: Mükerrer kayıt kontrolü vizyon yılına bakmıyordu; aynı adlı yeniden çekimler (ör. Dune 1984 ve 2021) mükerrer sanılabiliyordu.'),
+      tt('duz: Arşive yeni bir yapım ekleyip adını küçük harflerle yazınca ilk "Güncelle" adı TMDB\'deki yazımla düzeltiyor; sonra adı kendin değiştirirsen "Güncelle" artık ona dokunmuyor.'),
+    ],
+    visuals: [
+      { caption: tt('1 paketi yırt · 2 kartlar yelpaze gibi açılır · 3 film kartı albümü · 4 avatar çerçeveleri'), Visual: OdulPaketVisual },
+      { caption: tt('1 ilk Güncelle adı düzeltir · 2 sonra senin yazdığın ad kalır'), Visual: AdDuzeltVisual },
+      { caption: tt('1 tarihsiz bölümü olan dizileri ve sezonları seç · 2 ne zaman izlediğini ver · 3 TMDB\'de olmayanlar ayrı durur'), Visual: SaglikTarihsizVisual },
+    ],
+  },
   {
     version: 'v1.23.12',
     date: tt('13 Kasım 2026'),

@@ -2,8 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import RowEditorModal from '../components/RowEditorModal'
 import MobileBoardList from '../components/mobile/MobileBoardList'
 import { MOBILE } from '../lib/mobile/ui'
-import Icon from '../components/Icon'
-import { setPolishedTable, usePolishedTable } from '../lib/tableStyle'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
@@ -826,13 +824,46 @@ export default function BoardView() {
   // TableSearchInput kendi anlık yazdığını kendi içinde tutuyor, buraya sadece 200ms'lik
   // yazma duraklamasından sonra bildiriyor (bkz. TableSearchInput'un başındaki not).
   const [search, setSearch] = useState('')
-  const [sortPropertyId, setSortPropertyId] = useState<string | null>(null)
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const savedSort = (() => {
+    try {
+      const raw = id ? localStorage.getItem(`argus_table_sort_${id}`) : null
+      return raw ? (JSON.parse(raw) as { p: string | null; d: 'asc' | 'desc' }) : null
+    } catch {
+      return null
+    }
+  })()
+  const [sortPropertyId, setSortPropertyId] = useState<string | null>(() => savedSort?.p ?? null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(() => (savedSort?.d === 'desc' ? 'desc' : 'asc'))
+  // Seçilen sıralama bu tarayıcıda arşive özel saklanır — kullanıcı "başlığa göre sıralıyorum, ana sayfaya gidip
+  // geri gelince eski haline dönüyor" dedi.
+  const sortKeyName = id ? `argus_table_sort_${id}` : null
+  useEffect(() => {
+    if (!sortKeyName) return
+    try {
+      const raw = localStorage.getItem(sortKeyName)
+      const v = raw ? (JSON.parse(raw) as { p: string | null; d: 'asc' | 'desc' }) : null
+      setSortPropertyId(v?.p ?? null)
+      setSortDirection(v?.d === 'desc' ? 'desc' : 'asc')
+    } catch {
+      setSortPropertyId(null)
+    }
+  }, [sortKeyName])
+  function changeSort(propertyId: string | null, direction: 'asc' | 'desc') {
+    setSortPropertyId(propertyId)
+    setSortDirection(direction)
+    try {
+      if (sortKeyName) {
+        if (propertyId) localStorage.setItem(sortKeyName, JSON.stringify({ p: propertyId, d: direction }))
+        else localStorage.removeItem(sortKeyName)
+      }
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
 
   // Hangi sütunların kapalı olduğu bu tarayıcıda kalıcı (localStorage) — sekme/tarayıcı/
   // bilgisayar kapansa da kaybolmasın diye. Arşive özel (id bazlı anahtar): farklı arşivlerin
   // sütunları birbirini etkilemesin.
-  const polished = usePolishedTable()
   // Satır sıklığı ("Rahat" / "Sıkı") — gizli sütunlar gibi bu tarayıcıda, arşive özel saklanıyor.
   const densityKey = id ? `argus_table_density_${id}` : null
   const [density, setDensity] = useState<'rahat' | 'siki'>('siki')
@@ -2020,23 +2051,13 @@ export default function BoardView() {
         sortableProps={sortableProps}
         sortPropertyId={sortPropertyId}
         sortDirection={sortDirection}
-        onChange={(propertyId, direction) => {
-          setSortPropertyId(propertyId)
-          setSortDirection(direction)
-        }}
+        onChange={changeSort}
       />
       <ColumnVisibilityPopover
         columns={board.properties.filter((p) => p.id !== board.titlePropertyId)}
         hiddenIds={hiddenColumnIds}
         onToggle={toggleColumnHidden}
       />
-      <ToolbarIconButton
-        onClick={() => setPolishedTable(!polished)}
-        title={polished ? tt('Görünüm: Cilalı — sade görünüme dönmek için tıkla') : tt('Görünüm: Sade — renkli türler ve puan çubuklu cilalı görünüm için tıkla')}
-        active={polished}
-      >
-        <Icon name="sparkle" className="h-4 w-4" />
-      </ToolbarIconButton>
       <ToolbarIconButton
         onClick={toggleDensity}
         title={density === 'rahat' ? tt('Satırlar: Rahat — sıkıya geçmek için tıkla') : tt('Satırlar: Sıkı — rahata geçmek için tıkla')}
@@ -2125,10 +2146,7 @@ export default function BoardView() {
             sortableProps={sortableProps}
             sortPropertyId={sortPropertyId}
             sortDirection={sortDirection}
-            onChange={(propertyId, direction) => {
-              setSortPropertyId(propertyId)
-              setSortDirection(direction)
-            }}
+            onChange={changeSort}
           />
           <button onClick={() => setEditRow('new')} title={tt('Yeni Kayıt')} className="h-11 w-11 shrink-0 flex items-center justify-center rounded-full bg-neutral-50 text-neutral-950 text-2xl leading-none">
             +

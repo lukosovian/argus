@@ -20,6 +20,8 @@ import { tt, ttx } from '../lib/i18n'
 import Icon from '../components/Icon'
 import { useSearchParams } from 'react-router-dom'
 import Biletlerim from './Biletlerim'
+import Oduller from './Oduller'
+import { useExtras } from '../lib/extras'
 
 // Koleksiyon — kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) bir yerde
 // sergileyeyim" dedi. İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım kendiliğinden gelir (sembolü yoksa
@@ -626,10 +628,13 @@ function Raflar() {
 // Koleksiyon'un iki bölümü (v1.23.11): Raflar (semboller) ve Biletlerim (sinema biletleri). ?sekme=biletler
 export default function Koleksiyon() {
   const [sp, setSp] = useSearchParams()
-  const tab = sp.get('sekme') === 'biletler' ? 'biletler' : 'raflar'
-  const pick = (t: 'raflar' | 'biletler') => {
+  // Ödüller sekmesi (v1.24) sadece Ekstralar'dan açılınca
+  const rewards = useExtras().on('rewards')
+  const q = sp.get('sekme')
+  const tab = q === 'biletler' ? 'biletler' : q === 'oduller' && rewards ? 'oduller' : 'raflar'
+  const pick = (t: 'raflar' | 'biletler' | 'oduller') => {
     const n = new URLSearchParams(sp)
-    if (t === 'biletler') n.set('sekme', 'biletler')
+    if (t !== 'raflar') n.set('sekme', t)
     else n.delete('sekme')
     setSp(n, { replace: true })
   }
@@ -640,6 +645,7 @@ export default function Koleksiyon() {
           {([
             ['raflar', tt('Raflar'), 'trophy'],
             ['biletler', tt('Biletlerim'), 'ticket'],
+            ...(rewards ? ([['oduller', tt('Ödüller'), 'cards']] as const) : []),
           ] as const).map(([k, label, icon]) => (
             <button
               key={k}
@@ -654,6 +660,10 @@ export default function Koleksiyon() {
       </div>
       {tab === 'raflar' ? (
         <Raflar />
+      ) : tab === 'oduller' ? (
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <Oduller />
+        </div>
       ) : (
         <div className="max-w-6xl mx-auto px-4 py-8">
           <Biletlerim />

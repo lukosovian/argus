@@ -438,7 +438,24 @@ export function registerPlatformRoutes(app) {
         plan.push(bestP)
       }
       const home = d.readJson(d.profileHomeSettingsFile(profileId), {})
+      // Abone olunan platformlar (v1.23.13, Abonelik sayfasından işaretlenir): onlarla izlenebilenler ve onlara
+      // eklemek için en iyi platform (aboneliklerinde olmayanlardan en çok süreyi karşılayan)
+      const mineSet = new Set(Array.isArray(home.myPlatforms) ? home.myPlatforms : [])
+      let mineCover = null
+      let bestNew = null
+      if (mineSet.size) {
+        const coveredKeys = new Set(list.filter((it) => (it.ids ?? []).some((id) => mineSet.has(id))).map((it) => `${it.type}:${it.tmdbId}`))
+        mineCover = { count: coveredKeys.size, minutes: list.filter((it) => coveredKeys.has(`${it.type}:${it.tmdbId}`)).reduce((t, it) => t + it.minutes, 0) }
+        for (const p of providers) {
+          if (mineSet.has(p.id)) continue
+          const fresh = p.items.filter((x) => !coveredKeys.has(x.key))
+          const minutes = fresh.reduce((t, x) => t + (minutesOf.get(x.key) ?? 0), 0)
+          if (fresh.length && (!bestNew || minutes > bestNew.minutes)) bestNew = { id: p.id, count: fresh.length, minutes }
+        }
+      }
       res.json({
+        mineCover,
+        bestNew,
         plan,
         providers: providers.map((p) => ({ ...p, items: p.items.slice(0, 12) })),
         none: none.slice(0, 30),

@@ -19,6 +19,8 @@ import ProfileMenuV2, { EVREN_SEEN_KEY, YAMA_SEEN_KEY } from './ProfileMenuV2'
 import { frameFor, useProfileStats } from '../lib/profileStats'
 import { api } from '../lib/api'
 import AchievementWatcher from './AchievementWatcher'
+import OdulWatcher from './odul/OdulWatcher'
+import { catalogItem, frameStyle, useOdulData } from '../lib/oduller'
 
 // Profil menüsündeki satırların ikonları — ARGUS'un dolgulu ikonları (bkz. Icon.tsx); kullanıcı dış çizgili
 // yerine dolgulu istedi.
@@ -139,7 +141,14 @@ export default function Navbar() {
   const stats = useProfileStats(!MOBILE || Boolean(ext.moodAvatar || ext.avatarFrames))
   const navigate = useNavigate()
   const avatarSrc = ext.moodAvatar && stats ? `/avatars/profil${stats.mood.avatar}.png` : activeProfile?.photo
-  const frame = ext.avatarFrames && stats ? frameFor(stats.watchedCount) : null
+  // Ödüller'den takılan çerçeve (v1.24) izleme sayısı çerçevesinin önüne geçer
+  const odul = useOdulData(Boolean(ext.rewards))
+  const odulFrame = ext.rewards && odul?.equip.frame ? frameStyle(odul.equip.frame) : null
+  const frame = odulFrame
+    ? { id: odul!.equip.frame!, label: catalogItem(odul!.equip.frame!)?.name() ?? '', style: odulFrame }
+    : ext.avatarFrames && stats
+      ? frameFor(stats.watchedCount)
+      : null
   const extraLinks: { to: string; icon: IconName; label: string }[] = [
     ...(ext.together ? [{ to: '/birlikte', icon: 'person' as IconName, label: tt('Birlikte izle') }] : []),
     ...(ext.achievements ? [{ to: '/basarimlar', icon: 'trophy' as IconName, label: tt('Başarımlar') }] : []),
@@ -295,6 +304,7 @@ export default function Navbar() {
           <RandomPickerButton hideButton={MOBILE} />
           <NotificationBell />
           {ext.achievements && activeProfileId && <AchievementWatcher profileId={activeProfileId} />}
+          {ext.rewards && activeProfileId && <OdulWatcher key={activeProfileId} />}
 
           <div className="relative shrink-0">
             <span className={`block rounded-full ${frame ? 'p-[2.5px]' : ''}`} style={frame?.style} title={frame?.label}>

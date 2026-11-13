@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { notifyDataChanged } from '../lib/dataEvents'
 import type { Board, PropertyDef, PropertyValue, Row } from '../types'
 import { titleText } from '../types'
 import { api } from '../lib/api'
@@ -7,10 +8,13 @@ import { HealthIcon } from './toolbarIcons'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { toEntries, UNKNOWN_DATE } from '../lib/dateRange'
 import { useToast } from '../hooks/useToast'
+import UndatedSeriesSection from './UndatedSeriesSection'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx } from '../lib/i18n'
 
 const MAX_SHOWN = 40
+const collator = new Intl.Collator('tr', { sensitivity: 'base', numeric: true })
+const collate = (a: string, b: string) => collator.compare(a, b)
 
 // Ayarlar/Yardım'daki gibi bir "?" değil, arşivin kendi içindeki sorunlu kayıtları TEK YERDE
 // listeleyen bir panel — kullanıcı "sağlık kontrolü" önerisini onayladı: eksik kapak görseli,
@@ -23,7 +27,7 @@ export default function HealthCheckModal({
   board,
   rows,
   missingImageRows,
-  incompleteRows,
+  incompleteRows: incompleteRowsAll,
   incompleteChecks,
   onIgnore,
   onUnignore,
@@ -63,29 +67,38 @@ export default function HealthCheckModal({
   const [brokenImages, setBrokenImages] = useState<{ rowId: string; propertyName: string; value: string }[]>([])
   const [duplicates, setDuplicates] = useState<string[][]>([])
   const [merging, setMerging] = useState(false)
-  const { confirm } = useToast()
+  // TMDB'de olmadığı son güncellemede görülen alanlar (rowId → sütun id'leri) ve tarihsiz bölümü olan diziler
+  const [tmdbMissing, setTmdbMissing] = useState<Record<string, { props: string[]; at: number | null }>>({})
+  const [undated, setUndated] = useState<{ rowId: string; seasons: { season: number; total: number; undated: number }[] }[]>([])
+  const { confirm, notify } = useToast()
 
-  useEffect(() => {
-    let cancelled = false
-    setBrokenLoading(true)
-    api
-      .getBoardHealth(board.id)
-      .then((res) => {
-        if (!cancelled) {
-          setBrokenImages(res.brokenImages)
-          setDuplicates((res.duplicates ?? []).map((g) => g.rowIds))
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setBrokenImages([])
-      })
-      .finally(() => {
-        if (!cancelled) setBrokenLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [board.id])
+  const load = useCallback(
+    (quiet = false) => {
+      let cancelled = false
+      if (!quiet) setBrokenLoading(true)
+      api
+        .getBoardHealth(board.id)
+        .then((res) => {
+          if (!cancelled) {
+            setBrokenImages(res.brokenImages)
+            setDuplicates((res.duplicates ?? []).map((g) => g.rowIds))
+            setTmdbMissing(res.tmdbMissing ?? {})
+            setUndated(res.undatedSeries ?? [])
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setBrokenImages([])
+        })
+        .finally(() => {
+          if (!cancelled) setBrokenLoading(false)
+        })
+      return () => {
+        cancelled = true
+      }
+    },
+    [board.id],
+  )
+  useEffect(() => load(), [load])
 
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   function rowTitle(row: Row): string {
@@ -95,10 +108,18 @@ export default function HealthCheckModal({
     return rows.find((r) => r.id === id)
   }
 
+  const isEmpty = (v: PropertyValue | undefined) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
+  // TMDB'de olmayan (son güncellemede de bulunamayan) boş alanlar — eksik sayılmaz, ayrı listede durur
+  function tmdbLacks(row: Row): PropertyDef[] {
+    const ids = new Set(tmdbMissing[row.id]?.props ?? [])
+    const ignored = new Set(board.healthIgnore?.[row.id] ?? [])
+    return incompleteChecks.filter((p) => ids.has(p.id) && !ignored.has(p.id) && isEmpty(row.values[p.id]))
+  }
   function missingFields(row: Row): PropertyDef[] {
     const ignored = new Set(board.healthIgnore?.[row.id] ?? [])
+    const lacks = new Set(tmdbMissing[row.id]?.props ?? [])
     return incompleteChecks.filter((p) => {
-      if (ignored.has(p.id)) return false
+      if (ignored.has(p.id) || lacks.has(p.id)) return false
       const v = row.values[p.id]
       return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
     })
@@ -107,6 +128,10 @@ export default function HealthCheckModal({
   // Eksik alanlara göre süzme — "Hepsi" (null) ya da tek bir sütun. Her düğmede o alanı boş
   // olan kayıt sayısı yazıyor, böylece neyin ne kadar eksik olduğu bir bakışta görülüyor.
   const [missingFilter, setMissingFilter] = useState<string | null>(null)
+  // Genel Güncelleme'nin listesi (BoardView) TMDB'de olmayanları da içerir — her güncellemede yeniden bakılsın diye;
+  // burada sadece gerçekten eksik olanlar.
+  const incompleteRows = incompleteRowsAll.filter((r) => missingFields(r).length > 0)
+  const tmdbLackRows = rows.filter((r) => tmdbLacks(r).length > 0)
   const missingCounts = incompleteChecks.map((p) => ({
     prop: p,
     count: incompleteRows.filter((r) => missingFields(r).some((m) => m.id === p.id)).length,
@@ -139,6 +164,7 @@ export default function HealthCheckModal({
     .map((ids) => ids.map(rowById).filter((r): r is Row => Boolean(r)))
     .filter((g) => g.length > 1)
     .map((g) => [...g].sort((a, b) => filledCount(b) - filledCount(a) || a.createdAt - b.createdAt))
+    .sort((a, b) => collate(rowTitle(a[0]), rowTitle(b[0])))
   const dupRowCount = dupGroups.reduce((n, g) => n + g.length - 1, 0)
 
   // Grupları ayırt etmeye yarayan kısa özet: "Film · 2019 · İzlendi · 2 izleme · puanlı · 14 alan dolu".
@@ -249,7 +275,7 @@ export default function HealthCheckModal({
         {(() => {
           // Özet: en az bir sorunu olan kayıt sayısı (aynı kayıt iki listede olsa da bir kez sayılır).
           const problem = new Set(
-            [...missingImageRows, ...incompleteRows, ...dupGroups.flatMap((g) => g.slice(1)), ...watchedNoDate, ...todoWithDate].map((r) => r.id),
+            [...missingImageRows, ...incompleteRows, ...dupGroups.flatMap((g) => g.slice(1)), ...watchedNoDate, ...todoWithDate].map((r) => r.id).concat(undated.map((u) => u.rowId)),
           ).size
           const healthy = rows.length ? Math.round(((rows.length - problem) / rows.length) * 100) : 100
           return (
@@ -338,6 +364,24 @@ export default function HealthCheckModal({
               />
             </>
           )}
+          <UndatedSeriesSection
+            items={undated.flatMap((u) => {
+              const row = rowById(u.rowId)
+              return row ? [{ row, label: rowTitle(row), seasons: u.seasons }] : []
+            })}
+            loading={brokenLoading}
+            onOpenRow={onOpenRow}
+            onApply={async (items, date) => {
+              try {
+                const r = await api.dateEpisodes(board.id, items, date)
+                notify(tt('{0} bölüme tarih yazıldı', r.episodes), 'success')
+                notifyDataChanged(board.id)
+                load(true)
+              } catch (e) {
+                notify(e instanceof Error ? e.message : tt('Kaydedilemedi'), 'danger')
+              }
+            }}
+          />
           <HealthSection
             title={tt('Hiç görseli olmayan kayıtlar')}
             hint={tt('Hiçbir görsel sütununda (Poster, Banner, Kapak Adı...) değeri yok.')}
@@ -396,6 +440,16 @@ export default function HealthCheckModal({
             }))}
             onOpenRow={onOpenRow}
           />
+          {tmdbLackRows.length > 0 && (
+            <HealthSection
+              title={tt("TMDB'de olmayan bilgiler")}
+              hint={tt("Son güncellemede TMDB'de de bulunamadı, o yüzden eksik sayılmıyor. Her güncellemede (toplu ya da tek) yeniden bakılır; TMDB'ye eklenirse kendiliğinden dolar.")}
+              count={tmdbLackRows.length}
+              neutral
+              items={tmdbLackRows.map((row) => ({ key: row.id, row, label: rowTitle(row), tags: tmdbLacks(row).map((p) => ({ label: p.name })) }))}
+              onOpenRow={onOpenRow}
+            />
+          )}
           {ignoredPairs.length > 0 && (
             <HealthSection
               title={tt('Sorulmayanlar')}
@@ -619,7 +673,9 @@ function HealthSection({
 }) {
   const [open, setOpen] = useState(false)
   const [showAll, setShowAll] = useState(false)
-  const visible = showAll ? items : items.slice(0, MAX_SHOWN)
+  // Alfabetik (kullanıcı isteği)
+  const sorted = [...items].sort((a, b) => collate(a.label, b.label))
+  const visible = showAll ? sorted : sorted.slice(0, MAX_SHOWN)
   return (
     <div className="border border-neutral-800 rounded-xl">
       <button

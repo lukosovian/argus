@@ -353,3 +353,11 @@ html.argus-mobile .safe-shift {
     transform: rotate(360deg);
   }
 }
+
+/* Neon bilet (v1.24, Ödüller) — ışığın arada bir titremesi */
+@keyframes argus-neon-flicker {
+  0%, 91%, 95%, 100% { opacity: 1 }
+  92% { opacity: .35 }
+  93% { opacity: .9 }
+  94% { opacity: .5 }
+}

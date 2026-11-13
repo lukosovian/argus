@@ -348,7 +348,106 @@ app.get('/api/profiles/:profileId/boards/:id/health', (req, res) => {
       }
     }
   }
-  res.json({ brokenImages, duplicates: findDuplicateGroups(req.params.profileId, board, rows) })
+  // TMDB'de olmadığı son güncellemede görülen alanlar (bkz. fillRowFromTmdb › eksik)
+  const refs = readJson(profileTmdbFile(req.params.profileId), {})
+  const tmdbMissing = {}
+  for (const row of rows) if (Array.isArray(refs[row.id]?.eksik) && refs[row.id].eksik.length) tmdbMissing[row.id] = { props: refs[row.id].eksik, at: refs[row.id].baktim ?? null }
+  res.json({
+    brokenImages,
+    duplicates: findDuplicateGroups(req.params.profileId, board, rows),
+    tmdbMissing,
+    undatedSeries: findUndatedSeries(req.params.profileId, board, rows),
+  })
+})
+
+// "İzlendi" olan ama bölümlerinin izleme tarihi olmayan diziler (Sağlık Kontrolü). Kullanıcı "diziyi izlemişim,
+// izlendi işaretli ama bölümlerinde tarih yok, bunları göstersin, toplu ya da tek tek tarihleyebileyim" dedi.
+// Yayınlanmış ama hiç işaretlenmemiş (ya da boş tarihli) bölümler sayılır; "?" (hatırlamıyorum) tarih sayılır.
+function findUndatedSeries(profileId, board, rows) {
+  const durumProp = resolveRole(board, 'durum')
+  const izlendi = resolveStatusOption(board, 'izlendi')
+  if (!durumProp || !izlendi) return []
+  const episodes = readJson(profileEpisodesFile(profileId), {})
+  const watched = readJson(profileWatchedFile(profileId), {})
+  const today = localToday()
+  const out = []
+  for (const row of rows) {
+    if (row.values[durumProp.id] !== izlendi) continue
+    const seasons = episodes[row.id]
+    if (!Array.isArray(seasons) || !seasons.length) continue
+    const seen = watched[row.id] ?? {}
+    const list = []
+    for (const s of seasons) {
+      if (!(s.seasonNumber >= 1)) continue
+      const aired = (s.episodes ?? []).filter((e) => e.airDate && e.airDate <= today)
+      const undated = aired.filter((e) => !(seen[`${s.seasonNumber}-${e.episodeNumber}`] ?? []).some((d) => d)).length
+      if (undated) list.push({ season: s.seasonNumber, total: aired.length, undated })
+    }
+    if (list.length) out.push({ rowId: row.id, seasons: list })
+  }
+  return out
+}
+
+// Tarihsiz bölümlere tarih yazma (Sağlık Kontrolü). { items: [{ rowId, seasons?: number[] }], date } — date: "YYYY-MM-DD",
+// "YYYY", "?" ya da "kayit" (kaydın kendi izleme tarihinden: tek günse hepsi o gün, aralıksa bölümler aralığa sırayla
+// yayılır). Sadece tarihi olmayan bölümlere yazılır. Durum değişmez, kayda yeni izleme tarihi eklenmez, Son izlenenler'e
+// düşmez — kullanıcı "bölümlere tarih atınca tekrardan izleme tarihi atmasın" dedi.
+app.post('/api/profiles/:profileId/boards/:id/date-episodes', (req, res) => {
+  const { profileId } = req.params
+  const board = readJson(profileBoardsFile(profileId), []).find((b) => b.id === req.params.id)
+  if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+  const items = Array.isArray(req.body?.items) ? req.body.items : []
+  const date = String(req.body?.date ?? '')
+  if (!(date === '?' || date === 'kayit' || /^\d{4}$/.test(date) || /^\d{4}-\d{2}-\d{2}$/.test(date))) return res.status(400).json({ error: 'bad date' })
+  const rows = readJson(profileRowsFile(profileId, board.id), [])
+  const dateProp = resolveRole(board, 'izlemeTarihi')
+  const episodes = readJson(profileEpisodesFile(profileId), {})
+  const file = profileWatchedFile(profileId)
+  const all = readJson(file, {})
+  const today = localToday()
+  const addDays = (iso, n) => {
+    const d = new Date(iso + 'T12:00:00')
+    d.setDate(d.getDate() + n)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  let done = 0
+  for (const it of items) {
+    const row = rows.find((r) => r.id === it?.rowId)
+    const seasons = row && episodes[row.id]
+    if (!Array.isArray(seasons)) continue
+    const want = Array.isArray(it.seasons) && it.seasons.length ? new Set(it.seasons.map(Number)) : null
+    const seen = { ...(all[row.id] ?? {}) }
+    const keys = []
+    for (const s of [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber)) {
+      if (!(s.seasonNumber >= 1) || (want && !want.has(s.seasonNumber))) continue
+      for (const e of [...(s.episodes ?? [])].sort((a, b) => a.episodeNumber - b.episodeNumber)) {
+        if (!e.airDate || e.airDate > today) continue
+        const k = `${s.seasonNumber}-${e.episodeNumber}`
+        if ((seen[k] ?? []).some((d) => d)) continue
+        keys.push(k)
+      }
+    }
+    if (!keys.length) continue
+    let dates = keys.map(() => date)
+    if (date === 'kayit') {
+      // Kaydın son izleme tarihi: "a/b" aralığı, tek gün, yıl ya da "?"
+      const v = dateProp ? row.values[dateProp.id] : null
+      const list = (Array.isArray(v) ? v : v ? [v] : []).map(String).sort()
+      const last = list[list.length - 1] ?? '?'
+      const [a, b] = last.split('/')
+      if (b && /^\d{4}-\d{2}-\d{2}$/.test(a) && /^\d{4}-\d{2}-\d{2}$/.test(b)) {
+        const span = Math.max(0, Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5))
+        dates = keys.map((_, i) => addDays(a, keys.length > 1 ? Math.round((i * span) / (keys.length - 1)) : span))
+      } else dates = keys.map(() => (/^\d{4}(-\d{2}-\d{2})?$/.test(a) ? a : '?'))
+    }
+    keys.forEach((k, i) => {
+      seen[k] = [...(seen[k] ?? []).filter((d) => d), dates[i]]
+    })
+    all[row.id] = seen
+    done += keys.length
+  }
+  writeJson(file, all)
+  res.json({ ok: true, episodes: done })
 })
 
 // Mükerrer kayıtlar (Sağlık Kontrolü). Kullanıcı "şimdiye kadar mükerrerleri sen bakıp söyledin, sağlık
@@ -376,7 +475,7 @@ function findDuplicateGroups(profileId, board, rows) {
       row,
       names,
       key: ref ? tmdbKey(ref.mediaType, ref.id) : null,
-      year: typeof y === 'string' && /^d{4}/.test(y) ? y.slice(0, 4) : null,
+      year: typeof y === 'string' && /^\d{4}/.test(y) ? y.slice(0, 4) : null,
       kategori: kategoriProp ? row.values[kategoriProp.id] || null : null,
     }
   })
@@ -1583,7 +1682,11 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       const cur = typeof titleTr === 'string' ? titleTr.trim() : ''
       // Aynı ad ama yazımı farklıysa da (kullanıcı "hepsini küçük harfle yazdım, filmi buldu ama yazımı
       // düzeltmedi" dedi — büyük/küçük harf, ı/i, ş/s gibi harfler) TMDB'deki yazım yazılır.
-      if (trTitle && cur !== trTitle) {
+      // Ad bir kez TMDB'den düzeltildikten sonra kullanıcı kendisi değiştirdiyse (son güncellemede yazılan
+      // addan farklıysa) bir daha dokunulmaz — kullanıcı "ilk güncellede düzeltsin, sonra kendim
+      // değiştirdiğimde dokunmasın" dedi. Eski kayıtlarda (tt yok) bir kez daha düzeltilebilir.
+      const userEdited = typeof prevRef?.tt === 'string' && cur && cur !== prevRef.tt
+      if (trTitle && cur !== trTitle && !userEdited) {
         const fold = (s) => normalizeText(s.toLocaleLowerCase('tr')).replace(/ı/g, 'i') // "dunya varmis" = "Dünya Varmış"
         let replace = !cur || fold(cur) === fold(trTitle)
         // İngilizce / orijinal ad yazılmışsa Türkçesiyle değiştirmek bir seçenek (dişli › "Başlığı Türkçe adla değiştir";
@@ -1602,6 +1705,11 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
           filled.push(titleProp.name)
         }
       }
+    }
+    if (titleProp) {
+      const t = row.values[titleProp.id]
+      refs[row.id].tt = typeof t === 'string' ? t.trim() : ''
+      writeJson(profileTmdbFile(profileId), refs)
     }
 
     if (origProp && (ow || !titleOrig) && !exclude.has('orjinalAdi')) {
@@ -1840,6 +1948,28 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     planIfUpcoming(board, row)
     writeJson(boardsFile, boards)
     writeJson(rowsFilePath, rows)
+
+    // TMDB'de olmayan temel bilgiler (ör. yönetmeni yok): Sağlık Kontrolü bunları "eksik" diye göstermesin, ama her
+    // güncellemede (toplu ya da tek) yeniden bakılır — TMDB'ye eklenirse dolar ve listeden düşer. Kullanıcı "TMDB'de
+    // yoksa sürekli göstermesin, sonraki güncellemelerde arka planda tekrar baksın" dedi.
+    try {
+      const empty = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
+      const eksik = []
+      for (const [field, key] of [['poster', 'poster'], ['sinopsis', 'sinopsis'], ['video', 'video'], ['ulke', 'ulke'], ['yonetmen', 'yonetmen']]) {
+        if (exclude.has(field)) continue
+        const p = resolveRole(board, key)
+        if (p && empty(row.values[p.id])) eksik.push(p.id)
+      }
+      const fresh = readJson(profileTmdbFile(profileId), {})
+      if (fresh[row.id]) {
+        if (eksik.length) fresh[row.id].eksik = eksik
+        else delete fresh[row.id].eksik
+        fresh[row.id].baktim = Date.now()
+        writeJson(profileTmdbFile(profileId), fresh)
+      }
+    } catch {
+      /* önemsiz */
+    }
 
     // Mükerrer uyarısı: aynı TMDB içeriği bu arşivde başka bir kayıtta da varsa arayüz haber verir.
     const dupRow = rows.find((x) => x.id !== row.id && refs[x.id]?.id === result.id && refs[x.id]?.mediaType === mediaType)
@@ -2461,6 +2591,94 @@ app.post('/api/profiles/:profileId/biletler', (req, res) => {
   }
   writeJson(file, data)
   res.json(data)
+})
+
+// Koleksiyon › Ödüller (v1.24): izledikçe kazanılan kart paketleri. Kullanıcı Kick'teki kutu açmayı görüp "argusta da
+// olsun" dedi, sunumdaki dört stilden kart paketini seçti; başarım/rozet ödülü istemedi. Kazanılan paket sayısı
+// arayüzde izleme kayıtlarından hesaplanır (başlangıç tarihinden sonrası); burada açılanlar ve toplananlar durur.
+// data/profiles/<id>/oduller.json: { startedAt, opened:{tier:n}, bonus:{tier:n}, makara, pity, items:{key:{n,at,r}},
+//   cards:{rowId:{n,at,r,title,poster,year,rating}}, equip:{frame?,back?} }
+const ODUL_TIERS = ['bronz', 'gumus', 'altin']
+const MAKARA_OF = [1, 2, 5, 12] // kopya çıkınca nadirliğe göre makara
+const MAKARA_PRICE = { bronz: 10, gumus: 25, altin: 60 }
+function profileOdulFile(profileId) {
+  return path.join(profileDir(profileId), 'oduller.json')
+}
+function readOdul(profileId) {
+  const d = readJson(profileOdulFile(profileId), {})
+  return {
+    startedAt: typeof d.startedAt === 'string' ? d.startedAt : null,
+    opened: { ...(d.opened ?? {}) },
+    bonus: { ...(d.bonus ?? {}) },
+    makara: Number(d.makara) || 0,
+    pity: Number(d.pity) || 0,
+    items: d.items && typeof d.items === 'object' ? d.items : {},
+    cards: d.cards && typeof d.cards === 'object' ? d.cards : {},
+    equip: d.equip && typeof d.equip === 'object' ? d.equip : {},
+    log: Array.isArray(d.log) ? d.log.slice(-30) : [],
+  }
+}
+app.get('/api/profiles/:profileId/oduller', (req, res) => {
+  res.json(readOdul(req.params.profileId))
+})
+// { action: 'start' } | { action:'open', tier, opId, pity, rewards:[{kind:'item',key,r}|{kind:'card',rowId,r,title,poster,year,rating}] }
+// | { action:'equip', slot:'frame'|'back', key|null } | { action:'buy', tier }
+app.post('/api/profiles/:profileId/oduller', (req, res) => {
+  const file = profileOdulFile(req.params.profileId)
+  const d = readOdul(req.params.profileId)
+  const b = req.body ?? {}
+  const now = Date.now()
+  if (b.action === 'start') {
+    if (!d.startedAt) {
+      const t = new Date()
+      d.startedAt = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+      // Hoş geldin paketleri: hemen bir tane açılabilsin
+      d.bonus = { bronz: 2, altin: 1 }
+    }
+  } else if (b.action === 'open' && ODUL_TIERS.includes(b.tier) && Array.isArray(b.rewards)) {
+    // Aynı açılış iki kez gelmesin (telefon cevabı kaybedip yeniden gönderirse)
+    if (typeof b.opId === 'string' && d.log.some((l) => l.opId === b.opId)) return res.json(d)
+    d.opened[b.tier] = (Number(d.opened[b.tier]) || 0) + 1
+    d.pity = Math.max(0, Math.min(99, Number(b.pity) || 0))
+    const got = []
+    for (const r of b.rewards.slice(0, 8)) {
+      const rar = Math.max(0, Math.min(3, Number(r?.r) || 0))
+      if (r?.kind === 'card' && typeof r.rowId === 'string' && /^[a-z0-9_-]{1,60}$/i.test(r.rowId)) {
+        const cur = d.cards[r.rowId]
+        if (cur && r.foil && !cur.foil) cur.foil = true // parlak kopya: kart parlağa yükselir
+        else if (cur) {
+          cur.n = (cur.n || 1) + 1
+          d.makara += MAKARA_OF[rar]
+        } else
+          d.cards[r.rowId] = {
+            ...(r.foil ? { foil: true } : {}),
+            n: 1, at: now, r: rar,
+            title: String(r.title ?? '').slice(0, 200), poster: String(r.poster ?? '').slice(0, 400),
+            year: String(r.year ?? '').slice(0, 4), rating: r.rating == null ? null : Number(r.rating) || null,
+          }
+        got.push(`c:${r.rowId}`)
+      } else if (r?.kind === 'item' && typeof r.key === 'string' && /^[a-z]+:[a-z0-9-]{1,30}$/.test(r.key)) {
+        const cur = d.items[r.key]
+        if (cur) {
+          cur.n = (cur.n || 1) + 1
+          d.makara += MAKARA_OF[rar]
+        } else d.items[r.key] = { n: 1, at: now, r: rar }
+        got.push(r.key)
+      }
+    }
+    d.log.push({ at: now, tier: b.tier, got, ...(typeof b.opId === 'string' ? { opId: b.opId.slice(0, 40) } : {}) })
+    d.log = d.log.slice(-30)
+  } else if (b.action === 'equip' && (b.slot === 'frame' || b.slot === 'back')) {
+    if (b.key === null || b.key === undefined) delete d.equip[b.slot]
+    else if (typeof b.key === 'string' && d.items[b.key]) d.equip[b.slot] = b.key
+  } else if (b.action === 'buy' && ODUL_TIERS.includes(b.tier)) {
+    const price = MAKARA_PRICE[b.tier]
+    if (d.makara < price) return res.status(400).json({ error: stt('Yeterli makaran yok.') })
+    d.makara -= price
+    d.bonus[b.tier] = (Number(d.bonus[b.tier]) || 0) + 1
+  } else return res.status(400).json({ error: 'bad action' })
+  writeJson(file, d)
+  res.json(d)
 })
 
 // Bilet görseli (v1.23.12): kullanıcı "karakterin kafası kesik, TMDB'deki görsellerden ben seçeyim, konumlandırayım"
