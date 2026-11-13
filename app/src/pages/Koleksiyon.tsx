@@ -18,6 +18,8 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { averageColor } from '../lib/imageColor'
 import { tt, ttx } from '../lib/i18n'
 import Icon from '../components/Icon'
+import { useSearchParams } from 'react-router-dom'
+import Biletlerim from './Biletlerim'
 
 // Koleksiyon — kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) bir yerde
 // sergileyeyim" dedi. İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım kendiliğinden gelir (sembolü yoksa
@@ -61,7 +63,7 @@ type Editing = { kind: 'item'; item: Item } | { kind: 'shelf'; key: string; name
 
 const SPOT = 'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.09), transparent 70%), #0a0a0a'
 
-export default function Koleksiyon() {
+function Raflar() {
   const { settings } = useHomeSettings()
   const { activeProfileId } = useProfiles()
   const { notify } = useToast()
@@ -617,6 +619,46 @@ export default function Koleksiyon() {
       )}
       {image && <KoleksiyonImage shelves={image.shelves} loose={image.loose} stats={image.stats} filtered={image.filtered} onClose={() => setImage(null)} />}
       {detail && <RowDetailModal board={board} row={detail} onClose={() => setDetail(null)} />}
+    </div>
+  )
+}
+
+// Koleksiyon'un iki bölümü (v1.23.11): Raflar (semboller) ve Biletlerim (sinema biletleri). ?sekme=biletler
+export default function Koleksiyon() {
+  const [sp, setSp] = useSearchParams()
+  const tab = sp.get('sekme') === 'biletler' ? 'biletler' : 'raflar'
+  const pick = (t: 'raflar' | 'biletler') => {
+    const n = new URLSearchParams(sp)
+    if (t === 'biletler') n.set('sekme', 'biletler')
+    else n.delete('sekme')
+    setSp(n, { replace: true })
+  }
+  return (
+    <div>
+      <div className="max-w-6xl mx-auto px-4 pt-6 -mb-2">
+        <div className="inline-flex rounded-xl border border-neutral-800 bg-neutral-900 p-1 text-sm">
+          {([
+            ['raflar', tt('Raflar'), 'trophy'],
+            ['biletler', tt('Biletlerim'), 'ticket'],
+          ] as const).map(([k, label, icon]) => (
+            <button
+              key={k}
+              onClick={() => pick(k)}
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-1.5 transition ${tab === k ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400 hover:text-neutral-100'}`}
+            >
+              <Icon name={icon} className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {tab === 'raflar' ? (
+        <Raflar />
+      ) : (
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <Biletlerim />
+        </div>
+      )}
     </div>
   )
 }

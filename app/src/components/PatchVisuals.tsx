@@ -4443,3 +4443,57 @@ export function FlashbackHizaVisual() {
     </Frame>
   )
 }
+
+// v1.23.11 — Koleksiyon › Biletlerim
+export function BiletlerimVisual() {
+  const ticket = (x: number, y: number, w: number, rot: number, tone: string) => (
+    <g transform={`translate(${x} ${y}) rotate(${rot})`}>
+      <rect width={w} height={w / 2.4} rx={3} fill={tone} />
+      <rect x={w * 0.73} width={w * 0.27} height={w / 2.4} rx={3} fill="#f2ece1" />
+      <line x1={w * 0.73} x2={w * 0.73} y1={2} y2={w / 2.4 - 2} stroke="#8a8075" strokeDasharray="1.5 1.5" strokeWidth={0.6} />
+      <rect x={w * 0.08} y={w * 0.13} width={w * 0.36} height={w * 0.05} rx={1} fill="#e5e7eb" />
+      <rect x={w * 0.08} y={w * 0.27} width={w * 0.24} height={w * 0.03} rx={1} fill="#9ca3af" />
+      {[0, 1, 2, 3, 4, 5].map((k) => (
+        <rect key={k} x={w * 0.78 + k * w * 0.028} y={w * 0.3} width={w * 0.012} height={w * 0.07} fill="#1a1612" />
+      ))}
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={12} width={130} height={20} rx={5} className="fill-neutral-900" />
+      <rect x={14} y={15} width={58} height={14} rx={4} className="fill-neutral-800" />
+      <text x={22} y={25} fontSize={7} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        {tt('Raflar')}
+      </text>
+      <text x={80} y={25} fontSize={7} className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+        {tt('Biletlerim')}
+      </text>
+      <text x={12} y={52} fontSize={11} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 800 }}>
+        2024
+      </text>
+      {ticket(12, 60, 66, -2, '#1e3a4a')}
+      {ticket(86, 60, 66, 1.5, '#3b2a1e')}
+      <text x={12} y={118} fontSize={11} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 800 }}>
+        2023
+      </text>
+      {ticket(12, 126, 66, 1, '#2a1e3b')}
+      <g transform="translate(178 38)">
+        <rect width={132} height={55} rx={4} fill="#f2ece1" transform="skewY(-4)" />
+        <rect x={8} y={8} width={60} height={6} rx={2} fill="#1a1612" transform="skewY(-4)" />
+        {[0, 1, 2, 3].map((k) => (
+          <rect key={k} x={8 + k * 30} y={22} width={22} height={4} rx={1} fill="#8a8075" transform="skewY(-4)" />
+        ))}
+        <path d="M66 70 a20 8 0 1 0 -6 -10" fill="none" stroke={ACCENT} strokeWidth={1.4} />
+        <path d="M60 58 l0 4 l4 -1" fill="none" stroke={ACCENT} strokeWidth={1.4} />
+      </g>
+      <rect x={178} y={130} width={60} height={14} rx={7} className="fill-neutral-800" />
+      <text x={186} y={140} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('Sinemada izledim')}
+      </text>
+      <Pin x={136} y={14} n={1} />
+      <Pin x={150} y={62} n={2} />
+      <Pin x={306} y={36} n={3} />
+      <Pin x={240} y={130} n={4} />
+    </Frame>
+  )
+}

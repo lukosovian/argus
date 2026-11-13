@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual, BiletlerimVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,18 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.11',
+    date: tt('13 Kasım 2026'),
+    title: tt('Koleksiyon › Biletlerim: sinema biletlerin'),
+    items: [
+      tt('yeni: Koleksiyon\'da yeni bir bölüm var: Biletlerim. Sinemada izlediklerinin koleksiyonluk biletleri yıllara göre bir albüm gibi diziliyor; üstte kaç bilet biriktirdiğin, bu yıl kaç kez gittiğin, en sık gittiğin sinema ve en çok kiminle gittiğin yazıyor.'),
+      tt('yeni: Bir bilete tıklayınca bulunduğu yerden ekranın ortasına büyüyor. Fareyle oynatınca hafifçe yatıyor ve üstünde ışık geziyor; tıklayınca ya da Boşluk ile çevrilip arkası görünüyor. ← → ile diğer biletlere geçebilirsin.'),
+      tt('yeni: Ön yüzde yapımın görseli ve logosu, tarih, seans ve sinema; yırtılabilir koçanda salon, koltuk ve barkod. Arka yüzde bütün bilgiler, notun ve biletin koleksiyon numarası.'),
+      tt('yeni: Bilet eklemek için yapımın detayındaki "Sinemada izledim" düğmesine bas ya da Biletlerim\'deki "Bilet ekle"yi kullan. Tarih, seans, sinema, salon, koltuk, format (IMAX, 3D…), kiminle gittiğin, fiyat ve kısa bir not yazabilirsin; istersen gerçek biletinin önünün ve arkasının fotoğrafını da yükleyebilirsin.'),
+    ],
+    visuals: [{ caption: tt('1 Koleksiyon\'da Biletlerim · 2 yıllara göre biletler · 3 büyüyüp çevrilen bilet · 4 detaydaki "Sinemada izledim"'), Visual: BiletlerimVisual }],
+  },
   {
     version: 'v1.23.10',
     date: tt('13 Kasım 2026'),

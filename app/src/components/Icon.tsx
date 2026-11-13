@@ -42,6 +42,7 @@ export type IconName =
   | 'grid'
   | 'menu'
   | 'share'
+  | 'ticket'
   | 'globe'
   | 'repeat'
 
@@ -101,6 +102,8 @@ interface Complex {
   cw?: number
 }
 const COMPLEX: Partial<Record<IconName, Complex>> = {
+  // Sinema bileti: kenarlarında yarım daire delikler, koçan çizgisi oyuk
+  ticket: { d: ['M4.5 5.5h10a1.8 1.8 0 0 0 3.6 0h1.4c1.1 0 2 .9 2 2v9c0 1.1-.9 2-2 2h-1.4a1.8 1.8 0 0 0-3.6 0h-10c-1.1 0-2-.9-2-2v-9c0-1.1.9-2 2-2z'], cut: 'M16.3 9v1.1M16.3 11.45v1.1M16.3 13.9v1.1', cw: 1.4 },
   // Ne İzlesem: önde dik bir kart, arkasında eğik ikincisi (aralarında oyuk boşluk)
   cards: {
     d: ['M5 2.6h6c1.33 0 2.4 1.07 2.4 2.4v12c0 1.33-1.07 2.4-2.4 2.4H5A2.4 2.4 0 0 1 2.6 17V5C2.6 3.67 3.67 2.6 5 2.6z', 'M13.4 3.93L23.01 6.69 18.6 22.07 8.99 19.31z'],

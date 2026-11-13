@@ -35,6 +35,7 @@ function localOnly(method: string, path: string): Response | null {
 // Arşiv yapısı gibi PC'ye bağlıyken okunmamış ama boş da olabilecek okumalar
 const EMPTY_DEFAULTS: [RegExp, unknown][] = [
   [/\/notifications$/, { items: [] }],
+  [/\/biletler$/, { items: {} }],
   [/\/recent-watch$/, []],
   [/\/songs\/[^/]+$/, []],
   [/\/templates$/, []],

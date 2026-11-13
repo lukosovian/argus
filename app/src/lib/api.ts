@@ -155,6 +155,32 @@ export type KoleksiyonPatch = {
   shelves?: Record<string, { image?: string | null; name?: string | null; manual?: boolean | null; rows?: string[] | null } | null>
 }
 
+// Koleksiyon › Biletlerim (bkz. pages/Biletlerim.tsx): sinemada izlediklerinin koleksiyonluk biletleri
+export interface Bilet {
+  title: string
+  poster?: string
+  cover?: string
+  logo?: string
+  year?: string
+  rowId?: string
+  boardId?: string
+  date?: string
+  time?: string
+  cinema?: string
+  hall?: string
+  seat?: string
+  format?: string
+  withWho?: string
+  price?: string
+  note?: string
+  front?: string
+  back?: string
+  createdAt?: number
+}
+export interface BiletData {
+  items: Record<string, Bilet>
+}
+
 // Aklımda (bkz. hooks/useAklimda.ts): "bir ara bakarım belki" dediğin yapımlar.
 // Anahtar arşivdeki kayıtsa rowId, arşivde olmayan TMDB önerisiyse "tmdb:movie:603".
 export interface AklimdaTmdb {
@@ -520,6 +546,9 @@ export const api = {
     request<{ seasons: { season: number; date: string; episodes: number; poster: string | null }[]; runtime: number | null }>(profilePath(`/evren-sezonlar/${tmdbId}`)),
   platformOzet: (boardId: string, items?: { type: 'movie' | 'tv'; tmdbId: number; title: string; poster: string | null; minutes: number }[]) =>
     request<PlatformOzet>(profilePath(`/platform-ozet/${boardId}`), { method: 'POST', ...json(items ? { items } : {}) }),
+  getBiletler: () => request<BiletData>(profilePath('/biletler')),
+  saveBiletler: (items: Record<string, Partial<Record<keyof Bilet, string | null>> | null>) =>
+    request<BiletData>(profilePath('/biletler'), { method: 'POST', ...json({ items }) }),
   getAklimda: () => request<AklimdaData>(profilePath('/aklimda')),
   saveAklimda: (patch: AklimdaPatch) => request<AklimdaData>(profilePath('/aklimda'), { method: 'POST', ...json(patch) }),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),

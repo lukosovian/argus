@@ -2421,6 +2421,48 @@ app.post('/api/profiles/:profileId/aklimda', (req, res) => {
   res.json(data)
 })
 
+// Koleksiyon › Biletlerim (v1.23.11): sinemada izlediğin yapımların koleksiyonluk biletleri.
+// data/profiles/<id>/biletler.json: { items: { biletId: { title, poster, cover, logo, year, rowId?, boardId?, date, time,
+//   cinema, hall, seat, format, withWho, price, note, front?, back?, createdAt } } }
+// Yapımın bilgileri bilet kesildiği anki haliyle saklanır (yapım arşivden silinse de bilet kalır).
+function profileBiletFile(profileId) {
+  return path.join(profileDir(profileId), 'biletler.json')
+}
+const BILET_TEXT = ['title', 'poster', 'cover', 'logo', 'year', 'rowId', 'boardId', 'date', 'time', 'cinema', 'hall', 'seat', 'format', 'withWho', 'price', 'note', 'front', 'back']
+app.get('/api/profiles/:profileId/biletler', (req, res) => {
+  const data = readJson(profileBiletFile(req.params.profileId), { items: {} })
+  if (!data.items || typeof data.items !== 'object') data.items = {}
+  res.json(data)
+})
+// Kısmi güncelleme: { items: { id: {...} | null } } — null siler, alandaki null o alanı siler.
+app.post('/api/profiles/:profileId/biletler', (req, res) => {
+  const file = profileBiletFile(req.params.profileId)
+  const data = readJson(file, { items: {} })
+  if (!data.items || typeof data.items !== 'object') data.items = {}
+  const patch = req.body?.items
+  if (patch && typeof patch === 'object') {
+    for (const [id, v] of Object.entries(patch)) {
+      if (!/^[a-z0-9_-]{1,40}$/i.test(id)) continue
+      if (v === null) {
+        delete data.items[id]
+        continue
+      }
+      if (typeof v !== 'object') continue
+      const merged = { ...(data.items[id] ?? {}) }
+      for (const k of BILET_TEXT) {
+        if (!(k in v)) continue
+        if (v[k] === null || v[k] === '') delete merged[k]
+        else merged[k] = String(v[k]).slice(0, k === 'note' ? 600 : 400)
+      }
+      if (!merged.createdAt) merged.createdAt = Date.now()
+      if (!merged.title) continue
+      data.items[id] = merged
+    }
+  }
+  writeJson(file, data)
+  res.json(data)
+})
+
 // Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,
 // tek tıkla ekleyeyim" dedi. Kişi TMDB'de adıyla aranır (arşivde kişi kimliği tutulmuyor), filmografisi
 // arşivde olanlar / olmayanlar diye ayrılır.

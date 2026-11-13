@@ -1,6 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import SeriesPlan from './SeriesPlan'
 import ShareCard from './ShareCard'
+import TicketForm from './bilet/TicketForm'
+import TicketViewer from './bilet/TicketViewer'
+import { biletFromRow, saveBilet, sortedBiletler, useBiletler } from '../lib/bilet'
+import type { BiletItem } from './bilet/Ticket'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
@@ -175,9 +179,15 @@ export default function RowDetailModal({
   const extrasOn = useHomeSettings().settings.extras ?? {}
   const planOn = Boolean(extrasOn.seriesPlan)
   const [shareOpen, setShareOpen] = useState(false)
+  // Koleksiyon › Biletlerim: bu yapımın sinema biletleri (v1.23.11)
+  const { data: biletData } = useBiletler()
+  const allTickets = useMemo(() => (biletData ? sortedBiletler(biletData.items).map((b, i) => ({ ...b, no: i + 1 })) : []), [biletData])
+  const rowTickets = useMemo(() => allTickets.filter((b) => b.rowId === row.id), [allTickets, row.id])
+  const [ticketForm, setTicketForm] = useState<{ id?: string; b?: BiletItem } | null>(null)
+  const [ticketView, setTicketView] = useState<{ index: number; origin: DOMRect | null } | null>(null)
   // Dizilerde TMDB durumu: bitti mi, yeni sezon ne zaman (bkz. lib/showStatus.ts)
   const showTag = showLabel(useShowInfo(row.id))
-  const { notify } = useToast()
+  const { notify, confirm } = useToast()
   const [refreshing, setRefreshing] = useState(false)
   // Oyuncular ızgarası: ilk iki sıra görünür, "Tümünü göster" ile hepsi açılır (kullanıcı yatay
   // kaydırmalı şeritte oyuncuların hepsini göremiyordu).
@@ -618,7 +628,49 @@ export default function RowDetailModal({
                     {tt('Paylaş')}
                   </button>
                 )}
+                <button
+                  onClick={(e) =>
+                    rowTickets.length
+                      ? setTicketView({ index: rowTickets.length - 1, origin: e.currentTarget.getBoundingClientRect() })
+                      : setTicketForm({})
+                  }
+                  title={rowTickets.length ? tt('Bu yapımın sinema biletini gör') : tt('Sinemada izlediysen koleksiyonuna bileti ekle')}
+                  className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 border border-neutral-600 text-neutral-300 bg-black/20 hover:border-amber-300/70 hover:text-amber-100 transition"
+                >
+                  <Icon name="ticket" className="h-[1.1em] w-[1.1em]" />
+                  {rowTickets.length ? (rowTickets.length > 1 ? tt('Biletlerin ({0})', rowTickets.length) : tt('Biletin')) : tt('Sinemada izledim')}
+                </button>
               </AklimdaButton>
+              {ticketForm && (
+                <TicketForm
+                  id={ticketForm.id}
+                  initial={ticketForm.b ?? { ...biletFromRow(board, row), date: todayIso() }}
+                  suggestions={{
+                    cinemas: [...new Set(allTickets.map((b) => b.cinema).filter(Boolean) as string[])],
+                    people: [...new Set(allTickets.flatMap((b) => (b.withWho ?? '').split(',').map((x) => x.trim())).filter(Boolean))],
+                  }}
+                  onClose={() => setTicketForm(null)}
+                />
+              )}
+              {ticketView && rowTickets.length > 0 && (
+                <TicketViewer
+                  items={rowTickets}
+                  index={Math.min(ticketView.index, rowTickets.length - 1)}
+                  origin={ticketView.origin}
+                  onIndex={(i) => setTicketView({ index: i, origin: null })}
+                  onClose={() => setTicketView(null)}
+                  onEdit={(b) => {
+                    setTicketView(null)
+                    setTicketForm({ id: b.id, b })
+                  }}
+                  onDelete={async (b) => {
+                    const ok = await confirm({ message: tt('"{0}" bileti koleksiyondan silinsin mi?', b.title), confirmLabel: tt('Sil'), tone: 'danger' })
+                    if (!ok) return
+                    await saveBilet(b.id, null).catch(() => notify(tt('Silinemedi.'), 'danger'))
+                    setTicketView(null)
+                  }}
+                />
+              )}
               {shareOpen && <ShareCard data={shareData()} onClose={() => setShareOpen(false)} />}
               {editable && (durumProp || tarihProp || puanProp) && (
                 <div className="flex flex-wrap items-center gap-1.5">
