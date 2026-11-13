@@ -35,11 +35,12 @@ const MENU_ICONS = {
   yardim: 'help',
   yama: 'sparkle',
 } satisfies Record<string, IconName>
-function MenuLink({ to, icon, label, extra, onClick }: { to: string; icon: keyof typeof MENU_ICONS; label: string; extra?: React.ReactNode; onClick: () => void }) {
+// compact: yeni profil menüsündeki satırlarla aynı ölçü (orada dış boşluğu menü veriyor)
+function MenuLink({ to, icon, label, extra, onClick, compact }: { to: string; icon: keyof typeof MENU_ICONS; label: string; extra?: React.ReactNode; onClick: () => void; compact?: boolean }) {
   return (
-    <Link to={to} onClick={onClick} className="group flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-neutral-50 hover:bg-neutral-800 transition">
+    <Link to={to} onClick={onClick} className={`group flex items-center gap-3 px-2.5 rounded-lg ${compact ? 'py-1.5' : 'mx-1.5 py-2'} text-sm text-neutral-300 hover:text-neutral-50 hover:bg-neutral-800 transition`}>
       <span className="text-neutral-500 group-hover:text-[#00c0fa] transition">
-        <Icon name={MENU_ICONS[icon]} className="h-[18px] w-[18px]" />
+        <Icon name={MENU_ICONS[icon]} className={compact ? 'h-[17px] w-[17px]' : 'h-[18px] w-[18px]'} />
       </span>
       <span className="flex-1">{label}</span>
       {extra}
@@ -343,6 +344,7 @@ export default function Navbar() {
                             label={tt('Flashback')}
                             extra={wrappedIsNew(features) ? <span className="text-[10px] font-bold text-white bg-fuchsia-500 rounded-full px-2 py-0.5">{tt('YENİ')}</span> : undefined}
                             onClick={() => setMenuOpen(false)}
+                            compact
                           />
                         ) : null
                       }

@@ -3626,5 +3626,8 @@
   "Kart hazırlanamadı.": "The card couldn't be prepared.",
   "Kart İndirilenler klasörüne kaydedildi.": "The card was saved to your Downloads folder.",
   "Kart panoya kopyalandı, bir sohbete yapıştırabilirsin.": "The card was copied, you can paste it into a chat.",
-  "Panoya kopyalanamadı, indirmeyi dene.": "Couldn't copy, try downloading instead."
+  "Panoya kopyalanamadı, indirmeyi dene.": "Couldn't copy, try downloading instead.",
+  "Profil menüsünde Flashback hizalandı": "Flashback is aligned in the profile menu",
+  "duz: Profil menüsünde Flashback satırı diğerlerinden biraz içeride ve daha büyük duruyordu; artık aynı hizada.": "duz: In the profile menu the Flashback row sat a little further in and larger than the others; now it lines up.",
+  "1 Flashback diğer satırlarla aynı hizada": "1 Flashback lines up with the other rows"
 }

@@ -4426,3 +4426,20 @@ export function GirisSadeVisual() {
     </Frame>
   )
 }
+
+// v1.23.10 — profil menüsünde Flashback hizası
+export function FlashbackHizaVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={90} y={14} width={140} height={152} rx={8} className="fill-neutral-900" />
+      {[0, 1, 2, 3, 4].map((k) => (
+        <g key={k}>
+          <rect x={104} y={30 + k * 26} width={10} height={10} rx={2} className={k === 4 ? 'fill-sky-400' : 'fill-neutral-600'} />
+          <rect x={122} y={32 + k * 26} width={k === 4 ? 46 : 56 + ((k * 13) % 30)} height={6} rx={3} className={k === 4 ? 'fill-neutral-200' : 'fill-neutral-400'} />
+        </g>
+      ))}
+      <line x1={104} x2={104} y1={22} y2={150} stroke={ACCENT} strokeDasharray="3 2" strokeWidth={1} />
+      <Pin x={96} y={130} n={1} />
+    </Frame>
+  )
+}

@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,13 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.10',
+    date: tt('13 Kasım 2026'),
+    title: tt('Profil menüsünde Flashback hizalandı'),
+    items: [tt('duz: Profil menüsünde Flashback satırı diğerlerinden biraz içeride ve daha büyük duruyordu; artık aynı hizada.')],
+    visuals: [{ caption: tt('1 Flashback diğer satırlarla aynı hizada'), Visual: FlashbackHizaVisual }],
+  },
   {
     version: 'v1.23.9',
     date: tt('13 Kasım 2026'),
