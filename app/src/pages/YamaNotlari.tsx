@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,16 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.7',
+    date: tt('13 Kasım 2026'),
+    title: tt('İstatistikler\'deki ısı haritası takvimle aynı'),
+    items: [
+      tt('duz: İstatistikler\'deki yıl ısı haritası sadece İzleme Tarihi\'ne bakıyordu, dizinin yalnızca bitirdiğin günü sayılıyordu; takvimde dolu görünen günler haritada boş kalıyordu. Artık bölüm tikleri de sayılıyor, bir güne gelince "1 yapım · 6 bölüm" gibi yazıyor.'),
+      tt('iyi: Isı haritasında tek bir çok yoğun gün (ör. bölüm maratonu) artık diğer bütün günleri soluk bırakmıyor; renkler günlerin çoğuna göre ayarlanıyor.'),
+    ],
+    visuals: [{ caption: tt('1 bölüm izlediğin günler artık dolu · 2 güne gelince yapım ve bölüm sayısı'), Visual: IsiHaritaBolumVisual }],
+  },
   {
     version: 'v1.23.6',
     date: tt('13 Kasım 2026'),

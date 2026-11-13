@@ -17,6 +17,8 @@ import EmptyState from '../components/EmptyState'
 import Icon, { type IconName } from '../components/Icon'
 import PageSkeleton from '../components/Skeleton'
 import GoalRow from '../components/GoalRow'
+import { api } from '../lib/api'
+import type { WatchedMap } from '../types'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -542,7 +544,17 @@ function Donut({ buckets, palette }: { buckets: Bucket[]; palette: Palette }) {
 }
 
 // Bütün yıl tek karede: her gün bir kare, izlediğin günler maviden parlak maviye (v1.23.3, öneri S3)
-function YearHeatmap({ daily, year, onPick }: { daily: Map<string, number>; year: number; onPick: (day: string) => void }) {
+function YearHeatmap({ daily: titles, eps, year, onPick }: { daily: Map<string, number>; eps: Map<string, number>; year: number; onPick: (day: string) => void }) {
+  // gün başına yapım (İzleme Tarihi) + bölüm (bölüm tikleri)
+  const daily = new Map<string, number>()
+  for (const [d, n] of titles) daily.set(d, n)
+  for (const [d, n] of eps) daily.set(d, (daily.get(d) ?? 0) + n)
+  const tip = (c: string) => {
+    const t = titles.get(c) ?? 0
+    const e = eps.get(c) ?? 0
+    if (!t && !e) return tt('izleme yok')
+    return [t ? tt('{0} yapım', t) : '', e ? tt('{0} bölüm', e) : ''].filter(Boolean).join(' · ')
+  }
   const { bind, node } = useTip()
   const start = new Date(year, 0, 1)
   const lead = (start.getDay() + 6) % 7
@@ -552,7 +564,9 @@ function YearHeatmap({ daily, year, onPick }: { daily: Map<string, number>; year
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1))
     cells.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
   const weeks = Math.ceil(cells.length / 7)
-  const max = Math.max(1, ...daily.values())
+  // Renk ölçeği: en yoğun tek gün (ör. 60 bölümlük maraton) bütün haritayı soluk bırakmasın — üst sınır, dolu günlerin %90'ı
+  const vals = [...daily.values()].filter((n) => n > 0).sort((x, y) => x - y)
+  const max = Math.max(1, vals[Math.floor((vals.length - 1) * 0.9)] ?? 1)
   const active = [...daily.values()].filter((n) => n > 0).length
   let best = 0
   let run = 0
@@ -576,7 +590,7 @@ function YearHeatmap({ daily, year, onPick }: { daily: Map<string, number>; year
               <button
                 key={c}
                 onClick={() => onPick(c)}
-                {...bind(c.split('-').reverse().join('.'), (daily.get(c) ?? 0) ? tt('{0} izleme', daily.get(c) ?? 0) : tt('izleme yok'))}
+                {...bind(c.split('-').reverse().join('.'), tip(c))}
                 className="aspect-square rounded-[3px] hover:ring-1 hover:ring-neutral-300 transition"
                 style={{ background: bg[lvl(daily.get(c) ?? 0)], boxShadow: lvl(daily.get(c) ?? 0) === 4 ? '0 0 6px rgba(0,192,250,.6)' : undefined }}
               />
@@ -814,6 +828,26 @@ export default function Istatistikler() {
   const { board, loading: boardLoading, saveBoard } = useBoard(selectedBoardId ?? undefined)
   const { rows, loading: rowsLoading } = useRows(selectedBoardId ?? undefined)
   const stats = useStats(board, rows)
+  // Isı haritası takvimle aynı şeyi göstersin: İzleme Tarihi'ne ek olarak bölüm tikleri de (kullanıcı "takvimde eylül
+  // neredeyse dolu, ısı haritasında niye dolu değil" dedi — dizi bölümleri sadece bitirdiğin gün sayılıyordu).
+  const [watched, setWatched] = useState<WatchedMap>({})
+  useEffect(() => {
+    try {
+      api.getWatched().then(setWatched).catch(() => {})
+    } catch {
+      /* profil yoksa boş */
+    }
+  }, [selectedBoardId])
+  const episodesDaily = useMemo(() => {
+    const m = new Map<string, number>()
+    const ids = new Set(rows.map((r) => r.id))
+    const y = String(new Date().getFullYear())
+    for (const [rowId, eps] of Object.entries(watched)) {
+      if (!ids.has(rowId)) continue
+      for (const list of Object.values(eps)) for (const d of list) if (d.startsWith(y)) m.set(d.slice(0, 10), (m.get(d.slice(0, 10)) ?? 0) + 1)
+    }
+    return m
+  }, [watched, rows])
 
   if (settingsLoading || boardsLoading) return <PageSkeleton />
 
@@ -925,9 +959,9 @@ export default function Istatistikler() {
         </Card>
       )}
 
-      {stats.hasDates && (
+      {(stats.hasDates || episodesDaily.size > 0) && (
         <Card title={tt('{0} yılında izlediğin günler', year)} subtitle={tt('Her kare bir gün; ne kadar çok izlediysen o kadar parlak · bir güne tıklayınca Takvim\'de açılır')}>
-          <YearHeatmap daily={stats.daily} year={year} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}`)} />
+          <YearHeatmap daily={stats.daily} eps={episodesDaily} year={year} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}`)} />
         </Card>
       )}
 

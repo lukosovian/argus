@@ -4315,3 +4315,24 @@ export function BasarimDetayVisual() {
     </Frame>
   )
 }
+
+// v1.23.7 — İstatistikler'deki ısı haritası bölüm tiklerini de sayıyor
+export function IsiHaritaBolumVisual() {
+  const lit = (c: number, r: number) => (c >= 9 && c <= 13 ? (c * 7 + r) % 5 === 0 ? 2 : 4 : (c * 13 + r * 7) % 9 === 0 ? 2 : 0)
+  const bg = ['#262626', '#0b3a6e', '#0b5ac0', '#0a85e8', '#00c0fa']
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={30} width={300} height={110} rx={8} className="fill-neutral-900" />
+      {Array.from({ length: 20 }, (_, c) =>
+        Array.from({ length: 7 }, (_, r) => <rect key={c + '-' + r} x={22 + c * 14} y={44 + r * 12} width={11} height={10} rx={2} fill={bg[lit(c, r)]} />),
+      )}
+      <rect x={146} y={40} width={72} height={90} rx={4} fill="none" stroke={ACCENT} strokeWidth={1} strokeDasharray="3 2" />
+      <rect x={180} y={10} width={120} height={16} rx={4} className="fill-neutral-800" />
+      <text x={188} y={21} fontSize={6.5} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('1 yapım · 6 bölüm')}
+      </text>
+      <Pin x={150} y={36} n={1} />
+      <Pin x={296} y={10} n={2} />
+    </Frame>
+  )
+}

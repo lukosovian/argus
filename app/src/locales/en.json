@@ -146,7 +146,7 @@
   "Yılın hayal kırıklığı": "Disappointment of the year",
   "Türlerin": "Your genres",
   "En çok izlediğin türler": "Your most watched genres",
-  "{0} yapım": "{0} title|{0} titles",
+  "{0} yapım": "{0} titles",
   "En çok izlediğin ülke": "Your most watched country",
   "Maratonların": "Your marathons",
   "SERİYİ TÜKETTİN": "YOU BINGED THE FRANCHISE",
@@ -3576,5 +3576,10 @@
   "iyi: Madalyalar seviyeyle süsleniyor: bronzda kurdele, gümüşte defne dalları, altında arkada dönen ışınlar ve tepede yıldız. Kilitli olanlarda kilit var.": "iyi: Medals get fancier with each level: a ribbon for bronze, laurel branches for silver, turning rays and a star on top for gold. Locked ones show a lock.",
   "yeni: Bir rozete tıklayınca penceresi açılıyor: ne için verildiği (ör. \"En çok bölüm izlediğin gün: 04.09.2019, 67 bölüm\"), üç seviyenin hedefleri ve kazanılma tarihleri, altında da o rozete sayılan yapımların afişleri. Afişe tıklayınca yapımın detayı açılıyor.": "yeni: Clicking a badge opens its window: what it is for (e.g. \"Your biggest episode day: 04.09.2019, 67 episodes\"), the goals and dates of its three levels, and the posters of the titles that count for it. Click a poster to open its details.",
   "duz: Bitmiş rozetlerde ne için verildiği görünmüyordu; artık hedefi ve \"Tamamlandı\" yazıyor.": "duz: Finished badges didn't show what they were for; now they show the goal and \"Completed\".",
-  "1 bronz, gümüş, altın madalyalar · 2 bitmiş rozetin açıklaması · 3 rozet penceresi ve seviyeler · 4 rozete sayılan yapımlar": "1 bronze, silver, gold medals · 2 a finished badge's description · 3 badge window and levels · 4 titles counted for the badge"
+  "1 bronz, gümüş, altın madalyalar · 2 bitmiş rozetin açıklaması · 3 rozet penceresi ve seviyeler · 4 rozete sayılan yapımlar": "1 bronze, silver, gold medals · 2 a finished badge's description · 3 badge window and levels · 4 titles counted for the badge",
+  "İstatistikler'deki ısı haritası takvimle aynı": "The Statistics heat map now matches the calendar",
+  "duz: İstatistikler'deki yıl ısı haritası sadece İzleme Tarihi'ne bakıyordu, dizinin yalnızca bitirdiğin günü sayılıyordu; takvimde dolu görünen günler haritada boş kalıyordu. Artık bölüm tikleri de sayılıyor, bir güne gelince \"1 yapım · 6 bölüm\" gibi yazıyor.": "duz: The yearly heat map in Statistics only looked at the Watch Date, so a series only counted on the day you finished it and days that were full in the calendar looked empty. Episode ticks now count too, and hovering a day shows something like \"1 title · 6 episodes\".",
+  "1 bölüm izlediğin günler artık dolu · 2 güne gelince yapım ve bölüm sayısı": "1 days you watched episodes are now filled · 2 hover a day for titles and episodes",
+  "1 yapım · 6 bölüm": "1 title · 6 episodes",
+  "iyi: Isı haritasında tek bir çok yoğun gün (ör. bölüm maratonu) artık diğer bütün günleri soluk bırakmıyor; renkler günlerin çoğuna göre ayarlanıyor.": "iyi: A single very busy day (like an episode marathon) no longer makes every other day on the heat map look faint; colors now scale to most of your days."
 }
