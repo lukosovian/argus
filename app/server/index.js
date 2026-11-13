@@ -293,8 +293,38 @@ app.delete('/api/profiles/:profileId/boards/:id', (req, res) => {
   res.json({ ok: true })
 })
 
+// Çocuk profili (v1.23.4, profil düzenleme penceresi): yaş sınırı 13+ ve üstü olan yapımlar bu profilde hiç gönderilmez
+const ADULT_AGE = /(^|\D)(1[3-8])\s*\+|\b(R|NC-17|TV-MA|TV-14|PG-13|18|16|13)\b/i
+function hideForKid(profileId, boardId, rows) {
+  const profile = readProfiles().find((p) => p.id === profileId)
+  if (!profile?.kid) return rows
+  const board = readJson(profileBoardsFile(profileId), []).find((b) => b.id === boardId)
+  const yas = board ? resolveRole(board, 'yas') : null
+  if (!yas) return rows
+  return rows.filter((r) => !ADULT_AGE.test(String(r.values?.[yas.id] ?? '')))
+}
+
 app.get('/api/profiles/:profileId/boards/:id/rows', (req, res) => {
-  res.json(readJson(profileRowsFile(req.params.profileId, req.params.id), []))
+  res.json(hideForKid(req.params.profileId, req.params.id, readJson(profileRowsFile(req.params.profileId, req.params.id), [])))
+})
+
+// Kim izliyor ekranındaki çerçeveler (Ekstralar › Kazanılan çerçeveler): çerçeveyi açmış profillerin izlediği sayısı
+app.get('/api/profile-frames', (req, res) => {
+  const out = {}
+  for (const p of readProfiles()) {
+    try {
+      const home = readJson(path.join(PROFILES_DIR, p.id, 'home-settings.json'), {})
+      if (!home?.extras?.avatarFrames || !home.boardId) continue
+      const loaded = loadBoardAndRows(p.id, home.boardId)
+      if (!loaded) continue
+      const durum = resolveRole(loaded.board, 'durum')
+      const izlendi = resolveStatusOption(loaded.board, 'izlendi')
+      out[p.id] = durum && izlendi ? loaded.rows.filter((r) => r.values?.[durum.id] === izlendi).length : 0
+    } catch {
+      /* tek profil yüzünden durma */
+    }
+  }
+  res.json(out)
 })
 
 // "Sağlık Kontrolü" paneli için — bir görsel sütununun değeri diskte gerçekten var olmayan bir
@@ -3116,6 +3146,144 @@ async function checkWatchlist(profileId, boardId, apiKey, force = false) {
   }
 }
 
+// Ekstralar › Açılış penceresi (v1.23.4): ARGUS.exe açılırken buradaki afişleri ve "bugünün haberi" satırlarını gösterir
+app.post('/api/splash-info', (req, res) => {
+  const text = typeof req.body?.text === 'string' ? req.body.text.slice(0, 20000) : ''
+  try {
+    fs.writeFileSync(path.join(DATA_DIR, 'splash-info.txt'), text, 'utf8')
+  } catch {}
+  res.json({ ok: true })
+})
+
+// Ekstralar › Dizi bitirme planı (v1.23.4): data/profiles/<id>/planlar.json { [rowId]: { start, end } }
+const plansFile = (profileId) => path.join(PROFILES_DIR, profileId, 'planlar.json')
+app.get('/api/profiles/:profileId/planlar', (req, res) => res.json(readJson(plansFile(req.params.profileId), {})))
+app.post('/api/profiles/:profileId/planlar', (req, res) => {
+  const { rowId, plan } = req.body ?? {}
+  if (typeof rowId !== 'string' || !rowId) return res.status(400).json({ error: 'rowId' })
+  const all = readJson(plansFile(req.params.profileId), {})
+  const ok = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
+  if (plan && ok(plan.start) && ok(plan.end)) all[rowId] = { start: plan.start, end: plan.end }
+  else delete all[rowId]
+  writeJson(plansFile(req.params.profileId), all)
+  res.json({ ok: true })
+})
+
+// Ekstralar › Oyuncu ve yönetmen takibi (v1.23.4): data/profiles/<id>/takip.json { [tmdbKişiId]: { name, role, at } }
+const followFile = (profileId) => path.join(PROFILES_DIR, profileId, 'takip.json')
+app.get('/api/profiles/:profileId/takip', (req, res) => res.json(readJson(followFile(req.params.profileId), {})))
+app.post('/api/profiles/:profileId/takip', (req, res) => {
+  const b = req.body ?? {}
+  const id = Number(b.id)
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'id' })
+  const all = readJson(followFile(req.params.profileId), {})
+  if (b.on) all[id] = { name: String(b.name ?? '').slice(0, 120), role: b.role === 'directing' ? 'directing' : 'acting', at: Date.now() }
+  else delete all[id]
+  writeJson(followFile(req.params.profileId), all)
+  res.json({ ok: true })
+})
+
+// Günde bir: takip edilen kişilerin önümüzdeki 120 gün içinde çıkacak (ya da son 7 günde çıkmış) yapımları
+async function checkFollows(profileId, apiKey) {
+  const home = readJson(profileHomeSettingsFile(profileId), {})
+  if (!home?.extras?.follow) return
+  const follows = readJson(followFile(profileId), {})
+  const ids = Object.keys(follows)
+  if (!ids.length) return
+  const stFile = path.join(PROFILES_DIR, profileId, 'takip-durum.json')
+  const st = readJson(stFile, {})
+  if (Date.now() - (st.at ?? 0) < 20 * 3600e3) return
+  st.at = Date.now()
+  writeJson(stFile, st)
+  const today = new Date()
+  const from = new Date(today.getTime() - 7 * 864e5).toISOString().slice(0, 10)
+  const to = new Date(today.getTime() + 120 * 864e5).toISOString().slice(0, 10)
+  for (const pid of ids) {
+    const f = follows[pid]
+    const cr = await tmdbGet(`/person/${pid}/combined_credits`, { language: tmdbLang() }, apiKey)
+    if (!cr) continue
+    const list = f.role === 'directing' ? (cr.crew ?? []).filter((c) => c.job === 'Director') : (cr.cast ?? []).filter((c) => (c.order ?? 99) < 8)
+    for (const c of list) {
+      const date = (c.media_type === 'tv' ? c.first_air_date : c.release_date) || ''
+      if (!date || date < from || date > to) continue
+      const title = c.title || c.name || ''
+      const soon = date > today.toISOString().slice(0, 10)
+      pushNotification(profileId, {
+        key: `takip:${pid}:${c.media_type}:${c.id}`,
+        type: 'follow',
+        title: f.role === 'directing' ? stt('{0} yönetmeninin yeni yapımı', f.name) : stt('{0} yeni bir yapımda', f.name),
+        text: soon ? stt('"{0}" {1} tarihinde çıkıyor.', title, date.split('-').reverse().join('.')) : stt('"{0}" çıktı.', title),
+        link: '/takvim?ay=' + date.slice(0, 7),
+      })
+    }
+  }
+}
+
+// Ekstralar › Haftalık özet (v1.23.4): Pazar 18:00'den sonra bir kez, haftanın (Pzt–Paz) özeti zile ve Windows bildirimine
+function checkWeekly(profileId) {
+  try {
+    const now = new Date()
+    if (now.getDay() !== 0 || now.getHours() < 18) return
+    const home = readJson(profileHomeSettingsFile(profileId), {})
+    if (!home?.extras?.weekly || !home.boardId) return
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const sunday = ymd(now)
+    const mon = new Date(now)
+    mon.setDate(mon.getDate() - 6)
+    const from = ymd(mon)
+    const loaded = loadBoardAndRows(profileId, home.boardId)
+    if (!loaded) return
+    const { board, rows } = loaded
+    const dateProp = resolveRole(board, 'izlemeTarihi')
+    const kategori = resolveRole(board, 'kategori')
+    const sure = resolveRole(board, 'sure')
+    const puan = resolveRole(board, 'puan')
+    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+    const isSeries = (r) => /dizi|series|tv/i.test(kategori?.options?.find((o) => o.id === r.values?.[kategori.id])?.label ?? '')
+    const perDay = Array(7).fill(0)
+    const dayIdx = (d) => Math.round((new Date(d + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5)
+    let films = 0
+    let minutes = 0
+    let fav = null
+    for (const r of rows) {
+      const v = dateProp ? r.values?.[dateProp.id] : null
+      const dates = (Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : []).map((x) => String(x).split('/').sort().pop().slice(0, 10))
+      const hit = dates.filter((d) => d >= from && d <= sunday)
+      if (!hit.length || isSeries(r)) continue
+      films++
+      minutes += sure && typeof r.values[sure.id] === 'number' ? r.values[sure.id] : 0
+      for (const d of hit) perDay[dayIdx(d)]++
+      const s = puan ? r.values?.[puan.id] : null
+      const avg = s && typeof s === 'object' ? Object.values(s).filter((n) => typeof n === 'number') : []
+      const a = avg.length ? avg.reduce((x, y) => x + y, 0) / avg.length : null
+      if (a !== null && (!fav || a > fav.a)) fav = { a, t: tp ? String(r.values?.[tp.id] ?? '') : '' }
+    }
+    let eps = 0
+    for (const m of Object.values(readJson(profileWatchedFile(profileId), {})))
+      for (const list of Object.values(m ?? {}))
+        for (const d of Array.isArray(list) ? list : []) {
+          const k = String(d).slice(0, 10)
+          if (k >= from && k <= sunday) {
+            eps++
+            perDay[dayIdx(k)]++
+          }
+        }
+    if (!films && !eps) return
+    minutes += eps * 45
+    const days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
+    const busiest = perDay.indexOf(Math.max(...perDay))
+    pushNotification(profileId, {
+      key: 'haftalik:' + sunday,
+      type: 'weekly',
+      title: stt('Haftan böyle geçti'),
+      text: stt('{0} film, {1} bölüm, yaklaşık {2} saat. En çok {3} izledin.', films, eps, Math.round(minutes / 60), stt(days[busiest])) + (fav ? ' ' + stt('Haftanın favorisi: {0} ({1}).', fav.t, fav.a.toFixed(1)) : ''),
+      link: '/takvim',
+    })
+  } catch (e) {
+    console.error('haftalık özet hata:', e)
+  }
+}
+
 // Sunucu açıkken saatte bir: her profilin ana sayfa arşivi (yoksa ilk arşivi) için takip turu (günde birden
 // fazla çalışmaz, bkz. WATCHLIST_CHECK_MS). İlki açılıştan 1 dakika sonra — açılışı yavaşlatmasın.
 function watchlistTick() {
@@ -3132,6 +3300,8 @@ function watchlistTick() {
     const boards = readJson(profileBoardsFile(profileId), [])
     const boardId = boards.some((b) => b.id === home.boardId) ? home.boardId : boards[0]?.id
     if (boardId) checkWatchlist(profileId, boardId, apiKey).catch((e) => console.error('takip hata:', e))
+    checkFollows(profileId, apiKey).catch((e) => console.error('kişi takibi hata:', e))
+    checkWeekly(profileId)
   }
 }
 if (!process.env.ARGUS_NO_WATCH) {

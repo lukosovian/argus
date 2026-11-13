@@ -10,6 +10,7 @@ import { HomeCard } from '../pages/AnaSayfa'
 import { tt, ttx } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import Icon from './Icon'
+import SearchV2Panel from './SearchV2'
 
 const MAX_RESULTS = 30
 
@@ -74,6 +75,8 @@ export default function GlobalSearch() {
   const { rows } = useRows(settings.boardId ?? undefined)
 
   const query = q.trim().toLocaleLowerCase('tr')
+  // Ekstralar › Gelişmiş arama (v1.23.4, bkz. SearchV2.tsx)
+  const v2 = Boolean(settings.extras?.searchV2) && !MOBILE
   const titleProp = useMemo(
     () => (board ? board.properties.find((p) => p.id === board.titlePropertyId) : undefined),
     [board],
@@ -153,7 +156,7 @@ export default function GlobalSearch() {
   // da "dışarı tıklama" gibi görünüp aramayı istemeden kapatırdı (bkz. yukarıdaki "sonuçların
   // üzerinde kalmaya devam edersin" notu).
   useEffect(() => {
-    if (!open || query) return
+    if (!open || query || v2) return
     function onOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) close()
     }
@@ -165,7 +168,7 @@ export default function GlobalSearch() {
   // detay penceresi kapatılınca aynı arama sonuçlarının üzerinde kalmaya devam edersin.
   // Sonuç katmanı açıkken arkadaki sayfanın kendi kaydırma çubuğu da görünüyordu (sağda iki çubuk) —
   // katman açık olduğu sürece sayfanın kaydırması kapatılıyor, kapanınca eski haline dönüyor.
-  const resultsOpen = open && Boolean(query)
+  const resultsOpen = open && (Boolean(query) || v2)
   useEffect(() => {
     if (!resultsOpen) return
     const html = document.documentElement
@@ -365,8 +368,16 @@ export default function GlobalSearch() {
           `position: fixed` torunları için yeni bir "containing block" yapar, yani bu panel
           artık ekrana değil o küçük navbar kutusuna göre sabitlenmiş oluyordu ve aşağı
           kayınca gözden kayboluyordu. Body'ye taşınınca bu sorun kökten ortadan kalkıyor. */}
+      {open && v2 && board &&
+        createPortal(
+          <div className="fixed inset-x-0 top-16 bottom-0 z-30 bg-neutral-950/97 backdrop-blur-md overflow-y-auto">
+            <SearchV2Panel board={board} rows={rows} q={q} setQ={setQ} close={close} openRow={openResult} openTag={openTag} />
+          </div>,
+          document.body,
+        )}
       {open &&
         query &&
+        !v2 &&
         createPortal(
           <div className="fixed inset-x-0 top-16 bottom-0 z-30 bg-neutral-950 overflow-y-auto">
             <div className="px-4 py-6 space-y-8">

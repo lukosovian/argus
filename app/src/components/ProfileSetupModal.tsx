@@ -5,6 +5,10 @@ import { fileToCompressedDataUrl } from '../lib/imageUtils'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
+import { useHomeSettings } from '../hooks/useHomeSettings'
+import { useProfiles } from '../hooks/useProfiles'
+import ToggleSwitch from './ToggleSwitch'
+import { ArchivePick, AvatarTabs, CropEditor } from './AvatarExtras'
 
 // `profile` dışarıdan (zaten yüklenmiş bir listeden) veriliyor — bileşenin kendisi profili
 // asenkron çekmiyor, bu yüzden "veri daha gelmeden boş state ile mount olma" hatası
@@ -16,7 +20,7 @@ export default function ProfileSetupModal({
   onDelete,
 }: {
   profile?: Profile
-  onSave: (data: { username: string; photo: string }) => void | Promise<void>
+  onSave: (data: { username: string; photo: string; pin?: string; kid?: boolean }) => void | Promise<void>
   onCancel?: () => void
   onDelete?: () => void
 }) {
@@ -24,19 +28,36 @@ export default function ProfileSetupModal({
   const [photo, setPhoto] = useState(profile?.photo ?? '')
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  // v1.23.4: PIN ve çocuk profili; Ekstralar'dan açılan avatar sekmeleri ve kırpma (düzenlenen profil aktif profilse)
+  const [pin, setPin] = useState(profile?.pin ?? '')
+  const [kid, setKid] = useState(Boolean(profile?.kid))
+  const { settings } = useHomeSettings()
+  const { activeProfileId } = useProfiles()
+  const own = !profile || profile.id === activeProfileId
+  const ext = own ? (settings.extras ?? {}) : {}
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   useEscape(!!onCancel, () => onCancel?.())
 
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (ext.avatarCrop) {
+      setCropSrc(await fileToCompressedDataUrl(file, 1400, 0.9))
+      e.target.value = ''
+      return
+    }
     const dataUrl = await fileToCompressedDataUrl(file, 200, 0.8)
     setPhoto(dataUrl)
   }
 
   async function handleSave() {
-    if (!username.trim()) return
+    if (!username.trim() || (pin && !/^\d{4}$/.test(pin))) return
     setBusy(true)
-    await onSave({ username: username.trim(), photo })
+    if (pin && !/^\d{4}$/.test(pin)) {
+      setBusy(false)
+      return
+    }
+    await onSave({ username: username.trim(), photo, pin: pin || '', kid })
     setBusy(false)
   }
 
@@ -74,8 +95,20 @@ export default function ProfileSetupModal({
           <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={handlePhotoPick} />
         </div>
 
+        {cropSrc && (
+          <CropEditor
+            src={cropSrc}
+            onCancel={() => setCropSrc(null)}
+            onDone={(d) => {
+              setPhoto(d)
+              setCropSrc(null)
+            }}
+          />
+        )}
+        {ext.avatarCrop && !cropSrc && <ArchivePick onPick={(src) => setCropSrc(src)} />}
+
         <p className="text-sm text-neutral-400 mb-3">{tt('ya da hazır bir avatar seç')}</p>
-        <div className="grid grid-cols-6 gap-3 mb-6">
+        {ext.avatarTabs ? <AvatarTabs photo={photo} setPhoto={setPhoto} /> : <div className="grid grid-cols-6 gap-3 mb-6">
           {PRESET_AVATARS.map((src) => (
             <button
               key={src}
@@ -88,7 +121,7 @@ export default function ProfileSetupModal({
               <img src={src} alt="" className="h-full w-full object-cover" />
             </button>
           ))}
-        </div>
+        </div>}
 
         <label className="block text-xs text-neutral-400 mb-1">{tt('Kullanıcı adı')}</label>
         <input
@@ -99,6 +132,27 @@ export default function ProfileSetupModal({
           placeholder={tt('Kullanıcı adın')}
           className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-2 text-neutral-100 outline-none focus:border-[#00c0fa] text-sm mb-5"
         />
+
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <label className="block">
+            <span className="block text-xs text-neutral-400 mb-1">{tt('PIN (isteğe bağlı, 4 rakam)')}</span>
+            <input
+              value={pin}
+              inputMode="numeric"
+              maxLength={4}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="••••"
+              className={`w-full rounded-lg bg-neutral-800 border px-3 py-2 text-neutral-100 outline-none text-sm tracking-[0.4em] ${pin && pin.length !== 4 ? 'border-amber-500' : 'border-neutral-700 focus:border-[#00c0fa]'}`}
+            />
+          </label>
+          <div className="flex items-end justify-between gap-2 pb-1">
+            <span className="text-sm text-neutral-300">
+              {tt('Çocuk profili')}
+              <span className="block text-[11px] text-neutral-500">{tt('13+ ve üstü yapımlar görünmez')}</span>
+            </span>
+            <ToggleSwitch checked={kid} onChange={setKid} label={tt('Çocuk profili')} />
+          </div>
+        </div>
 
         <div className="flex items-center gap-3">
           <button

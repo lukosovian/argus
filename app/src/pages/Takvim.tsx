@@ -24,6 +24,7 @@ import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, dayNames, fmtDate, getLang, EP } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
 import Icon from '../components/Icon'
+import { planDays, remainingEpisodes, type Plans } from '../components/SeriesPlan'
 
 // Takvim — kullanıcı "Notion'daki gibi takvim; günlerde ne izlemişsin görelim, ay ay" dedi ve şu
 // özellikleri onayladı: dizilerde bölüm bölüm kayıt, ileriye bakma (çıkacak bölümler ve vizyonlar),
@@ -292,10 +293,30 @@ export default function Takvim() {
   const [detailRow, setDetailRow] = useState<Row | null>(null)
 
   const filteredRows = useMemo(() => (conditions.length ? rows.filter((r) => rowMatchesConditions(r, conditions)) : rows), [rows, conditions])
-  const events = useMemo(
-    () => (board ? buildEvents(board, filteredRows, watched, episodes, today) : []),
-    [board, filteredRows, watched, episodes, today],
-  )
+  // Ekstralar › Dizi bitirme planı: planlı dizilerin bugünden itibaren günlük bölüm hedefi takvimde
+  const [plans, setPlans] = useState<Plans>({})
+  const planOn = Boolean(settings.extras?.seriesPlan)
+  useEffect(() => {
+    if (!planOn || !activeProfileId) return setPlans({})
+    fetch(`/api/profiles/${activeProfileId}/planlar`)
+      .then((r) => r.json())
+      .then(setPlans)
+      .catch(() => {})
+  }, [planOn, activeProfileId])
+  const events = useMemo(() => {
+    if (!board) return []
+    const list = buildEvents(board, filteredRows, watched, episodes, today)
+    for (const [rowId, plan] of Object.entries(plans)) {
+      const row = filteredRows.find((r) => r.id === rowId)
+      const seasons = episodes[rowId]
+      if (!row || !seasons) continue
+      const w = watched[rowId] ?? {}
+      const doneToday = Object.values(w).filter((l) => l.some((d) => d.startsWith(today))).length
+      for (const d of planDays(plan, remainingEpisodes(seasons, w, today), doneToday, today))
+        if (d.date > today) list.push({ key: `plan:${rowId}:${d.date}`, date: d.date, row, kind: 'upcoming', sub: tt('Plan: {0} bölüm', d.n) })
+    }
+    return list
+  }, [board, filteredRows, watched, episodes, today, plans])
   const byDay = useMemo(() => {
     const m = new Map<string, CalEvent[]>()
     for (const ev of events) {

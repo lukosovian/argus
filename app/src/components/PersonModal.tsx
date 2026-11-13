@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import FollowButton from './FollowButton'
+import { useHomeSettings } from '../hooks/useHomeSettings'
 import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { api, type ArchiveCard, type PersonInfo, type TmdbCard } from '../lib/api'
@@ -43,6 +45,7 @@ export default function PersonModal({
   paused?: boolean
 }) {
   const { notify } = useToast()
+  const followOn = Boolean(useHomeSettings().settings.extras?.follow)
   const [data, setData] = useState<{ person: PersonInfo | null; inArchive: ArchiveCard[]; notInArchive: ArchiveCard[]; needsApiKey?: boolean } | null>(null)
   const [bioOpen, setBioOpen] = useState(false)
   const [preview, setPreview] = useState<TmdbCard | null>(null)
@@ -132,6 +135,7 @@ export default function PersonModal({
                       {bioOpen ? tt('Daha az') : tt('Devamını oku')}
                     </button>
                   )}
+                  {followOn && p.id ? <FollowButton personId={p.id} name={p.name} role={role} /> : null}
                   {onShowContents && (
                     <button onClick={onShowContents} style={primaryButtonStyle} className={`text-xs px-3 py-1.5 rounded-lg ${PRIMARY_BUTTON}`}>
                       {tt('Arşivindekileri listele')}

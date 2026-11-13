@@ -266,6 +266,9 @@ export interface Profile {
   id: string
   username: string
   photo: string
+  // v1.23.4: 4 haneli PIN (boş = kilitsiz) ve çocuk profili (13+ ve üstü yaş sınırlı yapımlar gizlenir)
+  pin?: string
+  kid?: boolean
 }
 
 // Hazır avatar seçenekleri — kullanıcının medya/ klasörüne eklediği 24 karikatür ikon.
@@ -505,6 +508,12 @@ export interface HomeSettings {
   // Vitrin süsleri (v1.23.3): kısa özet, Aklımda tut düğmesi, yavaş yakınlaşan görsel, dolan slayt çizgileri,
   // fragman durunca görsele dönüş, satırların vitrine binmesi. Yoksa kapalı (eski vitrin).
   showcaseExtras?: boolean
+  // Ekstralar (v1.23.4, bkz. lib/extras.ts): isteğe bağlı özelliklerin aç/kapa durumu — yoksa hepsi kapalı
+  extras?: Partial<Record<string, boolean>>
+  // Ne İzlesem animasyonu (yoksa klasik)
+  pickerAnim?: 'klasik' | 'cark' | 'slot' | 'deste' | 'serit' | 'karisik'
+  // Yıllık izleme hedefi (film+dizi bitirme sayısı); 0/yok = kapalı
+  yearGoal?: number
 }
 
 export interface RandomPickerTmdbSettings {

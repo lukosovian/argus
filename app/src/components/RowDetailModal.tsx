@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import SeriesPlan from './SeriesPlan'
+import ShareCard from './ShareCard'
+import { useHomeSettings } from '../hooks/useHomeSettings'
 import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { api } from '../lib/api'
@@ -169,6 +172,9 @@ export default function RowDetailModal({
   const cast = useCast()
   const { episodes, reload: reloadEpisodes } = useEpisodes()
   const { watched, saveRowWatched } = useWatched()
+  const extrasOn = useHomeSettings().settings.extras ?? {}
+  const planOn = Boolean(extrasOn.seriesPlan)
+  const [shareOpen, setShareOpen] = useState(false)
   // Dizilerde TMDB durumu: bitti mi, yeni sezon ne zaman (bkz. lib/showStatus.ts)
   const showTag = showLabel(useShowInfo(row.id))
   const { notify } = useToast()
@@ -590,6 +596,12 @@ export default function RowDetailModal({
                 ))}
               </div>
               <AklimdaButton target={{ kind: 'row', boardId: board.id, rowId: row.id }} title={title} />
+              {extrasOn.shareCard && poster && (
+                <button onClick={() => setShareOpen(true)} className="text-xs rounded-full border border-emerald-500/40 px-3 py-1.5 text-emerald-200 hover:bg-emerald-500/10 transition">
+                  📤 {tt('Bunu izle! kartı')}
+                </button>
+              )}
+              {shareOpen && <ShareCard poster={poster} title={title} score={avgScore} onClose={() => setShareOpen(false)} />}
               {editable && (durumProp || tarihProp || puanProp) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {durumProp?.options?.map((o) => {
@@ -666,6 +678,7 @@ export default function RowDetailModal({
             )}
 
             {seasons && seasons.length > 0 && <ResumeRecap seasons={seasons} watched={rowWatched} />}
+            {planOn && seasons && seasons.length > 0 && <SeriesPlan rowId={row.id} seasons={seasons} watched={rowWatched} />}
             {seasons && seasons.length > 0 && (
               <section id="rd-bolumler">
                 <SectionTitle title={tt('Bölümler')} count={tt('{0} sezon', seasons.length)} />

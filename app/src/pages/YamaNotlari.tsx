@@ -59,6 +59,9 @@ import {
   OtomatikIzleniyorVisual,
   BolumNumarasiVisual,
   VitrinSusVisual,
+  EkstralarVisual,
+  NeIzlesemEkstraVisual,
+  MenuEkstraVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -135,6 +138,31 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.4',
+    date: tt('13 Kasım 2026'),
+    title: tt('Ekstralar: isteğe bağlı 25 yenilik'),
+    items: [
+      tt('yeni: Ayarlar\'da yeni Ekstralar sekmesi: aşağıdaki yeniliklerin hepsi isteğe bağlı, hepsi kapalı başlıyor. İstediğini oradan aç.'),
+      tt('yeni: Ne İzlesem\'e dört yeni seçim animasyonu: çark, slot makinesi, kart destesi ve film şeridi (ya da her seferinde farklısı).'),
+      tt('yeni: Ne İzlesem\'de üç aday modu (istemediğini ✕ ile ele, son kalan seçilir) ve başlamadan önce "bu akşam" soruları: kiminle, ne kadar vaktin var, nasıl hissetmek istiyorsun.'),
+      tt('yeni: Ne İzlesem sonucunda "şimdi başlarsan bitiş: 23:47" ve neden seçildiği; Boşluk tuşu tekrar getirir.'),
+      tt('yeni: Açılışta seçilebilir giriş animasyonu (sinema, eski film geri sayımı, perde) ve isteğe bağlı giriş sesi. Açılış penceresinde logo çizilerek geliyor, arkada afişlerin akıyor ve beklerken bugünün haberi (yeni bölüm, geçen yıl bugün, evren turunda sıradaki) görünüyor.'),
+      tt('yeni: "Kim izliyor?" ekranında seçtiğin avatar büyüyerek ana sayfaya dönüşüyor. Mevsimlik dokunuşlar: kışın kar, Cadılar Bayramı\'nda yarasalar, yılbaşında yıldızlar.'),
+      tt('yeni: Yeni profil menüsü: bu ayın özeti ve üst üste izleme serin, Ne İzlesem / Bugün izledim / Yeni ekle / Takvim kısayolları, gruplu bağlantılar, klavye kısayolları (G sonra harf, Ctrl+virgül, Alt+1/2/3 ile profil) ve yeni bir şey olunca mavi nokta.'),
+      tt('yeni: Gelişmiş arama: son aramalar, ">" ile sayfalar ve işler, arşivinde yoksa TMDB\'den tek tıkla ekleme, "korku 2010 8+" gibi akıllı arama, "sehir" yazınca "Şehir"i de bulma, ok tuşları ve Enter.'),
+      tt('yeni: Profil fotoğrafı: son izlediğine ve puanına göre ifade değiştiren canlı duygu avatarı, Duygular / Kahramanlar sekmeleri ve sana uygun kahraman, fotoğrafı kırpıp yakınlaştırma, afişlerden ve oyunculardan avatar seçme, izledikçe kazanılan bronz / gümüş / altın / neon çerçeve.'),
+      tt('yeni: Birlikte izle: başka bir profille ortak izlenecekleriniz, onun sevip senin izlemediklerin ve "İkimiz için seç". Zevk uyumu: puan uyumu yüzdesi, en çok anlaştığınız ve anlaşamadığınız yapımlar, "Bunu ona öner".'),
+      tt('yeni: Başarımlar: 14 kalıcı rozet; yenisini kazanınca bildirim. Sahneden bil: arşivindeki görsellerle bulanık başlayan tahmin oyunu ve profil rekorları.'),
+      tt('yeni: Yıllık hedef halkası (ana sayfada), oyuncu ve yönetmen takibi (yeni filmi duyurulunca bildirim), dizi bitirme planı (kalan bölümler günlere bölünür, takvimde görünür), Pazar akşamı haftalık özet ve paylaşmak için "Bunu izle!" kartı.'),
+      tt('yeni: Profillere PIN kilidi ve çocuk profili (13+ ve üstü yaş sınırlı yapımlar görünmez): profil düzenleme penceresinde.'),
+    ],
+    visuals: [
+      { caption: tt('1 Ayarlar › Ekstralar · 2 her yenilik ayrı açılıp kapanır'), Visual: EkstralarVisual },
+      { caption: tt('1 çark · 2 slot makinesi · 3 üç aday'), Visual: NeIzlesemEkstraVisual },
+      { caption: tt('1 bu ayın özeti · 2 hızlı işlemler · 3 Birlikte izle · 4 Başarımlar'), Visual: MenuEkstraVisual },
+    ],
+  },
   {
     version: 'v1.23.3',
     date: tt('13 Kasım 2026'),

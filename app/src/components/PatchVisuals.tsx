@@ -4037,3 +4037,106 @@ export function TabloCilaVisual() {
     </Frame>
   )
 }
+
+// v1.23.4 — Ekstralar: Ayarlar'da tek yerden aç/kapa
+export function EkstralarVisual() {
+  const rows = [tt('Seçim animasyonu'), tt('Üç aday modu'), tt('Giriş animasyonu'), tt('Yeni profil menüsü'), tt('Gelişmiş arama'), tt('Başarımlar')]
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={10} width={86} height={160} rx={6} className="fill-neutral-900" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x={18} y={22 + i * 22} width={70} height={14} rx={3} className={i === 4 ? 'fill-neutral-700' : 'fill-neutral-800'} stroke={i === 4 ? ACCENT : 'none'} strokeWidth={0.8} />
+      ))}
+      <text x={26} y={120.5} fontSize={6.5} fill="#fff" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Ekstralar')}
+      </text>
+      {rows.map((r, i) => (
+        <g key={r} transform={`translate(108 ${18 + i * 25})`}>
+          <rect width={202} height={20} rx={4} className="fill-neutral-900" />
+          <text x={8} y={13} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }} {...fit(r, 6.5, 140)}>
+            {r}
+          </text>
+          <rect x={176} y={5} width={18} height={10} rx={5} fill={i < 2 || i === 5 ? ACCENT : '#404040'} />
+          <circle cx={i < 2 || i === 5 ? 189 : 181} cy={10} r={3.6} fill="#fff" />
+        </g>
+      ))}
+      <Pin x={92} y={118} n={1} />
+      <Pin x={300} y={14} n={2} />
+    </Frame>
+  )
+}
+
+// v1.23.4 — Ne İzlesem: çark ve slot, üç aday
+export function NeIzlesemEkstraVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <circle cx={70} cy={90} r={56} fill="none" stroke={ACCENT} strokeOpacity={0.5} strokeWidth={1.5} />
+      {Array.from({ length: 10 }, (_, i) => {
+        const a = (i / 10) * Math.PI * 2
+        return <rect key={i} x={70 + Math.cos(a) * 46 - 6} y={90 + Math.sin(a) * 46 - 9} width={12} height={18} rx={2} className="fill-neutral-600" />
+      })}
+      <circle cx={70} cy={90} r={14} className="fill-neutral-900" stroke={ACCENT} />
+      <path d="M64 24 L76 24 L70 36 Z" fill={ACCENT} />
+      <rect x={146} y={46} width={84} height={88} rx={8} className="fill-neutral-800" />
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={152 + i * 26} y={54} width={22} height={72} rx={3} className="fill-neutral-900" />
+      ))}
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={155 + i * 26} y={78} width={16} height={24} rx={2} className="fill-neutral-500" />
+      ))}
+      <line x1={148} x2={228} y1={90} y2={90} stroke={ACCENT} strokeWidth={1.2} />
+      {[0, 1, 2].map((i) => (
+        <g key={i} transform={`translate(${244 + i * 24} ${i === 1 ? 70 : 76})`}>
+          <rect width={20} height={30} rx={2} className={i === 1 ? 'fill-neutral-400' : 'fill-neutral-700'} stroke={i === 1 ? ACCENT : 'none'} />
+          {i !== 1 && <text x={10} y={-3} fontSize={7} textAnchor="middle" fill="#f87171">✕</text>}
+        </g>
+      ))}
+      <Pin x={118} y={40} n={1} />
+      <Pin x={234} y={44} n={2} />
+      <Pin x={306} y={60} n={3} />
+    </Frame>
+  )
+}
+
+// v1.23.4 — Yeni profil menüsü ve yeni sayfalar
+export function MenuEkstraVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={8} width={130} height={164} rx={8} className="fill-neutral-900" />
+      <rect x={10} y={8} width={130} height={44} rx={8} className="fill-neutral-700" opacity={0.6} />
+      <rect x={18} y={16} width={18} height={18} rx={4} className="fill-neutral-500" />
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={18 + i * 40} y={38} width={36} height={10} rx={2} className="fill-neutral-800" />
+      ))}
+      {[0, 1, 2, 3].map((i) => (
+        <rect key={i} x={20 + i * 30} y={58} width={22} height={18} rx={4} fill={['#0c4a6e', '#14532d', '#3b0764', '#78350f'][i]} />
+      ))}
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <rect key={i} x={20} y={86 + i * 13} width={i === 3 ? 70 : 90} height={6} rx={2} className="fill-neutral-700" />
+      ))}
+      <circle cx={128} cy={128} r={3} fill={ACCENT} />
+      <g transform="translate(160 18)">
+        <rect width={150} height={64} rx={6} className="fill-neutral-900" />
+        <circle cx={32} cy={32} r={16} fill="#ef4444" opacity={0.6} />
+        <circle cx={50} cy={32} r={16} fill="#8b5cf6" opacity={0.6} />
+        <text x={41} y={35} fontSize={8} textAnchor="middle" fill="#fff" style={{ fontWeight: 800 }}>14</text>
+        <text x={78} y={30} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+          {tt('Birlikte izle')}
+        </text>
+      </g>
+      <g transform="translate(160 92)">
+        <rect width={150} height={70} rx={6} className="fill-neutral-900" />
+        {[0, 1, 2, 3].map((i) => (
+          <path key={i} transform={`translate(${14 + i * 34} 14)`} d="M12 0 L24 7 L24 21 L12 28 L0 21 L0 7 Z" fill={['#f59e0b', '#22c55e', '#3b82f6', '#404040'][i]} />
+        ))}
+        <text x={14} y={60} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+          {tt('Başarımlar')}
+        </text>
+      </g>
+      <Pin x={132} y={14} n={1} />
+      <Pin x={134} y={64} n={2} />
+      <Pin x={306} y={22} n={3} />
+      <Pin x={306} y={96} n={4} />
+    </Frame>
+  )
+}

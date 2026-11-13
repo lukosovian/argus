@@ -34,6 +34,10 @@ const TYPE_ICON: Record<string, { icon: IconName; cls: string }> = {
   feature: { icon: 'star', cls: 'bg-fuchsia-500/15 text-fuchsia-300' },
   platform: { icon: 'tv', cls: 'bg-violet-500/15 text-violet-300' },
   collection: { icon: 'film', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
+  // v1.23.4 Ekstralar
+  achievement: { icon: 'trophy', cls: 'bg-amber-500/15 text-amber-300' },
+  weekly: { icon: 'chart', cls: 'bg-[#00c0fa]/15 text-[#7fdcff]' },
+  follow: { icon: 'person', cls: 'bg-violet-500/15 text-violet-300' },
 }
 
 function BellIcon() {

@@ -27,6 +27,19 @@ export function pushNotification(profileId, n) {
 }
 
 export function registerNotificationRoutes(app) {
+  // İstemcinin kendi ürettiği bildirimler (ör. Ekstralar › Başarımlar: yeni rozet) — key ile tekrar eklenmez
+  app.post('/api/profiles/:profileId/notifications', (req, res) => {
+    const b = req.body ?? {}
+    if (typeof b.title !== 'string' || !b.title.trim()) return res.status(400).json({ error: 'title' })
+    const item = pushNotification(req.params.profileId, {
+      key: typeof b.key === 'string' ? b.key.slice(0, 120) : undefined,
+      type: typeof b.type === 'string' ? b.type.slice(0, 40) : 'info',
+      title: b.title.slice(0, 200),
+      text: typeof b.text === 'string' ? b.text.slice(0, 500) : undefined,
+      link: typeof b.link === 'string' && b.link.startsWith('/') ? b.link.slice(0, 200) : undefined,
+    })
+    res.json({ ok: true, item })
+  })
   app.get('/api/profiles/:profileId/notifications', (req, res) => {
     res.json({ items: readJson(fileOf(req.params.profileId), []) })
   })

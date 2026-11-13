@@ -1647,6 +1647,18 @@ export default function BoardView() {
     const row = await saveRow(emptyRow())
     if (row) setPendingScrollRowId(row.id)
   }
+  // ?yeni=1 (arama komutu / profil menüsündeki "Yeni ekle", v1.23.4): tablo yüklenince bir kez yeni satır açılır
+  const yeniParam = searchParams.get('yeni')
+  const yeniDone = useRef(false)
+  useEffect(() => {
+    if (!yeniParam || yeniDone.current || !board || rowsLoading) return
+    yeniDone.current = true
+    void createRow()
+    const next = new URLSearchParams(searchParams)
+    next.delete('yeni')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yeniParam, board, rowsLoading])
 
   // Satır menüsündeki "Altına Satır Ekle" (ve "Çoğalt") — listenin sonuna değil, tıklanan
   // satırın HEMEN ALTINA düşsün diye yeni satırın `createdAt`'ı o satırla bir sonraki satır

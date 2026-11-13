@@ -122,6 +122,57 @@ function DetailedWatchedForm({
   )
 }
 
+// "Şimdi başlarsan bitiş: 23:47" ve tek satırlık "neden bu?" (Ekstralar › Bitiş saati)
+function EndTimeWhy({ board, row, tmdbRuntime, isSeries, allRows }: { board: Board; row?: Row; tmdbRuntime: number | null; isSeries?: boolean; allRows: Row[] }) {
+  const sure = resolveRole(board, 'sure')
+  const kategori = resolveRole(board, 'kategori')
+  const tur = resolveRole(board, 'tur')
+  const puan = resolveRole(board, 'puan')
+  const yon = resolveRole(board, 'yonetmen')
+  const series = isSeries ?? (row && kategori ? /dizi|series|tv/i.test(kategori.options?.find((o) => o.id === row.values[kategori.id])?.label ?? '') : false)
+  const minutes = row && sure && typeof row.values[sure.id] === 'number' ? (row.values[sure.id] as number) : tmdbRuntime
+  const total = series ? 2 * 45 : minutes
+  const end = total ? new Date(Date.now() + total * 60000).toTimeString().slice(0, 5) : null
+  const why: string[] = []
+  if (row) {
+    const days = Math.floor((Date.now() - row.createdAt) / 864e5)
+    if (days >= 7) why.push(days >= 60 ? tt('{0} aydır listende', Math.floor(days / 30)) : tt('{0} gündür listende', days))
+    const avgOf = (rs: Row[]) => {
+      const v = rs.map((x) => (puan ? ratingAverage(x.values[puan.id], puan) : null)).filter((n): n is number => n !== null)
+      return v.length >= 3 ? v.reduce((a, b) => a + b, 0) / v.length : null
+    }
+    if (tur) {
+      const ids = Array.isArray(row.values[tur.id]) ? (row.values[tur.id] as string[]) : []
+      let best: { label: string; avg: number } | null = null
+      for (const id of ids) {
+        const a = avgOf(allRows.filter((x) => x.id !== row.id && Array.isArray(x.values[tur.id]) && (x.values[tur.id] as string[]).includes(id)))
+        const label = tur.options?.find((o) => o.id === id)?.label
+        if (a !== null && label && (!best || a > best.avg)) best = { label, avg: a }
+      }
+      if (best && best.avg >= 7) why.push(tt("{0} türüne ortalama {1} veriyorsun", best.label, best.avg.toFixed(1).replace('.', ',')))
+    }
+    const d = yon && typeof row.values[yon.id] === 'string' ? (row.values[yon.id] as string).trim() : ''
+    if (d && puan) {
+      const liked = allRows.filter((x) => x.id !== row.id && x.values[yon!.id] === row.values[yon!.id] && (ratingAverage(x.values[puan.id], puan) ?? 0) >= 8.5).length
+      if (liked >= 2) why.push(tt('{0} yapımını {1} kez çok beğendin', d, liked))
+    }
+  } else why.push(tt('arşivinde yok, TMDB\'den yeni bir öneri'))
+  if (!end && !why.length) return null
+  return (
+    <div className="space-y-2">
+      {end && (
+        <p className="inline-flex items-center gap-2 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3.5 py-2 text-sm text-violet-100">
+          🌙 {series ? tt('2 bölüm izlersen bitiş:') : tt('Şimdi başlarsan bitiş:')} <b className="text-white">{end}</b>
+        </p>
+      )}
+      {why.length > 0 && <p className="text-sm text-[#7fdcff]">{tt('Neden bu?')} · {why.join(' · ')}</p>}
+      <p className="text-xs text-neutral-500">
+        <kbd className="rounded border border-neutral-700 border-b-2 px-1.5 font-mono text-[11px]">{tt('Boşluk')}</kbd> {tt('tekrar getir')}
+      </p>
+    </div>
+  )
+}
+
 // Ne İzlesem'in sonuç ekranı — kullanıcı "içerik seçildikten sonra poster ya da yatay görseli
 // gelsin, yanında kapak adı, kısa sinopsis, bilgiler; arkada mavi ışık vuran ekranda; altında
 // tekrar getir; TMDB'den geldiyse izledim/izlenecek eklenebilsin, arşivden geldiyse ona göre
@@ -136,6 +187,8 @@ export default function PickResult({
   onAgain,
   onOpenRow,
   onOpenTmdb,
+  extrasEndTime = false,
+  allRows = [],
 }: {
   board: Board
   row?: Row
@@ -146,6 +199,9 @@ export default function PickResult({
   onAgain: () => void
   onOpenRow: (row: Row) => void
   onOpenTmdb: (card: TmdbCard) => void
+  // Ekstralar › Bitiş saati ve "neden bu?" (v1.23.4)
+  extrasEndTime?: boolean
+  allRows?: Row[]
 }) {
   const { notify } = useToast()
   const [item, setItem] = useState<TmdbItem | null>(null)
@@ -391,6 +447,7 @@ export default function PickResult({
               ))}
             </div>
             {genres.length > 0 && <p className="text-sm text-neutral-400">{genres.slice(0, 4).join(' · ')}</p>}
+            {extrasEndTime && <EndTimeWhy board={board} row={r} tmdbRuntime={item?.runtime ?? null} isSeries={r ? undefined : tmdb?.mediaType === 'tv'} allRows={allRows} />}
             {synopsis && (
               <button onClick={() => setFullSynopsis((v) => !v)} className="block text-left max-w-2xl mx-auto md:mx-0">
                 <span className={`block text-neutral-300 leading-relaxed ${fullSynopsis ? '' : 'line-clamp-4'}`}>{synopsis}</span>

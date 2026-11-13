@@ -20,6 +20,11 @@ import Aklimda from './pages/Aklimda'
 import Evrenler from './pages/Evrenler'
 import Abonelik from './pages/Abonelik'
 import YamaNotlari from './pages/YamaNotlari'
+import { IntroOverlay } from './components/IntroFx'
+import SplashInfoWriter from './components/SplashInfoWriter'
+import Birlikte from './pages/Birlikte'
+import Basarimlar from './pages/Basarimlar'
+import SahnedenBil from './pages/SahnedenBil'
 
 // Bir profil ilk kez aktif olduğunda (o profil daha önce hiç görmediyse) Yardım Merkezi'ni
 // otomatik açar — "ilk girişte gelsin" isteği. `localStorage`'da profil başına bir bayrak
@@ -93,6 +98,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       <RatePrompt />
       <KeyboardShortcuts />
       <ProfileCurtain />
+      <IntroOverlay />
+      {activeProfile && <SplashInfoWriter />}
     </>
   )
 }
@@ -179,6 +186,30 @@ function AppRoutes() {
         element={
           <Shell>
             <Evrenler />
+          </Shell>
+        }
+      />
+      <Route
+        path="/birlikte"
+        element={
+          <Shell>
+            <Birlikte />
+          </Shell>
+        }
+      />
+      <Route
+        path="/basarimlar"
+        element={
+          <Shell>
+            <Basarimlar />
+          </Shell>
+        }
+      />
+      <Route
+        path="/sahneden-bil"
+        element={
+          <Shell>
+            <SahnedenBil />
           </Shell>
         }
       />

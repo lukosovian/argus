@@ -8,6 +8,33 @@ import { MOBILE } from '../lib/mobile/ui'
 import { averageColor, darkTone, type RGB } from '../lib/imageColor'
 import MobileProfileHero, { LAST_PROFILE_KEY, useHeroSlides } from './mobile/MobileProfileHero'
 import Icon from './Icon'
+import { deviceOn } from '../lib/extras'
+import { frameFor } from '../lib/profileStats'
+
+// Ekstralar › Profil seçince avatar ekrana yayılsın (v1.23.4): tıklanan avatarın kopyası tam ekrana büyür, bulanıp
+// solarken arkasında ana sayfa açılır (siyah perde yerine)
+function morphFrom(el: HTMLElement | null, photo: string, done: () => void) {
+  if (!el || !photo) return done()
+  const r = el.getBoundingClientRect()
+  const g = document.createElement('div')
+  Object.assign(g.style, {
+    position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '120', borderRadius: '12px', overflow: 'hidden',
+    transition: 'all .7s cubic-bezier(.7,0,.2,1)', pointerEvents: 'none', backgroundImage: `url("${photo}")`, backgroundSize: 'cover', backgroundPosition: 'center',
+  })
+  document.body.appendChild(g)
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const s = Math.max(window.innerWidth, window.innerHeight) * 1.3
+      Object.assign(g.style, { left: (window.innerWidth - s) / 2 + 'px', top: (window.innerHeight - s) / 2 + 'px', width: s + 'px', height: s + 'px', borderRadius: '0', filter: 'blur(6px) brightness(.55)' })
+    }),
+  )
+  setTimeout(() => {
+    done()
+    g.style.transition = 'opacity .8s ease-out'
+    g.style.opacity = '0'
+    setTimeout(() => g.remove(), 850)
+  }, 720)
+}
 
 // Profil seçilince App.tsx'e "ekranı karanlıktan aç" haberi (Navbar'daki profil değiştirme de kullanır)
 export const PROFILE_SWITCH_EVENT = 'argus-profil-gecis'
@@ -45,9 +72,20 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
     const go = () => {
       window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
       setActiveProfileId(id)
+      setLeaving(null)
       onClose?.()
     }
     if (embedded) return go()
+    const prof = profiles.find((p) => p.id === id)
+    if (!MOBILE && deviceOn('argus_profil_gecis') && prof?.photo && !prof.pin) {
+      setLeaving(id)
+      morphFrom(document.querySelector<HTMLElement>(`[data-profil-kutu="${id}"]`), prof.photo, () => {
+        setActiveProfileId(id)
+        setLeaving(null)
+        onClose?.()
+      })
+      return
+    }
     setLeaving(id)
     setTimeout(go, LEAVE_MS)
   }
@@ -70,7 +108,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
     return () => window.removeEventListener('keydown', onKey)
   }, [embedded, editing, managing, profiles])
 
-  async function handleSave(data: { username: string; photo: string }) {
+  async function handleSave(data: { username: string; photo: string; pin?: string; kid?: boolean }) {
     if (editing === 'new') {
       const created = await addProfile(data)
       setEditing(null)
@@ -245,6 +283,14 @@ function DesktopPicker({
   )
   const current = slides[index]
   const tile = 'relative h-32 w-32 rounded-lg overflow-hidden flex items-center justify-center transition duration-200'
+  // Ekstralar › Kazanılan çerçeveler: çerçeveyi açmış profillerin izlediği sayısı (sunucudan)
+  const [frames, setFrames] = useState<Record<string, number>>({})
+  useEffect(() => {
+    fetch('/api/profile-frames')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then(setFrames)
+      .catch(() => {})
+  }, [])
   // Her profil resminin ortalama rengi — üstüne gelince o renkte parlasın
   const [glow, setGlow] = useState<Record<string, string>>({})
   useEffect(() => {
@@ -302,7 +348,9 @@ function DesktopPicker({
           {profiles.map((p) => (
             <button key={p.id} onClick={() => onPick(p.id)} className="w-32 flex flex-col items-center gap-4 group outline-none" style={{ ['--profil-isik' as string]: glow[p.id] ?? 'rgba(0,192,250,0.55)' }}>
               {/* Üstüne gelince yaylanarak kalkar ve resminin renginde parlar (v1.23.3, öneri G5) */}
+              <span className="block rounded-[11px] p-[3px] -m-[3px]" style={frames[p.id] !== undefined ? frameFor(frames[p.id])?.style : undefined} title={frames[p.id] !== undefined ? frameFor(frames[p.id])?.label : undefined}>
               <span
+                data-profil-kutu={p.id}
                 className={`${tile} bg-white/10 ring-white group-hover:ring-[3px] group-focus-visible:ring-[3px] shadow-[0_6px_24px_rgba(0,0,0,0.5)] group-hover:shadow-[0_18px_50px_-8px_var(--profil-isik)] !duration-300 ease-[cubic-bezier(.3,1.5,.5,1)] ${leaving === p.id ? 'scale-115 ring-[3px]' : 'group-hover:scale-[1.07] group-hover:-translate-y-2'}`}
               >
                 {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-5xl text-white/70">{p.username.slice(0, 1).toUpperCase()}</span>}
@@ -311,6 +359,7 @@ function DesktopPicker({
                     <PencilIcon />
                   </span>
                 )}
+              </span>
               </span>
               <span className="w-full truncate text-center text-[17px] font-semibold text-white/75 group-hover:text-white transition" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
                 {p.username}

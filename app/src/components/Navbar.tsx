@@ -14,6 +14,11 @@ import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import { PROFILE_SWITCH_EVENT } from './ProfilePicker'
 import Icon, { type IconName } from './Icon'
+import { useNavigate } from 'react-router-dom'
+import ProfileMenuV2, { EVREN_SEEN_KEY, YAMA_SEEN_KEY } from './ProfileMenuV2'
+import { frameFor, useProfileStats } from '../lib/profileStats'
+import { api } from '../lib/api'
+import AchievementWatcher from './AchievementWatcher'
 
 // Profil menüsündeki satırların ikonları — ARGUS'un dolgulu ikonları (bkz. Icon.tsx); kullanıcı dış çizgili
 // yerine dolgulu istedi.
@@ -112,6 +117,9 @@ export default function Navbar() {
       ['/aklimda', tt('Aklımda')],
       ['/evrenler', tt('Evrenler')],
       ['/abonelik', tt('Abonelik önerisi')],
+      ['/birlikte', tt('Birlikte izle')],
+      ['/basarimlar', tt('Başarımlar')],
+      ['/sahneden-bil', tt('Sahneden bil')],
       ['/flashback', 'Flashback'],
       ['/arsivlerim', tt('Ayarlar')],
       ['/yardim', tt('Yardım Merkezi')],
@@ -125,6 +133,66 @@ export default function Navbar() {
       : (currentPage ?? '')
   const pinnedSections = sortByOrder((settings.sections ?? []).filter((s) => s.pinnedToNav), settings.navOrder ?? [])
   const [menuOpen, setMenuOpen] = useState(false)
+  // Ekstralar (v1.23.4): yeni menü, duygu avatarı, çerçeve, yeni sayfaların bağlantıları, kısayollar
+  const ext = settings.extras ?? {}
+  const stats = useProfileStats(Boolean(ext.menuV2 || ext.moodAvatar || ext.avatarFrames))
+  const navigate = useNavigate()
+  const avatarSrc = ext.moodAvatar && stats ? `/avatars/profil${stats.mood.avatar}.png` : activeProfile?.photo
+  const frame = ext.avatarFrames && stats ? frameFor(stats.watchedCount) : null
+  const extraLinks: { to: string; icon: IconName; label: string }[] = [
+    ...(ext.together ? [{ to: '/birlikte', icon: 'person' as IconName, label: tt('Birlikte izle') }] : []),
+    ...(ext.achievements ? [{ to: '/basarimlar', icon: 'trophy' as IconName, label: tt('Başarımlar') }] : []),
+    ...(ext.quiz ? [{ to: '/sahneden-bil', icon: 'film' as IconName, label: tt('Sahneden bil') }] : []),
+  ]
+  // Görülen yama / evren eklemeleri (yeni menüdeki mavi noktalar)
+  useEffect(() => {
+    try {
+      if (location.pathname.startsWith('/yama-notlari')) localStorage.setItem(YAMA_SEEN_KEY, APP_VERSION)
+      if (location.pathname.startsWith('/evrenler'))
+        api
+          .evrenOtoStatus()
+          .then((s) => localStorage.setItem(EVREN_SEEN_KEY, String(s.added)))
+          .catch(() => {})
+    } catch {
+      /* önemsiz */
+    }
+  }, [location.pathname])
+  // Kısayollar (yeni menü açıkken): G sonra harf, Ctrl+, ayarlar, Alt+1..9 profil
+  useEffect(() => {
+    if (!ext.menuV2 || MOBILE) return
+    let gAt = 0
+    const map: Record<string, string> = { a: settings.boardId ? `/board/${settings.boardId}` : '/arsivlerim', m: '/aklimda', k: '/koleksiyon', e: '/evrenler', i: '/istatistikler', 'ı': '/istatistikler', t: '/takvim', h: '/' }
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (e.ctrlKey && e.key === ',') {
+        e.preventDefault()
+        navigate('/arsivlerim')
+        return
+      }
+      if (e.altKey && /^[1-9]$/.test(e.key)) {
+        const p = profiles.filter((x) => x.id !== activeProfileId)[Number(e.key) - 1]
+        if (p) {
+          e.preventDefault()
+          window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
+          setActiveProfileId(p.id)
+        }
+        return
+      }
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+      const k = e.key.toLocaleLowerCase('tr')
+      if (k === 'g') {
+        gAt = Date.now()
+        return
+      }
+      if (Date.now() - gAt < 1200 && map[k]) {
+        gAt = 0
+        navigate(map[k])
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ext.menuV2, settings.boardId, profiles, activeProfileId])
   // Seçili sayfanın altındaki parlak çizgi: kutu yerine sayfalar arasında kayarak gider (v1.23.3, öneri G1)
   const navRef = useRef<HTMLElement>(null)
   const [bar, setBar] = useState<{ left: number; width: number } | null>(null)
@@ -225,21 +293,24 @@ export default function Navbar() {
           <GlobalSearch />
           <RandomPickerButton hideButton={MOBILE} />
           <NotificationBell />
+          {ext.achievements && activeProfileId && <AchievementWatcher profileId={activeProfileId} />}
 
           <div className="relative shrink-0">
+            <span className={`block rounded-full ${frame ? 'p-[2.5px]' : ''}`} style={frame?.style} title={frame?.label}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className={`h-10 w-10 rounded-full bg-neutral-800 overflow-hidden flex items-center justify-center text-sm text-neutral-400 ring-2 transition ${
+              className={`h-10 w-10 rounded-full bg-neutral-800 overflow-hidden flex items-center justify-center text-sm text-neutral-400 transition ${frame ? '' : 'ring-2'} ${
                 menuOpen ? 'ring-[#00c0fa]' : 'ring-neutral-700 hover:ring-neutral-500'
               }`}
-              title={activeProfile?.username || tt('Profil')}
+              title={ext.moodAvatar && stats ? stats.mood.reason : activeProfile?.username || tt('Profil')}
             >
-              {activeProfile?.photo ? (
-                <img src={activeProfile.photo} alt={activeProfile.username} className="h-full w-full object-cover" />
+              {avatarSrc ? (
+                <img key={avatarSrc} src={avatarSrc} alt={activeProfile?.username} className="h-full w-full object-cover" style={ext.moodAvatar ? { animation: 'argus-toast-in .35s ease-out' } : undefined} />
               ) : (
                 activeProfile?.username.slice(0, 1).toUpperCase() || '?'
               )}
             </button>
+            </span>
 
             {menuOpen &&
               inSheet(
@@ -255,8 +326,51 @@ export default function Navbar() {
                       ? 'fixed inset-x-0 z-40 max-h-[75vh] overflow-y-auto bg-neutral-900 border-t border-neutral-800 rounded-t-2xl pb-3 shadow-2xl shadow-black/60'
                       : 'absolute right-0 top-13 mt-1 z-40 w-72 bg-neutral-900 border border-neutral-800 rounded-2xl pb-1.5 shadow-2xl shadow-black/40 overflow-hidden'
                   }
-                  style={MOBILE ? { bottom: TABBAR_OFFSET, animation: 'argus-toast-in .15s ease-out' } : { animation: 'argus-toast-in .15s ease-out' }}
+                  style={{ ...(MOBILE ? { bottom: TABBAR_OFFSET } : {}), animation: 'argus-toast-in .15s ease-out', ...(ext.menuV2 && !MOBILE ? { width: 340 } : {}) }}
                 >
+                  {ext.menuV2 ? (
+                    <ProfileMenuV2
+                      active={activeProfile ?? null}
+                      others={otherProfiles}
+                      stats={stats}
+                      boardId={settings.boardId ?? null}
+                      extraLinks={extraLinks}
+                      flashback={
+                        canSeeWrapped(features) ? (
+                          <MenuLink
+                            to="/flashback"
+                            icon="ozet"
+                            label={tt('Flashback')}
+                            extra={wrappedIsNew(features) ? <span className="text-[10px] font-bold text-white bg-fuchsia-500 rounded-full px-2 py-0.5">{tt('YENİ')}</span> : undefined}
+                            onClick={() => setMenuOpen(false)}
+                          />
+                        ) : null
+                      }
+                      onClose={() => setMenuOpen(false)}
+                      onSwitch={(id) => {
+                        window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
+                        setActiveProfileId(id)
+                        setMenuOpen(false)
+                      }}
+                      themeSwitch={
+                        <div className="mx-3 mt-1.5 pt-2.5 border-t border-neutral-800">
+                          <div className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-950/60 border border-neutral-800 p-1">
+                            {(['dark', 'light'] as const).map((t) => (
+                              <button
+                                key={t}
+                                onClick={() => theme !== t && toggleTheme()}
+                                className={`flex items-center justify-center gap-1.5 text-xs rounded-lg py-1.5 transition ${theme === t ? 'bg-neutral-800 text-neutral-50 ring-1 ring-[#00c0fa]/40' : 'text-neutral-500 hover:text-neutral-200'}`}
+                              >
+                                <Icon name={t === 'dark' ? 'moon' : 'sun'} className="h-4 w-4" />
+                                {t === 'dark' ? tt('Koyu') : tt('Açık')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      }
+                    />
+                  ) : (
+                  <>
                   <div className="flex items-center gap-3 px-4 py-3.5 border-b border-neutral-800 bg-neutral-950/40">
                     <span className="h-11 w-11 rounded-full overflow-hidden bg-neutral-800 ring-2 ring-[#00c0fa]/60 shrink-0 flex items-center justify-center text-sm text-neutral-400">
                       {activeProfile?.photo ? (
@@ -303,6 +417,14 @@ export default function Navbar() {
                     <MenuLink to="/koleksiyon" icon="koleksiyon" label={tt('Koleksiyon')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/evrenler" icon="evren" label={tt('Evrenler')} onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/abonelik" icon="abonelik" label={tt('Abonelik önerisi')} onClick={() => setMenuOpen(false)} />
+                    {extraLinks.map((l) => (
+                      <Link key={l.to} to={l.to} onClick={() => setMenuOpen(false)} className="group flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-neutral-50 hover:bg-neutral-800 transition">
+                        <span className="text-neutral-500 group-hover:text-[#00c0fa] transition">
+                          <Icon name={l.icon} className="h-[18px] w-[18px]" />
+                        </span>
+                        <span className="flex-1">{l.label}</span>
+                      </Link>
+                    ))}
                     {canSeeWrapped(features) && (
                       <MenuLink
                         to="/flashback"
@@ -338,6 +460,8 @@ export default function Navbar() {
                       ))}
                     </div>
                   </div>
+                  </>
+                  )}
                 </div>
               </>,
               )}

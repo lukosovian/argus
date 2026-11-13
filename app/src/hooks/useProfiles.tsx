@@ -3,6 +3,7 @@ import '../lib/desktopApp'
 import type { Profile } from '../types'
 import { api, setApiProfileId } from '../lib/api'
 import { tt } from '../lib/i18n'
+import PinPad from '../components/PinPad'
 
 // Hangi profilin "aktif" olduğu, sadece bu SEKME açıkken hatırlanan bir tercih —
 // sessionStorage kullanılıyor (localStorage değil): sekme kapanıp yeniden açıldığında
@@ -64,7 +65,24 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
     if (activeProfileId) window.argusApp?.reportProfile?.(activeProfileId)
   }, [activeProfileId])
 
+  // PIN kilidi (v1.23.4): kilitli profile geçmeden önce PIN sorulur; bu oturumda bir kez açılan bir daha sorulmaz
+  const [pinAsk, setPinAsk] = useState<string | null>(null)
+  const unlocked = (id: string) => {
+    try {
+      return sessionStorage.getItem('argus_pin_ok_' + id) === '1'
+    } catch {
+      return false
+    }
+  }
   function setActiveProfileId(id: string | null) {
+    const target = id ? profiles.find((p) => p.id === id) : null
+    if (id && target?.pin && id !== activeProfileId && !unlocked(id)) {
+      setPinAsk(id)
+      return
+    }
+    applyActive(id)
+  }
+  function applyActive(id: string | null) {
     setActiveProfileIdState(id)
     try {
       if (id) sessionStorage.setItem(ACTIVE_PROFILE_KEY, id)
@@ -89,7 +107,7 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
   async function removeProfile(id: string) {
     await api.deleteProfile(id)
     setProfiles((prev) => prev.filter((p) => p.id !== id))
-    if (activeProfileId === id) setActiveProfileId(null)
+    if (activeProfileId === id) applyActive(null)
   }
 
   const value: ProfilesValue = {
@@ -103,7 +121,27 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
     removeProfile,
   }
 
-  return <ProfilesContext.Provider value={value}>{children}</ProfilesContext.Provider>
+  const asked = pinAsk ? profiles.find((p) => p.id === pinAsk) : null
+  return (
+    <ProfilesContext.Provider value={value}>
+      {children}
+      {asked && (
+        <PinPad
+          profile={asked}
+          onCancel={() => setPinAsk(null)}
+          onOk={() => {
+            try {
+              sessionStorage.setItem('argus_pin_ok_' + asked.id, '1')
+            } catch {
+              /* önemsiz */
+            }
+            setPinAsk(null)
+            applyActive(asked.id)
+          }}
+        />
+      )}
+    </ProfilesContext.Provider>
+  )
 }
 
 export function useProfiles(): ProfilesValue {

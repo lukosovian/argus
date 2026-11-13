@@ -14,6 +14,9 @@ import PickResult, { type SeriesSwap } from './PickResult'
 import PickerPoolEditor, { DEFAULT_PICKER_TMDB, filterByYears } from './PickerPool'
 import { tt } from '../lib/i18n'
 import Icon from './Icon'
+import PickAnimation from './PickAnimation'
+import { PickTrio, PickWizard, applyWizard, rowTitle, type WizardAnswers } from './PickExtras'
+import type { PickerAnim } from '../lib/extras'
 
 // İki üst üste binen "poster kartı" — biri düz, biri hafif çapraz (kullanıcı: "yan yana duran
 // iki kart gibi olsun biri düz biri çapraz olarak"). Soldaki (düz) dolu, sağdaki (çapraz) boş
@@ -169,7 +172,14 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
   const [board, setBoard] = useState<Board | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [winnerId, setWinnerId] = useState<string | null>(null)
-  const [phase, setPhase] = useState<'idle' | 'entering' | 'eliminating' | 'growing' | 'fading' | 'result'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'wizard' | 'trio' | 'anim' | 'entering' | 'eliminating' | 'growing' | 'fading' | 'result'>('idle')
+  // Ekstralar (v1.23.4): seçim animasyonu, üç aday, "bu akşam" soruları
+  const extras = settings.extras ?? {}
+  const [animKind, setAnimKind] = useState<Exclude<PickerAnim, 'klasik' | 'karisik'>>('cark')
+  const [trio, setTrio] = useState<(Candidate & { title: string })[]>([])
+  const [wizard, setWizard] = useState<{ board: Board; rows: Row[]; columns: ImageColumn[]; pref: 'dikey' | 'yatay' | null } | null>(null)
+  const answersRef = useRef<WizardAnswers | null>(null)
+  const [poolRows, setPoolRows] = useState<Row[]>([])
   // Kazanan: animasyon bitince detay penceresi yerine aynı mavi ışıklı ekranda sonuç gösteriliyor.
   const [result, setResult] = useState<Candidate | null>(null)
   const [swap, setSwap] = useState<SeriesSwap | null>(null)
@@ -191,9 +201,40 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
     return () => window.removeEventListener('argus-ne-izlesem', open)
   }, [])
 
-  async function handleClick(again = false) {
+  async function handleClick(again = false, answers?: WizardAnswers) {
     if (loading || (phase !== 'idle' && !again)) return
     setResult(null)
+    if (answers) answersRef.current = answers
+    else if (!again) answersRef.current = null
+    // "Bu akşam" soruları: önce sorular, cevaplanınca seçim (arşiv havuzunda)
+    if (!again && !answers && extras.pickerWizard && settings.randomPickerSource !== 'tmdb' && settings.boardId) {
+      setLoading(true)
+      try {
+        const [boards, allRows, fresh] = await Promise.all([api.getBoards(), api.getRows(settings.boardId), api.getHomeSettings()])
+        const cur = { ...settings, ...(fresh ?? {}) }
+        const b = boards.find((x) => x.id === cur.boardId)
+        if (b) {
+          const vizyonProp = resolveRole(b, 'vizyon')
+          const today = todayIso()
+          const released = allRows.filter((r) => {
+            const v = vizyonProp ? r.values[vizyonProp.id] : null
+            return !(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && v.slice(0, 10) > today)
+          })
+          const f = cur.randomPickerFilter
+          const base = filterByYears(b, f && hasActiveFilter(f) ? rowsForFilter(f, released) : released, cur.randomPickerYears)
+          const pref = cur.randomPickerImageShape === 'dikey' || cur.randomPickerImageShape === 'yatay' ? cur.randomPickerImageShape : null
+          const columns = await classifyImageColumns(b, allRows)
+          setWizard({ board: b, rows: base.filter((r) => pickImage(r, columns, pref)), columns, pref })
+          setPhase('wizard')
+        }
+      } catch (e) {
+        notify(e instanceof Error ? e.message : tt('Bir şeyler ters gitti.'), 'danger')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+    const ans = answersRef.current
     if (!settings.boardId) {
       notify(tt('Önce Ana Sayfa Ayarları\'ndan bir arşiv seçmelisin.'), 'danger')
       return
@@ -271,6 +312,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
           return !(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && v.slice(0, 10) > today)
         })
         let base = filterByYears(b, filter && hasActiveFilter(filter) ? rowsForFilter(filter, released) : released, current.randomPickerYears)
+        if (ans) base = applyWizard(b, base, ans)
         // Süre: Süre sütunu dolu ve sınırdan uzun olanlar çıkar (dizilerde genelde boş, kalırlar)
         const maxMin = current.randomPickerMaxMinutes
         const sureProp = resolveRole(b, 'sure')
@@ -339,8 +381,24 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
         eliminateDelay: i === 0 || nonWinnerCount <= 1 ? 0 : ((i - 1) / (nonWinnerCount - 1)) * (eliminateWindow - ELIMINATE_ITEM_MS),
       }))
       setBoard(b)
-      setCandidates(laidOut)
+      setPoolRows(allRows)
       setWinnerId(winner.key)
+      // Ekstralar: üç aday ya da seçilen animasyon; ikisi de kapalıysa klasik dağılma
+      if (extras.pickerTrio && rest.length >= 2) {
+        const title = (e: Entry) => (e.row ? rowTitle(b, e.row) : (e.tmdb?.title ?? ''))
+        setTrio(shuffle([laidOut[0], laidOut[1], laidOut[2]]).map((c) => ({ ...c, title: title(c) })))
+        setCandidates([])
+        setPhase('trio')
+        return
+      }
+      const want = current.pickerAnim ?? 'klasik'
+      if (want !== 'klasik' && laidOut.length >= 4) {
+        setAnimKind(want === 'karisik' ? (['cark', 'slot', 'deste', 'serit'] as const)[Math.floor(Math.random() * 4)] : want)
+        setCandidates(laidOut)
+        setPhase('anim')
+        return
+      }
+      setCandidates(laidOut)
       setPhase('entering')
     } catch (e) {
       notify(e instanceof Error ? e.message : tt('Bir şeyler ters gitti.'), 'danger')
@@ -478,6 +536,21 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
     setResult(null)
     setFiltersOpen(false)
   }
+  // Ekstralar › Bitiş saati: sonuç ekranında Boşluk tuşu tekrar getirir
+  useEffect(() => {
+    if (phase !== 'result' || !extras.pickerEndTime || openRow || openTmdb || filtersOpen) return
+    function onKey(e: KeyboardEvent) {
+      if (e.code !== 'Space') return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.isContentEditable)) return
+      e.preventDefault()
+      void handleClick(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, extras.pickerEndTime, openRow, openTmdb, filtersOpen])
+
   useEffect(() => {
     if (phase === 'idle' || openRow || openTmdb) return
     function onKey(e: KeyboardEvent) {
@@ -491,7 +564,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
   }, [phase, openRow, openTmdb, filtersOpen])
 
   const captionText =
-    phase === 'entering' ? tt('Karıştırılıyor...') : phase === 'eliminating' ? tt('Eleniyor...') : phase === 'growing' ? tt('Bu nasıl?') : ''
+    phase === 'entering' || phase === 'anim' ? tt('Karıştırılıyor...') : phase === 'eliminating' ? tt('Eleniyor...') : phase === 'growing' ? tt('Bu nasıl?') : ''
 
   clickRef.current = () => {
     void handleClick()
@@ -524,7 +597,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
                 className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[70vmin] w-[70vmin] rounded-full blur-3xl opacity-20"
                 style={{ background: 'radial-gradient(circle, #00c0fa 0%, #015eea 45%, transparent 70%)' }}
               />
-              {phase !== 'result' && (
+              {phase !== 'result' && phase !== 'wizard' && phase !== 'trio' && (
               <div className="safe-shift absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 backdrop-blur-sm px-4 py-2">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-[#00c0fa] opacity-60 animate-ping" />
@@ -571,6 +644,8 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
                   cover={result.cover}
                   landscape={result.landscape}
                   swap={swap}
+                  extrasEndTime={Boolean(extras.pickerEndTime)}
+                  allRows={poolRows}
                   onAgain={() => handleClick(true)}
                   // Sonuç ekranı arkada açık kalıyor — pencere kapanınca aynı sonuca geri dönülür.
                   onOpenRow={(r) => setOpenRow(r)}
@@ -599,7 +674,43 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
                   </div>
                 </div>
               )}
-              {candidates.map((c) => {
+              {phase === 'wizard' && wizard && (
+                <PickWizard
+                  board={wizard.board}
+                  rows={wizard.rows}
+                  covers={(r) => pickImage(r, wizard.columns, wizard.pref)?.url ?? ''}
+                  onCancel={cancelPick}
+                  onGo={(a) => {
+                    setWizard(null)
+                    void handleClick(true, a)
+                  }}
+                />
+              )}
+              {phase === 'trio' && (
+                <PickTrio
+                  items={trio}
+                  onFinal={(c) => {
+                    setResult(c)
+                    setPhase('result')
+                  }}
+                />
+              )}
+              {phase === 'anim' && (
+                <PickAnimation
+                  kind={animKind}
+                  items={candidates.map((c) => ({ key: c.key, cover: c.cover }))}
+                  winnerKey={winnerId ?? ''}
+                  onDone={() => {
+                    const w = candidates.find((c) => c.key === winnerId)
+                    setCandidates([])
+                    if (w) {
+                      setResult(w)
+                      setPhase('result')
+                    } else setPhase('idle')
+                  }}
+                />
+              )}
+              {['entering', 'eliminating', 'growing', 'fading'].includes(phase) && candidates.map((c) => {
                 const isWinner = c.key === winnerId
                 const cover = c.cover
                 // 'entering' fazında kendi sırası gelmeden (bkz. yukarıdaki `revealed` effect'i)
