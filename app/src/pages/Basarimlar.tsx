@@ -1,20 +1,28 @@
-import { useEffect, useId, useMemo, useState } from 'react'
-import type { WatchedMap } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import type { Board, Row, WatchedMap } from '../types'
+import { titleText } from '../types'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useProfiles } from '../hooks/useProfiles'
+import { useEscape } from '../hooks/useEscape'
 import { api } from '../lib/api'
-import { computeAchievements, countDone, TIER_COLORS, TIER_NAMES, unlockedDatesKey, type Achievement } from '../lib/achievements'
+import { computeAchievements, countDone, GROUP_NAMES, TIER_COLORS, TIER_NAMES, unlockedDatesKey, type Achievement, type AchievementGroup } from '../lib/achievements'
+import { resolveRole } from '../lib/roles'
 import { fmtDate, tt } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
 import Icon from '../components/Icon'
+import AchievementMedal from '../components/AchievementMedal'
+import RowDetailModal from '../components/RowDetailModal'
 
-// Başarımlar sayfası (Ayarlar › Profil Ayarları › Profil menüsündeki sayfalar). v1.23.5'te yenilendi — kullanıcı
-// "başarımlar daha da güzelleşebilir" dedi: emojiler yerine madalyalar (dış halka seviyenin metali: bronz, gümüş, altın;
-// içi rozetin kendi rengi ve ikonu), sıradaki seviyeye ilerleme halkası, "yakında" listesi ve süzgeç.
+// Başarımlar sayfası (Ayarlar › Profil Ayarları › Profil menüsündeki sayfalar). v1.23.5: madalyalar ve seviyeler.
+// v1.23.6 — kullanıcı "başarımların sayısını arttır, çizimleri güzelleştir, tıklayınca ilgili içerikleri göstersin, bitmiş
+// başarımın açıklamasını göremiyorum" dedi: 29 rozet gruplar halinde, süslü madalyalar (bkz. AchievementMedal), her
+// kartta ne için verildiği her zaman yazıyor, tıklayınca seviyeler ve rozete sayılan yapımların afişleri açılıyor.
 
 type Filter = 'hepsi' | 'kazanilan' | 'devam'
+const GROUPS: AchievementGroup[] = ['izleme', 'tur', 'kesif', 'puan', 'aliskanlik']
 
 export default function Basarimlar() {
   const { settings } = useHomeSettings()
@@ -24,6 +32,7 @@ export default function Basarimlar() {
   const [watched, setWatched] = useState<WatchedMap>({})
   const [universesDone, setUniversesDone] = useState(0)
   const [filter, setFilter] = useState<Filter>('hepsi')
+  const [openId, setOpenId] = useState<string | null>(null)
   useEffect(() => {
     api.getWatched().then(setWatched).catch(() => {})
     if (settings.boardId) api.getEvrenler(settings.boardId).then((d) => setUniversesDone(countDone(d.universes))).catch(() => {})
@@ -49,6 +58,8 @@ export default function Basarimlar() {
     .slice(0, 3)
   const shown = list.filter((a) => (filter === 'kazanilan' ? a.level > 0 : filter === 'devam' ? a.level < 3 : true))
   const C = 2 * Math.PI * 52
+  const open = list.find((a) => a.id === openId) ?? null
+  let idx = 0
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
@@ -89,7 +100,7 @@ export default function Basarimlar() {
             <div className="w-full lg:w-80 space-y-2.5">
               <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{tt('Yakında')}</p>
               {next.map(({ a, p }) => (
-                <div key={a.id} className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-2">
+                <button key={a.id} onClick={() => setOpenId(a.id)} className="flex w-full items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-left hover:border-neutral-600 transition">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white" style={{ background: `linear-gradient(135deg,${a.colors[0]},${a.colors[1]})` }}>
                     <Icon name={a.icon} className="h-4 w-4" />
                   </span>
@@ -104,7 +115,7 @@ export default function Basarimlar() {
                       <span className="block h-full rounded-full" style={{ width: `${p * 100}%`, background: `linear-gradient(90deg,${TIER_COLORS[a.level + 1][0]},${TIER_COLORS[a.level + 1][1]})` }} />
                     </span>
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -125,11 +136,27 @@ export default function Basarimlar() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {shown.map((a, i) => (
-          <BadgeCard key={a.id} a={a} index={i} date={a.level > 0 ? dates[`${a.id}:${a.level}`] : undefined} />
-        ))}
-      </div>
+      {GROUPS.map((g) => {
+        const items = shown.filter((a) => a.group === g)
+        if (!items.length) return null
+        return (
+          <section key={g}>
+            <h2 className="mb-3 flex items-baseline gap-2 text-lg font-bold text-neutral-100">
+              {GROUP_NAMES()[g]}
+              <span className="text-xs font-medium text-neutral-500">
+                {items.filter((a) => a.level > 0).length}/{items.length}
+              </span>
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {items.map((a) => (
+                <BadgeCard key={a.id} a={a} index={idx++} date={a.level > 0 ? dates[`${a.id}:${a.level}`] : undefined} onOpen={() => setOpenId(a.id)} />
+              ))}
+            </div>
+          </section>
+        )
+      })}
+
+      {open && <BadgeDetail a={open} board={board} dates={dates} onClose={() => setOpenId(null)} />}
     </div>
   )
 }
@@ -140,95 +167,118 @@ function progressOf(a: Achievement): number {
   return Math.max(0, Math.min(1, (a.value - from) / Math.max(1, a.goal - from)))
 }
 
-function BadgeCard({ a, index, date }: { a: Achievement; index: number; date?: string }) {
+const fmt = (d: string) => fmtDate(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)))
+const hintOf = (a: Achievement, tier: number) => a.hint.replace('{0}', String(a.tiers[tier]))
+
+function BadgeCard({ a, index, date, onOpen }: { a: Achievement; index: number; date?: string; onOpen: () => void }) {
   const p = progressOf(a)
   const max = a.level >= 3
   return (
-    <div
-      className="group relative flex flex-col items-center rounded-2xl border border-neutral-800 bg-neutral-900/50 px-3 pt-5 pb-4 text-center transition duration-300 hover:-translate-y-1 hover:border-neutral-700 hover:bg-neutral-900"
-      style={{ animation: `pickIn .45s cubic-bezier(.2,.8,.2,1) ${index * 0.035}s both` }}
+    <button
+      onClick={onOpen}
+      className="group relative flex flex-col items-center rounded-2xl border border-neutral-800 bg-neutral-900/50 px-3 pt-4 pb-4 text-center transition duration-300 hover:-translate-y-1 hover:border-neutral-600 hover:bg-neutral-900"
+      style={{ animation: `pickIn .45s cubic-bezier(.2,.8,.2,1) ${Math.min(index, 30) * 0.03}s both` }}
     >
-      <Medal a={a} progress={p} />
-      <p className="mt-3 text-sm font-bold text-neutral-100">{a.title}</p>
+      <AchievementMedal a={a} progress={p} size={96} />
+      <p className="mt-1 text-sm font-bold text-neutral-100">{a.title}</p>
       <p className="text-[11px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: a.level ? TIER_COLORS[a.level][1] : 'var(--color-neutral-500)' }}>
         {TIER_NAMES()[a.level]}
       </p>
-      <p className="mt-1.5 text-xs text-neutral-400 leading-snug min-h-[2.5em]">{max ? tt('En üst seviye!') : a.hint.replace('{0}', String(a.goal))}</p>
+      {/* ne için verildiği her zaman görünsün; bitmişse en üst seviyenin hedefi ve "Tamamlandı" */}
+      <p className="mt-1.5 text-xs text-neutral-400 leading-snug min-h-[2.5em]">{hintOf(a, Math.min(a.level, 2))}</p>
       <div className="mt-2 flex items-center gap-1.5">
         {[1, 2, 3].map((t) => (
           <span key={t} className="h-1.5 w-6 rounded-full" style={{ background: a.level >= t ? `linear-gradient(90deg,${TIER_COLORS[t][0]},${TIER_COLORS[t][1]})` : 'var(--color-neutral-800)' }} />
         ))}
       </div>
-      <p className="mt-1.5 text-[10px] text-neutral-500 tabular-nums">{max ? (date ? fmtDate(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))) : a.value) : `${Math.min(a.value, a.goal)} / ${a.goal}`}</p>
-    </div>
-  )
-}
-
-// Madalya: tırtıllı dış halka seviyenin metalinden, içte rozetin renginde daire ve ikonu; kilitliyse soluk. Etrafında
-// sıradaki seviyeye ilerleme halkası. Üstüne gelince ışık süzülür.
-function Medal({ a, progress }: { a: Achievement; progress: number }) {
-  const id = useId().replace(/:/g, '')
-  const metal = TIER_COLORS[a.level]
-  const seal = useMemo(() => {
-    const pts: string[] = []
-    for (let i = 0; i < 32; i++) {
-      const r = i % 2 ? 41 : 45
-      const an = (i / 32) * Math.PI * 2 - Math.PI / 2
-      pts.push(`${(50 + Math.cos(an) * r).toFixed(2)},${(50 + Math.sin(an) * r).toFixed(2)}`)
-    }
-    return pts.join(' ')
-  }, [])
-  const C = 2 * Math.PI * 48.5
-  const locked = a.level === 0
-  return (
-    <div className="relative h-24 w-24">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full overflow-visible">
-        <defs>
-          <linearGradient id={`m${id}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor={metal[1]} />
-            <stop offset=".5" stopColor={metal[0]} />
-            <stop offset="1" stopColor={metal[1]} />
-          </linearGradient>
-          <linearGradient id={`c${id}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor={a.colors[1]} />
-            <stop offset="1" stopColor={a.colors[0]} />
-          </linearGradient>
-          <clipPath id={`k${id}`}>
-            <circle cx="50" cy="50" r="33" />
-          </clipPath>
-        </defs>
-        {a.level < 3 && (
-          <>
-            <circle cx="50" cy="50" r="48.5" fill="none" stroke="var(--color-neutral-800)" strokeWidth="2.2" />
-            <circle
-              cx="50"
-              cy="50"
-              r="48.5"
-              fill="none"
-              stroke={`url(#m${id})`}
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeDasharray={`${progress * C} ${C}`}
-              transform="rotate(-90 50 50)"
-              style={{ stroke: locked ? '#00c0fa' : undefined }}
-            />
-          </>
+      <p className="mt-1.5 text-[10px] text-neutral-500 tabular-nums">
+        {max ? (
+          <span className="inline-flex items-center gap-1 text-amber-300/90">
+            <Icon name="check" className="h-3 w-3" />
+            {tt('Tamamlandı')}
+            {date ? ` · ${fmt(date)}` : ''}
+          </span>
+        ) : (
+          `${Math.min(a.value, a.goal)} / ${a.goal}`
         )}
-        <g style={{ filter: locked ? 'grayscale(1) brightness(.45)' : `drop-shadow(0 4px 10px ${a.colors[0]}88)` }}>
-          <polygon points={seal} fill={`url(#m${id})`} />
-          <circle cx="50" cy="50" r="36" fill="none" stroke="rgba(0,0,0,.35)" strokeWidth="1.5" />
-          <circle cx="50" cy="50" r="33" fill={`url(#c${id})`} />
-          <g clipPath={`url(#k${id})`}>
-            <rect x="-60" y="0" width="30" height="100" fill="rgba(255,255,255,.35)" transform="skewX(-20)" className="transition-transform duration-700 ease-out group-hover:translate-x-[150px]" />
-          </g>
-          <circle cx="50" cy="50" r="33" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="1" />
-        </g>
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-white" style={{ opacity: locked ? 0.35 : 1, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.45))' }}>
-        <Icon name={a.icon} className="h-9 w-9" />
-      </span>
-      {a.level === 3 && <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-amber-950" style={{ background: 'linear-gradient(135deg,#fde68a,#f59e0b)' }}><Icon name="star" className="h-3 w-3" /></span>}
-    </div>
+      </p>
+    </button>
   )
 }
 
+const PAGE = 48
+
+function BadgeDetail({ a, board, dates, onClose }: { a: Achievement; board: Board; dates: Record<string, string>; onClose: () => void }) {
+  const [detail, setDetail] = useState<Row | null>(null)
+  const [limit, setLimit] = useState(PAGE)
+  useEscape(!detail, onClose)
+  const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const poster = resolveRole(board, 'poster')
+  const banner = resolveRole(board, 'banner')
+  const img = (r: Row) => String((poster && r.values[poster.id]) || (banner && r.values[banner.id]) || '')
+  return createPortal(
+    <>
+    {/* bir yapımın detayı açıkken rozet penceresi gizlenir (detay onun arkasında kalıyordu), kapanınca geri gelir */}
+    <div className={`fixed inset-0 z-[70] ${detail ? 'hidden' : 'flex'} items-start justify-center overflow-y-auto bg-black/75 backdrop-blur-sm p-4 sm:p-8`} onClick={onClose}>
+      <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 shadow-2xl" onClick={(e) => e.stopPropagation()} style={{ animation: 'argus-toast-in .25s ease-out' }}>
+        <div className="relative px-6 pt-6 pb-5 sm:px-8" style={{ background: `radial-gradient(ellipse at 15% 0%, ${a.colors[0]}66, transparent 60%), radial-gradient(ellipse at 90% 0%, ${TIER_COLORS[a.level][0]}40, transparent 60%)` }}>
+          <button onClick={onClose} className="absolute right-4 top-4 rounded-full bg-black/40 px-3 py-1 text-sm text-neutral-300 hover:text-white transition">
+            {tt('Kapat')}
+          </button>
+          <div className="group flex flex-wrap items-center gap-6">
+            <AchievementMedal a={a} progress={progressOf(a)} size={132} />
+            <div className="min-w-[220px] flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: a.level ? TIER_COLORS[a.level][1] : 'var(--color-neutral-500)' }}>
+                {TIER_NAMES()[a.level]}
+              </p>
+              <h2 className="text-3xl font-black text-neutral-50">{a.title}</h2>
+              <p className="mt-1 text-sm text-neutral-300">{a.about}</p>
+              <div className="mt-4 grid gap-1.5 sm:grid-cols-3">
+                {[0, 1, 2].map((t) => {
+                  const ok = a.level > t
+                  const d = dates[`${a.id}:${t + 1}`]
+                  return (
+                    <div key={t} className={`rounded-xl border px-3 py-2 ${ok ? 'border-neutral-700 bg-neutral-900' : 'border-neutral-800 bg-neutral-900/40'}`}>
+                      <p className="flex items-center gap-1.5 text-xs font-bold" style={{ color: ok ? TIER_COLORS[t + 1][1] : 'var(--color-neutral-500)' }}>
+                        <span className="h-2 w-2 rounded-full" style={{ background: ok ? TIER_COLORS[t + 1][1] : 'var(--color-neutral-700)' }} />
+                        {TIER_NAMES()[t + 1]}
+                        {ok && <Icon name="check" className="h-3 w-3" />}
+                      </p>
+                      <p className="mt-0.5 text-xs text-neutral-300">{hintOf(a, t)}</p>
+                      <p className="mt-0.5 text-[10px] text-neutral-500 tabular-nums">{ok ? (d ? fmt(d) : tt('Kazanıldı')) : `${Math.min(a.value, a.tiers[t])} / ${a.tiers[t]}`}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="px-6 pb-7 sm:px-8">
+          <p className="mb-3 text-sm font-semibold text-neutral-200">
+            {a.related.length ? tt('Bu rozete sayılanlar ({0})', a.related.length) : a.id === 'evren' ? tt('Evrenler sayfasından takip edebilirsin.') : tt('Henüz bu rozete sayılan bir yapım yok.')}
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
+            {a.related.slice(0, limit).map(({ row, note }) => (
+              <button key={row.id + (note ?? '')} onClick={() => setDetail(row)} className="group/p text-left">
+                <span className="block aspect-[2/3] overflow-hidden rounded-lg bg-neutral-800 ring-1 ring-neutral-800 transition group-hover/p:ring-[#00c0fa]/60">
+                  {img(row) ? <img src={img(row)} alt="" loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover/p:scale-105" /> : null}
+                </span>
+                <span className="mt-1 block truncate text-xs text-neutral-300">{tp ? titleText(tp, row.values[tp.id]) : ''}</span>
+                {note && <span className="block truncate text-[10px] text-neutral-500">{note}</span>}
+              </button>
+            ))}
+          </div>
+          {a.related.length > limit && (
+            <button onClick={() => setLimit((l) => l + PAGE * 2)} className="mt-4 rounded-full border border-neutral-700 px-4 py-1.5 text-sm text-neutral-300 hover:text-white transition">
+              {tt('Daha fazla göster ({0})', a.related.length - limit)}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+    {/* detay, rozet penceresinin dışında: içindeki tıklamalar rozet penceresini kapatmasın */}
+    {detail && <RowDetailModal board={board} row={detail} onClose={() => setDetail(null)} />}
+    </>,
+    document.body,
+  )
+}

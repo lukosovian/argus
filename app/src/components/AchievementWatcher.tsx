@@ -12,6 +12,8 @@ import { tt } from '../lib/i18n'
 
 // Başarımlar (v1.23.4, seviyeli v1.23.5): veri değişince rozetleri yeniden hesaplar; yeni kazanılan seviye için zile
 // bildirim ve ekranda kısa bir kutlama. İlk açılışta zaten kazanılmış olanlar sessizce kaydedilir (geriye dönük yağmur olmasın).
+const listKey = (pid: string) => `argus_basarim_liste_${pid}`
+
 export default function AchievementWatcher({ profileId }: { profileId: string }) {
   const { settings } = useHomeSettings()
   const { board } = useBoard(settings.boardId ?? undefined)
@@ -41,6 +43,12 @@ export default function AchievementWatcher({ profileId }: { profileId: string })
     try {
       const raw = localStorage.getItem(unlockedKey2(profileId))
       seen = raw ? JSON.parse(raw) : null
+      // rozet listesi büyüdüyse (v1.23.6: 14 → 29) yeni rozetlerin zaten kazanılmış seviyeleri sessizce kaydedilsin
+      const ids = list.map((a) => a.id).sort().join(',')
+      if (localStorage.getItem(listKey(profileId)) !== ids) {
+        localStorage.setItem(listKey(profileId), ids)
+        if (seen) seen = [...seen, ...keys.filter((k) => !list.some((a) => (seen as string[]).some((x) => x.startsWith(a.id + ':')) && k.startsWith(a.id + ':')))]
+      }
       dates = JSON.parse(localStorage.getItem(unlockedDatesKey(profileId)) ?? '{}')
     } catch {
       seen = null

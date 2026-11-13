@@ -4260,3 +4260,58 @@ export function PaylasHedefVisual() {
     </Frame>
   )
 }
+
+// v1.23.6 — süslü madalyalar ve rozete tıklayınca ilgili yapımlar
+export function BasarimDetayVisual() {
+  const seal = Array.from({ length: 28 }, (_, i) => {
+    const r = i % 2 ? 17 : 19.5
+    const a = (i / 28) * Math.PI * 2
+    return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`
+  }).join(' ')
+  return (
+    <Frame viewBox={VB}>
+      {[0, 1, 2].map((i) => (
+        <g key={i} transform={`translate(${34 + i * 46} 52)`}>
+          {i === 2 && [0, 1, 2, 3, 4, 5, 6, 7].map((k) => <path key={k} d="M0 0 L-2 -30 L2 -30 Z" fill="#fde68a" opacity={0.35} transform={`rotate(${k * 45})`} />)}
+          <path d="M-8 14 L-14 36 L-9 32 L-6 37 L-1 17 Z" fill={['#1e3a8a', '#7f1d1d', '#065f46'][i]} />
+          <path d="M8 14 L14 36 L9 32 L6 37 L1 17 Z" fill={['#1e3a8a', '#7f1d1d', '#065f46'][i]} />
+          {i >= 1 && [0, 1, 2, 3].map((k) => (
+            <g key={k}>
+              <ellipse cx={-21 + k * 2} cy={12 - k * 8} rx={3.5} ry={1.5} fill={i === 2 ? '#fde68a' : '#e2e8f0'} transform={`rotate(${-60 + k * 20} ${-21 + k * 2} ${12 - k * 8})`} />
+              <ellipse cx={21 - k * 2} cy={12 - k * 8} rx={3.5} ry={1.5} fill={i === 2 ? '#fde68a' : '#e2e8f0'} transform={`rotate(${60 - k * 20} ${21 - k * 2} ${12 - k * 8})`} />
+            </g>
+          ))}
+          <polygon points={seal} fill={['#f0b07a', '#e2e8f0', '#fde68a'][i]} />
+          <circle r={13.5} fill={['#3b82f6', '#ef4444', '#34d399'][i]} />
+          {i === 2 && <path d="M0 -27 l1.6 3.3 3.6.5-2.6 2.5.6 3.6L0 -18.4l-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#fde68a" />}
+        </g>
+      ))}
+      <g transform="translate(160 14)">
+        <rect width={152} height={152} rx={8} className="fill-neutral-900" stroke={ACCENT} strokeOpacity={0.5} />
+        <circle cx={24} cy={26} r={13} fill="#fde68a" />
+        <rect x={44} y={16} width={60} height={8} rx={2} className="fill-neutral-300" />
+        <rect x={44} y={29} width={90} height={5} rx={2} className="fill-neutral-600" />
+        {[0, 1, 2].map((k) => (
+          <rect key={k} x={10 + k * 46} y={46} width={42} height={18} rx={3} className="fill-neutral-800" />
+        ))}
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => (
+          <rect key={k} x={10 + (k % 4) * 34} y={74 + Math.floor(k / 4) * 38} width={28} height={34} rx={3} className={k === 0 ? 'fill-neutral-400' : 'fill-neutral-700'} stroke={k === 0 ? ACCENT : 'none'} />
+        ))}
+      </g>
+      <rect x={14} y={112} width={136} height={50} rx={6} className="fill-neutral-900" />
+      <text x={22} y={130} fontSize={7} className="fill-neutral-200" style={{ fontFamily: 'inherit', fontWeight: 700 }}>
+        {tt('Sinefil')}
+      </text>
+      <text x={22} y={144} fontSize={6} className="fill-neutral-400" style={{ fontFamily: 'inherit' }}>
+        {tt('1000 yapım izle')}
+      </text>
+      <text x={22} y={155} fontSize={6} fill="#fcd34d" style={{ fontFamily: 'inherit' }}>
+        {tt('Tamamlandı')}
+      </text>
+      <Pin x={22} y={18} n={1} />
+      <Pin x={140} y={118} n={2} />
+      <Pin x={306} y={18} n={3} />
+      <Pin x={306} y={80} n={4} />
+    </Frame>
+  )
+}

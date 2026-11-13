@@ -346,3 +346,10 @@ html.argus-mobile .fixed.inset-0 {
 html.argus-mobile .safe-shift {
   margin-top: env(safe-area-inset-top);
 }
+
+/* Altın madalyanın arkasındaki ışınlar (bkz. AchievementMedal.tsx) */
+@keyframes argus-madalya-don {
+  to {
+    transform: rotate(360deg);
+  }
+}

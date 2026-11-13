@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,18 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.6',
+    date: tt('13 Kasım 2026'),
+    title: tt('Başarımlar: 29 rozet, süslü madalyalar ve ilgili yapımlar'),
+    items: [
+      tt('yeni: 15 yeni rozet: Uzun Soluklu, Arşivci, Gülme Krizi, Uzay Yolcusu, Çizgi Kalpli, Dedektif, Adrenalin, Romantik, Meraklı, Yerli Malı, Klasikçi, Vizyon Avcısı, Acımasız, Yılın İzleyicisi ve Ayın Yıldızı. Rozetler İzleme, Türler, Keşif, Puanlar ve Alışkanlıklar diye gruplandı.'),
+      tt('iyi: Madalyalar seviyeyle süsleniyor: bronzda kurdele, gümüşte defne dalları, altında arkada dönen ışınlar ve tepede yıldız. Kilitli olanlarda kilit var.'),
+      tt('yeni: Bir rozete tıklayınca penceresi açılıyor: ne için verildiği (ör. "En çok bölüm izlediğin gün: 04.09.2019, 67 bölüm"), üç seviyenin hedefleri ve kazanılma tarihleri, altında da o rozete sayılan yapımların afişleri. Afişe tıklayınca yapımın detayı açılıyor.'),
+      tt('duz: Bitmiş rozetlerde ne için verildiği görünmüyordu; artık hedefi ve "Tamamlandı" yazıyor.'),
+    ],
+    visuals: [{ caption: tt('1 bronz, gümüş, altın madalyalar · 2 bitmiş rozetin açıklaması · 3 rozet penceresi ve seviyeler · 4 rozete sayılan yapımlar'), Visual: BasarimDetayVisual }],
+  },
   {
     version: 'v1.23.5',
     date: tt('13 Kasım 2026'),
