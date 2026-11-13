@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,15 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.8',
+    date: tt('13 Kasım 2026'),
+    title: tt('Arşiv tablosu yine açılıyor'),
+    items: [
+      tt('duz: Arşiv tablosu açılırken sayfa boş kalıyordu (v1.23.4\'teki "Yeni ekle" kısayolu yüzünden). Düzeldi.'),
+    ],
+    visuals: [{ caption: tt('1 arşiv tablosu yine açılıyor'), Visual: TabloAcilisVisual }],
+  },
   {
     version: 'v1.23.7',
     date: tt('13 Kasım 2026'),

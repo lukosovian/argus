@@ -4336,3 +4336,23 @@ export function IsiHaritaBolumVisual() {
     </Frame>
   )
 }
+
+// v1.23.8 — arşiv tablosu açılırken çöküyordu
+export function TabloAcilisVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <rect x={20} y={20} width={280} height={140} rx={8} className="fill-neutral-900" />
+      <rect x={34} y={32} width={110} height={10} rx={3} className="fill-neutral-300" />
+      <rect x={34} y={48} width={160} height={6} rx={3} className="fill-neutral-600" />
+      {[0, 1, 2, 3, 4, 5].map((k) => (
+        <g key={k}>
+          <rect x={34} y={66 + k * 15} width={252} height={11} rx={2} className={k % 2 ? 'fill-neutral-800' : 'fill-neutral-800/60'} />
+          <rect x={40} y={68 + k * 15} width={8} height={7} rx={1} className="fill-neutral-500" />
+          <rect x={54} y={69 + k * 15} width={70 + ((k * 23) % 50)} height={5} rx={2} className="fill-neutral-400" />
+          <rect x={220} y={69 + k * 15} width={40} height={5} rx={2} fill={ACCENT} opacity={0.6} />
+        </g>
+      ))}
+      <Pin x={26} y={26} n={1} />
+    </Frame>
+  )
+}

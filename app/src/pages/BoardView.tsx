@@ -1319,6 +1319,21 @@ export default function BoardView() {
   )
   const incompleteRowsForHealth = useMemo(() => rows.filter(isIncomplete), [rows, isIncomplete])
 
+  // (v1.23.8) bu hook'lar erken return'ün üstünde olmalı, yoksa tablo açılırken React çöküyordu
+  // ?yeni=1 (arama komutu / profil menüsündeki "Yeni ekle", v1.23.4): tablo yüklenince bir kez yeni satır açılır
+  const yeniParam = searchParams.get('yeni')
+  const yeniDone = useRef(false)
+  const createRowRef = useRef<(() => Promise<void>) | null>(null)
+  useEffect(() => {
+    if (!yeniParam || yeniDone.current || !board || rowsLoading) return
+    yeniDone.current = true
+    void createRowRef.current?.()
+    const next = new URLSearchParams(searchParams)
+    next.delete('yeni')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yeniParam, board, rowsLoading])
+
   if (boardLoading || boardsLoading) return <PageSkeleton kind="table" />
   if (!board) {
     // boards.length 1 ya da >1 ise yukarıdaki effect zaten yönlendirmiş olacak (o gerçekleşene
@@ -1647,18 +1662,7 @@ export default function BoardView() {
     const row = await saveRow(emptyRow())
     if (row) setPendingScrollRowId(row.id)
   }
-  // ?yeni=1 (arama komutu / profil menüsündeki "Yeni ekle", v1.23.4): tablo yüklenince bir kez yeni satır açılır
-  const yeniParam = searchParams.get('yeni')
-  const yeniDone = useRef(false)
-  useEffect(() => {
-    if (!yeniParam || yeniDone.current || !board || rowsLoading) return
-    yeniDone.current = true
-    void createRow()
-    const next = new URLSearchParams(searchParams)
-    next.delete('yeni')
-    setSearchParams(next, { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yeniParam, board, rowsLoading])
+  createRowRef.current = createRow
 
   // Satır menüsündeki "Altına Satır Ekle" (ve "Çoğalt") — listenin sonuna değil, tıklanan
   // satırın HEMEN ALTINA düşsün diye yeni satırın `createdAt`'ı o satırla bir sonraki satır

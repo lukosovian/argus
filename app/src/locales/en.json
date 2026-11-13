@@ -3581,5 +3581,8 @@
   "duz: İstatistikler'deki yıl ısı haritası sadece İzleme Tarihi'ne bakıyordu, dizinin yalnızca bitirdiğin günü sayılıyordu; takvimde dolu görünen günler haritada boş kalıyordu. Artık bölüm tikleri de sayılıyor, bir güne gelince \"1 yapım · 6 bölüm\" gibi yazıyor.": "duz: The yearly heat map in Statistics only looked at the Watch Date, so a series only counted on the day you finished it and days that were full in the calendar looked empty. Episode ticks now count too, and hovering a day shows something like \"1 title · 6 episodes\".",
   "1 bölüm izlediğin günler artık dolu · 2 güne gelince yapım ve bölüm sayısı": "1 days you watched episodes are now filled · 2 hover a day for titles and episodes",
   "1 yapım · 6 bölüm": "1 title · 6 episodes",
-  "iyi: Isı haritasında tek bir çok yoğun gün (ör. bölüm maratonu) artık diğer bütün günleri soluk bırakmıyor; renkler günlerin çoğuna göre ayarlanıyor.": "iyi: A single very busy day (like an episode marathon) no longer makes every other day on the heat map look faint; colors now scale to most of your days."
+  "iyi: Isı haritasında tek bir çok yoğun gün (ör. bölüm maratonu) artık diğer bütün günleri soluk bırakmıyor; renkler günlerin çoğuna göre ayarlanıyor.": "iyi: A single very busy day (like an episode marathon) no longer makes every other day on the heat map look faint; colors now scale to most of your days.",
+  "Arşiv tablosu yine açılıyor": "The archive table opens again",
+  "duz: Arşiv tablosu açılırken sayfa boş kalıyordu (v1.23.4'teki \"Yeni ekle\" kısayolu yüzünden). Düzeldi.": "duz: The archive table opened as a blank page (because of the \"Add new\" shortcut from v1.23.4). Fixed.",
+  "1 arşiv tablosu yine açılıyor": "1 the archive table opens again"
 }
