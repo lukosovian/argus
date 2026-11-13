@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,22 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.9',
+    date: tt('13 Kasım 2026'),
+    title: tt('Yeni paylaş kartı ve sade giriş animasyonları'),
+    items: [
+      tt('yeni: Paylaş kartı baştan yapıldı: Hikâye, Gönderi ve Yatay biçimleri; Afiş, Sahne, Bilet ve Sade temaları. Renkler yapımın afişinden geliyor, Sahne temasında yapımın kendi logosu kullanılıyor.'),
+      tt('yeni: Kartta neyin görüneceğini sen seçiyorsun: puanın, yıl/süre/tür, izleme tarihin, profilin ve tek cümlen; üstte "öneriyor", "izledi" ya da hiçbir şey. Seçimlerin hatırlanıyor.'),
+      tt('yeni: Kartı PNG olarak indirebilir ya da panoya kopyalayıp doğrudan bir sohbete yapıştırabilirsin.'),
+      tt('iyi: Giriş animasyonları sadeleşti: projektör, geri sayım ve perde yerine kısa ve sakin üç açılış geldi: İmza, Işık ve Odak. Eskilerden birini seçtiysen İmza oynar.'),
+      tt('iyi: Giriş sesi artık tek, yumuşak ve yankılı bir akor.'),
+    ],
+    visuals: [
+      { caption: tt('1 dört tema · 2 biçim · 3 kartta görünecekler · 4 indir ya da kopyala'), Visual: PaylasKartVisual },
+      { caption: tt('1 İmza · 2 Işık · 3 Odak'), Visual: GirisSadeVisual },
+    ],
+  },
   {
     version: 'v1.23.8',
     date: tt('13 Kasım 2026'),

@@ -104,7 +104,7 @@ const SEARCH: { label: string; tab: Tab; alt?: string; where: string; words?: st
   { label: tt('Yakınlaştırma ve kısayollar'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'zoom yakınlaştır kısayol ctrl' },
   { label: tt('Profil ekle, adı ve resmi'), tab: 'profil', where: tt('Profil Ayarları'), words: 'profil resim ad pin kilit çocuk' },
   { label: tt('Ne İzlesem? seçim animasyonu, üç aday, bu akşam soruları'), tab: 'ana-sayfa', alt: 'nizlesem', where: tt('Ana Sayfa › Ne İzlesem?'), words: 'çark slot deste şerit aday sihirbaz bitiş saati' },
-  { label: tt('Giriş animasyonu'), tab: 'acilis', where: tt('Açılış'), words: 'intro sinema perde geri sayım göz sırayla rastgele ses' },
+  { label: tt('Giriş animasyonu'), tab: 'acilis', where: tt('Açılış'), words: 'intro imza ışık odak logo sırayla rastgele ses akor' },
   { label: tt('Açılış penceresi afiş duvarı'), tab: 'acilis', where: tt('Açılış'), words: 'splash afiş logo' },
   { label: tt('Profil seçince avatar ekrana yayılsın'), tab: 'acilis', where: tt('Açılış'), words: 'kim izliyor geçiş avatar' },
   { label: tt('Duygu avatarı, avatar sekmeleri, kırpma, çerçeveler'), tab: 'profil', where: tt('Profil Ayarları'), words: 'avatar fotoğraf çerçeve kırp duygu' },

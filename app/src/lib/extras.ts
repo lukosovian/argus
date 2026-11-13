@@ -28,7 +28,7 @@ export type ProfileExtra =
 export type DeviceExtra = 'argus_profil_gecis' | 'argus_splash_ciz' | 'argus_intro_ses'
 
 export type PickerAnim = 'klasik' | 'cark' | 'slot' | 'deste' | 'serit' | 'karisik'
-export type IntroStyle = 'kapali' | 'argus' | 'sinema' | 'geri-sayim' | 'perde' | 'sirayla' | 'rastgele'
+export type IntroStyle = 'kapali' | 'argus' | 'isik' | 'odak' | 'sirayla' | 'rastgele'
 
 export function useExtras() {
   const { settings, saveSettings } = useHomeSettings()

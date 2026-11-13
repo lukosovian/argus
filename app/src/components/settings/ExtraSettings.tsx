@@ -3,7 +3,7 @@ import { SettingsSection } from './SettingsUi'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
 import { deviceSet, PICKER_ANIMS, useDevice, useExtras, type DeviceExtra, type IntroStyle, type PickerAnim, type ProfileExtra } from '../../lib/extras'
-import { playIntro } from '../IntroFx'
+import { normalizeIntro, playIntro } from '../IntroFx'
 import { tt } from '../../lib/i18n'
 
 // İsteğe bağlı özelliklerin ayarları (v1.23.4'te tek bir "Ekstralar" sekmesindeydi). Kullanıcı "ilgili yerlere taşı,
@@ -66,18 +66,17 @@ export function PickerExtras() {
 
 export const INTRO_STYLES: { value: IntroStyle; label: string }[] = [
   { value: 'kapali', label: tt('Kapalı') },
-  { value: 'argus', label: tt('ARGUS (göz açılışı)') },
-  { value: 'sinema', label: tt('Sinema projektörü') },
-  { value: 'geri-sayim', label: tt('Film geri sayımı') },
-  { value: 'perde', label: tt('Tiyatro perdesi') },
+  { value: 'argus', label: tt('İmza') },
+  { value: 'isik', label: tt('Işık') },
+  { value: 'odak', label: tt('Odak') },
   { value: 'sirayla', label: tt('Sırayla (her açılışta sıradaki)') },
   { value: 'rastgele', label: tt('Rastgele') },
 ]
-const PREVIEWABLE = ['argus', 'sinema', 'geri-sayim', 'perde'] as const
+const PREVIEWABLE = ['argus', 'isik', 'odak'] as const
 
 // Ayarlar › Açılış (yeni sekme): bu bilgisayarda ARGUS açılırken olanlar
 export function OpeningPanel() {
-  const intro = (useDevice('argus_intro') as IntroStyle | null) ?? 'kapali'
+  const intro = normalizeIntro(useDevice('argus_intro'))
   return (
     <div className="space-y-5">
       <SettingsSection title={tt('Giriş animasyonu')} description={tt('ARGUS penceresi açılınca bir kez oynar. Tıklayınca ya da bir tuşa basınca geçilir. Bu bilgisayar için.')}>
@@ -101,7 +100,7 @@ export function OpeningPanel() {
             ))}
           </div>
         </div>
-        <DeviceToggle k="argus_intro_ses" title={tt('Giriş sesi')} hint={tt('Animasyona eşlik eden kısa bir ses.')} />
+        <DeviceToggle k="argus_intro_ses" title={tt('Giriş sesi')} hint={tt('Animasyona eşlik eden yumuşak, kısa bir akor.')} />
       </SettingsSection>
 
       <SettingsSection title={tt('Açılış penceresi')} description={tt('ARGUS hazırlanırken görünen küçük logolu pencere. Değişiklik bir sonraki açılışta görünür.')}>

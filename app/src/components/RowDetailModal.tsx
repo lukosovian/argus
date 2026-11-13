@@ -486,6 +486,18 @@ export default function RowDetailModal({
   const origProp = resolveRole(board, 'orjinalAdi')
   const origTitle = origProp && typeof row.values[origProp.id] === 'string' ? (row.values[origProp.id] as string).trim() : ''
   const sideCard = 'rounded-2xl border border-neutral-800 bg-neutral-950/40 p-4'
+  // Paylaş kartına giden bilgiler (bkz. ShareCard)
+  function shareData() {
+    const turProp = resolveRole(board, 'tur')
+    const tv = turProp ? row.values[turProp.id] : undefined
+    const genres = (Array.isArray(tv) ? tv : tv ? [tv] : [])
+      .map((id) => turProp?.options?.find((o) => o.id === id)?.label ?? '')
+      .filter(Boolean)
+    const dv = tarihProp ? row.values[tarihProp.id] : undefined
+    const days = (Array.isArray(dv) ? dv : dv ? [dv] : []).map((x) => entryEnd(String(x))).filter((x) => /^d{4}-d{2}-d{2}$/.test(x)).sort()
+    const watchedOn = days.length ? longDate(days[days.length - 1]) : lastEpisode ? longDate(lastEpisode.date) : ''
+    return { poster, cover, logo: titleImage, title, score: avgScore, year: vizyonRaw.slice(0, 4), runtime, genres, watchedOn }
+  }
 
   return (
     // Telefonda tam ekran: görsel durum çubuğunun arkasına kadar uzanır (üstteki boşluk yok, düğmeler aşağı kayar)
@@ -607,7 +619,7 @@ export default function RowDetailModal({
                   </button>
                 )}
               </AklimdaButton>
-              {shareOpen && <ShareCard poster={poster} title={title} score={avgScore} onClose={() => setShareOpen(false)} />}
+              {shareOpen && <ShareCard data={shareData()} onClose={() => setShareOpen(false)} />}
               {editable && (durumProp || tarihProp || puanProp) && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {durumProp?.options?.map((o) => {

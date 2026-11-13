@@ -4356,3 +4356,73 @@ export function TabloAcilisVisual() {
     </Frame>
   )
 }
+
+// v1.23.9 — yeni paylaş kartı: biçimler ve temalar
+export function PaylasKartVisual() {
+  const card = (x: number, w: number, h: number, kind: number) => (
+    <g transform={`translate(${x} ${150 - h})`}>
+      <rect width={w} height={h} rx={5} fill={['#13222c', '#0b0f14', '#1b2a33', '#3b5560'][kind]} />
+      {kind === 0 && <rect x={w * 0.2} y={h * 0.14} width={w * 0.6} height={h * 0.5} rx={3} className="fill-neutral-500" />}
+      {kind === 1 && <rect width={w} height={h * 0.55} rx={5} className="fill-neutral-600" />}
+      {kind === 2 && (
+        <g>
+          <rect x={w * 0.1} y={h * 0.1} width={w * 0.8} height={h * 0.78} rx={3} fill="#f4efe6" />
+          <rect x={w * 0.1} y={h * 0.1} width={w * 0.8} height={h * 0.28} rx={3} className="fill-neutral-600" />
+          <line x1={w * 0.14} x2={w * 0.86} y1={h * 0.7} y2={h * 0.7} stroke="#999" strokeDasharray="2 2" strokeWidth={0.8} />
+        </g>
+      )}
+      {kind === 3 && <rect x={w * 0.5} y={h * 0.5} width={w * 0.45} height={h * 0.5} rx={3} className="fill-neutral-400" transform={`rotate(5 ${w * 0.7} ${h * 0.7})`} />}
+      <rect x={w * 0.15} y={kind === 3 ? h * 0.14 : h * 0.72} width={w * 0.5} height={4} rx={2} fill={kind === 2 ? '#222' : '#e5e7eb'} />
+      <rect x={w * 0.15} y={kind === 3 ? h * 0.24 : h * 0.8} width={w * 0.35} height={3} rx={1.5} fill={kind === 2 ? '#777' : '#6b7280'} />
+    </g>
+  )
+  return (
+    <Frame viewBox={VB}>
+      {card(14, 54, 96, 0)}
+      {card(76, 54, 96, 1)}
+      {card(138, 54, 96, 2)}
+      {card(200, 54, 96, 3)}
+      <rect x={262} y={20} width={50} height={140} rx={6} className="fill-neutral-900" />
+      {[0, 1, 2].map((k) => (
+        <rect key={k} x={268 + k * 14} y={30} width={11} height={12} rx={2} className={k === 0 ? 'fill-sky-500/40' : 'fill-neutral-800'} />
+      ))}
+      {[0, 1, 2, 3].map((k) => (
+        <rect key={k} x={268 + (k % 2) * 20} y={52 + Math.floor(k / 2) * 16} width={18} height={12} rx={2} className="fill-neutral-800" />
+      ))}
+      {[0, 1, 2, 3].map((k) => (
+        <rect key={k} x={268} y={92 + k * 9} width={38} height={6} rx={3} className="fill-neutral-800" />
+      ))}
+      <rect x={268} y={136} width={38} height={10} rx={3} fill={ACCENT} />
+      <Pin x={20} y={44} n={1} />
+      <Pin x={268} y={26} n={2} />
+      <Pin x={268} y={88} n={3} />
+      <Pin x={306} y={134} n={4} />
+    </Frame>
+  )
+}
+
+// v1.23.9 — sade giriş animasyonları
+export function GirisSadeVisual() {
+  return (
+    <Frame viewBox={VB}>
+      {[0, 1, 2].map((i) => (
+        <g key={i} transform={`translate(${12 + i * 102} 30)`}>
+          <rect width={94} height={120} rx={6} fill="#04070a" />
+          {i === 0 && <circle cx={47} cy={52} r={30} fill="#0369a1" opacity={0.25} />}
+          {i === 1 && <rect x={6} y={51} width={82} height={1.5} fill="#7dd3fc" />}
+          {i === 2 && [26, 20, 14].map((r) => <circle key={r} cx={47} cy={52} r={r} fill="none" stroke="#7dd3fc" strokeOpacity={0.5} strokeWidth={0.8} />)}
+          <path d="M47 40 L56 60 L38 60 Z" fill={ACCENT} />
+          <text x={47} y={84} textAnchor="middle" fontSize={7} fill="#e5e7eb" style={{ fontFamily: 'inherit', letterSpacing: '0.5em' }}>
+            ARGUS
+          </text>
+          <text x={47} y={108} textAnchor="middle" fontSize={7} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+            {[tt('İmza'), tt('Işık'), tt('Odak')][i]}
+          </text>
+        </g>
+      ))}
+      <Pin x={18} y={36} n={1} />
+      <Pin x={120} y={36} n={2} />
+      <Pin x={222} y={36} n={3} />
+    </Frame>
+  )
+}
