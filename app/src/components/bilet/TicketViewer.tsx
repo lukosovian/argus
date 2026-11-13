@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { TicketBack, TicketFront, TICKET_RATIO, type BiletItem } from './Ticket'
+import { TicketBack, TicketFront, TICKET_RATIO, useTicketTint, type BiletItem } from './Ticket'
+import { longDay } from '../../lib/bilet'
 import Icon from '../Icon'
 import { useEscape } from '../../hooks/useEscape'
 import { tt } from '../../lib/i18n'
@@ -38,6 +39,7 @@ export default function TicketViewer({
   onOpenRow?: (b: BiletItem) => void
 }) {
   const b = items[index]
+  const tint = useTicketTint(b?.poster || b?.cover)
   const [flipped, setFlipped] = useState(false)
   const [width, setWidth] = useState(() => Math.min(920, window.innerWidth * 0.86, (window.innerHeight - 220) * TICKET_RATIO))
   const pos = useRef<HTMLDivElement>(null)
@@ -105,6 +107,7 @@ export default function TicketViewer({
     el.style.setProperty('--gx', `${(flipped ? 1 - x : x) * 100}%`)
     el.style.setProperty('--gy', `${y * 100}%`)
     el.style.setProperty('--hx', `${(flipped ? 1 - x : x) * 100}%`)
+    el.style.setProperty('--ha', `${Math.round((x + y) * 180)}deg`)
   }
   function leave() {
     if (tilt.current) tilt.current.style.transform = 'rotateX(0) rotateY(0)'
@@ -116,7 +119,14 @@ export default function TicketViewer({
   return createPortal(
     <div className="fixed inset-0 z-[85] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md" onClick={close} style={{ animation: 'argus-fade-in .3s ease-out' }}>
       <style>{CSS}</style>
-      <div ref={pos} onClick={(e) => e.stopPropagation()} className="bilet-stage" style={{ width, height: h, perspective: 1600 }} onPointerMove={move} onPointerLeave={leave}>
+      {/* biletin renginde hafif bir ışık */}
+      <div className="pointer-events-none absolute inset-0 transition-[background] duration-700" style={{ background: `radial-gradient(ellipse 60% 45% at 50% 48%, ${tint.accent}38, transparent 70%)` }} />
+      <p className="relative mb-6 text-center text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-400" onClick={(e) => e.stopPropagation()}>
+        № {String(b.no).padStart(3, '0')}
+        {b.date ? <span className="text-neutral-600">{'  ·  '}</span> : null}
+        {longDay(b.date)}
+      </p>
+      <div ref={pos} onClick={(e) => e.stopPropagation()} className="bilet-stage relative" style={{ width, height: h, perspective: 1600 }} onPointerMove={move} onPointerLeave={leave}>
         <div ref={tilt} className="h-full w-full" style={{ transformStyle: 'preserve-3d', transition: 'transform .18s ease-out' }}>
           <div
             className="relative h-full w-full cursor-pointer"
@@ -133,7 +143,7 @@ export default function TicketViewer({
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+      <div className="relative mt-8 flex flex-wrap items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
         {items.length > 1 && (
           <button onClick={() => go(-1)} className={btn} title="←">
             ‹

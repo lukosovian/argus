@@ -175,7 +175,19 @@ export interface Bilet {
   note?: string
   front?: string
   back?: string
+  // v1.23.12: biletin görseli (seçilen TMDB görseli), konumu ("x y" yüzde), yakınlığı ve tasarımı
+  art?: string
+  artPos?: string
+  artZoom?: string
+  style?: string
   createdAt?: number
+}
+export interface BiletGorsel {
+  path: string
+  kind: 'sahne' | 'afis'
+  w: number
+  h: number
+  text?: boolean
 }
 export interface BiletData {
   items: Record<string, Bilet>
@@ -547,6 +559,9 @@ export const api = {
   platformOzet: (boardId: string, items?: { type: 'movie' | 'tv'; tmdbId: number; title: string; poster: string | null; minutes: number }[]) =>
     request<PlatformOzet>(profilePath(`/platform-ozet/${boardId}`), { method: 'POST', ...json(items ? { items } : {}) }),
   getBiletler: () => request<BiletData>(profilePath('/biletler')),
+  biletGorselleri: (q: { rowId?: string; title?: string; year?: string }) =>
+    request<{ items: BiletGorsel[]; needsApiKey?: boolean }>(profilePath(`/bilet-gorselleri?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`)),
+  biletGorselIndir: (path: string, kind: 'sahne' | 'afis') => request<{ url: string }>(profilePath('/bilet-gorsel'), { method: 'POST', ...json({ path, kind }) }),
   saveBiletler: (items: Record<string, Partial<Record<keyof Bilet, string | null>> | null>) =>
     request<BiletData>(profilePath('/biletler'), { method: 'POST', ...json({ items }) }),
   getAklimda: () => request<AklimdaData>(profilePath('/aklimda')),

@@ -36,6 +36,7 @@ function localOnly(method: string, path: string): Response | null {
 const EMPTY_DEFAULTS: [RegExp, unknown][] = [
   [/\/notifications$/, { items: [] }],
   [/\/biletler$/, { items: {} }],
+  [/\/bilet-gorselleri$/, { items: [] }],
   [/\/recent-watch$/, []],
   [/\/songs\/[^/]+$/, []],
   [/\/templates$/, []],

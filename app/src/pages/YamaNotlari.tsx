@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual, BiletlerimVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual, BiletlerimVisual, BiletTasarimVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,20 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.23.12',
+    date: tt('13 Kasım 2026'),
+    title: tt('Biletlerim: yeni tasarımlar, görselini sen seç'),
+    items: [
+      tt('yeni: Biletin görselini sen seçiyorsun. Düzenle\'de yapımın TMDB\'deki sahneleri ve afişleri listeleniyor; birine tıklayınca bilete o geliyor. Seçtiğin görsel bilgisayara indiriliyor, internet olmadan da görünüyor.'),
+      tt('yeni: Önizlemedeki görseli fareyle sürükleyerek konumlayabilir, alttaki çubukla yakınlaştırabilirsin (ör. karakterin yüzü kesik kalmasın). Sıfırla eski haline döndürür.'),
+      tt('yeni: Üç bilet tasarımı var: Sinema (yapımın görseli ve beyaz koçan), Klasik (krem kağıt, bordo mürekkep, çerçeveli afiş ve damga) ve Altın (siyah zemin, altın varak yazılar ve çerçeve). Her bilet için ayrı seçilir.'),
+      tt('yeni: Sinema ve Altın biletlerin koçanında yanardöner bir hologram mühür var; büyütüp fareyle oynatınca renkleri dönüyor. Altın yazılar da ışıkla parlıyor.'),
+      tt('değişti: Biletlerim duvarı yenilendi: yıllar dikey etiketle yan yana diziliyor, az biletli yıllar boşluk bırakmıyor. Biletin altında koleksiyon numarası, tarihi ve sineması yazıyor; üstüne gelince düzelip parlıyor. Üstteki kartta son üç biletin yelpaze gibi duruyor.'),
+      tt('değişti: Büyütülen biletin arkasında kendi renginde hafif bir ışık var, üstünde numarası ve tarihi yazıyor. Fiyat yalnızca sayıysa yanına ₺ ekleniyor.'),
+    ],
+    visuals: [{ caption: tt('1 TMDB görselleri · 2 sürükleyerek konumla ve yakınlaştır · 3 Sinema / Klasik / Altın tasarımı'), Visual: BiletTasarimVisual }],
+  },
   {
     version: 'v1.23.11',
     date: tt('13 Kasım 2026'),

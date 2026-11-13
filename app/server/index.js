@@ -2428,7 +2428,7 @@ app.post('/api/profiles/:profileId/aklimda', (req, res) => {
 function profileBiletFile(profileId) {
   return path.join(profileDir(profileId), 'biletler.json')
 }
-const BILET_TEXT = ['title', 'poster', 'cover', 'logo', 'year', 'rowId', 'boardId', 'date', 'time', 'cinema', 'hall', 'seat', 'format', 'withWho', 'price', 'note', 'front', 'back']
+const BILET_TEXT = ['title', 'poster', 'cover', 'logo', 'year', 'rowId', 'boardId', 'date', 'time', 'cinema', 'hall', 'seat', 'format', 'withWho', 'price', 'note', 'front', 'back', 'art', 'artPos', 'artZoom', 'style']
 app.get('/api/profiles/:profileId/biletler', (req, res) => {
   const data = readJson(profileBiletFile(req.params.profileId), { items: {} })
   if (!data.items || typeof data.items !== 'object') data.items = {}
@@ -2461,6 +2461,58 @@ app.post('/api/profiles/:profileId/biletler', (req, res) => {
   }
   writeJson(file, data)
   res.json(data)
+})
+
+// Bilet görseli (v1.23.12): kullanıcı "karakterin kafası kesik, TMDB'deki görsellerden ben seçeyim, konumlandırayım"
+// dedi. Yapımın TMDB sahneleri ve afişleri listelenir; seçilen görsel medya klasörüne indirilir (çevrimdışı da görünsün).
+const biletImgCache = new Map()
+app.get('/api/profiles/:profileId/bilet-gorselleri', async (req, res) => {
+  try {
+    const { profileId } = req.params
+    const apiKey = readProfileApiKey(profileId)
+    if (!apiKey) return res.json({ needsApiKey: true, items: [] })
+    let ref = typeof req.query.rowId === 'string' && req.query.rowId ? readJson(profileTmdbFile(profileId), {})[req.query.rowId] : null
+    if (!ref?.id && typeof req.query.title === 'string' && req.query.title.trim()) {
+      const year = String(req.query.year ?? '').slice(0, 4)
+      const r = await tmdbGet('/search/movie', { query: req.query.title.trim(), language: tmdbLang(), ...(year ? { year } : {}) }, apiKey)
+      const hit = r?.results?.[0]
+      if (hit) ref = { id: hit.id, mediaType: 'movie' }
+    }
+    if (!ref?.id || (ref.mediaType !== 'movie' && ref.mediaType !== 'tv')) return res.json({ items: [] })
+    const key = `${ref.mediaType}:${ref.id}`
+    let items = biletImgCache.get(key)
+    if (!items) {
+      const d = await tmdbGet(`/${ref.mediaType}/${ref.id}/images`, { include_image_language: `${serverLang()},en,null` }, apiKey)
+      const byVotes = (a, b) => (b.vote_count ?? 0) - (a.vote_count ?? 0) || (b.vote_average ?? 0) - (a.vote_average ?? 0)
+      const clean = (l) => !l.iso_639_1 || l.iso_639_1 === 'xx'
+      const bs = (d?.backdrops ?? []).filter((b) => (b.width ?? 0) >= 1000)
+      const ps = d?.posters ?? []
+      const map = (kind) => (b) => ({ path: b.file_path, kind, w: b.width, h: b.height, text: !clean(b) })
+      items = [
+        ...bs.filter(clean).sort(byVotes).slice(0, 40).map(map('sahne')),
+        ...bs.filter((b) => !clean(b)).sort(byVotes).slice(0, 12).map(map('sahne')),
+        ...ps.sort(byVotes).slice(0, 24).map(map('afis')),
+      ]
+      biletImgCache.set(key, items)
+    }
+    res.json({ items })
+  } catch (e) {
+    console.error('bilet-gorselleri hata:', e)
+    res.json({ items: [] })
+  }
+})
+app.post('/api/profiles/:profileId/bilet-gorsel', async (req, res) => {
+  const p = String(req.body?.path ?? '')
+  if (!/^\/[A-Za-z0-9_-]{6,80}\.(jpg|jpeg|png|webp)$/i.test(p)) return res.status(400).json({ error: 'path' })
+  const size = req.body?.kind === 'afis' ? 'w780' : 'w1280'
+  const filename = `tmdb_bilet_${size}_${p.slice(1)}`
+  try {
+    if (!(await downloadTmdbImage(`${TMDB_IMG_BASE}/${size}${p}`, path.join(MEDYA_DIR, filename)))) return res.status(502).json({ error: 'indirilemedi' })
+    res.json({ url: `/medya/${filename}` })
+  } catch (e) {
+    console.error('bilet-gorsel hata:', e)
+    res.status(502).json({ error: 'indirilemedi' })
+  }
 })
 
 // Oyuncu / yönetmen sayfası — kullanıcı "oyuncuya tıklayınca arşivimde olmayan filmlerini de göreyim,

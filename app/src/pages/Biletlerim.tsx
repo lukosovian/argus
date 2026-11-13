@@ -3,7 +3,7 @@ import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useToast } from '../hooks/useToast'
-import { saveBilet, sortedBiletler, useBiletler } from '../lib/bilet'
+import { saveBilet, shortDay, sortedBiletler, useBiletler } from '../lib/bilet'
 import { tt } from '../lib/i18n'
 import type { Row } from '../types'
 import { TicketThumb, TICKET_RATIO, type BiletItem } from '../components/bilet/Ticket'
@@ -16,7 +16,15 @@ import Icon from '../components/Icon'
 // Bilete tıklayınca büyür ve çevrilebilir (TicketViewer). Bilet, yapımın detayındaki "Sinemada izledim"den ya da
 // buradaki "+ Bilet ekle"den eklenir.
 
-const THUMB = 300
+const THUMB = 340
+// Duvardaki biletin üstünden geçen ışık (fareyle üstüne gelince)
+const CSS = `
+.bilet-kart { position: relative; }
+.bilet-kart::after { content: ''; position: absolute; inset: 0; border-radius: 0.9em; pointer-events: none; opacity: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.28) 48%, rgba(255,255,255,0) 60%);
+  background-size: 260% 100%; background-position: 120% 0; transition: background-position .9s ease, opacity .3s; }
+.group:hover .bilet-kart::after { opacity: 1; background-position: -40% 0; }
+`
 
 function topOf(list: (string | undefined)[]) {
   const m = new Map<string, number>()
@@ -49,6 +57,8 @@ export default function Biletlerim() {
     }
     return [...m.entries()]
   }, [shown])
+  // üstte yelpaze gibi açılan son üç bilet
+  const fan = useMemo(() => shown.slice(0, 3).reverse(), [shown])
   const thisYear = String(new Date().getFullYear())
   const stats = useMemo(
     () => ({
@@ -91,15 +101,33 @@ export default function Biletlerim() {
     )
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
+      <style>{CSS}</style>
       <section
         className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10"
         style={{ background: 'radial-gradient(ellipse at 15% 0%, rgba(245,200,120,0.13), transparent 60%), radial-gradient(ellipse at 95% 100%, rgba(0,192,250,0.10), transparent 60%), var(--color-neutral-950)' }}
       >
+        {fan.length > 0 && (
+          <div className="pointer-events-none absolute right-8 top-1/2 hidden -translate-y-1/2 xl:block" style={{ width: 330, height: 200 }}>
+            {fan.map((b, i) => (
+              <button
+                key={b.id}
+                onClick={(e) => setView({ index: list.indexOf(b), origin: (e.currentTarget.firstElementChild as HTMLElement).getBoundingClientRect() })}
+                className="group pointer-events-auto absolute left-0 top-1/2 transition duration-500 ease-out hover:z-10 hover:-translate-y-5"
+                style={{ transform: `translateY(-50%) translateX(${(i - (fan.length - 1) / 2) * 34}px) rotate(${(i - (fan.length - 1) / 2) * 7}deg)`, zIndex: i, transformOrigin: '50% 120%' }}
+                title={b.title}
+              >
+                <div className="bilet-kart drop-shadow-[0_14px_24px_rgba(0,0,0,.55)]" style={{ fontSize: 300 / 48 }}>
+                  <TicketThumb b={b} no={b.no} width={300} />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
         <p className="text-sm font-semibold tracking-widest text-amber-200/80">{tt('KOLEKSİYON')}</p>
         <h1 className="mt-1 text-4xl font-black tracking-tight text-neutral-50 sm:text-5xl">{tt('Biletlerim')}</h1>
         <p className="mt-2 max-w-2xl text-neutral-300">{tt('Sinemada izlediklerinin koleksiyonluk biletleri. Bir bilete tıkla, büyüsün; çevirip arkasına bak.')}</p>
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <div className={`mt-5 flex flex-wrap items-center gap-2 ${fan.length ? 'xl:max-w-[calc(100%-380px)]' : ''}`}>
           {[
             [String(stats.total), tt('bilet')],
             [String(stats.year), tt('bu yıl')],
@@ -133,34 +161,51 @@ export default function Biletlerim() {
         </div>
       )}
 
-      {years.map(([y, items]) => (
-        <section key={y}>
-          <div className="mb-4 flex items-baseline gap-3 border-b border-neutral-800 pb-2">
-            <h2 className="text-3xl font-black tracking-tight text-neutral-100">{y}</h2>
-            <span className="text-sm text-neutral-500">{tt('{0} bilet', items.length)}</span>
-          </div>
-          <div className="grid gap-x-6 gap-y-8" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${THUMB}px, 1fr))` }}>
-            {items.map((b) => {
-              const tilt = ((b.no * 37) % 7) - 3
-              return (
-                <button
-                  key={b.id}
-                  onClick={(e) => setView({ index: list.indexOf(b), origin: (e.currentTarget.firstElementChild as HTMLElement).getBoundingClientRect() })}
-                  className="group flex flex-col items-center text-left"
-                  title={b.title}
+      {/* Duvar: her yılın biletleri yanında dikey yıl etiketiyle; yıllar yan yana akar (az biletli yıllar satırı boş bırakmaz) */}
+      {years.length > 0 && (
+        <div className="flex flex-wrap items-start gap-x-12 gap-y-12 border-t border-neutral-800/80 pt-8">
+          {years.map(([y, items]) => (
+            <section key={y} className="flex min-w-0 max-w-full gap-4">
+              <div className="flex shrink-0 flex-col items-center gap-3 border-r border-neutral-800 pr-3">
+                <h2
+                  className="text-4xl font-black leading-none tracking-tight text-transparent [writing-mode:vertical-rl] rotate-180"
+                  style={{ WebkitTextStroke: '1.4px rgb(212 212 212 / .8)' }}
                 >
-                  <div
-                    className="transition duration-300 ease-out drop-shadow-[0_10px_18px_rgba(0,0,0,.45)] group-hover:-translate-y-1.5 group-hover:rotate-0 group-hover:drop-shadow-[0_18px_28px_rgba(0,0,0,.6)]"
-                    style={{ transform: `rotate(${tilt * 0.6}deg)`, height: THUMB / TICKET_RATIO }}
-                  >
-                    <TicketThumb b={b} no={b.no} width={THUMB} />
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </section>
-      ))}
+                  {y}
+                </h2>
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500 [writing-mode:vertical-rl] rotate-180">{tt('{0} bilet', items.length)}</span>
+              </div>
+              <div className="flex min-w-0 flex-wrap gap-x-8 gap-y-8">
+                {items.map((b) => {
+                  const tilt = ((b.no * 37) % 7) - 3
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={(e) => setView({ index: list.indexOf(b), origin: (e.currentTarget.firstElementChild as HTMLElement).getBoundingClientRect() })}
+                      className="group flex flex-col items-start text-left"
+                      title={b.title}
+                    >
+                      <div
+                        className="bilet-kart transition duration-300 ease-out drop-shadow-[0_10px_18px_rgba(0,0,0,.45)] group-hover:-translate-y-2 group-hover:!rotate-0 group-hover:scale-[1.03] group-hover:drop-shadow-[0_22px_32px_rgba(0,0,0,.65)]"
+                        style={{ rotate: `${tilt * 0.5}deg`, height: THUMB / TICKET_RATIO, fontSize: THUMB / 48 }}
+                      >
+                        <TicketThumb b={b} no={b.no} width={THUMB} />
+                      </div>
+                      <p className="mt-3 w-full truncate text-[11px] uppercase tracking-[0.2em] text-neutral-500 transition group-hover:text-neutral-300" style={{ maxWidth: THUMB }}>
+                        № {String(b.no).padStart(3, '0')}
+                        <span className="text-neutral-700">{'  ·  '}</span>
+                        {shortDay(b.date) || tt('Tarihsiz')}
+                        {b.cinema ? <span className="text-neutral-700">{'  ·  '}</span> : null}
+                        {b.cinema}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       {view && (
         <TicketViewer

@@ -4497,3 +4497,44 @@ export function BiletlerimVisual() {
     </Frame>
   )
 }
+
+// v1.23.12 — Biletlerim: görsel seçimi, konumlama, üç tasarım
+export function BiletTasarimVisual() {
+  const thumbs = [0, 1, 2, 3, 4, 5]
+  return (
+    <Frame viewBox={VB}>
+      <rect x={10} y={14} width={196} height={86} rx={6} fill="#1e2b38" />
+      <rect x={150} y={14} width={56} height={86} rx={4} fill="#f2ece1" />
+      <circle cx={78} cy={44} r={14} fill="#c0392b" opacity={0.85} />
+      <rect x={64} y={58} width={28} height={30} rx={6} fill="#c0392b" opacity={0.6} />
+      <rect x={20} y={70} width={44} height={6} rx={2} fill="#e5e7eb" />
+      <rect x={20} y={82} width={30} height={4} rx={2} fill="#9ca3af" />
+      <circle cx={190} cy={70} r={7} fill="url(#holo)" />
+      <defs>
+        <linearGradient id="holo" x1="0" x2="1">
+          <stop offset="0" stopColor="#ff9ad5" />
+          <stop offset="0.5" stopColor="#9fd8ff" />
+          <stop offset="1" stopColor="#fff3a0" />
+        </linearGradient>
+      </defs>
+      <path d="M100 30 v28 M86 44 h28" stroke={ACCENT} strokeWidth={1.6} />
+      <path d="M100 28 l-3 4 h6 z M100 60 l-3 -4 h6 z M84 44 l4 -3 v6 z M116 44 l-4 -3 v6 z" fill={ACCENT} />
+      <rect x={40} y={108} width={130} height={4} rx={2} className="fill-neutral-800" />
+      <circle cx={70} cy={110} r={4} fill={ACCENT} />
+      {thumbs.map((i) => (
+        <rect key={i} x={220 + (i % 3) * 32} y={14 + Math.floor(i / 3) * 22} width={28} height={18} rx={2} className={i === 1 ? 'fill-neutral-500' : 'fill-neutral-800'} stroke={i === 1 ? ACCENT : 'none'} strokeWidth={1.2} />
+      ))}
+      <rect x={220} y={70} width={28} height={14} rx={2} fill="#1e2b38" />
+      <rect x={252} y={70} width={28} height={14} rx={2} fill="#efe3c6" stroke="#6e1d1d" strokeWidth={0.8} />
+      <rect x={284} y={70} width={28} height={14} rx={2} fill="#0c0b09" stroke="#d9b56a" strokeWidth={0.8} />
+      <rect x={20} y={128} width={86} height={36} rx={4} fill="#1e2b38" />
+      <rect x={116} y={128} width={86} height={36} rx={4} fill="#efe3c6" />
+      <rect x={122} y={133} width={18} height={26} fill="#6e1d1d" opacity={0.5} />
+      <rect x={212} y={128} width={86} height={36} rx={4} fill="#0c0b09" stroke="#d9b56a" strokeWidth={0.8} />
+      <rect x={220} y={140} width={40} height={5} rx={2} fill="#d9b56a" />
+      <Pin x={300} y={10} n={1} />
+      <Pin x={118} y={110} n={2} />
+      <Pin x={300} y={124} n={3} />
+    </Frame>
+  )
+}
