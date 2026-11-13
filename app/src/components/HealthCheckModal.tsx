@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { notifyDataChanged } from '../lib/dataEvents'
 import type { Board, PropertyDef, PropertyValue, Row } from '../types'
 import { titleText } from '../types'
@@ -30,6 +30,7 @@ export default function HealthCheckModal({
   incompleteRows: incompleteRowsAll,
   incompleteChecks,
   onIgnore,
+  onIgnoreMany,
   onUnignore,
   onResetIgnored,
   onOpenRow,
@@ -49,6 +50,8 @@ export default function HealthCheckModal({
   // "Bu kayıtta bu alan yok, bir daha sorma" — örn. TMDB'de hiç fragmanı olmayan filmler
   // listede sonsuza kadar "eksik" görünmesin diye (bkz. board.healthIgnore).
   onIgnore: (rowIds: string[], propertyId: string) => void
+  // Toplu "sorma": her kaydın kendi eksik alanları (tek kayıtla, üst üste kaydetmede kaybolmasın)
+  onIgnoreMany: (pairs: { rowId: string; propertyId: string }[]) => void
   // "Sorulmayanlar"dan geri alma: kullanıcı "bir daha gelmesin dediklerimi sonradan gelsin
   // diyebileyim" dedi — tek tek (kayıt + alan) ya da bir alanın hepsi birden.
   onUnignore: (pairs: { rowId: string; propertyId: string }[]) => void
@@ -132,6 +135,34 @@ export default function HealthCheckModal({
   // burada sadece gerçekten eksik olanlar.
   const incompleteRows = incompleteRowsAll.filter((r) => missingFields(r).length > 0)
   const tmdbLackRows = rows.filter((r) => tmdbLacks(r).length > 0)
+  // "TMDB'de yeniden bak": eksik kayıtlar sırayla, daha önce eşleştikleri yapımla yeniden doldurulur. TMDB'de gerçekten
+  // olmayanlar "TMDB'de olmayan bilgiler"e geçer. Kullanıcı "eksik bilgisi olanları toplu yok sayma yok" dedi.
+  const [recheck, setRecheck] = useState<{ done: number; total: number } | null>(null)
+  const stopRecheck = useRef(false)
+  async function recheckAll(list: Row[]) {
+    stopRecheck.current = false
+    setRecheck({ done: 0, total: list.length })
+    let filled = 0
+    let skipped = 0
+    for (let i = 0; i < list.length; i++) {
+      if (stopRecheck.current) break
+      try {
+        const r = await api.fetchTmdb(board.id, list[i].id, [], false, { recheck: true })
+        if ((r as { skipped?: boolean }).skipped) skipped++
+        else if (r.filled?.length) filled++
+      } catch {
+        /* tek kayıt hatası diğerlerini durdurmasın */
+      }
+      setRecheck({ done: i + 1, total: list.length })
+    }
+    setRecheck(null)
+    notifyDataChanged(board.id)
+    load(true)
+    const parts = [filled ? tt('{0} kayıt TMDB\'den tamamlandı.', filled) : tt('TMDB\'de yeni bilgi çıkmadı.')]
+    if (skipped) parts.push(tt('{0} kayıt hiç TMDB ile eşleşmemiş; onları kaydı açıp Güncelle ile eşleştirebilirsin.', skipped))
+    notify(parts.join(' '), 'success')
+  }
+
   const missingCounts = incompleteChecks.map((p) => ({
     prop: p,
     count: incompleteRows.filter((r) => missingFields(r).some((m) => m.id === p.id)).length,
@@ -396,6 +427,41 @@ export default function HealthCheckModal({
             filters={
               incompleteRows.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
+                  <div className="w-full flex flex-wrap items-center gap-1.5 mb-1">
+                    {recheck ? (
+                      <>
+                        <span className="text-xs text-[#7fdcff]">{tt('TMDB\'de bakılıyor... {0}/{1}', recheck.done, recheck.total)}</span>
+                        <button onClick={() => (stopRecheck.current = true)} className="text-xs rounded-full px-2.5 py-1 border border-neutral-700 text-neutral-400 hover:text-neutral-50">
+                          {tt('Durdur')}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => void recheckAll(shownIncomplete)}
+                          title={tt('Kayıtlar daha önce eşleştikleri yapımla TMDB\'den yeniden doldurulur. TMDB\'de gerçekten olmayanlar eksik listesinden çıkar.')}
+                          className="text-xs rounded-full px-2.5 py-1 border border-[#00c0fa]/60 text-[#7fdcff] hover:bg-[#00c0fa]/10 transition"
+                        >
+                          {ttx('TMDB\'de yeniden bak ({0} kayıt)', shownIncomplete.length)}
+                        </button>
+                        {!filterProp && (
+                          <button
+                            onClick={async () => {
+                              const ok = await confirm({
+                                message: tt('{0} kaydın eksik alanları bir daha sorulmayacak. "Sorulmayanlar"dan geri açabilirsin. Devam edilsin mi?', shownIncomplete.length),
+                                confirmLabel: tt('Hepsini yok say'),
+                              })
+                              if (!ok) return
+                              onIgnoreMany(shownIncomplete.flatMap((r) => missingFields(r).map((p) => ({ rowId: r.id, propertyId: p.id }))))
+                            }}
+                            className="text-xs rounded-full px-2.5 py-1 border border-dashed border-neutral-600 text-neutral-400 hover:text-neutral-50 hover:border-neutral-400 transition"
+                          >
+                            {ttx('Hepsini yok say ({0} kayıt)', shownIncomplete.length)}
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                   <FilterChip active={missingFilter === null} onClick={() => setMissingFilter(null)}>
                     {ttx('Hepsi ({0})', incompleteRows.length)}</FilterChip>
                   {missingCounts

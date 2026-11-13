@@ -3836,5 +3836,18 @@
   "duz: Sezonu izlendi yaparken açılan \"Ne zaman izledin?\" menüsünün arka planı yoktu, arkadaki yazılarla karışıyordu.": "fix: The \"When did you watch it?\" menu for marking a season watched had no background and blended with the text behind it.",
   "duz: Mükerrer kayıt kontrolü vizyon yılına bakmıyordu; aynı adlı yeniden çekimler (ör. Dune 1984 ve 2021) mükerrer sanılabiliyordu.": "fix: The duplicate check ignored release years, so same-name remakes (e.g. Dune 1984 and 2021) could be flagged as duplicates.",
   "1 tarihsiz bölümü olan dizileri ve sezonları seç · 2 ne zaman izlediğini ver · 3 TMDB'de olmayanlar ayrı durur": "1 select series and seasons with undated episodes · 2 say when you watched · 3 info TMDB lacks is listed separately",
-  "değişti: Arşiv tablosundaki \"Cilalı\" görünüm (✦ düğmesi) kaldırıldı; tablo hep sade görünümde.": "changed: The \"Polished\" view in the archive table (✦ button) was removed; the table always uses the plain view."
+  "değişti: Arşiv tablosundaki \"Cilalı\" görünüm (✦ düğmesi) kaldırıldı; tablo hep sade görünümde.": "changed: The \"Polished\" view in the archive table (✦ button) was removed; the table always uses the plain view.",
+  "yeni: Sağlık Kontrolü'nde \"Eksik bilgisi olan kayıtlar\" için iki toplu düğme var. \"TMDB'de yeniden bak\" eksik kayıtları sırayla, daha önce eşleştikleri yapımla yeniden dolduruyor; TMDB'de gerçekten olmayanlar eksik listesinden çıkıp \"TMDB'de olmayan bilgiler\"e geçiyor. İstersen yarıda durdurabilirsin.": "new: Health Check has two bulk buttons for \"Entries with missing info\". \"Check TMDB again\" refills the missing entries one by one using the title they were matched to before; info TMDB really doesn't have leaves the missing list and moves to \"Info TMDB doesn't have\". You can stop it halfway.",
+  "yeni: \"Hepsini yok say\" listedeki bütün kayıtların eksik alanlarını tek seferde \"bir daha sorma\" yapıyor; \"Sorulmayanlar\"dan geri açabilirsin.": "new: \"Ignore all\" marks the missing fields of every entry in the list as \"don't ask again\" at once; you can turn them back on in \"Not asked\".",
+  "Sağlık Kontrolü: eksikleri toplu düzelt": "Health Check: fix missing info in bulk",
+  "TMDB'de yeniden bak ({0} kayıt)": "Check TMDB again ({0} entries)",
+  "Hepsini yok say ({0} kayıt)": "Ignore all ({0} entries)",
+  "Hepsini yok say": "Ignore all",
+  "TMDB'de bakılıyor... {0}/{1}": "Checking TMDB... {0}/{1}",
+  "Kayıtlar daha önce eşleştikleri yapımla TMDB'den yeniden doldurulur. TMDB'de gerçekten olmayanlar eksik listesinden çıkar.": "Entries are refilled from TMDB using the title they were matched to before. Info TMDB really doesn't have leaves the missing list.",
+  "{0} kaydın eksik alanları bir daha sorulmayacak. \"Sorulmayanlar\"dan geri açabilirsin. Devam edilsin mi?": "Missing fields of {0} entries won't be asked again. You can turn them back on in \"Not asked\". Continue?",
+  "{0} kayıt TMDB'den tamamlandı.": "{0} entries completed from TMDB.",
+  "TMDB'de yeni bilgi çıkmadı.": "TMDB had nothing new.",
+  "{0} kayıt hiç TMDB ile eşleşmemiş; onları kaydı açıp Güncelle ile eşleştirebilirsin.": "{0} entries were never matched to TMDB; open them and use Update to match them.",
+  "{0} kayıtta eksik alanlar artık sorulmayacak.": "Missing fields in {0} entries won't be asked anymore."
 }

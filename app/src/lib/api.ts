@@ -490,7 +490,7 @@ export const api = {
   getShowStatus: () => request<Record<string, ShowInfo>>(profilePath('/show-status')),
   // `ask`: kesin tek eşleşme yoksa doldurmak yerine `choose` (adaylar) döner — sadece tek satır Güncelle'de.
   // `forced`: kullanıcının listeden seçtiği yapım (arama yapılmaz).
-  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false, opts: { ask?: boolean; forced?: { tmdbId: number; mediaType: 'movie' | 'tv' } } = {}) =>
+  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false, opts: { ask?: boolean; recheck?: boolean; forced?: { tmdbId: number; mediaType: 'movie' | 'tv' } } = {}) =>
     request<{
       ok: true
       mediaType: 'movie' | 'tv'

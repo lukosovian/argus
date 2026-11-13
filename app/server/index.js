@@ -1985,7 +1985,14 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
 app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res) => {
   const { profileId, boardId, rowId } = req.params
   const f = req.body?.forced
-  const forced = f && (f.mediaType === 'movie' || f.mediaType === 'tv') && Number.isFinite(Number(f.tmdbId)) ? { tmdbId: Number(f.tmdbId), mediaType: f.mediaType } : null
+  let forced = f && (f.mediaType === 'movie' || f.mediaType === 'tv') && Number.isFinite(Number(f.tmdbId)) ? { tmdbId: Number(f.tmdbId), mediaType: f.mediaType } : null
+  // Sağlık Kontrolü › "TMDB'de yeniden bak": sadece daha önce eşleşmiş kayıtlar, aynı yapımla (yeniden aranmaz,
+  // yanlış yapıma eşleşme riski olmasın). Hiç eşleşmemiş kayıt atlanır.
+  if (!forced && req.body?.recheck) {
+    const ref = readJson(profileTmdbFile(profileId), {})[rowId]
+    if (!ref?.id || (ref.mediaType !== 'movie' && ref.mediaType !== 'tv')) return res.json({ ok: true, skipped: true, filled: [] })
+    forced = { tmdbId: ref.id, mediaType: ref.mediaType }
+  }
   const out = await fillRowFromTmdb(profileId, boardId, rowId, { exclude: req.body?.exclude, overwrite: req.body?.overwrite, ask: Boolean(req.body?.ask), forced })
   res.status(out.status).json(out.data)
 })

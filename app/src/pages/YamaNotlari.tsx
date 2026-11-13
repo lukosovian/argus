@@ -139,6 +139,16 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.23.14',
+    date: tt('13 Kasım 2026'),
+    title: tt('Sağlık Kontrolü: eksikleri toplu düzelt'),
+    items: [
+      tt('yeni: Sağlık Kontrolü\'nde "Eksik bilgisi olan kayıtlar" için iki toplu düğme var. "TMDB\'de yeniden bak" eksik kayıtları sırayla, daha önce eşleştikleri yapımla yeniden dolduruyor; TMDB\'de gerçekten olmayanlar eksik listesinden çıkıp "TMDB\'de olmayan bilgiler"e geçiyor. İstersen yarıda durdurabilirsin.'),
+      tt('yeni: "Hepsini yok say" listedeki bütün kayıtların eksik alanlarını tek seferde "bir daha sorma" yapıyor; "Sorulmayanlar"dan geri açabilirsin.'),
+    ],
+    visuals: [{ caption: tt('1 tarihsiz bölümü olan dizileri ve sezonları seç · 2 ne zaman izlediğini ver · 3 TMDB\'de olmayanlar ayrı durur'), Visual: SaglikTarihsizVisual }],
+  },
+  {
     version: 'v1.23.13',
     date: tt('13 Kasım 2026'),
     title: tt('Ödüller, yeni Sağlık Kontrolü ve aboneliklerin'),

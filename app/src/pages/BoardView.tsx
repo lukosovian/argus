@@ -2401,6 +2401,12 @@ export default function BoardView() {
             const name = board.properties.find((p) => p.id === propertyId)?.name ?? tt('Bu alan')
             notify(rowIds.length === 1 ? tt('Bu kayıtta {0} artık sorulmayacak.', name) : tt('{0} kayıtta {1} artık sorulmayacak.', rowIds.length, name))
           }}
+          onIgnoreMany={(pairs) => {
+            const next = { ...(board.healthIgnore ?? {}) }
+            for (const { rowId, propertyId } of pairs) next[rowId] = [...new Set([...(next[rowId] ?? []), propertyId])]
+            saveBoard({ healthIgnore: next })
+            notify(tt('{0} kayıtta eksik alanlar artık sorulmayacak.', new Set(pairs.map((p) => p.rowId)).size))
+          }}
           onUnignore={(pairs) => {
             const next = { ...(board.healthIgnore ?? {}) }
             for (const { rowId, propertyId } of pairs) {
