@@ -465,6 +465,10 @@ export const api = {
   getEpisodes: () => request<EpisodesMap>(profilePath('/episodes')),
   getWatched: () => request<WatchedMap>(profilePath('/watched')),
   getSongs: (rowId: string) => request<Song[]>(profilePath(`/songs/${rowId}`)),
+  // Flashback (v1.24): bütün şarkılar ve Koleksiyon'a düşen yıllık unvan kartları
+  getAllSongs: () => request<Record<string, Song[]>>(profilePath('/songs')),
+  getFbCards: () => request<Record<string, FbCard>>(profilePath('/flashback-kart')),
+  saveFbCard: (card: FbCard & { year: string }) => request<{ ok: boolean }>(profilePath('/flashback-kart'), { method: 'POST', ...json(card) }),
   addSong: (rowId: string, song: { key: string; title: string; artist: string; season: number | null; episode: number | null; atMs: number | null; manual: true }) =>
     request<{ ok: true; duplicate: boolean; song: Song }>(profilePath(`/songs/${rowId}`), { method: 'POST', ...json(song) }),
   // Yarım kalan filmde kaldığın yer (Nook yazıyor; bkz. server/index.js progress)
@@ -613,6 +617,8 @@ export const api = {
     request<BiletData>(profilePath('/biletler'), { method: 'POST', ...json({ items }) }),
   getOduller: () => request<OdulData>(profilePath('/oduller')),
   odulAction: (a: OdulAction) => request<OdulData>(profilePath('/oduller'), { method: 'POST', ...json(a) }),
+  // Oyun salonundan paket (v1.24): sunucu aynı anahtarı bir kez sayar
+  odulGame: (key: string, tier: OdulTier) => request<OdulData & { granted?: boolean }>(profilePath('/oduller'), { method: 'POST', ...json({ action: 'game', key, tier }) }),
   getAklimda: () => request<AklimdaData>(profilePath('/aklimda')),
   saveAklimda: (patch: AklimdaPatch) => request<AklimdaData>(profilePath('/aklimda'), { method: 'POST', ...json(patch) }),
   getKoleksiyon: (boardId: string) => request<KoleksiyonInfo>(profilePath(`/koleksiyon/${boardId}`)),
@@ -662,3 +668,14 @@ export type VerifyItem = {
   row: { title: string; orig: string; year: string }
 }
 export type VerifyResult = { items: VerifyItem[]; unlinked: number; missing: number; pending: { done: number; total: number } | null }
+
+export interface FbCard {
+  title: string
+  why: string
+  badges: { title: string; why: string }[]
+  poster: string
+  films: number
+  episodes: number
+  titles: number
+  savedAt?: number
+}

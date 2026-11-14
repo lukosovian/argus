@@ -7,7 +7,8 @@ import { monthNames, tt } from '../lib/i18n'
 // tahmin, ay ay çubuklar. Hedef burada, kartın içinden konur ve değiştirilir (0 = kapalı).
 export default function GoalRow({ titleClass }: { titleClass?: string }) {
   const { settings, saveSettings } = useHomeSettings()
-  const goal = settings.yearGoal ?? 0
+  // Flashback'te gelecek yıl için konan hedef, o yıl gelince geçerli olur (v1.24)
+  const goal = settings.yearGoalNext && settings.yearGoalNext.year === String(new Date().getFullYear()) ? settings.yearGoalNext.n : (settings.yearGoal ?? 0)
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState('')
   const stats = useProfileStats(true)
@@ -19,7 +20,7 @@ export default function GoalRow({ titleClass }: { titleClass?: string }) {
   }, [done])
   const save = () => {
     const n = Math.max(0, Math.min(2000, Math.round(Number(draft) || 0)))
-    saveSettings({ ...settings, yearGoal: n })
+    saveSettings({ ...settings, yearGoal: n, ...(settings.yearGoalNext?.year === String(new Date().getFullYear()) ? { yearGoalNext: undefined } : {}) })
     setEdit(false)
   }
   const editor = (

@@ -10,6 +10,7 @@ import RandomPickerButton, { StackedCardsIcon } from './RandomPickerButton'
 import NotificationBell from './NotificationBell'
 import { APP_VERSION } from '../lib/version'
 import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
+import FbMenuLink from './flashback/FbMenuLink'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import { PROFILE_SWITCH_EVENT } from './ProfilePicker'
@@ -123,6 +124,7 @@ export default function Navbar() {
       ['/birlikte', tt('Birlikte izle')],
       ['/basarimlar', tt('Başarımlar')],
       ['/sahneden-bil', tt('Sahneden bil')],
+      ['/oyunlar', tt('Oyunlar')],
       ['/flashback', 'Flashback'],
       ['/arsivlerim', tt('Ayarlar')],
       ['/yardim', tt('Yardım Merkezi')],
@@ -152,7 +154,8 @@ export default function Navbar() {
   const extraLinks: { to: string; icon: IconName; label: string }[] = [
     ...(ext.together ? [{ to: '/birlikte', icon: 'person' as IconName, label: tt('Birlikte izle') }] : []),
     ...(ext.achievements ? [{ to: '/basarimlar', icon: 'trophy' as IconName, label: tt('Başarımlar') }] : []),
-    ...(ext.quiz ? [{ to: '/sahneden-bil', icon: 'film' as IconName, label: tt('Sahneden bil') }] : []),
+    // v1.24: Sahneden bil artık Oyun salonunun içinde (diğer oyunlarla birlikte)
+    ...(ext.quiz ? [{ to: '/oyunlar', icon: 'film' as IconName, label: tt('Oyunlar') }] : []),
   ]
   // Görülen yama / evren eklemeleri (yeni menüdeki mavi noktalar)
   useEffect(() => {
@@ -287,7 +290,7 @@ export default function Navbar() {
                 yeni kullanıcı denemesinde her sayfada sadece "Ana Sayfa" yazdığı için nerede olduğu belli değildi. */}
             {currentPage && (
               <span data-nav-active="1" className="shrink-0 whitespace-nowrap text-sm sm:text-base font-semibold rounded-lg px-2.5 sm:px-3 py-2 text-white">
-                {currentPage}
+                {currentPage === 'Flashback' ? <span className="fb-wordmark tracking-[0.06em]">FLASHBACK</span> : currentPage}
               </span>
             )}
             {bar && (
@@ -348,14 +351,7 @@ export default function Navbar() {
                       extraLinks={extraLinks}
                       flashback={
                         canSeeWrapped(features) ? (
-                          <MenuLink
-                            to="/flashback"
-                            icon="ozet"
-                            label={tt('Flashback')}
-                            extra={wrappedIsNew(features) ? <span className="text-[10px] font-bold text-white bg-fuchsia-500 rounded-full px-2 py-0.5">{tt('YENİ')}</span> : undefined}
-                            onClick={() => setMenuOpen(false)}
-                            compact
-                          />
+                          <FbMenuLink isNew={wrappedIsNew(features)} onClick={() => setMenuOpen(false)} compact />
                         ) : null
                       }
                       onClose={() => setMenuOpen(false)}
@@ -438,13 +434,7 @@ export default function Navbar() {
                       </Link>
                     ))}
                     {canSeeWrapped(features) && (
-                      <MenuLink
-                        to="/flashback"
-                        icon="ozet"
-                        label={tt('Flashback')}
-                        extra={wrappedIsNew(features) ? <span className="text-[10px] font-bold text-white bg-fuchsia-500 rounded-full px-2 py-0.5">{tt('YENİ')}</span> : undefined}
-                        onClick={() => setMenuOpen(false)}
-                      />
+                      <FbMenuLink isNew={wrappedIsNew(features)} onClick={() => setMenuOpen(false)} />
                     )}
                     <MenuLink to="/yardim" icon="yardim" label={tt('Yardım Merkezi')} onClick={() => setMenuOpen(false)} />
                     <MenuLink

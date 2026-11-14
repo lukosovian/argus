@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react'
 // diğer kullanıcılara features.json'daki anahtarla açılıp kapatılıyor.
 export interface Features {
   developer: boolean
+  // Flashback şu an diğer kullanıcılara açık mı (elle açılmışsa ya da tarih aralığındaysa)
   wrappedForAll: boolean
+  // Elle açma anahtarı ve kendiliğinden açık olduğu aralık (v1.24: 9–16 Aralık; `until` günü kapalı)
+  wrappedManual?: boolean
+  wrappedWindow?: { from: string; until: string } | null
 }
 
 let cache: Features | null = null
@@ -18,7 +22,7 @@ export function setFeaturesCache(f: Features) {
 function load() {
   fetch('/api/features')
     .then((r) => (r.ok ? r.json() : null))
-    .then((d) => d && (!cache || cache.developer !== d.developer || cache.wrappedForAll !== d.wrappedForAll) && setFeaturesCache(d))
+    .then((d) => d && (!cache || JSON.stringify(cache) !== JSON.stringify(d)) && setFeaturesCache(d))
     .catch(() => {})
 }
 
@@ -46,7 +50,8 @@ export function useFeatures(): Features | null {
 }
 
 // Diğer kullanıcılarda menüdeki "Flashback"in yanında, sayfa bir kez açılana kadar YENİ etiketi durur
-const WRAPPED_SEEN = 'argus_wrapped_seen'
+// Her yıl yeniden (Flashback her Aralık açılıyor)
+const WRAPPED_SEEN = `argus_wrapped_seen_${new Date().getFullYear()}`
 export function wrappedIsNew(f: Features | null): boolean {
   if (!f || f.developer || !f.wrappedForAll) return false
   try {

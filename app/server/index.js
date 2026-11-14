@@ -999,6 +999,46 @@ function cleanInt(v) {
   return Number.isInteger(v) && v >= 0 ? v : null
 }
 
+// Bütün şarkılar (Flashback › Yılın film müzikleri, v1.24)
+app.get('/api/profiles/:profileId/songs', (req, res) => {
+  res.json(readJson(profileSongsFile(req.params.profileId), {}))
+})
+
+// Flashback kartları (v1.24): her yılın unvan kartı Koleksiyon'a düşer. flashback-kart.json: { [yıl]: { title, why,
+// badges, poster, films, episodes, titles, savedAt } }. Flashback sayfası yılı gösterince yazar (yıl bittiyse ya da
+// Flashback açılmışsa).
+function profileFbCardsFile(profileId) {
+  return path.join(profileDir(profileId), 'flashback-kart.json')
+}
+app.get('/api/profiles/:profileId/flashback-kart', (req, res) => {
+  res.json(readJson(profileFbCardsFile(req.params.profileId), {}))
+})
+app.post('/api/profiles/:profileId/flashback-kart', (req, res) => {
+  const b = req.body ?? {}
+  const year = String(b.year ?? '')
+  if (!/^\d{4}$/.test(year)) return res.status(400).json({ error: stt('Geçersiz istek') })
+  const str = (v, n = 120) => (typeof v === 'string' ? v.slice(0, n) : '')
+  const num = (v) => (Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0)
+  const card = {
+    title: str(b.title),
+    why: str(b.why, 200),
+    badges: (Array.isArray(b.badges) ? b.badges : []).slice(0, 4).map((x) => ({ title: str(x?.title), why: str(x?.why, 160) })),
+    poster: str(b.poster, 400),
+    films: num(b.films),
+    episodes: num(b.episodes),
+    titles: num(b.titles),
+    savedAt: Date.now(),
+  }
+  const file = profileFbCardsFile(req.params.profileId)
+  const all = readJson(file, {})
+  const prev = all[year]
+  if (!prev || JSON.stringify({ ...prev, savedAt: 0 }) !== JSON.stringify({ ...card, savedAt: 0 })) {
+    all[year] = card
+    writeJson(file, all)
+  }
+  res.json({ ok: true })
+})
+
 app.get('/api/profiles/:profileId/songs/:rowId', (req, res) => {
   res.json(readJson(profileSongsFile(req.params.profileId), {})[req.params.rowId] ?? [])
 })
@@ -2701,6 +2741,8 @@ function readOdul(profileId) {
     cards: d.cards && typeof d.cards === 'object' ? d.cards : {},
     equip: d.equip && typeof d.equip === 'object' ? d.equip : {},
     log: Array.isArray(d.log) ? d.log.slice(-30) : [],
+    // Oyunlardan kazanılan paketler (v1.24, Oyun salonu): anahtar → zaman; aynı anahtar ikinci kez sayılmaz
+    games: d.games && typeof d.games === 'object' ? d.games : {},
   }
 }
 app.get('/api/profiles/:profileId/oduller', (req, res) => {
@@ -2756,6 +2798,21 @@ app.post('/api/profiles/:profileId/oduller', (req, res) => {
   } else if (b.action === 'equip' && (b.slot === 'frame' || b.slot === 'back')) {
     if (b.key === null || b.key === undefined) delete d.equip[b.slot]
     else if (typeof b.key === 'string' && d.items[b.key]) d.equip[b.slot] = b.key
+  } else if (b.action === 'game' && ODUL_TIERS.includes(b.tier) && typeof b.key === 'string' && /^[a-z0-9:_-]{1,80}$/i.test(b.key)) {
+    // Oyun salonu (v1.24): oyun bitirme bronz (günde en çok 3), rekor gümüş, günlük oyunda 7 gün seri altın.
+    // Ödüller açılmamışsa (startedAt yok) paket verilmez.
+    if (!d.startedAt || d.games[b.key]) return res.json({ ...d, granted: false })
+    const day = localDay()
+    if (b.tier === 'bronz') {
+      const todayN = Object.entries(d.games).filter(([k, v]) => k.startsWith('bitir:') && v?.day === day).length
+      if (todayN >= 3) return res.json({ ...d, granted: false })
+    }
+    d.games[b.key] = { at: now, day, tier: b.tier }
+    const keys = Object.keys(d.games)
+    if (keys.length > 500) for (const k of keys.slice(0, keys.length - 500)) delete d.games[k]
+    d.bonus[b.tier] = (Number(d.bonus[b.tier]) || 0) + 1
+    writeJson(file, d)
+    return res.json({ ...d, granted: true })
   } else if (b.action === 'buy' && ODUL_TIERS.includes(b.tier)) {
     const price = MAKARA_PRICE[b.tier]
     if (d.makara < price) return res.status(400).json({ error: stt('Yeterli makaran yok.') })
@@ -3723,7 +3780,8 @@ app.post('/api/profiles/:profileId/sahneler', async (req, res) => {
     const { profileId } = req.params
     const apiKey = readProfileApiKey(profileId)
     if (!apiKey) return res.json({ needsApiKey: true, items: [] })
-    const want = Math.min(20, Math.max(1, Number(req.body?.n) || 12))
+    // v1.24: sonsuz modda (3 can) daha çok soru istenebiliyor
+    const want = Math.min(40, Math.max(1, Number(req.body?.n) || 12))
     const ids = Array.isArray(req.body?.rowIds) ? req.body.rowIds.filter((x) => typeof x === 'string') : []
     const refs = readJson(profileTmdbFile(profileId), {})
     const cand = ids.filter((id) => refs[id]?.id && (refs[id].mediaType === 'movie' || refs[id].mediaType === 'tv'))
@@ -3733,7 +3791,7 @@ app.post('/api/profiles/:profileId/sahneler', async (req, res) => {
     }
     const pick = (list, n) => [...list].sort(() => Math.random() - 0.5).slice(0, n)
     const items = []
-    for (let i = 0; i < cand.length && items.length < want && i < 80; i += 6) {
+    for (let i = 0; i < cand.length && items.length < want && i < 160; i += 6) {
       const got = await Promise.all(
         cand.slice(i, i + 6).map(async (rowId) => {
           const ref = refs[rowId]
@@ -4129,13 +4187,23 @@ const isDevMachine = () => fs.existsSync(path.join(ROOT, '.gelistirici'))
 // Flashback (yıllık özet) diğer kullanıcılara açıldığında her profile bir kez bildirim düşer (kullanıcı "onlarda açılınca
 // haberleri olsun" dedi). Aynı anahtarla ikinci kez eklenmez (bkz. pushNotification); geliştirici
 // bilgisayarında zaten hep açık olduğu için orada gönderilmez.
+// Flashback'in herkese açık olduğu tarih aralığı (features.json › wrappedWindow { from, until }): kullanıcı "9 Aralık'ta
+// açılsın, 1 hafta sonra kapansın" dedi. `until` günü kapalıdır. Elle açma anahtarı (wrappedForAll) da hâlâ geçerli.
+function wrappedOpen(f) {
+  if (f.wrappedForAll) return true
+  const w = f.wrappedWindow
+  if (!w || typeof w.from !== 'string' || typeof w.until !== 'string') return false
+  const today = localDay()
+  return today >= w.from && today < w.until
+}
+
 function announceFeatures(f) {
   if (isDevMachine()) return
-  if (!f.wrappedForAll) return
+  if (!wrappedOpen(f)) return
   for (const p of readProfiles()) {
     try {
       pushNotification(p.id, {
-        key: 'feature:wrapped',
+        key: `feature:wrapped:${localDay().slice(0, 4)}`,
         type: 'feature',
         title: stt('Yeni: Flashback'),
         text: stt('Yılın nasıl geçti? Toplam ekran süren, izleyici unvanın, maratonların, en sevdiklerin ve paylaşabileceğin bir hikâye kartı. Profil menüsünde.'),
@@ -4201,7 +4269,7 @@ async function currentFeatures() {
 app.get('/api/features', async (req, res) => {
   const f = await currentFeatures()
   announceFeatures(f)
-  res.json({ developer: isDevMachine(), wrappedForAll: Boolean(f.wrappedForAll) })
+  res.json({ developer: isDevMachine(), wrappedForAll: wrappedOpen(f), wrappedManual: Boolean(f.wrappedForAll), wrappedWindow: f.wrappedWindow ?? null })
 })
 app.post('/api/features', async (req, res) => {
   if (!isDevMachine()) return res.status(403).json({ error: stt('Bu ayar sadece geliştirici bilgisayarında değiştirilebilir.') })
@@ -4210,7 +4278,7 @@ app.post('/api/features', async (req, res) => {
   fs.writeFileSync(FEATURES_FILE, JSON.stringify(f, null, 2) + '\n', 'utf-8')
   // Kullanıcı ayrıca "gönder" demek zorunda kalmasın: sadece bu dosya Git'e gönderilir (bkz. featurePublish.js)
   const pub = await publishFile(ROOT, FEATURES_FILE, f.wrappedForAll ? 'Flashback diger kullanicilara acildi' : 'Flashback diger kullanicilara kapatildi')
-  res.json({ ok: true, wrappedForAll: Boolean(f.wrappedForAll), ...pub })
+  res.json({ ok: true, wrappedForAll: wrappedOpen(f), wrappedManual: Boolean(f.wrappedForAll), wrappedWindow: f.wrappedWindow ?? null, ...pub })
 })
 
 // Paketli arayüz (bkz. start.mjs): ARGUS_SERVE_UI varsa dist/ klasörü de bu sunucudan, 5173 portundan

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
@@ -211,14 +211,29 @@ function header(ctx: Ctx, th: Theme, year: string, kicker: string) {
 }
 
 // Sol altta beyaz ARGUS "A" logosu (bkz. lib/whiteLogo.ts); yüklenemezse yazıyla
+// Alt şerit (v1.24): solda Flashback'in "Bozuk Sinyal" yazısı (renk kaymalı), sağda ARGUS logosu ve kart sırası
 function footer(ctx: Ctx, n: number, total: number, logo: HTMLCanvasElement | null) {
-  text(ctx, `${n} / ${total}`, W - L - 70, H - 70, 500, 26, 'rgba(255,255,255,0.35)')
+  const y = H - 70
+  ctx.save()
+  ctx.font = `400 58px Anton, Impact, 'Arial Narrow', sans-serif`
+  ctx.globalAlpha = 0.9
+  ctx.fillStyle = '#00e1ff'
+  ctx.fillText('FLASHBACK', L - 4, y)
+  ctx.fillStyle = '#ff2d8a'
+  ctx.fillText('FLASHBACK', L + 4, y)
+  ctx.globalAlpha = 1
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText('FLASHBACK', L, y)
+  ctx.restore()
+  ctx.textAlign = 'right'
+  text(ctx, `${n} / ${total}`, W - L - 84, y - 6, 500, 26, 'rgba(255,255,255,0.4)')
+  ctx.textAlign = 'left'
   if (logo) {
     ctx.save()
     ctx.globalAlpha = 0.75
-    ctx.drawImage(logo, L, H - 130, 72, 72)
+    ctx.drawImage(logo, W - L - 64, H - 124, 64, 64)
     ctx.restore()
-  } else text(ctx, 'argus', L, H - 70, 700, 28, 'rgba(255,255,255,0.35)')
+  }
 }
 
 function hBars(ctx: Ctx, items: { label: string; value: number }[], x: number, y: number, w: number, rowH: number, color: string, labelW = 0) {
@@ -285,13 +300,18 @@ const CARDS: CardDef[] = [
     images: (d) => d.posters.slice(0, 12),
     draw: (ctx, d, img) => {
       text(ctx, 'ARGUS', L, 150, 700, 34, T.blue.accent)
-      text(ctx, 'FLASHBACK', L - 6, 290, 900, 140, '#ffffff')
-      const yg = ctx.createLinearGradient(L, 300, L + 500, 450)
-      yg.addColorStop(0, '#00c0fa')
-      yg.addColorStop(1, '#8b5cf6')
-      ctx.fillStyle = yg
-      font(ctx, 900, 170)
-      ctx.fillText(d.year, L - 6, 460)
+      // v1.24: "Bozuk Sinyal" — Anton, camgöbeği/eflatun renk kayması
+      const glitch = (t: string, x: number, y: number, size: number, fill: string) => {
+        ctx.font = `400 ${size}px Anton, Impact, 'Arial Narrow', sans-serif`
+        ctx.fillStyle = 'rgba(0,225,255,0.9)'
+        ctx.fillText(t, x - 6, y)
+        ctx.fillStyle = 'rgba(255,45,138,0.9)'
+        ctx.fillText(t, x + 6, y)
+        ctx.fillStyle = fill
+        ctx.fillText(t, x, y)
+      }
+      glitch('FLASHBACK', L - 4, 300, 160, '#ffffff')
+      glitch(d.year, L - 4, 470, 150, '#0b0b12')
       text(ctx, tt('Bu yıl'), L, 580, 500, 40, 'rgba(255,255,255,0.6)')
       text(ctx, tt('{0} farklı yapım izledin', d.titles), L, 650, 800, 62, '#ffffff', W - L * 2)
       text(ctx, tt('{0} gün ekran başındaydın', d.activeDays), L, 715, 500, 38, 'rgba(255,255,255,0.7)', W - L * 2)
@@ -581,7 +601,7 @@ async function drawCard(card: CardDef, d: StoryData, n: number, total: number): 
   c.height = H
   const ctx = c.getContext('2d')!
   const srcs = [...new Set(card.images(d).filter(Boolean))]
-  const [logo, loaded] = await Promise.all([whiteLogo(), Promise.all(srcs.map(loadImage)), fontReady()])
+  const [logo, loaded] = await Promise.all([whiteLogo(), Promise.all(srcs.map(loadImage)), fontReady(), document.fonts.load('400 58px Anton', 'FLASHBACK').catch(() => null)])
   const img: Imgs = new Map(srcs.map((s, i) => [s, loaded[i]]))
   ctx.textBaseline = 'alphabetic'
   background(ctx, card.theme)
@@ -594,12 +614,22 @@ async function drawCard(card: CardDef, d: StoryData, n: number, total: number): 
 
 // ---- görüntüleyici -----------------------------------------------------------------------------
 
+// Bir kartın ekranda kalma süresi (kendiliğinden ilerlerken)
+const STORY_MS = 6000
+
 export default function FlashbackStory({ data, onClose }: { data: StoryData; onClose: () => void }) {
   const { notify } = useToast()
   const cards = CARDS.filter((c) => c.show(data))
   const [urls, setUrls] = useState<(string | null)[]>(() => cards.map(() => null))
   const [i, setI] = useState(0)
   const [busy, setBusy] = useState(false)
+  // v1.24 (F5): kartlar hikâye gibi kendiliğinden ilerler. Basılı tutunca durur, sağ/sol dokunuş ileri/geri.
+  const [paused, setPaused] = useState(false)
+  const [held, setHeld] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [ended, setEnded] = useState(false)
+  const elapsed = useRef(0)
+  const downAt = useRef(0)
 
   useEffect(() => {
     let alive = true
@@ -624,12 +654,54 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  const go = useCallback((dir: number) => setI((x) => Math.min(cards.length - 1, Math.max(0, x + dir))), [cards.length])
+  const goTo = useCallback(
+    (k: number) => {
+      const n = Math.min(cards.length - 1, Math.max(0, k))
+      elapsed.current = 0
+      setProgress(0)
+      setEnded(false)
+      setI(n)
+    },
+    [cards.length],
+  )
+  const go = useCallback((dir: number) => setI((x) => {
+    const n = Math.min(cards.length - 1, Math.max(0, x + dir))
+    elapsed.current = 0
+    setProgress(0)
+    setEnded(false)
+    return n
+  }), [cards.length])
+
+  // İlerleme: kart hazırsa ve duraklatılmamışsa süre akar; bitince sonrakine, sonuncuda durur
+  const running = !paused && !held && !ended && Boolean(urls[i])
+  useEffect(() => {
+    if (!running) return
+    let raf = 0
+    let last = performance.now()
+    const tick = (now: number) => {
+      elapsed.current += now - last
+      last = now
+      const p = Math.min(1, elapsed.current / STORY_MS)
+      setProgress(p)
+      if (p >= 1) {
+        if (i < cards.length - 1) go(1)
+        else setEnded(true)
+        return
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [running, i, cards.length, go])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') go(1)
       else if (e.key === 'ArrowLeft') go(-1)
+      else if (e.key === ' ') {
+        e.preventDefault()
+        setPaused((p) => !p)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -661,31 +733,67 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
   const ready = urls.every(Boolean)
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/90 overflow-y-auto py-5 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] bg-black/92 overflow-y-auto py-5 px-4" onClick={onClose}>
       <div className="mx-auto w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-neutral-100 font-semibold">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <p className="text-neutral-100 font-semibold min-w-0 truncate">
             {cards[i].label} <span className="text-neutral-500 font-normal text-sm">· {i + 1}/{cards.length}</span>
           </p>
-          <button onClick={onClose} aria-label={tt('Kapat')} className="h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
-            ×
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => (ended ? goTo(0) : setPaused((p) => !p))}
+              aria-label={ended ? tt('Bir daha oynat') : paused ? tt('Oynat') : tt('Durdur')}
+              title={ended ? tt('Bir daha oynat') : paused ? tt('Oynat') : tt('Durdur (Boşluk)')}
+              className="h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-sm"
+            >
+              {ended ? '↻' : paused ? '▶' : '❚❚'}
+            </button>
+            <button onClick={onClose} aria-label={tt('Kapat')} className="h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
+              ×
+            </button>
+          </div>
         </div>
-        {/* hikâye çubukları */}
+        {/* hikâye çubukları: geçilenler dolu, şu anki dolmakta */}
         <div className="flex gap-1 mb-2">
           {cards.map((c, k) => (
-            <button key={c.id} onClick={() => setI(k)} aria-label={c.label} className={`h-1 flex-1 rounded-full transition ${k <= i ? 'bg-white' : 'bg-white/25'}`} />
+            <button key={c.id} onClick={() => goTo(k)} aria-label={c.label} className="h-1 flex-1 rounded-full bg-white/25 overflow-hidden">
+              <span className="block h-full bg-white" style={{ width: `${k < i ? 100 : k === i ? progress * 100 : 0}%` }} />
+            </button>
           ))}
         </div>
-        <div className="relative aspect-[9/16] rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 flex items-center justify-center select-none">
-          {urls[i] ? <img src={urls[i]!} alt={cards[i].label} className="h-full w-full object-contain" /> : <span className="text-sm text-neutral-500">{tt('Hazırlanıyor…')}</span>}
-          {/* sol / sağ yarıya tıklayınca önceki / sonraki */}
-          <button onClick={() => go(-1)} aria-label={tt('Önceki kart')} className="absolute inset-y-0 left-0 w-1/3 group">
-            {i > 0 && <span className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition flex items-center justify-center">‹</span>}
-          </button>
-          <button onClick={() => go(1)} aria-label={tt('Sonraki kart')} className="absolute inset-y-0 right-0 w-1/3 group">
-            {i < cards.length - 1 && <span className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition flex items-center justify-center">›</span>}
-          </button>
+        <div
+          className="relative aspect-[9/16] rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 flex items-center justify-center select-none cursor-pointer"
+          onPointerDown={() => {
+            downAt.current = Date.now()
+            setHeld(true)
+          }}
+          onPointerLeave={() => setHeld(false)}
+          onPointerUp={(e) => {
+            setHeld(false)
+            // Kısa dokunuş: sol üçte bir geri, gerisi ileri; uzun basış sadece durdurur
+            if (Date.now() - downAt.current > 280) return
+            const r = e.currentTarget.getBoundingClientRect()
+            if (e.clientX - r.left < r.width / 3) go(-1)
+            else if (i < cards.length - 1) go(1)
+            else setEnded(true)
+          }}
+        >
+          {urls[i] ? (
+            <img key={i} src={urls[i]!} alt={cards[i].label} draggable={false} className="h-full w-full object-contain" style={{ animation: 'fb-card-in .7s ease-out' }} />
+          ) : (
+            <span className="text-sm text-neutral-500">{tt('Hazırlanıyor…')}</span>
+          )}
+          {(paused || held) && !ended && urls[i] && <span className="absolute top-3 right-3 text-[11px] font-semibold rounded-full bg-black/60 text-white px-2.5 py-1">{tt('Durdu')}</span>}
+          {ended && (
+            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2" onPointerUp={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+              <button onClick={saveAll} disabled={!ready || busy} style={primaryButtonStyle} className={`text-sm px-3 py-2.5 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}>
+                {busy ? tt('İndiriliyor…') : tt('↓ Hepsini indir ({0})', cards.length)}
+              </button>
+              <button onClick={() => goTo(0)} className="text-sm px-3 py-2 rounded-lg border border-white/30 text-white hover:border-white/60">
+                {tt('↻ Bir daha oynat')}
+              </button>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-2 mt-3">
           <button onClick={() => save(i)} disabled={!urls[i]} style={primaryButtonStyle} className={`text-sm px-3 py-2.5 rounded-lg ${PRIMARY_BUTTON} disabled:opacity-50`}>
@@ -695,7 +803,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
             {busy ? tt('İndiriliyor…') : ready ? tt('↓ Hepsini indir ({0})', cards.length) : tt('Hazırlanıyor…')}
           </button>
         </div>
-        <p className="text-[11px] text-neutral-500 text-center mt-2">{tt('← → tuşlarıyla ya da kartın sağına/soluna tıklayarak gez. 1080 × 1920, hikâyelere tam oturur.')}</p>
+        <p className="text-[11px] text-neutral-500 text-center mt-2">{tt('Kartlar kendiliğinden ilerler. Basılı tutunca durur; sağa dokununca ileri, sola dokununca geri. 1080 × 1920, hikâyelere tam oturur.')}</p>
       </div>
     </div>,
     document.body,

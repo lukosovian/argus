@@ -1,3 +1,7 @@
 {
-  "wrappedForAll": false
+  "wrappedForAll": false,
+  "wrappedWindow": {
+    "from": "2026-12-09",
+    "until": "2026-12-16"
+  }
 }

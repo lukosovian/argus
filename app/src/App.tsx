@@ -25,6 +25,13 @@ import SplashInfoWriter from './components/SplashInfoWriter'
 import Birlikte from './pages/Birlikte'
 import Basarimlar from './pages/Basarimlar'
 import SahnedenBil from './pages/SahnedenBil'
+import OyunSalonu from './pages/oyunlar/OyunSalonu'
+import HangisiYuksek from './pages/oyunlar/HangisiYuksek'
+import SinopsistenBil from './pages/oyunlar/SinopsistenBil'
+import ZamanCizelgesi from './pages/oyunlar/ZamanCizelgesi'
+import OyuncuZinciri from './pages/oyunlar/OyuncuZinciri'
+import OyuncuyuBil from './pages/oyunlar/OyuncuyuBil'
+import GununYapimi from './pages/oyunlar/GununYapimi'
 
 // Bir profil ilk kez aktif olduğunda (o profil daha önce hiç görmediyse) Yardım Merkezi'ni
 // otomatik açar — "ilk girişte gelsin" isteği. `localStorage`'da profil başına bir bayrak
@@ -210,6 +217,62 @@ function AppRoutes() {
         element={
           <Shell>
             <SahnedenBil />
+          </Shell>
+        }
+      />
+      <Route
+        path="/oyunlar"
+        element={
+          <Shell>
+            <OyunSalonu />
+          </Shell>
+        }
+      />
+      <Route
+        path="/oyunlar/yuksek"
+        element={
+          <Shell>
+            <HangisiYuksek />
+          </Shell>
+        }
+      />
+      <Route
+        path="/oyunlar/sinopsis"
+        element={
+          <Shell>
+            <SinopsistenBil />
+          </Shell>
+        }
+      />
+      <Route
+        path="/oyunlar/zaman"
+        element={
+          <Shell>
+            <ZamanCizelgesi />
+          </Shell>
+        }
+      />
+      <Route
+        path="/oyunlar/zincir"
+        element={
+          <Shell>
+            <OyuncuZinciri />
+          </Shell>
+        }
+      />
+      <Route
+        path="/oyunlar/oyuncu"
+        element={
+          <Shell>
+            <OyuncuyuBil />
+          </Shell>
+        }
+      />
+      <Route
+        path="/oyunlar/gunluk"
+        element={
+          <Shell>
+            <GununYapimi />
           </Shell>
         }
       />

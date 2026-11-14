@@ -131,7 +131,7 @@ export function ProfileExtras() {
         {P('taste', tt('Zevk uyumu'), tt('Birlikte izle sayfasında iki profilin puan uyumu ve "Bunu ona öner".'), !on('together'))}
         {P('achievements', tt('Başarımlar'), tt('İzledikçe kazanılan rozetler; kazanınca bildirim gelir.'))}
         {P('rewards', tt('Ödüller (kart paketleri)'), tt('İzledikçe kart paketi kazanırsın; Koleksiyon › Ödüller sekmesinde yırtıp açarsın. İçinden film kartları, avatar çerçeveleri ve yeni tasarımlar çıkar.'))}
-        {P('quiz', tt('Sahneden bil'), tt('Arşivindeki yapımlardan gerçek sahneler gelir, hangi yapım olduğunu tahmin edersin.'))}
+        {P('quiz', tt('Oyunlar'), tt('Oyun salonu: Sahneden bil, Günün yapımı, Hangisi daha yüksek, Sinopsisten bil, Zaman çizelgesi, Oyuncuyu bil, Oyuncu zinciri — hepsi kendi arşivinle.'))}
       </SettingsSection>
       <SettingsSection title={tt('Detay penceresi')} description={tt('Bir yapımın detayını açınca.')}>
         {P('seriesPlan', tt('Dizi bitirme planı'), tt('"X günde bitir"; kalan bölümler günlere bölünür, takvimde görünür.'))}

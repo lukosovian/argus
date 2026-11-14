@@ -76,6 +76,9 @@ export interface Stats {
   topDirectors: { label: string; image?: string; count: number }[]
   marathons: Marathon[]
   persona: { title: string; why: string; badges: Badge[] }
+  // v1.24: gün gün izleme sayısı (ısı haritası) ve türlerin tamamı (DNA şeridi)
+  dayCounts: Record<string, number>
+  genreShares: { label: string; count: number }[]
 }
 
 const dayNum = (d: string) => Math.round(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))) / 86400000)
@@ -119,6 +122,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
     x.mediaTypes[r.id] ? x.mediaTypes[r.id] === 'tv' : /dizi/i.test(kategoriProp?.options?.find((o) => o.id === r.values[kategoriProp.id])?.label ?? '')
 
   const days = new Set<string>()
+  const dayCounts: Record<string, number> = {}
   const months = Array(12).fill(0)
   const dayTitle = new Set<string>() // "gün|kayıt" — haftanın günü sayımı bölüm yığınlarıyla şişmesin
   const info = new Map<string, TitleInfo>()
@@ -135,6 +139,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
     // "Sadece yıl" (2019) izlemeler yılın sayımına girer ama gün/ay istatistiklerine girmez.
     if (date.length >= 10) {
       days.add(date)
+      dayCounts[date.slice(0, 10)] = (dayCounts[date.slice(0, 10)] ?? 0) + 1
       months[Number(date.slice(5, 7)) - 1]++
       dayTitle.add(`${date}|${row.id}`)
     }
@@ -396,5 +401,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap, yea
       return [...seri.slice(0, 6 - d.length), ...d]
     })(),
     persona,
+    dayCounts,
+    genreShares: genres.slice(0, 7),
   }
 }

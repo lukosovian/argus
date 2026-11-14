@@ -516,6 +516,8 @@ export interface HomeSettings {
   pickerAnim?: 'klasik' | 'cark' | 'slot' | 'deste' | 'serit' | 'karisik'
   // Yıllık izleme hedefi (film+dizi bitirme sayısı); 0/yok = kapalı
   yearGoal?: number
+  // Flashback'ten konan gelecek yılın hedefi (v1.24): o yıl gelince yearGoal yerine geçer
+  yearGoalNext?: { year: string; n: number }
 }
 
 export interface RandomPickerTmdbSettings {

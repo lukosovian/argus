@@ -22,6 +22,9 @@ import { useSearchParams } from 'react-router-dom'
 import Biletlerim from './Biletlerim'
 import Oduller from './Oduller'
 import { useExtras } from '../lib/extras'
+import { PersonaCard } from '../components/flashback/FbSections'
+import { FbMark } from '../components/flashback/FbLogo'
+import type { FbCard } from '../lib/api'
 
 // Koleksiyon — kullanıcı "izlediklerimden sembolleri (Star Trek'teki göğüs deltaları gibi) bir yerde
 // sergileyeyim" dedi. İzlediğin, izlemekte olduğun ya da yarım bıraktığın her yapım kendiliğinden gelir (sembolü yoksa
@@ -625,14 +628,50 @@ function Raflar() {
   )
 }
 
+// Flashback kartları (v1.24): her yılın Flashback unvanı holografik bir kart olarak burada birikir
+function FlashbackKartlari({ cards }: { cards: Record<string, FbCard> }) {
+  const years = Object.keys(cards).sort().reverse()
+  return (
+    <div className="fb-page rounded-3xl bg-[#050507] border border-white/10 p-6 sm:p-8">
+      <div className="flex items-center gap-4 mb-6">
+        <FbMark className="h-14 w-14" anim="always" />
+        <div>
+          <p className="fb-wordmark text-3xl">FLASHBACK</p>
+          <p className="text-sm text-neutral-400 mt-1">{tt('Her yılın unvan kartı; Flashback\'te o yılı açınca buraya düşer. Fareyle oynatınca parlar.')}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-6">
+        {years.map((y) => {
+          const c = cards[y]
+          return (
+            <div key={y} className="flex flex-col items-center gap-2">
+              <PersonaCard year={y} title={c.title} why={c.why} badges={c.badges} poster={c.poster || undefined} small />
+              <p className="text-xs text-neutral-400">{ttx('{0} yapım · {1} film · {2} bölüm', c.titles, c.films, c.episodes)}</p>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // Koleksiyon'un iki bölümü (v1.23.11): Raflar (semboller) ve Biletlerim (sinema biletleri). ?sekme=biletler
 export default function Koleksiyon() {
   const [sp, setSp] = useSearchParams()
   // Ödüller sekmesi (v1.24) sadece Ekstralar'dan açılınca
   const rewards = useExtras().on('rewards')
+  // Flashback sekmesi sadece en az bir yılın kartı varsa
+  const [fbCards, setFbCards] = useState<Record<string, FbCard>>({})
+  useEffect(() => {
+    api
+      .getFbCards()
+      .then(setFbCards)
+      .catch(() => {})
+  }, [])
+  const hasFb = Object.keys(fbCards).length > 0
   const q = sp.get('sekme')
-  const tab = q === 'biletler' ? 'biletler' : q === 'oduller' && rewards ? 'oduller' : 'raflar'
-  const pick = (t: 'raflar' | 'biletler' | 'oduller') => {
+  const tab = q === 'biletler' ? 'biletler' : q === 'oduller' && rewards ? 'oduller' : q === 'flashback' && hasFb ? 'flashback' : 'raflar'
+  const pick = (t: 'raflar' | 'biletler' | 'oduller' | 'flashback') => {
     const n = new URLSearchParams(sp)
     if (t !== 'raflar') n.set('sekme', t)
     else n.delete('sekme')
@@ -646,6 +685,7 @@ export default function Koleksiyon() {
             ['raflar', tt('Raflar'), 'trophy'],
             ['biletler', tt('Biletlerim'), 'ticket'],
             ...(rewards ? ([['oduller', tt('Ödüller'), 'cards']] as const) : []),
+            ...(hasFb ? ([['flashback', 'Flashback', 'clock']] as const) : []),
           ] as const).map(([k, label, icon]) => (
             <button
               key={k}
@@ -660,6 +700,10 @@ export default function Koleksiyon() {
       </div>
       {tab === 'raflar' ? (
         <Raflar />
+      ) : tab === 'flashback' ? (
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <FlashbackKartlari cards={fbCards} />
+        </div>
       ) : tab === 'oduller' ? (
         <div className="max-w-6xl mx-auto px-4 py-8">
           <Oduller />
