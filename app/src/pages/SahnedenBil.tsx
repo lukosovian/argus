@@ -5,7 +5,7 @@ import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useProfiles } from '../hooks/useProfiles'
-import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { resolveRole, watchedStatusIds } from '../lib/roles'
 import { tt } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
@@ -62,12 +62,12 @@ export default function SahnedenBil() {
     const poster = resolveRole(board, 'poster')
     const vizyon = resolveRole(board, 'vizyon')
     const durum = resolveRole(board, 'durum')
-    const izlendi = resolveStatusOption(board, 'izlendi')
+    const done = watchedStatusIds(board)
     if (!tp) return { pool: [], candidates: [] }
     const all = rows
       .map((r) => ({ row: r, title: titleText(tp, r.values[tp.id]), poster: poster ? String(r.values[poster.id] ?? '') : '', year: vizyon ? String(r.values[vizyon.id] ?? '').slice(0, 4) : '' }))
       .filter((x) => x.title)
-    const seen = durum && izlendi ? all.filter((x) => x.row.values[durum.id] === izlendi) : []
+    const seen = durum ? all.filter((x) => done.has(x.row.values[durum.id] as string)) : []
     return { pool: all, candidates: (seen.length >= 15 ? seen : all).map((x) => x.row.id) }
   }, [board, rows])
 

@@ -4624,3 +4624,81 @@ export function SaglikTarihsizVisual() {
     </Frame>
   )
 }
+
+// v1.24: Sezon Finali / Final — bölümler bitince dizi sürüyorsa Sezon Finali, bittiyse Final; üçü de izlendi sayılır
+export function SezonFinaliVisual() {
+  const TEAL = '#14b8a6'
+  const VIOLET = '#8b5cf6'
+  return (
+    <Frame viewBox={VB}>
+      <Box x={10} y={10} w={300} h={160} />
+      <Label x={20} y={28} size={9}>{tt('Çıkmış bütün bölümler izlendi')}</Label>
+      <Line x={20} y={40} w={120} light />
+      <rect x={20} y={52} width={130} height={46} rx={6} className="fill-neutral-800" stroke={TEAL} strokeOpacity={0.6} />
+      <Label x={30} y={68} size={8} muted>{tt('Dizi sürüyor')}</Label>
+      <Chip x={30} y={76} w={80} color={TEAL} text={tt('Sezon Finali')} />
+      <rect x={170} y={52} width={130} height={46} rx={6} className="fill-neutral-800" stroke={VIOLET} strokeOpacity={0.6} />
+      <Label x={180} y={68} size={8} muted>{tt('Dizi bitti')}</Label>
+      <Chip x={180} y={76} w={60} color={VIOLET} text={tt('Final')} />
+      <path d="M150 75 L170 75" stroke="#737373" strokeDasharray="3 3" />
+      <Label x={20} y={122} size={8} muted>{tt('İzlendi = Sezon Finali = Final → istatistik, ödül, Nook')}</Label>
+      <Chip x={20} y={134} w={60} color="#22c55e" text={tt('İzlendi')} />
+      <Chip x={86} y={134} w={80} color={TEAL} text={tt('Sezon Finali')} />
+      <Chip x={172} y={134} w={60} color={VIOLET} text={tt('Final')} />
+      <Pin x={14} y={50} n={1} />
+      <Pin x={302} y={50} n={2} />
+      <Pin x={14} y={132} n={3} />
+    </Frame>
+  )
+}
+
+// v1.24: Sağlık Kontrolü › Eşleşmesi şüpheli kayıtlar
+export function ArsivDogrulaVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={10} y={10} w={300} h={160} />
+      <Label x={20} y={26} size={9}>{tt('Eşleşmesi şüpheli kayıtlar')}</Label>
+      <rect x={20} y={36} width={280} height={70} rx={6} className="fill-neutral-800" />
+      <Label x={30} y={52} size={9}>Luka</Label>
+      <Chip x={176} y={42} w={116} color="#f59e0b" text={tt('Türkçe adı farklı')} />
+      <Label x={30} y={68} size={8} muted>{tt('Arşivde: Luka · Challengers')}</Label>
+      <Label x={30} y={80} size={8} muted>{tt('TMDB: Rekabet · Challengers · 2024')}</Label>
+      <Chip x={30} y={88} w={86} color={ACCENT} text={tt('Yeniden eşleştir')} />
+      <Chip x={122} y={88} w={92} color="#737373" text={tt("TMDB'deki adları yaz")} />
+      <Chip x={220} y={88} w={70} color="#525252" text={tt('Doğru')} />
+      <Line x={20} y={120} w={200} light />
+      <Line x={20} y={134} w={160} light />
+      <Label x={20} y={158} size={8} muted>{tt('Ad · orjinal ad · yıl · film/dizi karşılaştırılır')}</Label>
+      <Pin x={14} y={60} n={1} />
+      <Pin x={24} y={96} n={2} />
+    </Frame>
+  )
+}
+
+// v1.24: Sinopsis ve süre için başka kaynaklar + dizide bölüm süresi
+export function KaynaklarVisual() {
+  const src = [tt('TMDB'), tt('Vikipedi'), tt('TMDB (İngilizce)'), tt('TVmaze')]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={10} y={10} w={300} h={160} />
+      <Label x={20} y={26} size={9}>{tt('Sinopsis boşsa sırayla bakılır')}</Label>
+      {src.map((s, i) => (
+        <g key={s}>
+          <Chip x={20 + i * 72} y={36} w={64} color={i === 0 ? ACCENT : '#737373'} text={s} />
+          {i < 3 && <path d={`M${86 + i * 72} 43 L${92 + i * 72} 43`} stroke="#737373" />}
+        </g>
+      ))}
+      <rect x={20} y={64} width={280} height={30} rx={6} className="fill-neutral-800" />
+      <Line x={30} y={72} w={240} light />
+      <Line x={30} y={82} w={180} light />
+      <Label x={20} y={116} size={9}>{tt('Arşiv tablosu › Süre')}</Label>
+      <rect x={20} y={124} width={280} height={36} rx={6} className="fill-neutral-800" />
+      <Label x={30} y={138} size={8} muted>{tt('Film')}</Label>
+      <Label x={200} y={138} size={8}>118</Label>
+      <Label x={30} y={152} size={8} muted>{tt('Dizi')}</Label>
+      <Label x={200} y={152} size={8}>{tt('45 dk/bölüm')}</Label>
+      <Pin x={14} y={42} n={1} />
+      <Pin x={294} y={146} n={2} />
+    </Frame>
+  )
+}

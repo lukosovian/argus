@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
-import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { resolveRole, watchedStatusIds } from '../lib/roles'
 import { tt } from '../lib/i18n'
 
 // Profil fotoğrafı ekstraları (v1.23.4, Ayarlar › Ekstralar): avatar sekmeleri + "Sana uygun", kırpma/yakınlaştırma,
@@ -36,11 +36,11 @@ function useTopGenreHero(enabled: boolean): { avatar: number; genre: string } | 
     if (!board || !rows.length) return null
     const tur = resolveRole(board, 'tur')
     const durum = resolveRole(board, 'durum')
-    const izlendi = resolveStatusOption(board, 'izlendi')
+    const done = watchedStatusIds(board)
     if (!tur) return null
     const count = new Map<string, number>()
     for (const r of rows) {
-      if (durum && izlendi && r.values[durum.id] !== izlendi) continue
+      if (durum && done.size && !done.has(r.values[durum.id] as string)) continue
       const v = r.values[tur.id]
       for (const g of Array.isArray(v) ? (v as string[]) : []) count.set(g, (count.get(g) ?? 0) + 1)
     }

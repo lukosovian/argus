@@ -28,6 +28,9 @@ export const STATUS_NAMES = {
   izleniyor: ['İzleniyor', 'Watching'],
   izlendi: ['İzlendi', 'Watched'],
   yarim: ['Yarım', 'Dropped'],
+  // Diziler için (v1.24): bütün çıkmış bölümler izlendi ama dizi sürüyor / dizi tamamen bitti. İkisi de İzlendi sayılır.
+  sezonFinali: ['Sezon Finali', 'Season Finale'],
+  final: ['Final', 'Finished'],
 }
 
 export const KIND_NAMES = {

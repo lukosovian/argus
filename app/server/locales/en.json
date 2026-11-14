@@ -107,5 +107,7 @@
  "Cum": "Fri",
  "Cmt": "Sat",
  "Paz": "Sun",
- "Yeterli makaran yok.": "You don't have enough reels."
+ "Yeterli makaran yok.": "You don't have enough reels.",
+ "Çıkmış bütün bölümleri izledin, durumu {0} yapıldı.{1}": "You watched all the aired episodes, so its status was set to {0}.{1}",
+ "Dizi bitti, yeni bölüm gelmeyecek — durumu Final yapıldı.": "The series has ended, no new episodes are coming — its status was set to Finished."
 }

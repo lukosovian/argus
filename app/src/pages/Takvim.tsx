@@ -10,7 +10,7 @@ import { useToast } from '../hooks/useToast'
 import { useProfiles } from '../hooks/useProfiles'
 import { api, type ArchiveCard } from '../lib/api'
 import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
-import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { resolveRole, resolveStatusOption, isWatchedStatus } from '../lib/roles'
 import { rowMatchesConditions, type FilterCondition } from '../lib/filters'
 import { episodeKey, titleText, type Board, type EpisodesMap, type Row, type WatchedMap } from '../types'
 import { entryEnd, entryTouches, isFullDate, makeEntry, parseEntry, toEntries } from '../lib/dateRange'
@@ -521,7 +521,9 @@ export default function Takvim() {
             }
             const durumProp = resolveRole(board, 'durum')
             // Bütün bölümler bittiği için sunucu diziyi İzlendi yaptıysa üstüne "İzleniyor" yazılmasın.
-            if (opts.status && durumProp && !(autoWatched && opts.status === 'izleniyor')) {
+            // Sezon Finali / Final zaten izlendi sayılır; üstüne İzlendi yazılmaz (v1.24)
+            const keepDone = opts.status === 'izlendi' && durumProp && isWatchedStatus(board, values[durumProp.id])
+            if (opts.status && durumProp && !keepDone && !(autoWatched && opts.status === 'izleniyor')) {
               const statusId = resolveStatusOption(board, opts.status)
               if (statusId) {
                 values[durumProp.id] = statusId

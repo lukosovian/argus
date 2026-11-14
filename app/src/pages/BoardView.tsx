@@ -1768,9 +1768,10 @@ export default function BoardView() {
   // (poster, banner, ülke, yönetmen, sinopsis, oyuncular, diziyse sezon/bölüm) doldurur/
   // yeniler. Sadece bu tıklama anında TMDB'ye çıkar, sonucu board/rows'a yazar ve
   // buradaki state'i tazeler.
-  async function fetchTmdb(rowId: string) {
+  // `always`: Sağlık Kontrolü › "Yeniden eşleştir" — kesin eşleşme olsa da "Hangisi?" listesi açılır (v1.24)
+  async function fetchTmdb(rowId: string, always = false) {
     if (!board) return
-    let result = await api.fetchTmdb(board.id, rowId, [...tmdbExclude], tmdbOverwriteExisting, { ask: true })
+    let result = await api.fetchTmdb(board.id, rowId, [...tmdbExclude], tmdbOverwriteExisting, { ask: always ? 'always' : true })
     // TMDB'de kesin tek eşleşme yoksa aday listesi geldi: kullanıcı seçene kadar bekle (satırdaki ışık
     // hüzmesi bu sırada sürüyor), vazgeçerse hiçbir şey değişmez.
     if (result.choose) {
@@ -2455,6 +2456,18 @@ export default function BoardView() {
             for (const a of rowIds) for (const b of rowIds) if (a < b) pairs.add(`${a}|${b}`)
             saveBoard({ duplicateIgnore: [...pairs] })
             notify(tt('Bu kayıtlar bir daha mükerrer diye gösterilmeyecek.'))
+          }}
+          onRematch={async (row) => {
+            try {
+              const r = await fetchTmdb(row.id, true)
+              if (r) notify(tt('"{0}" yeniden eşleştirildi.', rowTitleOf(row)), 'success')
+            } catch (e) {
+              notify(e instanceof Error ? e.message : tt('Eşleştirilemedi.'), 'danger')
+            }
+          }}
+          onIgnoreVerify={(rowId) => {
+            saveBoard({ verifyIgnore: [...new Set([...(board.verifyIgnore ?? []), rowId])] })
+            notify(tt('Bu kayıt bir daha şüpheli diye gösterilmeyecek.'))
           }}
           onClose={() => setHealthOpen(false)}
         />

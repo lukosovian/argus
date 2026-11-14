@@ -805,6 +805,10 @@ const BoardTable = forwardRef<
 ) {
   const roomy = density === 'rahat'
   const watchDateProp = resolveRole(board, 'izlemeTarihi')
+  // Dizide Süre bir bölümün süresi (v1.24): tabloda "45 dk/bölüm" diye yazılır
+  const sureRoleProp = resolveRole(board, 'sure')
+  const kategoriRoleProp = resolveRole(board, 'kategori')
+  const isSeriesRow = (row: Row) => /dizi|series|tv/i.test(kategoriRoleProp?.options?.find((o) => o.id === row.values[kategoriRoleProp.id])?.label ?? '')
   const rowH = roomy ? ROW_HEIGHT_ROOMY : ROW_HEIGHT
   // Rahat: en az h-14, içerik sığmazsa satır büyür
   const cellH = roomy ? 'min-h-14 py-1' : 'h-9'
@@ -1137,6 +1141,14 @@ const BoardTable = forwardRef<
   // Dizinin İzleme Tarihi hücresi: bölümlere girilmiş en son tarih (kaydın kendi tarihi daha yeniyse o).
   // Bölüm tarihi olmayan kayıtlarda (filmler) null — normal hücre çizilir.
   function seriesWatchDate(row: Row, p: PropertyDef) {
+    if (p.id === sureRoleProp?.id) {
+      const v = row.values[p.id]
+      return typeof v === 'number' && v > 0 && isSeriesRow(row) ? (
+        <span className="text-neutral-300 whitespace-nowrap" title={tt('Bir bölümün ortalama süresi')}>
+          {tt('{0} dk/bölüm', v)}
+        </span>
+      ) : null
+    }
     if (p.id !== watchDateProp?.id) return null
     const ep = lastEpisodeDates?.get(row.id)
     if (!ep) return null

@@ -1,7 +1,7 @@
 import type { AklimdaItem } from './api'
 import type { Board, Row } from '../types'
 import { titleText } from '../types'
-import { resolveRole, resolveStatusOption } from './roles'
+import { resolveRole, resolveStatusOption, watchedStatusIds } from './roles'
 import { isName, STATUS_NAMES } from './names'
 import { STATUS_STYLE } from './statusTone'
 import { tt } from './i18n'
@@ -32,7 +32,7 @@ export function aklimdaEntries(board: Board | null, rows: Row[], items: Record<s
   const opt = (k: 'izlenecek' | 'izleniyor' | 'izlendi') => (board ? resolveStatusOption(board, k) : undefined)
   const izlenecek = opt('izlenecek')
   const izleniyor = opt('izleniyor')
-  const izlendi = opt('izlendi')
+  const done = board ? watchedStatusIds(board) : new Set<string>()
   const yarim = durumProp?.options?.find((o) => isName(o.label, STATUS_NAMES.yarim))?.id
 
   const out: AklimdaEntry[] = []
@@ -45,7 +45,7 @@ export function aklimdaEntries(board: Board | null, rows: Row[], items: Record<s
     const row = byId.get(key)
     if (!row) continue
     const st = durumProp ? row.values[durumProp.id] : undefined
-    const status: AklimdaStatus = st && st === izlenecek ? 'izlenecek' : st && (st === izleniyor || st === yarim) ? 'yarim' : st && st === izlendi ? 'izlendi' : 'diger'
+    const status: AklimdaStatus = st && st === izlenecek ? 'izlenecek' : st && (st === izleniyor || st === yarim) ? 'yarim' : st && done.has(st as string) ? 'izlendi' : 'diger'
     const statusLabel = (durumProp && durumProp.options?.find((o) => o.id === st)?.label) || ''
     const vz = vizyonProp ? row.values[vizyonProp.id] : undefined
     out.push({

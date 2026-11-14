@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { api, type OdulData, type OdulReward, type OdulTier } from './api'
-import { resolveRole, resolveStatusOption } from './roles'
+import { resolveRole, watchedStatusIds } from './roles'
 import { entryEnd, toEntries } from './dateRange'
 import { onDataChanged } from './dataEvents'
 import { ratingAverage, titleText, type Board, type Row, type WatchedMap } from '../types'
@@ -147,14 +147,14 @@ export function computeEarned(board: Board, rows: Row[], watched: WatchedMap, bi
 
 export function buildPool(board: Board, rows: Row[]): PoolCard[] {
   const durum = resolveRole(board, 'durum')
-  const izlendi = resolveStatusOption(board, 'izlendi')
+  const done = watchedStatusIds(board)
   const poster = resolveRole(board, 'poster')
   const puan = resolveRole(board, 'puan')
   const vizyon = resolveRole(board, 'vizyon')
   const tp = board.properties.find((p) => p.id === board.titlePropertyId)
   const out: PoolCard[] = []
   for (const r of rows) {
-    if (durum && izlendi && r.values[durum.id] !== izlendi) continue
+    if (durum && done.size && !done.has(r.values[durum.id] as string)) continue
     const img = poster ? r.values[poster.id] : null
     if (typeof img !== 'string' || !img) continue
     const rating = puan ? ratingAverage(r.values[puan.id], puan) : null

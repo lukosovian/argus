@@ -11,7 +11,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
+import { ensureRole, ensureStatusOption, isWatchedStatus, resolveRole, resolveStatusOption, watchedStatusIds } from './roles.js'
 import { langDate, stt } from './lang.js'
 import { pushNotification } from './notifications.js'
 import { evrenOtoStatus, hideAuto, initEvrenOto, mergeBuiltins, runEvrenOto } from './evrenOto.js'
@@ -76,8 +76,8 @@ function makeContext(profileId, boardId) {
   const dateProp = resolveRole(board, 'izlemeTarihi')
   const poster = resolveRole(board, 'poster')
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
-  const izlendi = resolveStatusOption(board, 'izlendi')
-  return { board, rows, look, rowById, episodes, watched, durum, dateProp, poster, titleProp, izlendi, today: d.localDay() }
+  const done = watchedStatusIds(board) // İzlendi / Sezon Finali / Final
+  return { board, rows, look, rowById, episodes, watched, durum, dateProp, poster, titleProp, done, today: d.localDay() }
 }
 
 function findRow(ctx, item) {
@@ -127,7 +127,7 @@ function baseState(ctx, item) {
   const status = ctx.durum ? row.values[ctx.durum.id] : null
   const statusLabel = status ? (ctx.durum.options?.find((o) => o.id === status)?.label ?? null) : null
   const rowDates = ctx.dateProp ? list(row.values[ctx.dateProp.id]) : []
-  const rowWatched = Boolean(ctx.izlendi && status === ctx.izlendi)
+  const rowWatched = Boolean(status && ctx.done.has(status))
   const base = { rowId: row.id, status: statusLabel, title: ctx.titleProp ? String(row.values[ctx.titleProp.id] ?? '') : '', poster: ctx.poster ? row.values[ctx.poster.id] || null : null }
   if (item.type === 'tv') {
     const keys = episodeKeys(ctx, row.id, item.season)
@@ -506,7 +506,9 @@ function markRow(profileId, boardId, rowId, date, remove) {
   if (durum) {
     const left = dateProp ? list(values[dateProp.id]).length : 0
     const key = remove ? (left ? 'izlendi' : 'izlenecek') : 'izlendi'
-    const opt = ensureStatusOption(board, key, d.makeId)
+    // Zaten izlenmiş sayılan durum (Sezon Finali / Final) korunur
+    const keep = key === 'izlendi' && isWatchedStatus(board, values[durum.id])
+    const opt = keep ? null : ensureStatusOption(board, key, d.makeId)
     if (opt) values[durum.id] = opt
   }
   const saved = { ...before, values, updatedAt: Date.now() }

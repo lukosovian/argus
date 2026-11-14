@@ -1,6 +1,6 @@
 import type { Board, Row, WatchedMap } from '../types'
 import { ratingAverage } from '../types'
-import { resolveRole, resolveStatusOption } from './roles'
+import { resolveRole, watchedStatusIds } from './roles'
 import { entryEnd, toEntries } from './dateRange'
 import { tt } from './i18n'
 import type { IconName } from '../components/Icon'
@@ -51,7 +51,7 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 export function computeAchievements(board: Board, rows: Row[], watched: WatchedMap, extra: { universesDone: number } = { universesDone: 0 }): Achievement[] {
   const durum = resolveRole(board, 'durum')
-  const izlendi = resolveStatusOption(board, 'izlendi')
+  const doneIds = watchedStatusIds(board)
   const kategori = resolveRole(board, 'kategori')
   const tur = resolveRole(board, 'tur')
   const ulke = resolveRole(board, 'ulke')
@@ -60,7 +60,7 @@ export function computeAchievements(board: Board, rows: Row[], watched: WatchedM
   const sure = resolveRole(board, 'sure')
   const dateProp = resolveRole(board, 'izlemeTarihi')
   const isSeries = (r: Row) => /dizi|series|tv/i.test(kategori?.options?.find((o) => o.id === r.values[kategori.id])?.label ?? '')
-  const isDone = (r: Row) => Boolean(durum && izlendi && r.values[durum.id] === izlendi)
+  const isDone = (r: Row) => Boolean(durum && doneIds.has(r.values[durum.id] as string))
   const done = rows.filter(isDone)
   const labelsOf = (r: Row, p: typeof tur) => (p ? (Array.isArray(r.values[p.id]) ? (r.values[p.id] as string[]) : typeof r.values[p.id] === 'string' ? [r.values[p.id] as string] : []) : [])
   const optLabel = (p: typeof tur, id: string) => p?.options?.find((o) => o.id === id)?.label ?? ''

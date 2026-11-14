@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Board, Row } from '../types'
 import { titleText, todayIso, ratingAverage, RATING_OVERALL } from '../types'
 import { api, type TmdbCard, type TmdbItem } from '../lib/api'
-import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { resolveRole, resolveStatusOption, isWatchedStatus } from '../lib/roles'
 import { formatRuntime, showcaseMeta } from '../lib/rowMeta'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
@@ -304,7 +304,8 @@ export default function PickResult({
   function markWatched(date: string | null, scores: Record<string, number>) {
     if (!durumProp || !izlendiId) return
     patchRow((v) => {
-      const next = { ...v, [durumProp.id]: izlendiId }
+      // Sezon Finali / Final zaten izlendi sayılır, korunur
+      const next = isWatchedStatus(board, v[durumProp.id]) ? { ...v } : { ...v, [durumProp.id]: izlendiId }
       if (date && tarihProp) {
         const cur = next[tarihProp.id]
         if (tarihProp.type === 'multidate') {
@@ -361,7 +362,7 @@ export default function PickResult({
   let question = ''
   const actions: { label: string; icon?: IconName; onClick: () => void; primary?: boolean }[] = []
   if (r && !done) {
-    if (statusId && statusId === izlendiId) {
+    if (statusId && isWatchedStatus(board, statusId)) {
       question = tt('Bunu daha önce izlemişsin. Yine mi izliyorsun?')
       if (tarihProp) actions.push({ label: tt('↻ Bugün yine izledim'), primary: true, onClick: () => patchRow(addToday, tt('Bugünün tarihi izleme tarihlerine eklendi.')) })
     } else if (statusId && statusId === izleniyorId) {

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { Row } from '../types'
 import { todayIso } from '../types'
 import Checkbox from './Checkbox'
-import { tt } from '../lib/i18n'
+import { getLang, tt } from '../lib/i18n'
+import { formatEntry } from '../lib/dateRange'
 
 // Sağlık Kontrolü › "İzlendi ama bölümleri tarihsiz diziler" (v1.23.13). Kullanıcı "toplu seçim yaparak ya da tek
 // tek seçip bölümlerini sezonlarını tarihleyebileyim, ne zaman izlediğimi hatırlamıyorum diyebileyim" dedi. Diziler
@@ -11,7 +12,23 @@ import { tt } from '../lib/i18n'
 
 const collator = new Intl.Collator('tr', { sensitivity: 'base', numeric: true })
 
-export type UndatedItem = { row: Row; label: string; seasons: { season: number; total: number; undated: number }[] }
+// v1.24: kaydın kendi izleme tarihleri de gelir (kullanıcı "en azından izlediğim tarihi göreyim ki yılını yazmak istersem
+// göreyim" dedi); `todo` = durumu İzlenecek ama izleme tarihi var.
+export type UndatedItem = {
+  row: Row
+  label: string
+  seasons: { season: number; total: number; undated: number }[]
+  dates: string[]
+  todo?: boolean
+  todoLabel?: string
+}
+
+type Filter = 'all' | 'dated' | 'nodate' | 'todo'
+
+const fmtDay = (iso: string) => {
+  const d = new Date(`${iso}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(getLang() === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 export default function UndatedSeriesSection({
   items,
@@ -30,11 +47,13 @@ export default function UndatedSeriesSection({
   const [day, setDay] = useState('')
   const [year, setYear] = useState('')
   const [busy, setBusy] = useState(false)
-  const sorted = [...items].sort((a, b) => collator.compare(a.label, b.label))
+  const [filter, setFilter] = useState<Filter>('all')
+  const fits = (it: UndatedItem, f: Filter) => (f === 'all' ? true : f === 'todo' ? Boolean(it.todo) : f === 'dated' ? it.dates.length > 0 : it.dates.length === 0)
+  const sorted = [...items].filter((it) => fits(it, filter)).sort((a, b) => collator.compare(a.label, b.label))
   const count = items.length
   const allSeasons = (it: UndatedItem) => new Set(it.seasons.map((s) => s.season))
   const selected = sorted.filter((it) => (sel.get(it.row.id)?.size ?? 0) > 0)
-  const allOn = count > 0 && selected.length === count
+  const allOn = sorted.length > 0 && sorted.every((it) => (sel.get(it.row.id)?.size ?? 0) > 0)
   const toggleRow = (it: UndatedItem) =>
     setSel((m) => {
       const n = new Map(m)
@@ -79,9 +98,9 @@ export default function UndatedSeriesSection({
     <div className="border border-neutral-800 rounded-xl">
       <button onClick={() => setOpen((o) => !o)} disabled={loading || count === 0} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left disabled:cursor-default">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-50">{tt('İzlendi ama bölümleri tarihsiz diziler')}</h3>
+          <h3 className="text-sm font-semibold text-neutral-50">{tt('İzlenmiş ama bölümleri tarihsiz diziler')}</h3>
           <p className="text-xs text-neutral-500 mt-0.5">
-            {tt('Dizi izlendi işaretli ama bazı bölümlerinin izleme tarihi yok. Seç, sonra tarih ver ya da "Hatırlamıyorum" de; kaydın durumu ve izleme tarihi değişmez.')}
+            {tt('Dizi izlendi (ya da Sezon Finali / Final) işaretli ama bazı bölümlerinin izleme tarihi yok. Her dizinin altında kendi izleme tarihi yazıyor. Seç, sonra tarih ver ya da "Hatırlamıyorum" de; kaydın durumu ve izleme tarihi değişmez.')}
           </p>
         </div>
         <span className={`shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 ${loading ? 'text-neutral-500' : count === 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'}`}>
@@ -90,11 +109,40 @@ export default function UndatedSeriesSection({
       </button>
       {open && count > 0 && (
         <div className="px-4 pb-4">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {(
+              [
+                ['all', tt('Hepsi ({0})', count)],
+                ['dated', tt('İzleme tarihi olanlar ({0})', items.filter((it) => fits(it, 'dated')).length)],
+                ['nodate', tt('İzleme tarihi olmayanlar ({0})', items.filter((it) => fits(it, 'nodate')).length)],
+                ['todo', tt('İzlenecek ama tarihi var ({0})', items.filter((it) => fits(it, 'todo')).length)],
+              ] as [Filter, string][]
+            )
+              .filter(([k], i) => i === 0 || items.some((it) => fits(it, k)))
+              .map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setFilter(k)}
+                  className={`text-xs rounded-full px-2.5 py-1 border transition ${filter === k ? 'border-[#00c0fa]/70 bg-[#00c0fa]/10 text-[#7fdcff]' : 'border-neutral-700 text-neutral-400 hover:text-neutral-100'}`}
+                >
+                  {label}
+                </button>
+              ))}
+          </div>
           <div className="flex items-center gap-2 px-2.5 mb-1.5">
             <Checkbox
               checked={allOn}
               indeterminate={!allOn && selected.length > 0}
-              onChange={() => setSel(allOn ? new Map() : new Map(sorted.map((it) => [it.row.id, allSeasons(it)])))}
+              onChange={() =>
+                setSel((m) => {
+                  const n = new Map(m)
+                  for (const it of sorted) {
+                    if (allOn) n.delete(it.row.id)
+                    else n.set(it.row.id, allSeasons(it))
+                  }
+                  return n
+                })
+              }
               label={tt('Hepsini seç')}
             />
             <span className="text-xs text-neutral-400">{tt('Hepsini seç')}</span>
@@ -115,6 +163,14 @@ export default function UndatedSeriesSection({
                     <button onClick={() => onOpenRow(it.row)} className="block max-w-full text-left text-sm text-neutral-300 hover:text-[#00c0fa] truncate">
                       {it.label}
                     </button>
+                    <p className="text-[11px] mt-0.5 flex flex-wrap gap-x-2">
+                      {it.dates.length ? (
+                        <span className="text-neutral-400">{tt('İzleme: {0}', it.dates.map((d) => formatEntry(d, fmtDay)).join(', '))}</span>
+                      ) : (
+                        <span className="text-amber-500/90">{tt('İzleme tarihi yok')}</span>
+                      )}
+                      {it.todo && <span className="text-orange-400">{tt('Durumu {0}', it.todoLabel ?? tt('İzlenecek'))}</span>}
+                    </p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {it.seasons.map((s) => {
                         const on = Boolean(ss?.has(s.season))

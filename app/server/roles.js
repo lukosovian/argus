@@ -96,3 +96,29 @@ export function ensureStatusOption(board, key, makeId) {
   durum.options.push(opt)
   return opt.id
 }
+
+// ---- İzlenmiş sayılan durumlar (v1.24) ----------------------------------------------------------
+// Kullanıcı "arkadaşım Sezon Finali ve Final kullanıyor, ARGUS bunları izlendi saymıyor; genel bir şey yapalım,
+// ben de geçeyim" dedi. İzlendi, Sezon Finali ve Final üçü de "izlendi" sayılır (istatistik, puan sorma, yeni
+// bölüm takibi…). Dizinin çıkmış bütün bölümleri izlenince durum dizi sürüyorsa Sezon Finali, bittiyse Final olur.
+export const WATCHED_KEYS = ['izlendi', 'sezonFinali', 'final']
+
+export function watchedStatusIds(board) {
+  return new Set(WATCHED_KEYS.map((k) => resolveStatusOption(board, k)).filter(Boolean))
+}
+
+export function isWatchedStatus(board, optionId) {
+  return Boolean(optionId) && watchedStatusIds(board).has(optionId)
+}
+
+// TMDB'deki dizi durumu: bitti mi ("Ended" / "Canceled")
+export function showEnded(status) {
+  return /^(ended|canceled|cancelled)$/i.test(String(status ?? '').trim())
+}
+
+// Dizinin bütün çıkmış bölümleri izlenince yazılacak durum: bittiyse Final, sürüyorsa Sezon Finali.
+// Durum sütununda yoksa seçenek açılır (makeId verilmişse).
+export function seriesDoneStatus(board, ended, makeId) {
+  const key = ended ? 'final' : 'sezonFinali'
+  return (makeId ? ensureStatusOption(board, key, makeId) : resolveStatusOption(board, key)) ?? resolveStatusOption(board, 'izlendi')
+}

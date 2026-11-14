@@ -174,6 +174,8 @@ export interface Board {
   healthIgnore?: Record<string, string[]>
   // Sağlık Kontrolü'nde "Bunlar farklı" denen mükerrer adayları: "idA|idB" (küçük id önce).
   duplicateIgnore?: string[]
+  // Arşiv doğrulamada "Doğru, dokunma" denen kayıtlar (v1.24)
+  verifyIgnore?: string[]
   // TMDB Güncelle, başlığa yazılmış İngilizce / orijinal adı Türkçe adla değiştirsin mi (dişli › "Başlığı Türkçe
   // adla değiştir"). Yoksa kapalı — yeni kullanıcılar bilerek yazdıkları adların değişmesini beklemiyor.
   titleTr?: boolean

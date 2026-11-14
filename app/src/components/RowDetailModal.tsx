@@ -14,7 +14,7 @@ import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../ty
 import { titleText, episodeKey, todayIso, ratingAverage } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { formatRuntime } from '../lib/rowMeta'
-import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { resolveRole, resolveStatusOption, isWatchedStatus } from '../lib/roles'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { normalizeAgeRating } from '../lib/ageRating'
 import { BRAND_TEXT } from '../lib/theme'
@@ -427,7 +427,7 @@ export default function RowDetailModal({
     const again = list.length > 0
     const nextDates = tarihProp.type === 'multidate' ? [...list, today] : today
     const patch: Record<string, PropertyValue> = { [tarihProp.id]: nextDates }
-    if (durumProp && izlendiOpt) patch[durumProp.id] = izlendiOpt
+    if (durumProp && izlendiOpt && !isWatchedStatus(board, row.values[durumProp.id])) patch[durumProp.id] = izlendiOpt
     quickSave(patch, again ? tt('Bugün tekrar izledin olarak eklendi.') : tt('Bugün izledin olarak eklendi.'))
   }
   const scores =
@@ -481,7 +481,10 @@ export default function RowDetailModal({
   // Kullanıcı "detay penceresinde tam çıkış tarihini görebileyim, sadece yılını görüyorum" dedi: gün biliniyorsa "30 Nisan 2008"
   const vizyonRaw = vizyonProp && typeof row.values[vizyonProp.id] === 'string' ? (row.values[vizyonProp.id] as string) : ''
   const vizyonYear = /^\d{4}-\d{2}-\d{2}$/.test(vizyonRaw) ? longDate(vizyonRaw) : vizyonRaw.slice(0, 4)
-  const runtime = sureProp && typeof row.values[sureProp.id] === 'number' ? formatRuntime(row.values[sureProp.id] as number) : ''
+  // Dizide Süre bir bölümün süresi (v1.24)
+  const kategoriRole = resolveRole(board, 'kategori')
+  const seriesRow = Boolean(seasons?.length) || /dizi|series|tv/i.test(kategoriRole?.options?.find((o) => o.id === row.values[kategoriRole.id])?.label ?? '')
+  const runtime = sureProp && typeof row.values[sureProp.id] === 'number' ? (seriesRow ? tt('{0}/bölüm', formatRuntime(row.values[sureProp.id] as number)) : formatRuntime(row.values[sureProp.id] as number)) : ''
   // Kendi kartlarında gösterilenler bilgi kartına tekrar düşmesin.
   const infoProps = gridProps.filter((p) => p.id !== tarihProp?.id && p.id !== sureProp?.id)
 

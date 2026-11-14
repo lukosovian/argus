@@ -5,10 +5,11 @@ import { titleText } from '../types'
 import { api } from '../lib/api'
 import { BRAND_GRADIENT } from '../lib/theme'
 import { HealthIcon } from './toolbarIcons'
-import { resolveRole, resolveStatusOption } from '../lib/roles'
-import { toEntries, UNKNOWN_DATE } from '../lib/dateRange'
+import { resolveRole, resolveStatusOption, watchedStatusIds } from '../lib/roles'
+import { formatEntry, toEntries, UNKNOWN_DATE } from '../lib/dateRange'
 import { useToast } from '../hooks/useToast'
 import UndatedSeriesSection from './UndatedSeriesSection'
+import ArchiveVerifySection from './ArchiveVerifySection'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx } from '../lib/i18n'
 
@@ -37,6 +38,8 @@ export default function HealthCheckModal({
   onMerge,
   onIgnoreDuplicate,
   onSetValues,
+  onRematch,
+  onIgnoreVerify,
   onClose,
 }: {
   board: Board
@@ -63,6 +66,9 @@ export default function HealthCheckModal({
   onIgnoreDuplicate: (rowIds: string[]) => void
   // Kayıtlara toplu değer yazma (durum/izleme tarihi uyumsuzluklarını düzeltmek için)
   onSetValues: (changes: { rowId: string; values: Record<string, PropertyValue> }[]) => Promise<void>
+  // Arşiv doğrulama (v1.24): "Hangisi?" listesiyle yeniden eşleştir / "Doğru, dokunma"
+  onRematch: (row: Row) => Promise<void>
+  onIgnoreVerify: (rowId: string) => void
   onClose: () => void
 }) {
   useEscape(true, onClose)
@@ -72,7 +78,9 @@ export default function HealthCheckModal({
   const [merging, setMerging] = useState(false)
   // TMDB'de olmadığı son güncellemede görülen alanlar (rowId → sütun id'leri) ve tarihsiz bölümü olan diziler
   const [tmdbMissing, setTmdbMissing] = useState<Record<string, { props: string[]; at: number | null }>>({})
-  const [undated, setUndated] = useState<{ rowId: string; seasons: { season: number; total: number; undated: number }[] }[]>([])
+  const [undated, setUndated] = useState<{ rowId: string; seasons: { season: number; total: number; undated: number }[]; todo?: boolean }[]>([])
+  const [suspicious, setSuspicious] = useState<string[]>([])
+  const [toFinale, setToFinale] = useState<{ rowId: string; to: 'final' | 'sezonFinali' }[]>([])
   const { confirm, notify } = useToast()
 
   const load = useCallback(
@@ -87,6 +95,7 @@ export default function HealthCheckModal({
             setDuplicates((res.duplicates ?? []).map((g) => g.rowIds))
             setTmdbMissing(res.tmdbMissing ?? {})
             setUndated(res.undatedSeries ?? [])
+            setToFinale(res.seriesToFinale ?? [])
           }
         })
         .catch(() => {
@@ -261,7 +270,17 @@ export default function HealthCheckModal({
   const izlendiLabel = durumProp?.options?.find((o) => o.id === izlendiId)?.label ?? tt('İzlendi')
   const izlenecekLabel = durumProp?.options?.find((o) => o.id === izlenecekId)?.label ?? tt('İzlenecek')
   const hasDates = (r: Row) => (dateProp ? toEntries(r.values[dateProp.id]).length > 0 : false)
-  const watchedNoDate = durumProp && dateProp && izlendiId ? rows.filter((r) => r.values[durumProp.id] === izlendiId && !hasDates(r)) : []
+  // v1.24: Sezon Finali / Final de izlendi sayılır
+  const doneIds = watchedStatusIds(board)
+  const watchedNoDate = durumProp && dateProp && doneIds.size ? rows.filter((r) => doneIds.has(r.values[durumProp.id] as string) && !hasDates(r)) : []
+  const kategoriProp = resolveRole(board, 'kategori')
+  const kindOf = (r: Row) => (kategoriProp ? titleText(kategoriProp, r.values[kategoriProp.id]) : '')
+  const statusOf = (r: Row) => (durumProp ? titleText(durumProp, r.values[durumProp.id]) : '')
+  const fmtDay = (iso: string) => {
+    const d = new Date(`${iso}T12:00:00`)
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  const datesOf = (r: Row) => (dateProp ? toEntries(r.values[dateProp.id]) : [])
   const todoWithDate = durumProp && dateProp && izlenecekId ? rows.filter((r) => r.values[durumProp.id] === izlenecekId && hasDates(r)) : []
   const [fixing, setFixing] = useState(false)
   async function fix(changes: { rowId: string; values: Record<string, PropertyValue> }[]) {
@@ -306,7 +325,7 @@ export default function HealthCheckModal({
         {(() => {
           // Özet: en az bir sorunu olan kayıt sayısı (aynı kayıt iki listede olsa da bir kez sayılır).
           const problem = new Set(
-            [...missingImageRows, ...incompleteRows, ...dupGroups.flatMap((g) => g.slice(1)), ...watchedNoDate, ...todoWithDate].map((r) => r.id).concat(undated.map((u) => u.rowId)),
+            [...missingImageRows, ...incompleteRows, ...dupGroups.flatMap((g) => g.slice(1)), ...watchedNoDate, ...todoWithDate].map((r) => r.id).concat(undated.map((u) => u.rowId), suspicious),
           ).size
           const healthy = rows.length ? Math.round(((rows.length - problem) / rows.length) * 100) : 100
           return (
@@ -362,7 +381,7 @@ export default function HealthCheckModal({
                   key: row.id,
                   row,
                   label: rowTitle(row),
-                  tags: [],
+                  tags: [kindOf(row), statusOf(row) !== izlendiLabel ? statusOf(row) : ''].filter(Boolean).map((label) => ({ label })),
                   action: { label: tt('Hatırlamıyorum'), title: tt('Tarih bilinmiyor olarak işaretle, bir daha sorulmaz'), disabled: fixing, onClick: () => fix([unknownDate(row)]) },
                 }))}
                 onOpenRow={onOpenRow}
@@ -388,7 +407,7 @@ export default function HealthCheckModal({
                   key: row.id,
                   row,
                   label: rowTitle(row),
-                  tags: [],
+                  tags: [kindOf(row), ...datesOf(row).map((d) => formatEntry(d, fmtDay))].filter(Boolean).map((label) => ({ label })),
                   action: { label: tt('{0} yap', izlendiLabel), disabled: fixing, onClick: () => fix([markWatched(row)]) },
                 }))}
                 onOpenRow={onOpenRow}
@@ -398,7 +417,7 @@ export default function HealthCheckModal({
           <UndatedSeriesSection
             items={undated.flatMap((u) => {
               const row = rowById(u.rowId)
-              return row ? [{ row, label: rowTitle(row), seasons: u.seasons }] : []
+              return row ? [{ row, label: rowTitle(row), seasons: u.seasons, dates: datesOf(row), todo: u.todo, todoLabel: izlenecekLabel }] : []
             })}
             loading={brokenLoading}
             onOpenRow={onOpenRow}
@@ -412,6 +431,82 @@ export default function HealthCheckModal({
                 notify(e instanceof Error ? e.message : tt('Kaydedilemedi'), 'danger')
               }
             }}
+          />
+          {toFinale.length > 0 && (
+            <HealthSection
+              title={tt('İzlendi olan diziler')}
+              hint={tt('Diziler artık bitince Sezon Finali (dizi sürüyor) ya da Final (dizi bitti) oluyor; üçü de izlendi sayılır. Eski dizilerini de tek tuşla geçirebilirsin. Sezon Finali\'ndeki dizi bitince kendiliğinden Final olur.')}
+              count={toFinale.length}
+              neutral
+              filters={
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  <button
+                    disabled={fixing}
+                    onClick={async () => {
+                      setFixing(true)
+                      try {
+                        const r = await api.seriesToFinale(board.id)
+                        notify(tt('{0} dizi geçirildi: {1} Sezon Finali, {2} Final.', r.changed, r.sezonFinali, r.final), 'success')
+                        notifyDataChanged(board.id)
+                        load(true)
+                      } catch (e) {
+                        notify(e instanceof Error ? e.message : tt('Kaydedilemedi'), 'danger')
+                      } finally {
+                        setFixing(false)
+                      }
+                    }}
+                    className="text-xs rounded-full px-2.5 py-1 border border-[#00c0fa]/60 text-[#7fdcff] hover:bg-[#00c0fa]/10 transition disabled:opacity-50"
+                  >
+                    {tt('Hepsini geçir ({0} dizi)', toFinale.length)}
+                  </button>
+                </div>
+              }
+              items={toFinale.flatMap((x) => {
+                const row = rowById(x.rowId)
+                return row
+                  ? [
+                      {
+                        key: row.id,
+                        row,
+                        label: rowTitle(row),
+                        tags: [{ label: x.to === 'final' ? tt('→ Final') : tt('→ Sezon Finali') }],
+                        action: {
+                          label: tt('Geçir'),
+                          disabled: fixing,
+                          onClick: async () => {
+                            setFixing(true)
+                            try {
+                              await api.seriesToFinale(board.id, [row.id])
+                              notifyDataChanged(board.id)
+                              load(true)
+                            } finally {
+                              setFixing(false)
+                            }
+                          },
+                        },
+                      },
+                    ]
+                  : []
+              })}
+              onOpenRow={onOpenRow}
+            />
+          )}
+          <ArchiveVerifySection
+            boardId={board.id}
+            rows={rows}
+            rowTitle={rowTitle}
+            verifyIgnore={board.verifyIgnore ?? []}
+            onOpenRow={onOpenRow}
+            onRematch={onRematch}
+            onWriteNames={async (row, names) => {
+              const origProp = resolveRole(board, 'orjinalAdi')
+              const values: Record<string, PropertyValue> = {}
+              if (titleProp && titleProp.type === 'text' && names.tr) values[titleProp.id] = names.tr
+              if (origProp && names.orig) values[origProp.id] = names.orig
+              if (Object.keys(values).length) await onSetValues([{ rowId: row.id, values }])
+            }}
+            onIgnore={onIgnoreVerify}
+            onCount={setSuspicious}
           />
           <HealthSection
             title={tt('Hiç görseli olmayan kayıtlar')}

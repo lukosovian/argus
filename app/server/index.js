@@ -6,7 +6,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFile, execSync } from 'node:child_process'
-import { ensureRole, ensureStatusOption, resolveRole, resolveStatusOption } from './roles.js'
+import { bestOverview, seriesRuntime } from './sources.js'
+import { ensureRole, ensureStatusOption, isWatchedStatus, resolveRole, resolveStatusOption, seriesDoneStatus, showEnded, watchedStatusIds } from './roles.js'
 import { buildRestartScript, launchDetachedRestart } from './restart.js'
 import { beforeWrite, findBoard as findBoardCached, initHistory, registerHistoryRoutes, setHistoryWriter } from './history.js'
 import { initNotifications, pushNotification, registerNotificationRoutes } from './notifications.js'
@@ -318,8 +319,8 @@ app.get('/api/profile-frames', (req, res) => {
       const loaded = loadBoardAndRows(p.id, home.boardId)
       if (!loaded) continue
       const durum = resolveRole(loaded.board, 'durum')
-      const izlendi = resolveStatusOption(loaded.board, 'izlendi')
-      out[p.id] = durum && izlendi ? loaded.rows.filter((r) => r.values?.[durum.id] === izlendi).length : 0
+      const done = watchedStatusIds(loaded.board)
+      out[p.id] = durum ? loaded.rows.filter((r) => done.has(r.values?.[durum.id])).length : 0
     } catch {
       /* tek profil yüzünden durma */
     }
@@ -357,22 +358,72 @@ app.get('/api/profiles/:profileId/boards/:id/health', (req, res) => {
     duplicates: findDuplicateGroups(req.params.profileId, board, rows),
     tmdbMissing,
     undatedSeries: findUndatedSeries(req.params.profileId, board, rows),
+    seriesToFinale: findSeriesToFinale(req.params.profileId, board, rows),
   })
+})
+
+// v1.24: durumu İzlendi olan diziler — Sezon Finali (dizi sürüyor) ya da Final'e (dizi bitti) çevrilebilir.
+// Kullanıcı "ben de Sezon Finali ve Final kullanmaya geçeyim" dedi; Sağlık Kontrolü'nde tek tuşla geçilir.
+function findSeriesToFinale(profileId, board, rows) {
+  const durumProp = resolveRole(board, 'durum')
+  const izlendi = resolveStatusOption(board, 'izlendi')
+  if (!durumProp || !izlendi) return []
+  const refs = readJson(profileTmdbFile(profileId), {})
+  return rows
+    .filter((r) => r.values[durumProp.id] === izlendi && refs[r.id]?.mediaType === 'tv')
+    .map((r) => ({ rowId: r.id, to: showEnded(refs[r.id]?.show?.status) ? 'final' : 'sezonFinali' }))
+}
+
+app.post('/api/profiles/:profileId/boards/:id/series-finale', (req, res) => {
+  const { profileId, id } = req.params
+  const boardsFile = profileBoardsFile(profileId)
+  const boards = readJson(boardsFile, [])
+  const board = boards.find((b) => b.id === id)
+  if (!board) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+  const want = Array.isArray(req.body?.rowIds) ? new Set(req.body.rowIds) : null
+  const rowsFile = profileRowsFile(profileId, id)
+  const rows = readJson(rowsFile, [])
+  const list = findSeriesToFinale(profileId, board, rows).filter((x) => !want || want.has(x.rowId))
+  const durumProp = resolveRole(board, 'durum')
+  const before = JSON.stringify(durumProp?.options ?? [])
+  const ids = { final: list.some((x) => x.to === 'final') ? ensureStatusOption(board, 'final', makeId) : null, sezonFinali: list.some((x) => x.to === 'sezonFinali') ? ensureStatusOption(board, 'sezonFinali', makeId) : null }
+  if (JSON.stringify(durumProp?.options ?? []) !== before) writeJson(boardsFile, boards)
+  let n = 0
+  for (const x of list) {
+    const row = rows.find((r) => r.id === x.rowId)
+    const to = ids[x.to]
+    if (!row || !to) continue
+    row.values = { ...row.values, [durumProp.id]: to }
+    row.updatedAt = Date.now()
+    n++
+  }
+  if (n) writeJson(rowsFile, rows)
+  res.json({ ok: true, changed: n, final: list.filter((x) => x.to === 'final').length, sezonFinali: list.filter((x) => x.to === 'sezonFinali').length })
 })
 
 // "İzlendi" olan ama bölümlerinin izleme tarihi olmayan diziler (Sağlık Kontrolü). Kullanıcı "diziyi izlemişim,
 // izlendi işaretli ama bölümlerinde tarih yok, bunları göstersin, toplu ya da tek tek tarihleyebileyim" dedi.
 // Yayınlanmış ama hiç işaretlenmemiş (ya da boş tarihli) bölümler sayılır; "?" (hatırlamıyorum) tarih sayılır.
+// v1.24: Sezon Finali / Final de izlendi sayılır; "İzlenecek ama izleme tarihi var" diziler de listelenir (kullanıcı
+// "onları da göstersin" dedi) — bunlar `todo: true` ile gelir.
 function findUndatedSeries(profileId, board, rows) {
   const durumProp = resolveRole(board, 'durum')
-  const izlendi = resolveStatusOption(board, 'izlendi')
-  if (!durumProp || !izlendi) return []
+  const done = watchedStatusIds(board)
+  const izlenecek = resolveStatusOption(board, 'izlenecek')
+  const dateProp = resolveRole(board, 'izlemeTarihi')
+  if (!durumProp || !done.size) return []
+  const hasDate = (row) => {
+    const v = dateProp ? row.values[dateProp.id] : null
+    return Array.isArray(v) ? v.some(Boolean) : Boolean(v)
+  }
   const episodes = readJson(profileEpisodesFile(profileId), {})
   const watched = readJson(profileWatchedFile(profileId), {})
   const today = localToday()
   const out = []
   for (const row of rows) {
-    if (row.values[durumProp.id] !== izlendi) continue
+    const st = row.values[durumProp.id]
+    const todo = Boolean(izlenecek && st === izlenecek && hasDate(row))
+    if (!done.has(st) && !todo) continue
     const seasons = episodes[row.id]
     if (!Array.isArray(seasons) || !seasons.length) continue
     const seen = watched[row.id] ?? {}
@@ -383,7 +434,7 @@ function findUndatedSeries(profileId, board, rows) {
       const undated = aired.filter((e) => !(seen[`${s.seasonNumber}-${e.episodeNumber}`] ?? []).some((d) => d)).length
       if (undated) list.push({ season: s.seasonNumber, total: aired.length, undated })
     }
-    if (list.length) out.push({ rowId: row.id, seasons: list })
+    if (list.length) out.push({ rowId: row.id, seasons: list, ...(todo ? { todo: true } : {}) })
   }
   return out
 }
@@ -679,11 +730,10 @@ function shouldAskRating(profileId, boardId, before, after) {
   const board = findBoardCached(profileId, boardId)
   if (!board) return false
   const durumProp = resolveRole(board, 'durum')
-  const izlendi = resolveStatusOption(board, 'izlendi')
   const puanProp = resolveRole(board, 'puan')
-  if (!durumProp || !izlendi || !puanProp) return false
-  if (after?.values?.[durumProp.id] !== izlendi) return false
-  if (before && before.values?.[durumProp.id] === izlendi) return false
+  if (!durumProp || !puanProp) return false
+  if (!isWatchedStatus(board, after?.values?.[durumProp.id])) return false
+  if (before && isWatchedStatus(board, before.values?.[durumProp.id])) return false
   const score = after.values?.[puanProp.id]
   return !(score && typeof score === 'object' && Object.keys(score).length > 0)
 }
@@ -1070,9 +1120,8 @@ function autoUnmarkSeriesWatched(profileId, rowId, before, after) {
     const row = rows.find((r) => r.id === rowId)
     if (!row) continue
     const durumProp = resolveRole(board, 'durum')
-    const izlendi = resolveStatusOption(board, 'izlendi')
     const izleniyor = resolveStatusOption(board, 'izleniyor')
-    if (!durumProp || !izlendi || !izleniyor || row.values[durumProp.id] !== izlendi) return null
+    if (!durumProp || !izleniyor || !isWatchedStatus(board, row.values[durumProp.id])) return null
     row.values = { ...row.values, [durumProp.id]: izleniyor }
     row.updatedAt = Date.now()
     writeJson(rowsFile, rows)
@@ -1108,10 +1157,9 @@ function autoStartWatching(profileId, rowId, before, after) {
     const row = rows.find((r) => r.id === rowId)
     if (!row) continue
     const durumProp = resolveRole(board, 'durum')
-    const izlendi = resolveStatusOption(board, 'izlendi')
     const izleniyor = resolveStatusOption(board, 'izleniyor')
     const cur = durumProp ? row.values[durumProp.id] : null
-    if (!durumProp || !izleniyor || cur === izleniyor || cur === izlendi) return null
+    if (!durumProp || !izleniyor || cur === izleniyor || isWatchedStatus(board, cur)) return null
     row.values = { ...row.values, [durumProp.id]: izleniyor }
     row.updatedAt = Date.now()
     writeJson(rowsFile, rows)
@@ -1155,9 +1203,18 @@ function autoMarkSeriesWatched(profileId, rowId, seen) {
     const row = rows.find((r) => r.id === rowId)
     if (!row) continue
     const durumProp = resolveRole(board, 'durum')
-    const izlendi = resolveStatusOption(board, 'izlendi')
-    if (!durumProp || !izlendi || row.values[durumProp.id] === izlendi) return null
-    row.values = { ...row.values, [durumProp.id]: izlendi }
+    if (!durumProp) return null
+    // v1.24: dizi bittiyse Final, sürüyorsa Sezon Finali (seçenek yoksa açılır). Zaten izlenmiş sayılan bir
+    // durumdaysa (İzlendi / Sezon Finali / Final) dokunulmaz — Sezon Finali → Final geçişi checkFinishedSeries'te.
+    if (isWatchedStatus(board, row.values[durumProp.id])) return null
+    const show0 = readJson(profileTmdbFile(profileId), {})[rowId]?.show
+    const optsBefore = JSON.stringify(durumProp.options ?? [])
+    const doneId = seriesDoneStatus(board, showEnded(show0?.status), makeId)
+    if (!doneId) return null
+    if (JSON.stringify(durumProp.options ?? []) !== optsBefore) writeJson(profileBoardsFile(profileId), boards)
+    const wasWatched = false
+    row.values = { ...row.values, [durumProp.id]: doneId }
+    const doneLabel = durumProp.options?.find((o) => o.id === doneId)?.label ?? stt('İzlendi')
     const dateProp = resolveRole(board, 'izlemeTarihi')
     const allDates = Object.values(seen).flat().filter(Boolean).sort()
     const lastDate = allDates[allDates.length - 1]
@@ -1179,15 +1236,16 @@ function autoMarkSeriesWatched(profileId, rowId, seen) {
     writeJson(rowsFile, rows)
     const tp = board.properties.find((p) => p.id === board.titlePropertyId)
     const title = (tp && row.values[tp.id]) || stt('Dizi')
-    const show = readJson(profileTmdbFile(profileId), {})[rowId]?.show
-    const tail = show?.status === 'Ended' || show?.status === 'Canceled' ? stt(' Dizi bitti, yeni bölüm gelmeyecek.') : show?.next?.airDate ? stt(' Yeni bölüm {0} tarihinde.', langDate(show.next.airDate)) : stt(' Yeni sezon çıkınca haber vereceğim.')
-    pushNotification(profileId, {
-      type: 'watched',
-      boardId: board.id,
-      rowId,
-      title: String(title),
-      text: stt('Çıkmış bütün bölümleri izledin, durumu İzlendi yapıldı.{0}', tail),
-    })
+    const show = show0
+    const tail = showEnded(show?.status) ? stt(' Dizi bitti, yeni bölüm gelmeyecek.') : show?.next?.airDate ? stt(' Yeni bölüm {0} tarihinde.', langDate(show.next.airDate)) : stt(' Yeni sezon çıkınca haber vereceğim.')
+    if (!wasWatched)
+      pushNotification(profileId, {
+        type: 'watched',
+        boardId: board.id,
+        rowId,
+        title: String(title),
+        text: stt('Çıkmış bütün bölümleri izledin, durumu {0} yapıldı.{1}', doneLabel, tail),
+      })
     return { title: String(title), boardId: board.id }
   }
   return null
@@ -1466,7 +1524,7 @@ async function searchTmdbForRow(board, row, apiKey) {
 // (Kategori Film/Dizi ya da vizyon yılı doluysa ona göre daraltılmış) ya da bu kaydın zaten bağlı olduğu
 // yapım kesinler arasında. Diğer her durumda (birden fazla kesin, ya da hiç kesin yok ama birden fazla
 // sonuç) { choose: [...] } döner. Hiç sonuç yoksa {} — normal arama devam eder, bulamazsa hata verir.
-async function pickTmdbCandidate(profileId, board, row, apiKey) {
+async function pickTmdbCandidate(profileId, board, row, apiKey, always = false) {
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const origProp = resolveRole(board, 'orjinalAdi')
   const vizyonProp = resolveRole(board, 'vizyon')
@@ -1503,7 +1561,7 @@ async function pickTmdbCandidate(profileId, board, row, apiKey) {
   // Bu kayıt zaten bir yapıma bağlıysa ve o yapım adı tutanlar arasındaysa onu kullan.
   const ref = readJson(profileTmdbFile(profileId), {})[row.id]
   const current = ref && exact.find((e) => e.key === tmdbKey(ref.mediaType, ref.id))
-  if (current) return { forced: toForced(current) }
+  if (current && !always) return { forced: toForced(current) }
   const kategoriLabel = (kategoriProp?.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '').toLocaleLowerCase('tr')
   if (kategoriLabel) {
     const want = isTvKind(kategoriLabel) ? 'tv' : isMovieKind(kategoriLabel) ? 'movie' : null
@@ -1516,8 +1574,9 @@ async function pickTmdbCandidate(profileId, board, row, apiKey) {
     const narrowed = exact.filter((e) => (e.r.release_date || e.r.first_air_date || '').startsWith(year))
     if (narrowed.length) exact = narrowed
   }
-  if (exact.length === 1) return { forced: toForced(exact[0]) }
-  if (exact.length === 0 && entries.length === 1) return { forced: toForced(entries[0]) }
+  // `always`: Sağlık Kontrolü › "Yeniden eşleştir" — tek aday olsa da liste gösterilir
+  if (exact.length === 1 && !always) return { forced: toForced(exact[0]) }
+  if (exact.length === 0 && entries.length === 1 && !always) return { forced: toForced(entries[0]) }
   // Liste: adı tutanlar önce (en bilinen önce), sonra diğerleri TMDB'nin sırasıyla.
   const exactSet = new Set(exact.map((e) => e.key))
   const list = [
@@ -1606,7 +1665,7 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     // Tek satırdaki Güncelle (`ask`): kesin tek bir eşleşme yoksa kendisi seçmek yerine adayları
     // döndürür, arayüz listeyi gösterip kullanıcıya seçtirir (sonra `forced` ile yeniden çağrılır).
     if (!forced && ask) {
-      const pick = await pickTmdbCandidate(profileId, board, row, apiKey)
+      const pick = await pickTmdbCandidate(profileId, board, row, apiKey, ask === 'always')
       if (pick.choose) return { status: 200, data: { choose: pick.choose } }
       if (pick.forced) forced = pick.forced
     }
@@ -1636,12 +1695,12 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       mediaType === 'tv'
         ? await tmdbGet(
             `/tv/${result.id}`,
-            { language: tmdbLang(), append_to_response: 'aggregate_credits,images', include_image_language: `${serverLang()},en,null` },
+            { language: tmdbLang(), append_to_response: 'aggregate_credits,images,translations,external_ids,alternative_titles', include_image_language: `${serverLang()},en,null` },
             apiKey,
           )
         : await tmdbGet(
             `/movie/${result.id}`,
-            { language: tmdbLang(), append_to_response: 'credits,images', include_image_language: `${serverLang()},en,null` },
+            { language: tmdbLang(), append_to_response: 'credits,images,translations,external_ids,alternative_titles', include_image_language: `${serverLang()},en,null` },
             apiKey,
           )
     if (!details) return { status: 502, data: { error: stt('TMDB detay alınamadı') } }
@@ -1732,9 +1791,14 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (sinopsisProp && (ow || !row.values[sinopsisProp.id]) && details.overview && !exclude.has('sinopsis')) {
-      row.values[sinopsisProp.id] = details.overview
-      filled.push(stt('Sinopsis'))
+    // Sinopsis: TMDB'nin bu dildeki özeti boşsa başka çevirisi, Vikipedi, İngilizcesi ya da TVmaze (bkz. sources.js).
+    // Kullanıcı "sinopsis TMDB'de olduğu halde çekmediği oluyor" dedi — Türkçe çevirisi olmayınca boş kalıyordu.
+    if (sinopsisProp && (ow || !String(row.values[sinopsisProp.id] ?? '').trim()) && !exclude.has('sinopsis')) {
+      const ov = await bestOverview(details, mediaType, serverLang())
+      if (ov?.text) {
+        row.values[sinopsisProp.id] = ov.text
+        filled.push(stt('Sinopsis'))
+      }
     }
 
     if (posterProp && (ow || !row.values[posterProp.id]) && details.poster_path && !exclude.has('poster')) {
@@ -1827,9 +1891,21 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
       }
     }
 
-    if (mediaType === 'movie' && sureProp && (ow || !row.values[sureProp.id]) && details.runtime && !exclude.has('sure')) {
-      row.values[sureProp.id] = details.runtime
-      filled.push(stt('Süre'))
+    // Süre: filmde filmin süresi, dizide bir bölümün ortalama süresi (v1.24 — kullanıcı "dizilerde de süre
+    // kısmını diziye uygun doldursun" dedi). Tabloda dizide "bölüm başına" diye yazılır.
+    if (sureProp && (ow || !row.values[sureProp.id]) && !exclude.has('sure')) {
+      const mins = mediaType === 'movie' ? details.runtime : await seriesRuntime(details)
+      if (mins > 0) {
+        row.values[sureProp.id] = mins
+        filled.push(stt('Süre'))
+        if (mediaType === 'tv') {
+          const fresh = readJson(profileTmdbFile(profileId), {})
+          if (fresh[row.id]) {
+            fresh[row.id].epRuntime = mins
+            writeJson(profileTmdbFile(profileId), fresh)
+          }
+        }
+      }
     }
 
     if (yasProp && (ow || !(row.values[yasProp.id] ?? '').trim()) && !exclude.has('yasSiniri')) {
@@ -1965,6 +2041,8 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
         if (eksik.length) fresh[row.id].eksik = eksik
         else delete fresh[row.id].eksik
         fresh[row.id].baktim = Date.now()
+        // Arşiv doğrulaması için TMDB'deki adlar (bkz. verifyBoard)
+        fresh[row.id].ad = tmdbNames(details, mediaType)
         writeJson(profileTmdbFile(profileId), fresh)
       }
     } catch {
@@ -1993,7 +2071,7 @@ app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res)
     if (!ref?.id || (ref.mediaType !== 'movie' && ref.mediaType !== 'tv')) return res.json({ ok: true, skipped: true, filled: [] })
     forced = { tmdbId: ref.id, mediaType: ref.mediaType }
   }
-  const out = await fillRowFromTmdb(profileId, boardId, rowId, { exclude: req.body?.exclude, overwrite: req.body?.overwrite, ask: Boolean(req.body?.ask), forced })
+  const out = await fillRowFromTmdb(profileId, boardId, rowId, { exclude: req.body?.exclude, overwrite: req.body?.overwrite, ask: req.body?.ask === 'always' ? 'always' : Boolean(req.body?.ask), forced })
   res.status(out.status).json(out.data)
 })
 
@@ -2085,7 +2163,7 @@ function archiveLookup(profileId, board, rows) {
   for (const [rowId, r] of Object.entries(refs)) if (r?.id) byKey.set(tmdbKey(r.mediaType, r.id), rowId)
   const index = buildArchiveIndex(profileId, board, rows)
   const durumProp = resolveRole(board, 'durum')
-  const izlendi = resolveStatusOption(board, 'izlendi')
+  const done = watchedStatusIds(board)
   const rowById = new Map(rows.map((r) => [r.id, r]))
   // TMDB bağlantısı olmayan eski kayıtlar için adıyla eşleştirme
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
@@ -2107,7 +2185,7 @@ function archiveLookup(profileId, board, rows) {
       inArchive: Boolean(row) || index.has(card),
       rowId: row ? row.id : null,
       status: statusId ? (durumProp.options?.find((o) => o.id === statusId)?.label ?? null) : null,
-      watched: Boolean(statusId && statusId === izlendi),
+      watched: Boolean(statusId && done.has(statusId)),
     }
   }
 }
@@ -3226,15 +3304,16 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
   if (!loaded) return
   const { board } = loaded
   const durumProp = resolveRole(board, 'durum')
-  const izlendi = resolveStatusOption(board, 'izlendi')
+  const done = watchedStatusIds(board)
   const izleniyor = resolveStatusOption(board, 'izleniyor')
+  const sezonFinali = resolveStatusOption(board, 'sezonFinali')
   const dateProp = resolveRole(board, 'izlemeTarihi')
-  if (!durumProp || !izlendi || !izleniyor) return
+  if (!durumProp || !done.size || !izleniyor) return
   const refs = readJson(profileTmdbFile(profileId), {})
   const watched = readJson(profileWatchedFile(profileId), {})
   const tp = board.properties.find((p) => p.id === board.titlePropertyId)
   const today = localToday()
-  for (const row of loaded.rows.filter((r) => r.values[durumProp.id] === izlendi)) {
+  for (const row of loaded.rows.filter((r) => done.has(r.values[durumProp.id]))) {
     const ref = refs[row.id]
     if (!ref || ref.mediaType !== 'tv') continue
     const st = await getTvStatus(ref.id, apiKey)
@@ -3261,7 +3340,7 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
       const rowsFile = profileRowsFile(profileId, boardId)
       const rows = readJson(rowsFile, [])
       const r = rows.find((x) => x.id === row.id)
-      if (r && r.values[durumProp.id] === izlendi) {
+      if (r && done.has(r.values[durumProp.id])) {
         r.values = { ...r.values, [durumProp.id]: izleniyor }
         r.updatedAt = Date.now()
         writeJson(rowsFile, rows)
@@ -3272,6 +3351,31 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
           rowId: row.id,
           title,
           text: stt('Yeni bölüm çıktı (S{0}B{1}, {2}) — durumu İzleniyor\'a alındı.', st.last.season, st.last.episode, langDate(st.last.airDate)),
+        })
+      }
+      continue
+    }
+    // Sezon Finali'ndeki dizi TMDB'de bitti/iptal edildi olarak işaretlendiyse Final olur (v1.24)
+    if (sezonFinali && row.values[durumProp.id] === sezonFinali && showEnded(st.status)) {
+      const rowsFile = profileRowsFile(profileId, boardId)
+      const rows = readJson(rowsFile, [])
+      const r = rows.find((x) => x.id === row.id)
+      const boardsNow = readJson(profileBoardsFile(profileId), [])
+      const bNow = boardsNow.find((b) => b.id === boardId)
+      const before = JSON.stringify(resolveRole(bNow, 'durum')?.options ?? [])
+      const finalId = bNow ? ensureStatusOption(bNow, 'final', makeId) : null
+      if (r && finalId && r.values[durumProp.id] === sezonFinali) {
+        if (JSON.stringify(resolveRole(bNow, 'durum')?.options ?? []) !== before) writeJson(profileBoardsFile(profileId), boardsNow)
+        r.values = { ...r.values, [durumProp.id]: finalId }
+        r.updatedAt = Date.now()
+        writeJson(rowsFile, rows)
+        pushNotification(profileId, {
+          key: `final:${row.id}`,
+          type: 'watched',
+          boardId,
+          rowId: row.id,
+          title,
+          text: stt('Dizi bitti, yeni bölüm gelmeyecek — durumu Final yapıldı.'),
         })
       }
       continue
@@ -3288,6 +3392,141 @@ async function checkFinishedSeries(profileId, boardId, apiKey) {
     }
   }
 }
+
+// ---- Arşiv doğrulama (Sağlık Kontrolü, v1.24) ---------------------------------------------------------------
+// Kullanıcı "arşivdeki içerikleri düzgünce kontrol eden bir şey ekle; Türkçe adı başka orijinali başka olanlar,
+// aktarımda yanlış çekilmişler oluyor" dedi. TMDB'ye bağlı her kaydın adları/yılı/türü bağlı olduğu yapımla
+// karşılaştırılır. TMDB'deki adlar tmdb.json'da `ad` olarak saklanır ({ tr, orig, en, yil }) — her güncellemede
+// yazılır, eskiler için "Kontrol et" bir kez TMDB'ye sorar (verifyJobs). "Doğru" denenler board.verifyIgnore'da.
+const verifyJobs = new Map() // `${profileId}:${boardId}` → { done, total }
+
+function tmdbNames(details, mediaType) {
+  const en = (details.translations?.translations ?? []).find((t) => t.iso_639_1 === 'en')?.data
+  const strip = (s) => String(s ?? '').replace(/[‎‏‪-‮]/g, '').trim()
+  // Başka dillerdeki adlar ve TMDB'nin "diğer adları" (ör. "Kara Panter", "Karateci Çocuk") — kullanıcının kendi verdiği
+  // yaygın bir Türkçe ad şüpheli sayılmasın
+  const alt = new Set()
+  for (const t of details.translations?.translations ?? []) if (strip(t.data?.title || t.data?.name)) alt.add(strip(t.data.title || t.data.name))
+  for (const t of details.alternative_titles?.titles ?? details.alternative_titles?.results ?? []) if (strip(t.title)) alt.add(strip(t.title))
+  return {
+    tr: strip(mediaType === 'tv' ? details.name : details.title),
+    orig: strip(mediaType === 'tv' ? details.original_name : details.original_title),
+    en: strip(en?.title || en?.name),
+    yil: String((mediaType === 'tv' ? details.first_air_date : details.release_date) || '').slice(0, 4),
+    alt: [...alt].slice(0, 60),
+  }
+}
+
+const vfold = (s) =>
+  normalizeText(String(s ?? '').toLocaleLowerCase('tr'))
+    .replace(/ı/g, 'i')
+    .replace(/['’`´]/g, '') // "Flux'ta" = "Fluxta"
+    .replace(/&/g, ' and ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+
+// İki ad aynı yapımı mı anlatıyor: birebir, biri diğerini içeriyor ("Dune" / "Dune: Part One") ya da kelimelerin çoğu ortak
+function sameName(a, b) {
+  const x = vfold(a)
+  const y = vfold(b)
+  if (!x || !y) return false
+  if (x === y) return true
+  if (Math.min(x.length, y.length) >= 4 && (x.includes(y) || y.includes(x))) return true
+  const wx = new Set(x.split(' ').filter((w) => w.length > 1))
+  const wy = new Set(y.split(' ').filter((w) => w.length > 1))
+  if (!wx.size || !wy.size) return false
+  const common = [...wx].filter((w) => wy.has(w)).length
+  return common / Math.min(wx.size, wy.size) >= 0.75 && common >= Math.min(2, wx.size, wy.size)
+}
+
+function verifyBoard(profileId, board, rows) {
+  const refs = readJson(profileTmdbFile(profileId), {})
+  const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const origProp = resolveRole(board, 'orjinalAdi')
+  const vizyonProp = resolveRole(board, 'vizyon')
+  const kategoriProp = resolveRole(board, 'kategori')
+  const ignored = new Set(board.verifyIgnore ?? [])
+  const items = []
+  let unlinked = 0
+  let missing = 0
+  for (const row of rows) {
+    const ref = refs[row.id]
+    const title = titleProp && typeof row.values[titleProp.id] === 'string' ? row.values[titleProp.id].trim() : ''
+    const orig = origProp && typeof row.values[origProp.id] === 'string' ? row.values[origProp.id].trim() : ''
+    if (!ref?.id) {
+      if (title || orig) unlinked++
+      continue
+    }
+    if (!ref.ad || !ref.ad.alt) {
+      missing++
+      continue
+    }
+    if (ignored.has(row.id)) continue
+    const ad = ref.ad
+    const names = [ad.tr, ad.orig, ad.en, ...(ad.alt ?? [])].filter(Boolean)
+    const fits = (s) => names.some((n) => sameName(s, n))
+    const issues = []
+    const titleOk = !title || fits(title)
+    const origOk = !orig || fits(orig)
+    // Kullanıcı adı bir kez TMDB'den düzeltildikten sonra kendisi değiştirdiyse (tt farklı) o ad bilerek verilmiş
+    const userTitle = typeof ref.tt === 'string' && ref.tt && title && ref.tt !== title
+    if (!titleOk && !origOk) issues.push('ad')
+    else if (!origOk) issues.push('orj')
+    // TMDB'de Türkçe adı yoksa (Türkçe adı orijinaliyle aynı) kullanıcının yazdığı Türkçe ad şüpheli sayılmaz
+    else if (!titleOk && !userTitle && ad.tr && !sameName(ad.tr, ad.orig) && !sameName(ad.tr, ad.en)) issues.push('trAd')
+    const rowYear = vizyonProp && typeof row.values[vizyonProp.id] === 'string' ? row.values[vizyonProp.id].slice(0, 4) : ''
+    if (/^\d{4}$/.test(rowYear) && /^\d{4}$/.test(ad.yil) && Math.abs(Number(rowYear) - Number(ad.yil)) > 1) issues.push('yil')
+    const kat = (kategoriProp?.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '').toLocaleLowerCase('tr')
+    const want = kat ? (isTvKind(kat) ? 'tv' : isMovieKind(kat) ? 'movie' : null) : null
+    if (want && want !== ref.mediaType) issues.push('tur')
+    if (issues.length) items.push({ rowId: row.id, issues, tmdb: { tr: ad.tr, orig: ad.orig, en: ad.en, yil: ad.yil, mediaType: ref.mediaType, id: ref.id }, row: { title, orig, year: rowYear } })
+  }
+  return { items, unlinked, missing }
+}
+
+async function runVerifyJob(profileId, boardId, apiKey, force) {
+  const k = `${profileId}:${boardId}`
+  if (verifyJobs.has(k)) return
+  const loaded = loadBoardAndRows(profileId, boardId)
+  if (!loaded) return
+  const refs0 = readJson(profileTmdbFile(profileId), {})
+  const todo = loaded.rows.filter((r) => refs0[r.id]?.id && (force || !refs0[r.id].ad || !refs0[r.id].ad.alt)).map((r) => r.id)
+  if (!todo.length) return
+  const job = { done: 0, total: todo.length }
+  verifyJobs.set(k, job)
+  try {
+    const found = {}
+    await mapLimit(todo, 4, async (rowId) => {
+      const ref = refs0[rowId]
+      const d = await tmdbGet(`/${ref.mediaType}/${ref.id}`, { language: tmdbLang(), append_to_response: 'translations,alternative_titles' }, apiKey)
+      if (d) found[rowId] = tmdbNames(d, ref.mediaType)
+      job.done++
+      // Ara ara yaz: uzun sürerse yarım iş kaybolmasın
+      if (job.done % 25 === 0 || job.done === job.total) {
+        const fresh = readJson(profileTmdbFile(profileId), {})
+        for (const [id, ad] of Object.entries(found)) if (fresh[id]) fresh[id].ad = ad
+        writeJson(profileTmdbFile(profileId), fresh)
+      }
+    })
+  } finally {
+    verifyJobs.delete(k)
+  }
+}
+
+app.get('/api/profiles/:profileId/boards/:id/verify', (req, res) => {
+  const loaded = loadBoardAndRows(req.params.profileId, req.params.id)
+  if (!loaded) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+  const job = verifyJobs.get(`${req.params.profileId}:${req.params.id}`)
+  res.json({ ...verifyBoard(req.params.profileId, loaded.board, loaded.rows), pending: job ? { done: job.done, total: job.total } : null })
+})
+
+// Eksik `ad` bilgilerini TMDB'den toplar (force: hepsini yeniden). Arka planda çalışır, ilerleme GET'te.
+app.post('/api/profiles/:profileId/boards/:id/verify', (req, res) => {
+  const apiKey = readProfileApiKey(req.params.profileId)
+  if (!apiKey) return res.status(400).json({ error: stt('Önce Ayarlar → Veritabanı → API sekmesinden bir TMDB API anahtarı girmelisin.') })
+  runVerifyJob(req.params.profileId, req.params.id, apiKey, Boolean(req.body?.force)).catch((e) => console.error('doğrulama hata:', e))
+  res.json({ ok: true })
+})
 
 // ---- İzleme listesi takibi ------------------------------------------------------------------------
 // Kullanıcı şunları istedi: (1) İzlenecek bir içerik bir platforma (Netflix, Disney+…) gelince haber versin,
@@ -3330,7 +3569,7 @@ async function checkWatchlist(profileId, boardId, apiKey, force = false) {
     if (!loaded) return
     const { board, rows } = loaded
     const durumProp = resolveRole(board, 'durum')
-    const izlendi = resolveStatusOption(board, 'izlendi')
+    const done = watchedStatusIds(board)
     const vizyonProp = resolveRole(board, 'vizyon')
     const tp = board.properties.find((p) => p.id === board.titlePropertyId)
     const titleOf = (r) => String((tp && r.values[tp.id]) || stt('İsimsiz'))
@@ -3344,7 +3583,7 @@ async function checkWatchlist(profileId, boardId, apiKey, force = false) {
 
     // 1 + 2: henüz izlenmemiş (İzlenecek, Yarım, İzleniyor, boş) ve TMDB'ye bağlı kayıtlar — tek istekte hem
     // içeriğin bilgisi (vizyon tarihi) hem platformları
-    const open = rows.filter((r) => refs[r.id]?.id && (!durumProp || !izlendi || r.values[durumProp.id] !== izlendi))
+    const open = rows.filter((r) => refs[r.id]?.id && (!durumProp || !done.has(r.values[durumProp.id])))
     const live = new Set(open.map((r) => r.id))
     for (const id of Object.keys(providers)) if (!live.has(id)) delete providers[id]
     await mapLimit(open, 4, async (row) => {

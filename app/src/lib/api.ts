@@ -426,8 +426,15 @@ export const api = {
       brokenImages: { rowId: string; propertyId: string; propertyName: string; value: string }[]
       duplicates: { rowIds: string[] }[]
       tmdbMissing?: Record<string, { props: string[]; at: number | null }>
-      undatedSeries?: { rowId: string; seasons: { season: number; total: number; undated: number }[] }[]
+      undatedSeries?: { rowId: string; seasons: { season: number; total: number; undated: number }[]; todo?: boolean }[]
+      seriesToFinale?: { rowId: string; to: 'final' | 'sezonFinali' }[]
     }>(profilePath(`/boards/${boardId}/health`)),
+  // v1.24: İzlendi olan dizileri Sezon Finali / Final'e çevir (rowIds yoksa hepsi)
+  seriesToFinale: (boardId: string, rowIds?: string[]) =>
+    request<{ ok: boolean; changed: number; final: number; sezonFinali: number }>(profilePath(`/boards/${boardId}/series-finale`), { method: 'POST', ...json({ rowIds }) }),
+  // v1.24: Arşiv doğrulama — TMDB'ye bağlı kayıtların adı/yılı/türü bağlı oldukları yapımla uyuşuyor mu
+  getVerify: (boardId: string) => request<VerifyResult>(profilePath(`/boards/${boardId}/verify`)),
+  startVerify: (boardId: string, force = false) => request<{ ok: boolean }>(profilePath(`/boards/${boardId}/verify`), { method: 'POST', ...json({ force }) }),
   // Sağlık Kontrolü: tarihsiz bölümlere tarih yaz (date: YYYY-MM-DD, YYYY, "?" ya da "kayit")
   dateEpisodes: (boardId: string, items: { rowId: string; seasons?: number[] }[], date: string) =>
     request<{ ok: boolean; episodes: number }>(profilePath(`/boards/${boardId}/date-episodes`), { method: 'POST', ...json({ items, date }) }),
@@ -490,7 +497,7 @@ export const api = {
   getShowStatus: () => request<Record<string, ShowInfo>>(profilePath('/show-status')),
   // `ask`: kesin tek eşleşme yoksa doldurmak yerine `choose` (adaylar) döner — sadece tek satır Güncelle'de.
   // `forced`: kullanıcının listeden seçtiği yapım (arama yapılmaz).
-  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false, opts: { ask?: boolean; recheck?: boolean; forced?: { tmdbId: number; mediaType: 'movie' | 'tv' } } = {}) =>
+  fetchTmdb: (boardId: string, rowId: string, exclude: string[] = [], overwrite = false, opts: { ask?: boolean | 'always'; recheck?: boolean; forced?: { tmdbId: number; mediaType: 'movie' | 'tv' } } = {}) =>
     request<{
       ok: true
       mediaType: 'movie' | 'tv'
@@ -646,3 +653,12 @@ export const api = {
     return res.json()
   },
 }
+
+export type VerifyIssue = 'ad' | 'orj' | 'trAd' | 'yil' | 'tur'
+export type VerifyItem = {
+  rowId: string
+  issues: VerifyIssue[]
+  tmdb: { tr: string; orig: string; en: string; yil: string; mediaType: 'movie' | 'tv'; id: number }
+  row: { title: string; orig: string; year: string }
+}
+export type VerifyResult = { items: VerifyItem[]; unlinked: number; missing: number; pending: { done: number; total: number } | null }

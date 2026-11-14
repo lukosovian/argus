@@ -12,6 +12,9 @@ export const STATUS_STYLE: Record<StatusKey, { chip: string; solid: string; dot:
   izlenecek: { chip: 'bg-orange-500/15 text-orange-400 border-orange-500/30', solid: 'bg-orange-500 text-white', dot: 'bg-orange-400', hex: '#f97316' },
   yarim: { chip: 'bg-sky-500/15 text-sky-400 border-sky-500/30', solid: 'bg-sky-500 text-white', dot: 'bg-sky-400', hex: '#38bdf8' },
   izleniyor: { chip: 'bg-amber-500/15 text-amber-400 border-amber-500/30', solid: 'bg-amber-400 text-neutral-950', dot: 'bg-amber-400', hex: '#f59e0b' },
+  // v1.24 — ikisi de izlendi sayılır: Sezon Finali (dizi sürüyor) camgöbeği, Final (dizi bitti) mor
+  sezonFinali: { chip: 'bg-teal-500/15 text-teal-300 border-teal-500/30', solid: 'bg-teal-500 text-white', dot: 'bg-teal-300', hex: '#14b8a6' },
+  final: { chip: 'bg-violet-500/15 text-violet-300 border-violet-500/30', solid: 'bg-violet-500 text-white', dot: 'bg-violet-300', hex: '#8b5cf6' },
 }
 
 export function statusKeyOf(label: string | undefined | null): StatusKey | null {

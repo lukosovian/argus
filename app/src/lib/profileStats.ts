@@ -6,7 +6,7 @@ import { useRows } from '../hooks/useRows'
 import { useProfiles } from '../hooks/useProfiles'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { api } from './api'
-import { resolveRole, resolveStatusOption } from './roles'
+import { resolveRole, watchedStatusIds } from './roles'
 import { entryEnd, toEntries } from './dateRange'
 import { onDataChanged } from './dataEvents'
 import { tt } from './i18n'
@@ -41,7 +41,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap): Pr
   const puan = resolveRole(board, 'puan')
   const banner = resolveRole(board, 'banner')
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
-  const izlendi = resolveStatusOption(board, 'izlendi')
+  const done = watchedStatusIds(board)
   const isSeries = (r: Row) => /dizi|series|tv/i.test(kategori?.options?.find((o) => o.id === r.values[kategori.id])?.label ?? '')
 
   const days = new Set<string>()
@@ -85,7 +85,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap): Pr
     streak++
     c.setDate(c.getDate() - 1)
   }
-  const watchedCount = durum && izlendi ? rows.filter((r) => r.values[durum.id] === izlendi).length : 0
+  const watchedCount = durum ? rows.filter((r) => done.has(r.values[durum.id] as string)).length : 0
 
   // Duygu avatarı (ARGUS'un 12 duygu yüzü, /avatars/profil1-12)
   const lastRow = last?.row

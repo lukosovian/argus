@@ -61,7 +61,7 @@ import {
   VitrinSusVisual,
   EkstralarVisual,
   NeIzlesemEkstraVisual,
-  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual, BiletlerimVisual, BiletTasarimVisual, OdulPaketVisual, AdDuzeltVisual, SaglikTarihsizVisual,
+  MenuEkstraVisual, GirisAnimVisual, BasarimSahneVisual, PaylasHedefVisual, BasarimDetayVisual, IsiHaritaBolumVisual, TabloAcilisVisual, PaylasKartVisual, GirisSadeVisual, FlashbackHizaVisual, BiletlerimVisual, BiletTasarimVisual, OdulPaketVisual, AdDuzeltVisual, SaglikTarihsizVisual, SezonFinaliVisual, ArsivDogrulaVisual, KaynaklarVisual,
   KaldiginYerdenVisual,
   TakvimCilaVisual,
   IstatistikCilaVisual,
@@ -138,6 +138,26 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.24',
+    date: tt('14 Kasım 2026'),
+    title: tt('Sezon Finali ve Final, arşiv kontrolü, daha dolu bilgiler'),
+    items: [
+      tt('yeni: Durumlara Sezon Finali ve Final geldi. Bir dizinin çıkmış bütün bölümlerini izleyince dizi sürüyorsa Sezon Finali, bittiyse Final oluyor. İzlendi, Sezon Finali ve Final üçü de izlendi sayılıyor: istatistikler, ödüller, Aklımda, Ne İzlesem, Evrenler ve Nook hepsini tanıyor.'),
+      tt('yeni: Sezon Finali\'ndeki bir dizi bittiğinde (TMDB\'de bitti ya da iptal edildi olunca) kendiliğinden Final oluyor. Yeni bölüm çıkınca eskisi gibi İzleniyor\'a geçiyor.'),
+      tt('yeni: Sağlık Kontrolü\'nde "İzlendi olan diziler" listesi: eski dizilerini tek tuşla Sezon Finali ya da Final\'e geçirebilirsin (hangisine geçeceği yanında yazıyor).'),
+      tt('yeni: Sağlık Kontrolü\'nde "Eşleşmesi şüpheli kayıtlar". Her kaydın Türkçe adı, orjinal adı, yılı ve film/dizi bilgisi bağlı olduğu TMDB yapımıyla karşılaştırılıyor; aktarımda yanlış çekilmişleri buluyor. "Yeniden eşleştir" ile doğrusunu seçebilir, "TMDB\'deki adları yaz" ile adları düzeltebilir ya da "Doğru" diyebilirsin.'),
+      tt('değişti: "İzlenmiş ama bölümleri tarihsiz diziler" listesinde her dizinin altında kendi izleme tarihi yazıyor, böylece yılını görüp yazabilirsin. İzlenecek ama izleme tarihi olan diziler de bu listede; üstteki düğmelerle izleme tarihi olanları, olmayanları ya da İzlenecek olanları ayrı görebilirsin.'),
+      tt('değişti: "İzlenecek ama izleme tarihi var" listesinde girilmiş tarihler, "İzlendi ama izleme tarihi yok" listesinde film mi dizi mi olduğu yazıyor.'),
+      tt('yeni: Dizilerde de Süre doluyor: bir bölümün ortalama süresi. Arşiv tablosunda "45 dk/bölüm" diye görünüyor. Toplam izleme süresine sadece filmler giriyor.'),
+      tt('duz: Sinopsis TMDB\'de Türkçe yazılmamışsa boş kalıyordu. Artık sırayla TMDB\'nin başka çevirilerine, Türkçe Vikipedi\'ye, TMDB\'nin İngilizcesine ve (dizilerde) TVmaze\'e bakılıyor; Türkçesi bulunamayıp başka dilde bulunan sinopsis Türkçeye çevrilip yazılıyor.'),
+    ],
+    visuals: [
+      { caption: tt('1 dizi sürüyorsa Sezon Finali · 2 bittiyse Final · 3 üçü de izlendi sayılır'), Visual: SezonFinaliVisual },
+      { caption: tt('1 arşivdeki adlar bağlı yapımla karşılaştırılır · 2 yeniden eşleştir, adları yaz ya da doğru de'), Visual: ArsivDogrulaVisual },
+      { caption: tt('1 sinopsis için TMDB dışında da bakılır · 2 dizide Süre bölüm başına'), Visual: KaynaklarVisual },
+    ],
+  },
   {
     version: 'v1.23.14',
     date: tt('13 Kasım 2026'),

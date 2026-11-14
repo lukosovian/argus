@@ -8,7 +8,7 @@ import { useThemeMode } from '../hooks/useThemeMode'
 import { ratingAverage, type Board, type PropertyDef, type PropertyType, type Row, type StatMapping } from '../types'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import HelpHint from '../components/HelpHint'
-import { ROLE_DEFS, resolveRole, resolveStatusOption, type RoleKey } from '../lib/roles'
+import { ROLE_DEFS, resolveRole, resolveStatusOption, type RoleKey, watchedStatusIds } from '../lib/roles'
 import Select from '../components/Select'
 import { entryEnd } from '../lib/dateRange'
 import { withLocative } from '../lib/turkce'
@@ -138,11 +138,14 @@ function useStats(board: Board | null | undefined, rows: Row[]) {
     // — etiketin adı değişse de sayılar bozulmasın diye.
     const izlendiId = resolveStatusOption(board, 'izlendi')
     const izlenecekId = resolveStatusOption(board, 'izlenecek')
-    const izlendiRows = durumProp && izlendiId ? rows.filter((r) => r.values[durumProp.id] === izlendiId) : []
+    const doneIds = watchedStatusIds(board)
+    const izlendiRows = durumProp && izlendiId ? rows.filter((r) => doneIds.has(r.values[durumProp.id] as string)) : []
     const izlenecekCount = durumProp && izlenecekId ? rows.filter((r) => r.values[durumProp.id] === izlenecekId).length : 0
 
     let totalMinutes = 0
-    if (sureProp) for (const r of izlendiRows) if (typeof r.values[sureProp.id] === 'number') totalMinutes += r.values[sureProp.id] as number
+    // Dizilerde Süre bölüm süresi (v1.24) — toplam süreye sadece filmler girer
+    const seriesRow = (r: Row) => /dizi|series|tv/i.test(kategoriProp?.options?.find((o) => o.id === r.values[kategoriProp.id])?.label ?? '')
+    if (sureProp) for (const r of izlendiRows) if (typeof r.values[sureProp.id] === 'number' && !seriesRow(r)) totalMinutes += r.values[sureProp.id] as number
 
     const ratings: number[] = []
     if (puanProp) {
@@ -927,7 +930,7 @@ export default function Istatistikler() {
           sub={stats.hasSureProp ? tt('{0}izlediklerinin', formatTotalMinutes(stats.totalMinutes).rest) : undefined}
           hint={
             stats.hasSureProp
-              ? tt('Sadece "İzlendi" durumundaki kayıtların süresi toplanıyor. Şu an yalnızca filmlerin süresi TMDB\'den otomatik doluyor — dizilerin bölüm süreleri bu sayıya dahil değil.')
+              ? tt('İzlediğin filmlerin süresi toplanıyor. Dizilerde Süre bölüm başına süre olduğu için bu sayıya dahil değil.')
               : tt('Bu arşivde süre için eşleştirilmiş bir sütun yok — en alttaki "Sütunları Eşleştir"den bir sayı sütunu seçebilirsin.')
           }
         />

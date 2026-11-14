@@ -153,12 +153,14 @@ export function roleLabel(key: RoleKey): string {
 // seçeneğinin hangi anlama geldiğini bilmek zorunda. board.statusOptions'ta açık kayıt varsa o,
 // yoksa etiketine göre (büyük/küçük harf farketmeden) bulunur.
 
-export type StatusKey = 'izlenecek' | 'izleniyor' | 'izlendi'
+export type StatusKey = 'izlenecek' | 'izleniyor' | 'izlendi' | 'sezonFinali' | 'final'
 
 export const STATUS_DEFS: { key: StatusKey; label: string }[] = [
   { key: 'izlenecek', label: tt('İzlenecek') },
   { key: 'izleniyor', label: tt('İzleniyor') },
   { key: 'izlendi', label: tt('İzlendi') },
+  { key: 'sezonFinali', label: tt('Sezon Finali') },
+  { key: 'final', label: tt('Final') },
 ]
 
 export function resolveStatusOption(board: Board, key: StatusKey): string | undefined {
@@ -167,4 +169,17 @@ export function resolveStatusOption(board: Board, key: StatusKey): string | unde
   const explicit = board.statusOptions?.[key]
   if (explicit && durum.options?.some((o) => o.id === explicit)) return explicit
   return durum.options?.find((o) => isName(o.label, STATUS_NAMES[key]))?.id
+}
+
+// ---- İzlenmiş sayılan durumlar (v1.24) ---------------------------------------------------------
+// İzlendi, Sezon Finali (çıkmış bütün bölümler izlendi, dizi sürüyor) ve Final (dizi bitti) üçü de "izlendi"
+// sayılır — istatistik, ödül, Aklımda, Ne İzlesem… Sunucuda da aynı kural var (server/roles.js).
+export const WATCHED_KEYS: StatusKey[] = ['izlendi', 'sezonFinali', 'final']
+
+export function watchedStatusIds(board: Board): Set<string> {
+  return new Set(WATCHED_KEYS.map((k) => resolveStatusOption(board, k)).filter((x): x is string => Boolean(x)))
+}
+
+export function isWatchedStatus(board: Board, optionId: unknown): boolean {
+  return typeof optionId === 'string' && Boolean(optionId) && watchedStatusIds(board).has(optionId)
 }

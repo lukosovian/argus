@@ -7,7 +7,7 @@ import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useToast } from '../hooks/useToast'
-import { resolveRole, resolveStatusOption } from '../lib/roles'
+import { resolveRole, resolveStatusOption, watchedStatusIds } from '../lib/roles'
 import { fold } from '../lib/turkce'
 import { tt } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
@@ -28,7 +28,7 @@ function index(s: Side): Map<string, Info> {
   const durum = resolveRole(b, 'durum')
   const puan = resolveRole(b, 'puan')
   const later = resolveStatusOption(b, 'izlenecek')
-  const done = resolveStatusOption(b, 'izlendi')
+  const done = watchedStatusIds(b)
   const m = new Map<string, Info>()
   for (const r of s.rows) {
     const title = tp ? titleText(tp, r.values[tp.id]) : ''
@@ -41,7 +41,7 @@ function index(s: Side): Map<string, Info> {
       title,
       poster: poster ? ((r.values[poster.id] as string) ?? '') : '',
       todo: Boolean(durum && later && r.values[durum.id] === later),
-      watched: Boolean(durum && done && r.values[durum.id] === done),
+      watched: Boolean(durum && done.has(r.values[durum.id] as string)),
       score: puan ? ratingAverage(r.values[puan.id], puan) : null,
     })
   }
