@@ -41,7 +41,7 @@ function matchScore(
   titleProp: PropertyDef | undefined,
   optionMaps: OptionMaps,
 ): number | null {
-  const title = titleProp ? titleText(titleProp, row.values[titleProp.id]).toLocaleLowerCase('tr') : ''
+  const title = titleProp ? titleText(titleProp, row.values[titleProp.id]).toLocaleLowerCase('tr').replace(/ı/g, 'i') : ''
   if (title) {
     if (title.startsWith(query)) return 0
     if (title.includes(query)) return 1
@@ -52,12 +52,12 @@ function matchScore(
     if (v === undefined || v === null || v === '') continue
     if (p.type === 'select') {
       const label = optionMaps.get(p.id)?.get(v as string)
-      if (label && label.toLocaleLowerCase('tr').includes(query)) return 2
+      if (label && label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query)) return 2
     } else if (p.type === 'multiselect' && Array.isArray(v)) {
       const map = optionMaps.get(p.id)
-      if (map && v.some((id) => map.get(id)?.toLocaleLowerCase('tr').includes(query))) return 2
+      if (map && v.some((id) => map.get(id)?.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query))) return 2
     } else if (typeof v === 'string' && (p.type === 'text' || p.type === 'longtext' || p.type === 'url')) {
-      if (v.toLocaleLowerCase('tr').includes(query)) return 2
+      if (v.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query)) return 2
     }
   }
   return null
@@ -73,7 +73,7 @@ export default function GlobalSearch() {
   const { board } = useBoard(settings.boardId ?? undefined)
   const { rows } = useRows(settings.boardId ?? undefined)
 
-  const query = q.trim().toLocaleLowerCase('tr')
+  const query = q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
   const titleProp = useMemo(
     () => (board ? board.properties.find((p) => p.id === board.titlePropertyId) : undefined),
     [board],
@@ -113,7 +113,7 @@ export default function GlobalSearch() {
     for (const p of board.properties) {
       if (p.type !== 'select' && p.type !== 'multiselect') continue
       for (const o of p.options ?? []) {
-        const label = o.label.toLocaleLowerCase('tr')
+        const label = o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i')
         const count = counts.get(p.id + ':' + o.id) ?? 0
         if (count > 0 && label.includes(query)) out.push({ prop: p, opt: o, count })
       }
@@ -121,7 +121,7 @@ export default function GlobalSearch() {
     // Adı arananla başlayanlar ve fotoğraflılar önce, sonra kayıt sayısı.
     out.sort(
       (a, b) =>
-        Number(b.opt.label.toLocaleLowerCase('tr').startsWith(query)) - Number(a.opt.label.toLocaleLowerCase('tr').startsWith(query)) ||
+        Number(b.opt.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').startsWith(query)) - Number(a.opt.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').startsWith(query)) ||
         Number(Boolean(b.opt.image)) - Number(Boolean(a.opt.image)) ||
         b.count - a.count,
     )

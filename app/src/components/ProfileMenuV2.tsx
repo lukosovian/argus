@@ -49,7 +49,7 @@ function Other({ p, n, onSwitch }: { p: Profile; n: number; onSwitch: () => void
       className="group relative flex-1 min-w-0 flex items-center gap-2 rounded-xl border border-neutral-800 hover:border-neutral-600 hover:bg-neutral-800/40 p-2 text-left transition"
     >
       <span className="h-8 w-8 shrink-0 rounded-lg overflow-hidden bg-neutral-800 flex items-center justify-center text-xs text-neutral-400">
-        {p.photo ? <img src={p.photo} alt="" className="h-full w-full object-cover" /> : p.username.slice(0, 1).toUpperCase()}
+        {p.photo ? <img src={p.photo} alt="" className="h-full w-full object-cover" /> : p.username.slice(0, 1).toLocaleUpperCase('tr')}
       </span>
       <span className="min-w-0">
         <span className="block text-[13px] font-semibold text-neutral-100 truncate">{p.username}</span>
@@ -143,7 +143,7 @@ export default function ProfileMenuV2({
         <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/30 to-neutral-900" />
         <div className="relative flex items-center gap-3">
           <span className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-neutral-800 ring-2 ring-[#00c0fa]/60 flex items-center justify-center text-sm text-neutral-400">
-            {active?.photo ? <img src={active.photo} alt="" className="h-full w-full object-cover" /> : active?.username.slice(0, 1).toUpperCase()}
+            {active?.photo ? <img src={active.photo} alt="" className="h-full w-full object-cover" /> : active?.username.slice(0, 1).toLocaleUpperCase('tr')}
           </span>
           <span className="min-w-0">
             <span className="block text-base font-bold text-neutral-50 truncate">{active?.username}</span>

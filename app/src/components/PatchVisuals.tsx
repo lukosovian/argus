@@ -4702,3 +4702,46 @@ export function KaynaklarVisual() {
     </Frame>
   )
 }
+
+// v1.25: sütun menüsünde çok seçenek varsa arama kutusu (1), tek seçeneği silerken de onay (2)
+export function SecenekAramaVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <Box x={16} y={18} w={150} h={146} r={6} strong />
+      <rect x={24} y={26} width={134} height={14} rx={3} className="fill-neutral-800" />
+      <Label x={30} y={36} size={6.5} muted>
+        {tt('11.500 seçenek içinde ara…')}
+      </Label>
+      <Pin x={174} y={33} n={1} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <circle cx={30} cy={53 + i * 16} r={4} fill={['#00c0fa', '#a78bfa', '#fbbf24', '#22c55e', '#f43f5e'][i]} />
+          <Line x={40} y={50 + i * 16} w={88} light />
+          <Label x={146} y={56 + i * 16} size={7} muted>
+            ×
+          </Label>
+        </g>
+      ))}
+      <Highlight x={140} y={78} w={14} h={12} r={3} />
+      <Label x={24} y={150} size={6} muted>
+        {tt('+11.420 seçenek daha')}
+      </Label>
+      <rect x={186} y={70} width={118} height={52} rx={6} className="fill-neutral-900" stroke="#f43f5e" strokeOpacity={0.5} />
+      <Label x={194} y={84} size={6.5}>
+        {tt('"İzlendi" silinsin mi?')}
+      </Label>
+      <Label x={194} y={94} size={6} muted>
+        {tt('kullanan kayıtlarda boşalır')}
+      </Label>
+      <rect x={194} y={102} width={24} height={12} rx={3} fill="#e11d48" />
+      <text x={206} y={110.5} fontSize={6.5} textAnchor="middle" fill="#fff" style={{ fontFamily: 'inherit' }}>
+        {tt('Sil')}
+      </text>
+      <Label x={226} y={111} size={6.5} muted>
+        {tt('Vazgeç')}
+      </Label>
+      <Pin x={296} y={68} n={2} />
+    </Frame>
+  )
+}

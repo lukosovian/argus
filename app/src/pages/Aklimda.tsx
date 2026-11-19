@@ -34,7 +34,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 ]
 
 export default function Aklimda() {
-  const { settings } = useHomeSettings()
+  const { settings, loading: settingsLoading } = useHomeSettings()
   const { board } = useBoard(settings.boardId ?? undefined)
   const { rows, loading } = useRows(settings.boardId ?? undefined)
   const akl = useAklimda()
@@ -84,6 +84,8 @@ export default function Aklimda() {
     }
   }
 
+  // Arşiv seçilmemişse sonsuza dek "Yükleniyor…" kalmasın (Abonelik'teki gibi yönlendir)
+  if (!settingsLoading && !settings.boardId) return <p className="text-center text-neutral-500 py-20">{tt('Önce bir arşiv seç (Ayarlar → Ana Sayfa).')}</p>
   if (!board || loading || !akl.loaded)
     return (
       <div className="max-w-6xl mx-auto px-4 py-8">

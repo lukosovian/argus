@@ -232,7 +232,10 @@ export default function SahnedenBil() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rowIds: candidates.map((c) => c.id), n }),
       })
-      const data: { needsApiKey?: boolean; items: { rowId: string; scenes: string[] }[] } = await res.json()
+      const data: { needsApiKey?: boolean; error?: string; items: { rowId: string; scenes: string[] }[] } = await res.json().catch(() => ({ items: [] }))
+      // Sunucu hata verdiyse (ya da telefonda PC'ye ulaşılamıyorsa) İngilizce bir teknik hata yerine anlaşılır mesaj
+      if (!res.ok && !data.needsApiKey) throw new Error(data.error ?? tt('Sahneler alınamadı.'))
+      if (!Array.isArray(data.items)) data.items = []
       if (data.needsApiKey) throw new Error(tt('Sahneler TMDB\'den geliyor: Ayarlar › Veritabanı › API\'den TMDB anahtarını eklemelisin.'))
       const byId = new Map(all.map((p) => [p.id, p]))
       const optCount = set.opts || 4
@@ -349,7 +352,7 @@ export default function SahnedenBil() {
     begin()
   }
 
-  function useJoker(j: Joker) {
+  function applyJoker(j: Joker) {
     if (!q || chosen || !jokersLeft.includes(j)) return
     setJokersLeft((l) => l.filter((x) => x !== j))
     setJokersNow((l) => [...l, j])
@@ -659,7 +662,7 @@ export default function SahnedenBil() {
                 ).map(([j, l, cost]) => {
                   const usable = jokersLeft.includes(j) && !chosen && !(j === '50' && !set.opts)
                   return (
-                    <button key={j} disabled={!usable} onClick={() => useJoker(j)} className="rounded-xl border border-neutral-700 bg-neutral-900 px-1 py-2 text-xs font-bold text-neutral-100 hover:border-amber-400/60 disabled:opacity-30 transition">
+                    <button key={j} disabled={!usable} onClick={() => applyJoker(j)} className="rounded-xl border border-neutral-700 bg-neutral-900 px-1 py-2 text-xs font-bold text-neutral-100 hover:border-amber-400/60 disabled:opacity-30 transition">
                       {l}
                       <span className="block text-[10px] font-semibold text-neutral-500 mt-0.5">{cost}</span>
                     </button>

@@ -231,12 +231,12 @@ export default function DateChipEditor({
     <div className="space-y-2">
       {sorted.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {sorted.map((d) => {
+          {sorted.map((d, idx) => {
             const e = parseEntry(d)
             const active = editing === d
             return (
               <span
-                key={d}
+                key={`${d}-${idx}`}
                 className={`inline-flex items-center gap-1 text-xs border rounded-full pl-2.5 pr-1.5 py-1 text-neutral-300 ${
                   active ? 'bg-[#00c0fa]/10 border-[#00c0fa]/60' : 'bg-neutral-800 border-neutral-700'
                 }`}
@@ -260,7 +260,9 @@ export default function DateChipEditor({
                   type="button"
                   onClick={() => {
                     if (active) cancel()
-                    onChange(dates.filter((x) => x !== d))
+                    // Sadece tıklanan tarih silinsin — aynı tarihten iki tane varsa (ör. iki "2019" tekrar izleme) ikisi birden gitmesin.
+                    const at = dates.indexOf(d)
+                    onChange(dates.filter((_, j) => j !== at))
                   }}
                   title={tt('Bu tarihi sil')}
                   className="h-4 w-4 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-50 hover:bg-neutral-700 transition"

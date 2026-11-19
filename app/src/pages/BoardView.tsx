@@ -1167,7 +1167,7 @@ export default function BoardView() {
     const result = rows.filter((row) => {
       if (!rowMatchesConditions(row, tableConditions)) return false
       if (search.trim()) {
-        const q = search.trim().toLocaleLowerCase('tr')
+        const q = search.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
         const hay = board.properties
           .map((p) => {
             const v = row.values[p.id]
@@ -1180,13 +1180,13 @@ export default function BoardView() {
             return typeof v === 'string' ? v : ''
           })
           .join(' ')
-          .toLocaleLowerCase('tr')
-        const title = ((row.values[board.titlePropertyId] as string) ?? '').toLocaleLowerCase('tr')
+          .toLocaleLowerCase('tr').replace(/ı/g, 'i')
+        const title = ((row.values[board.titlePropertyId] as string) ?? '').toLocaleLowerCase('tr').replace(/ı/g, 'i')
         if (!hay.includes(q) && !title.includes(q)) return false
         let rank = 4
         for (const p of nameProps) {
           const v = row.values[p!.id]
-          const name = (typeof v === 'string' ? v : '').toLocaleLowerCase('tr')
+          const name = (typeof v === 'string' ? v : '').toLocaleLowerCase('tr').replace(/ı/g, 'i')
           if (!name.includes(q)) continue
           const wordStart = name.split(/[\s:(\-–.,]+/).some((w) => w.startsWith(q))
           const r = name === q ? 0 : name.startsWith(q) ? 1 : wordStart ? 2 : 3
@@ -1207,7 +1207,7 @@ export default function BoardView() {
         let cmp: number
         if (typeof av === 'number' && typeof bv === 'number') cmp = av - bv
         else if (typeof av === 'boolean' && typeof bv === 'boolean') cmp = Number(av) - Number(bv)
-        else cmp = String(av).localeCompare(String(bv), 'tr')
+        else cmp = String(av).localeCompare(String(bv), 'tr', { numeric: true })
         return sortDirection === 'asc' ? cmp : -cmp
       })
     }
@@ -1666,7 +1666,10 @@ export default function BoardView() {
   function updateCell(rowId: string, propertyId: string, value: PropertyValue) {
     const row = rows.find((r) => r.id === rowId)
     if (!row) return
-    saveRow({ values: { ...row.values, [propertyId]: value }, createdAt: row.createdAt, updatedAt: Date.now() }, rowId)
+    // Kayıt sunucuya gidemezse (bağlantı koptu, sunucu reddetti) hücre sessizce eski haline dönmesin, söylensin.
+    saveRow({ values: { ...row.values, [propertyId]: value }, createdAt: row.createdAt, updatedAt: Date.now() }, rowId).catch(() =>
+      notify(tt('Değişiklik kaydedilemedi — ARGUS sunucusu açık mı?'), 'danger'),
+    )
     // Başlık sütununa yazınca, aynı isimde başka bir kayıt zaten varsa bilgilendir — yanlışlıkla
     // aynı içeriği iki kez eklemenin önüne geçmek için (kaydı engellemiyor, sadece uyarıyor).
     // Orjinal Adı'na yazınca da, ve başlık ↔ orijinal ad çapraz karşılaştırılıyor (birinin Türkçe adına
@@ -1675,13 +1678,13 @@ export default function BoardView() {
     const origProp = board ? resolveRole(board, 'orjinalAdi') : undefined
     const nameProps = [board?.titlePropertyId, origProp?.id].filter((x): x is string => Boolean(x))
     if (board && nameProps.includes(propertyId) && typeof value === 'string' && value.trim()) {
-      const norm = value.trim().toLocaleLowerCase('tr')
+      const norm = value.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
       const dup = rows.find(
-        (r) => r.id !== rowId && nameProps.some((pid) => typeof r.values[pid] === 'string' && (r.values[pid] as string).trim().toLocaleLowerCase('tr') === norm),
+        (r) => r.id !== rowId && nameProps.some((pid) => typeof r.values[pid] === 'string' && (r.values[pid] as string).trim().toLocaleLowerCase('tr').replace(/ı/g, 'i') === norm),
       )
       if (dup) {
         const t = board.titlePropertyId ? String(dup.values[board.titlePropertyId] ?? '').trim() : ''
-        notify(tt('"{0}" arşivde zaten var{1} — mükerrer olabilir, Sağlık Kontrolü\'nden birleştirebilirsin.', value.trim(), t && t.toLocaleLowerCase('tr') !== norm ? ` ("${t}")` : ''))
+        notify(tt('"{0}" arşivde zaten var{1} — mükerrer olabilir, Sağlık Kontrolü\'nden birleştirebilirsin.', value.trim(), t && t.toLocaleLowerCase('tr').replace(/ı/g, 'i') !== norm ? ` ("${t}")` : ''))
       }
     }
   }

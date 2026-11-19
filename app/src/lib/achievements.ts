@@ -114,6 +114,8 @@ export function computeAchievements(board: Board, rows: Row[], watched: WatchedM
     for (const list of Object.values(m))
       for (const d of list) {
         const k = d.slice(0, 10)
+        // "?" / "kayit" / "2019" gibi gün olmayan işaretler gün sayılmasın (Maratoncu "?" gününü rekor sanıyordu)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue
         addDay(k, rowId)
         perDayEp.set(k, (perDayEp.get(k) ?? 0) + 1)
       }

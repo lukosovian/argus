@@ -199,7 +199,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
                 <img src={p.photo} alt={p.username} className="h-full w-full object-cover" />
               ) : (
                 <span className="h-full w-full flex items-center justify-center text-4xl text-neutral-500">
-                  {p.username.slice(0, 1).toUpperCase()}
+                  {p.username.slice(0, 1).toLocaleUpperCase('tr')}
                 </span>
               )}
               {managing && (
@@ -394,7 +394,7 @@ function DesktopPicker({
                 data-profil-kutu={p.id}
                 className={`${tile} bg-white/10 ring-white group-hover:ring-[3px] group-focus-visible:ring-[3px] shadow-[0_6px_24px_rgba(0,0,0,0.5)] group-hover:shadow-[0_18px_50px_-8px_var(--profil-isik)] !duration-300 ease-[cubic-bezier(.3,1.5,.5,1)] ${leaving === p.id ? 'scale-115 ring-[3px]' : 'group-hover:scale-[1.07] group-hover:-translate-y-2'}`}
               >
-                {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-5xl text-white/70">{p.username.slice(0, 1).toUpperCase()}</span>}
+                {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-5xl text-white/70">{p.username.slice(0, 1).toLocaleUpperCase('tr')}</span>}
                 {managing && (
                   <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white">
                     <PencilIcon />
@@ -491,7 +491,7 @@ function MobilePicker({
             {profiles.map((p) => (
               <button key={p.id} onClick={() => onPick(p.id)} className="flex flex-col items-center gap-2 min-w-0 active:scale-95 transition-transform">
                 <span className={`${tile} relative bg-white/10 transition-transform duration-300 ${managing ? 'ring-2 ring-white' : ''} ${leaving === p.id ? 'scale-110 ring-2 ring-white' : ''}`}>
-                  {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-3xl text-white/70">{p.username.slice(0, 1).toUpperCase()}</span>}
+                  {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-3xl text-white/70">{p.username.slice(0, 1).toLocaleUpperCase('tr')}</span>}
                   {managing && (
                     <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white">
                       <PencilIcon />

@@ -144,7 +144,7 @@ export default function Boards() {
     )
   }
   const [q, setQ] = useState('')
-  const norm = (s: string) => s.toLocaleLowerCase('tr')
+  const norm = (s: string) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i')
   const hits = q.trim() ? SEARCH.filter((s) => norm(`${s.label} ${s.where} ${s.words ?? ''}`).includes(norm(q.trim()))) : []
   const alt = searchParams.get('alt') ?? ''
 

@@ -28,7 +28,7 @@ export function FramePreview({ frameKey, size = 96 }: { frameKey: string; size?:
   return (
     <span className="block rounded-full" style={{ padding: Math.max(3, size * 0.05), ...(frameStyle(frameKey) ?? {}) }}>
       <span className="flex items-center justify-center overflow-hidden rounded-full bg-neutral-800 text-neutral-400" style={{ width: size, height: size, fontSize: size * 0.4 }}>
-        {photo ? <img src={photo} alt="" className="h-full w-full object-cover" draggable={false} /> : (activeProfile?.username.slice(0, 1).toUpperCase() ?? '?')}
+        {photo ? <img src={photo} alt="" className="h-full w-full object-cover" draggable={false} /> : (activeProfile?.username.slice(0, 1).toLocaleUpperCase('tr') ?? '?')}
       </span>
     </span>
   )

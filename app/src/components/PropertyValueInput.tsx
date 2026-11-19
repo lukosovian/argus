@@ -195,17 +195,17 @@ export default function PropertyValueInput({
     const selectedMulti = isMulti && Array.isArray(value) ? (value as string[]) : []
     const selectedIds = isMulti ? selectedMulti : selectedSingle ? [selectedSingle] : []
     const options = property.options ?? []
-    const query = newOption.trim().toLocaleLowerCase('tr')
+    const query = newOption.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
     // Oyuncular gibi binlerce seçeneği olan bir sütunda arama kutusu boşken hepsini birden
     // rozet olarak basmak (binlerce DOM elemanı) tarayıcıyı kilitliyordu — bir eşiğin
     // üstünde, kullanıcı bir şey yazana kadar liste boş kalır (BoardView'ın filtre
     // seçicisindeki aynı yaklaşım).
     const matches = query
-      ? options.filter((o) => o.label.toLocaleLowerCase('tr').includes(query))
+      ? options.filter((o) => o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query))
       : options.length > 100
         ? []
         : options
-    const exactMatch = options.some((o) => o.label.toLocaleLowerCase('tr') === query)
+    const exactMatch = options.some((o) => o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i') === query)
 
     function pick(id: string) {
       if (isMulti) {

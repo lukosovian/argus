@@ -66,7 +66,7 @@ export function computeStats(board: Board, rows: Row[], watched: WatchedMap): Pr
   for (const [rowId, map] of Object.entries(watched)) {
     for (const list of Object.values(map)) {
       for (const d of list) {
-        if (!d) continue
+        if (!d || !/^\d{4}-\d{2}-\d{2}/.test(d)) continue
         days.add(d.slice(0, 10))
         if (d.startsWith(month)) monthEpisodes++
         if (d.startsWith(today)) todayEpisodes++

@@ -312,7 +312,13 @@ function saveState() {
 }
 
 function isLocal(url) {
-  return url.startsWith('http://localhost:5173') || url.startsWith('http://127.0.0.1:5173')
+  // Sadece başlangıca bakmak "localhost:5173.baska-site.com" gibi adresleri de içeri alıyordu.
+  try {
+    const o = new URL(url).origin
+    return o === 'http://localhost:5173' || o === 'http://127.0.0.1:5173'
+  } catch {
+    return false
+  }
 }
 
 function createWindow() {
@@ -400,7 +406,7 @@ function createWindow() {
   // Dış bağlantılar (YouTube, TMDB, IMDb…) kullanıcının normal tarayıcısında açılır
   view.webContents.setWindowOpenHandler(({ url }) => {
     if (!isLocal(url)) {
-      shell.openExternal(url)
+      if (/^https?:\/\//i.test(url)) shell.openExternal(url)
       return { action: 'deny' }
     }
     return { action: 'allow' }

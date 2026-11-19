@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react'
 import { APP_VERSION } from '../lib/version'
 import { BRAND_GRADIENT, BRAND_TEXT } from '../lib/theme'
 import {
+  SecenekAramaVisual,
   BenzerDetayVisual,
   DetayEkleriVisual,
   FiltreDonusVisual,
@@ -138,6 +139,27 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.25',
+    date: tt('19 Kasım 2026'),
+    title: tt('Genel bakım: hata düzeltmeleri'),
+    items: [
+      tt('duz: Aramada büyük "I" ile başlayan adlar ("Interstellar", "Iron Man", "Idris Elba") küçük harfle yazınca bulunmuyordu; artık bulunuyor. Hücreye oyuncu yazarken aynı kişi ikinci kez eklenmiyor.'),
+      tt('değişti: Sütun menüsünde tek bir seçeneği (ör. "İzlendi") silmek artık onay istiyor; yanlışlıkla basınca o seçeneği kullanan bütün kayıtlar boşalıyordu.'),
+      tt('duz: Oyuncular gibi binlerce seçenekli bir sütunun menüsü açılınca uygulama donuyordu. Artık arama kutusu çıkıyor, aradığını yazınca listede görünüyor.'),
+      tt('duz: Tabloda bir değişiklik kaydedilemezse (sunucu kapalıysa) artık uyarı çıkıyor; eskiden hücre sessizce eski haline dönüyordu.'),
+      tt('duz: Tarih seçicide aynı tarihten iki tane varsa (ör. iki "2019") birini silince ikisi birden gidiyordu.'),
+      tt('duz: Sıralamada "Rocky 10" artık "Rocky 2"den sonra geliyor.'),
+      tt('duz: TMDB bir sezonu o an getiremezse dizinin o sezondaki bölümleri silinmiyor, eskisi kalıyor. TMDB takılırsa güncelleme dakikalarca beklemiyor.'),
+      tt('duz: Telefonda PC bağlantıyı geçici reddederse çevrimdışı yaptığın değişiklikler artık kaybolmuyor, sonra tekrar gönderiliyor.'),
+      tt('duz: Ödüllerde tarihi "?" olan ya da ileri bir tarih yazılmış izlemeler/biletler paket kazandırmıyor; Başarımlar\'da "Maratoncu" artık "?" gününü rekor saymıyor.'),
+      tt('duz: Aynı duyuru bildirimi bir süre sonra tekrar gelmiyor. Güncelleme kontrolü sırasında ARGUS birkaç saniye donmuyor.'),
+      tt('duz: Takvimin yıl görünümünde başlayıp sonra bitirdiğin bir film iki kez sayılıyordu. Aklımda, arşiv seçilmemişse sonsuza dek "Yükleniyor"da kalıyordu.'),
+      tt('duz: Sahneden Bil bağlantı hatasında İngilizce teknik bir hata gösteriyordu; Hangisi daha yüksek oyunundan sonuç gösterilirken çıkınca arkada paket veriliyordu.'),
+      tt('duz: Fotoğrafsız profillerde "i" ile başlayan adların baş harfi artık "İ".'),
+    ],
+    visuals: [{ caption: tt('1 çok seçenekli sütunda arama kutusu · 2 tek seçeneği silerken de onay'), Visual: SecenekAramaVisual }],
+  },
   {
     version: 'v1.24',
     date: tt('14 Kasım 2026'),

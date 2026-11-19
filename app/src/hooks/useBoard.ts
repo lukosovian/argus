@@ -9,6 +9,8 @@ export function useBoard(boardId: string | undefined) {
   const [board, setBoard] = useState<Board | null>(null)
   const [loading, setLoading] = useState(true)
   const loadedKey = useRef<string | null>(null)
+  // Son istenen arşiv — arşiv değiştirilirken eski arşivin geç gelen cevabı yenisinin üstüne yazılmasın.
+  const wantKey = useRef<string | null>(null)
 
   // `activeProfileId` de bağımlılıklarda — profil değişince (aynı board id başka bir
   // profilde muhtemelen yok olsa da) bu profilin verisiyle yeniden çekilsin.
@@ -18,6 +20,7 @@ export function useBoard(boardId: string | undefined) {
     // İstatistikler sayfası gibi (AnaSayfa'nın aksine) `loading` bittiğinde diye bekleyen bir
     // ekranı sonsuza dek "Yükleniyor..."da bırakıyordu.
     if (!boardId || !activeProfileId) {
+      wantKey.current = null
       setBoard(null)
       setLoading(false)
       return Promise.resolve()
@@ -26,14 +29,18 @@ export function useBoard(boardId: string | undefined) {
     // yenilemede (ör. bir satırı TMDB'den doldurduktan sonra) tablo bir anlığına kayboluyor,
     // sayfa kısalınca da en başa sıçrıyordu — kullanıcı "sayfa başa gidiyo, kaldığı yerde kalsın" dedi.
     const key = `${activeProfileId}:${boardId}`
+    wantKey.current = key
     if (loadedKey.current !== key) setLoading(true)
     return api
       .getBoards()
       .then((all) => {
+        if (wantKey.current !== key) return
         setBoard(all.find((b) => b.id === boardId) ?? null)
         loadedKey.current = key
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (wantKey.current === key) setLoading(false)
+      })
   }, [boardId, activeProfileId])
 
   useEffect(() => {
@@ -44,7 +51,13 @@ export function useBoard(boardId: string | undefined) {
     () =>
       onDataChanged((changed) => {
         if (!boardId || !activeProfileId || (changed && changed !== boardId)) return
-        api.getBoards().then((all) => setBoard(all.find((b) => b.id === boardId) ?? null)).catch(() => {})
+        const key = `${activeProfileId}:${boardId}`
+        api
+          .getBoards()
+          .then((all) => {
+            if (wantKey.current === key) setBoard(all.find((b) => b.id === boardId) ?? null)
+          })
+          .catch(() => {})
       }),
     [boardId, activeProfileId],
   )

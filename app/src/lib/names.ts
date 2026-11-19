@@ -51,7 +51,7 @@ export function nameOf(pair: NamePair): string {
   return getLang() === 'tr' ? pair[0] : pair[1]
 }
 
-const fold = (s: string) => s.trim().toLocaleLowerCase('tr')
+const fold = (s: string) => s.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
 
 /** Bu ad, iki dildeki adlardan birine uyuyor mu (büyük/küçük harf fark etmez) */
 export function isName(name: string | null | undefined, pair: NamePair): boolean {

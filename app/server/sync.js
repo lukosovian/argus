@@ -89,7 +89,15 @@ const LOCAL_ONLY = [
 ]
 
 export function isLocalOnlyPath(p) {
-  return LOCAL_ONLY.some((re) => re.test(p))
+  // Express yolları büyük/küçük harf ayırmıyor (/API/backup da çalışır) — kontrol de ayırmasın.
+  let s = String(p)
+  try {
+    s = decodeURIComponent(s)
+  } catch {
+    /* bozuk kodlama: olduğu gibi */
+  }
+  s = s.toLowerCase()
+  return LOCAL_ONLY.some((re) => re.test(s))
 }
 
 let lastSeenWritten = 0

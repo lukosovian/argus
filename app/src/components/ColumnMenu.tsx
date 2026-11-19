@@ -82,7 +82,7 @@ function OptionRow({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           className="flex-1 min-w-0 rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1 text-neutral-100 text-xs outline-none focus:border-neutral-500"
         />
-        <button onClick={onDelete} className="text-neutral-600 hover:text-rose-400 text-xs shrink-0 px-1">
+        <button onClick={onDelete} aria-label={tt('{0} seçeneğini sil', option.label)} className="text-neutral-600 hover:text-rose-400 text-xs shrink-0 px-1">
           ×
         </button>
       </div>
@@ -189,6 +189,25 @@ export default function ColumnMenu({
   const hasOptions = property.type === 'select' || property.type === 'multiselect'
   const [bulkMode, setBulkMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Oyuncular gibi binlerce seçenekli sütunlarda hepsini birden çizmek menüyü donduruyordu —
+  // çok seçenek varsa arama kutusu çıkıyor ve en fazla OPT_LIMIT tanesi gösteriliyor.
+  const [optQuery, setOptQuery] = useState('')
+  const OPT_LIMIT = 80
+  const allOptions = property.options ?? []
+  const optQ = optQuery.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
+  const matchedOptions = optQ ? allOptions.filter((o) => o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(optQ)) : allOptions
+  const shownOptions = matchedOptions.slice(0, OPT_LIMIT)
+
+  // Tek bir seçeneği silmek de onay istiyor — yanlışlıkla "İzlendi"ye basınca yüzlerce kaydın durumu
+  // sessizce boşalıyordu.
+  async function handleDeleteOption(o: SelectOption) {
+    const ok = await confirm({
+      message: tt('"{0}" seçeneği silinsin mi? Bu seçeneği kullanan kayıtlarda bu alan boşalır.', o.label),
+      confirmLabel: tt('Sil'),
+      tone: 'danger',
+    })
+    if (ok) onDeleteOption(o.id)
+  }
 
   function commitName() {
     if (name.trim() && name.trim() !== property.name) onRename(name.trim())
@@ -306,18 +325,29 @@ export default function ColumnMenu({
                 {bulkMode ? tt('Vazgeç') : tt('Toplu Seç')}
               </button>
             </div>
-            {property.options!.map((o) => (
+            {allOptions.length > OPT_LIMIT && (
+              <input
+                value={optQuery}
+                onChange={(e) => setOptQuery(e.target.value)}
+                placeholder={tt('{0} seçenek içinde ara…', allOptions.length)}
+                className="w-full mb-2 rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1 text-neutral-100 text-xs outline-none focus:border-neutral-500"
+              />
+            )}
+            {shownOptions.map((o) => (
               <OptionRow
                 key={o.id}
                 option={o}
                 onRename={(label) => onRenameOption(o.id, label)}
                 onChangeColor={(colorIndex) => onChangeOptionColor(o.id, colorIndex)}
-                onDelete={() => onDeleteOption(o.id)}
+                onDelete={() => void handleDeleteOption(o)}
                 bulkMode={bulkMode}
                 selected={selectedIds.has(o.id)}
                 onToggleSelect={() => toggleSelect(o.id)}
               />
             ))}
+            {matchedOptions.length > shownOptions.length && (
+              <p className="text-[11px] text-neutral-500 px-1 py-1">{tt('+{0} seçenek daha — aramayla daralt.', matchedOptions.length - shownOptions.length)}</p>
+            )}
             {bulkMode && (
               <button
                 type="button"

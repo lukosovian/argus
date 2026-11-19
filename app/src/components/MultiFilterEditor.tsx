@@ -97,12 +97,12 @@ export default function MultiFilterEditor({
           const open = openId === p.id
           const options = p.options ?? []
           const many = options.length > MANY_OPTIONS
-          const q = query.trim().toLocaleLowerCase('tr')
+          const q = query.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
           const shown = !open
             ? []
             : many
               ? q
-                ? options.filter((o) => o.label.toLocaleLowerCase('tr').includes(q)).slice(0, SEARCH_LIMIT)
+                ? options.filter((o) => o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(q)).slice(0, SEARCH_LIMIT)
                 : options.length > 150
                   ? options.filter((o) => c.include.includes(o.id) || c.exclude.includes(o.id))
                   : options

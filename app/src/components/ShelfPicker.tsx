@@ -41,9 +41,9 @@ export default function ShelfPicker({
 
   // İşaretliler üstte, sonra aramaya uyanlar (adı aramayla başlayanlar önce)
   const shown = useMemo(() => {
-    const t = q.trim().toLocaleLowerCase('tr')
-    const list = items.filter((i) => !t || i.title.toLocaleLowerCase('tr').includes(t))
-    const rank = (i: PickerItem) => (i.inShelf ? 0 : t && i.title.toLocaleLowerCase('tr').startsWith(t) ? 1 : 2)
+    const t = q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
+    const list = items.filter((i) => !t || i.title.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(t))
+    const rank = (i: PickerItem) => (i.inShelf ? 0 : t && i.title.toLocaleLowerCase('tr').replace(/ı/g, 'i').startsWith(t) ? 1 : 2)
     return [...list].sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title, 'tr')).slice(0, 200)
   }, [items, q])
 

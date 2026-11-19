@@ -1287,7 +1287,7 @@ function PrereqModal({
   const pos = new Map(u.story.map((k, i) => [k, i]))
   const storySort = (a: string, b: string) => (pos.get(a) ?? 9999) - (pos.get(b) ?? 9999)
   const targets = orderItems(u, 'hikaye', true).filter((i) => (u.deps[i.key]?.need ?? []).length > 0)
-  const shown = q.trim() ? targets.filter((i) => (i.archiveTitle || i.title).toLocaleLowerCase('tr').includes(q.trim().toLocaleLowerCase('tr'))) : targets
+  const shown = q.trim() ? targets.filter((i) => (i.archiveTitle || i.title).toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i'))) : targets
 
   const layers = target ? prereqLayers(u, target) : null
   const groups = layers

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useArchive } from './useArchive'
 import { preferWatched, sfx, shuffle, type GameItem } from '../../lib/games'
 import { tt } from '../../lib/i18n'
@@ -48,6 +48,9 @@ export default function HangisiYuksek() {
     setOver(false)
     setFin(null)
   }
+  // Sonuç gösterilirken sayfadan çıkılırsa bekleyen adım iptal — arkada bitiş sesi çalıp paket vermesin.
+  const timer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(timer.current), [])
   function pick(i: number) {
     if (!pair || picked !== null) return
     setPicked(i)
@@ -60,7 +63,7 @@ export default function HangisiYuksek() {
       const s = streak + 1
       setStreak(s)
       if (s % 5 === 0) sfx.streak()
-      setTimeout(() => {
+      timer.current = window.setTimeout(() => {
         const winner = i === 0 ? a : b
         const u = new Set(used)
         const c = nextOf(u, winner)
@@ -76,7 +79,7 @@ export default function HangisiYuksek() {
       }, 1300)
     } else {
       sfx.bad()
-      setTimeout(() => {
+      timer.current = window.setTimeout(() => {
         setOver(true)
         finish(streak).then(setFin)
       }, 1300)

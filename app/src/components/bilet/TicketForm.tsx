@@ -62,10 +62,10 @@ export default function TicketForm({
   const titleProp = board?.properties.find((p) => p.id === board.titlePropertyId)
   const matches = useMemo(() => {
     if (!board || !rows || !titleProp || q.trim().length < 2) return []
-    const n = q.trim().toLocaleLowerCase('tr')
+    const n = q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
     const out: Row[] = []
     for (const r of rows) {
-      const t = String(r.values[titleProp.id] ?? '').toLocaleLowerCase('tr')
+      const t = String(r.values[titleProp.id] ?? '').toLocaleLowerCase('tr').replace(/ı/g, 'i')
       if (t.includes(n)) out.push(r)
       if (out.length >= 6) break
     }

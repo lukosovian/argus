@@ -20,6 +20,8 @@ export function useRows(boardId: string | undefined) {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const loadedKey = useRef<string | null>(null)
+  // Son istenen arşiv — arşiv değiştirilirken eski arşivin geç gelen cevabı yenisinin üstüne yazılmasın.
+  const wantKey = useRef<string | null>(null)
   const rowsRef = useRef(rows)
   useEffect(() => {
     rowsRef.current = rows
@@ -28,6 +30,7 @@ export function useRows(boardId: string | undefined) {
   const reload = useCallback(() => {
     // bkz. useBoard.ts'teki aynı düzeltme — boardId yokken loading sonsuza dek true kalmasın.
     if (!boardId || !activeProfileId) {
+      wantKey.current = null
       setRows([])
       setLoading(false)
       return Promise.resolve()
@@ -36,14 +39,18 @@ export function useRows(boardId: string | undefined) {
     // yenilemede (ör. bir satırı TMDB'den doldurduktan sonra) tablo bir anlığına kayboluyor,
     // sayfa kısalınca da en başa sıçrıyordu — kullanıcı "sayfa başa gidiyo, kaldığı yerde kalsın" dedi.
     const key = `${activeProfileId}:${boardId}`
+    wantKey.current = key
     if (loadedKey.current !== key) setLoading(true)
     return api
       .getRows(boardId)
       .then((data) => {
+        if (wantKey.current !== key) return
         setRows(data.sort(byCreatedAtAsc))
         loadedKey.current = key
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (wantKey.current === key) setLoading(false)
+      })
   }, [boardId, activeProfileId])
 
   useEffect(() => {
@@ -56,7 +63,13 @@ export function useRows(boardId: string | undefined) {
     () =>
       onDataChanged((changed) => {
         if (!boardId || !activeProfileId || (changed && changed !== boardId)) return
-        api.getRows(boardId).then((data) => setRows(data.sort(byCreatedAtAsc))).catch(() => {})
+        const key = `${activeProfileId}:${boardId}`
+        api
+          .getRows(boardId)
+          .then((data) => {
+            if (wantKey.current === key) setRows(data.sort(byCreatedAtAsc))
+          })
+          .catch(() => {})
       }),
     [boardId, activeProfileId],
   )

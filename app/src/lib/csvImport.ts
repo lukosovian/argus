@@ -96,7 +96,7 @@ const YES = ['true', 'evet', 'yes', '1', '✓', 'x', 'var', 'checked']
 const NO = ['false', 'hayır', 'hayir', 'no', '0', 'yok', 'unchecked']
 
 function normalize(s: string) {
-  return s.toLocaleLowerCase('tr')
+  return s.toLocaleLowerCase('tr').replace(/ı/g, 'i')
 }
 
 export function inferColumnType(header: string, values: string[]): PropertyType {

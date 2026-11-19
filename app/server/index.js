@@ -208,6 +208,12 @@ app.use(cors({ origin: LOCAL_ORIGIN }))
 app.use(compression())
 app.use(express.json({ limit: '15mb' }))
 app.use(opDedupeMiddleware)
+// Kimlikler dosya yoluna giriyor — "../" gibi bir şeyle başka bir dosyaya ulaşılamasın.
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/
+for (const p of ['profileId', 'boardId']) {
+  app.param(p, (req, res, next, v) => (SAFE_ID.test(String(v)) ? next() : res.status(400).json({ error: 'id' })))
+}
+app.param('id', (req, res, next, v) => (req.path.startsWith('/api/profiles/') && !SAFE_ID.test(String(v)) ? res.status(400).json({ error: 'id' }) : next()))
 // Eskiden (v1.14.4 öncesi) TMDB'nin SVG logoları da .png adıyla kaydediliyordu; tarayıcı PNG sanıp açamıyor,
 // kırık görsel çıkıyordu (ör. Stranger Things). Böyle dosyalar içine bakılarak SVG olarak gönderiliyor —
 // "Güncelle"ye basmadan da, veriye dokunmadan düzelsin. Sonuç dosyanın değişme zamanıyla birlikte saklanıyor.
@@ -1318,6 +1324,7 @@ function normalizeText(s) {
     .replace(/[̀-ͯ]/g, '')
     .trim()
     .toLowerCase()
+    .replace(/ı/g, 'i')
 }
 
 function stripFlagEmoji(label) {
@@ -1337,10 +1344,18 @@ function isoToTrName(iso2) {
   }
 }
 
+// Takılan bir istek doldurmayı dakikalarca dondurmasın diye 20 sn zaman aşımı; TMDB'nin
+// "çok istek" (429) ve geçici sunucu hatalarında (5xx) da kısa bir beklemeyle yeniden deneniyor.
 async function fetchWithRetry(url, options, retries = 3) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await fetch(url, options)
+      const res = await fetch(url, { ...options, signal: options?.signal ?? AbortSignal.timeout(20000) })
+      if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+        const ra = Number(res.headers.get('retry-after'))
+        await new Promise((r) => setTimeout(r, ra > 0 && ra < 30 ? ra * 1000 : 800 * 2 ** attempt))
+        continue
+      }
+      return res
     } catch (e) {
       if (attempt >= retries) throw e
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt))
@@ -1361,7 +1376,11 @@ async function downloadTmdbImage(url, destPath) {
   if (fs.existsSync(destPath)) return true
   const res = await fetchWithRetry(url)
   if (!res.ok) return false
-  fs.writeFileSync(destPath, Buffer.from(await res.arrayBuffer()))
+  // Önce geçici dosyaya yazılıp sonra adı değiştiriliyor — yarıda kesilen bir indirme "var" sayılıp
+  // sonsuza dek bozuk afiş olarak kalmasın.
+  const tmp = `${destPath}.tmp`
+  fs.writeFileSync(tmp, Buffer.from(await res.arrayBuffer()))
+  fs.renameSync(tmp, destPath)
   return true
 }
 
@@ -1968,9 +1987,15 @@ async function fillRowFromTmdb(profileId, boardId, rowId, { exclude: excludeList
     if (mediaType === 'tv' && !exclude.has('sezonlar')) {
       const seasonsMeta = (details.seasons ?? []).filter((s) => s.season_number >= 1)
       const seasonsOut = []
+      const prevSeasons = readJson(profileEpisodesFile(profileId), {})[row.id] ?? []
       for (const s of seasonsMeta) {
         const sdata = await tmdbGet(`/tv/${result.id}/season/${s.season_number}`, { language: tmdbLang() }, apiKey)
-        if (!sdata) continue
+        if (!sdata) {
+          // TMDB o sezonu getiremediyse (ağ hatası, 429) eldeki bölümler silinmesin — eskisi kalsın.
+          const old = prevSeasons.find((p) => p.seasonNumber === s.season_number)
+          if (old) seasonsOut.push(old)
+          continue
+        }
         const eps = []
         for (const ep of sdata.episodes ?? []) {
           let stillUrl = null
@@ -2151,8 +2176,11 @@ async function ensureTmdbRef(profileId, board, row, apiKey) {
   const match = await searchTmdbForRow(board, row, apiKey)
   if (!match) return null
   const ref = { id: match.result.id, mediaType: match.mediaType }
-  refs[row.id] = ref
-  writeJson(file, refs)
+  // Arama sürerken başka bir iş tmdb.json'a yazmış olabilir — eski kopyayı geri yazmamak için tazesi okunuyor.
+  const fresh = readJson(file, {})
+  if (fresh[row.id]) return fresh[row.id]
+  fresh[row.id] = ref
+  writeJson(file, fresh)
   return ref
 }
 
@@ -3858,8 +3886,10 @@ async function checkFollows(profileId, apiKey) {
   st.at = Date.now()
   writeJson(stFile, st)
   const today = new Date()
-  const from = new Date(today.getTime() - 7 * 864e5).toISOString().slice(0, 10)
-  const to = new Date(today.getTime() + 120 * 864e5).toISOString().slice(0, 10)
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const todayStr = ymd(today)
+  const from = ymd(new Date(today.getTime() - 7 * 864e5))
+  const to = ymd(new Date(today.getTime() + 120 * 864e5))
   for (const pid of ids) {
     const f = follows[pid]
     const cr = await tmdbGet(`/person/${pid}/combined_credits`, { language: tmdbLang() }, apiKey)
@@ -3869,7 +3899,7 @@ async function checkFollows(profileId, apiKey) {
       const date = (c.media_type === 'tv' ? c.first_air_date : c.release_date) || ''
       if (!date || date < from || date > to) continue
       const title = c.title || c.name || ''
-      const soon = date > today.toISOString().slice(0, 10)
+      const soon = date > todayStr
       pushNotification(profileId, {
         key: `takip:${pid}:${c.media_type}:${c.id}`,
         type: 'follow',
@@ -3951,13 +3981,22 @@ function checkWeekly(profileId) {
 function watchlistTick() {
   let ids = []
   try {
-    ids = fs.readdirSync(PROFILES_DIR)
+    ids = readProfiles().map((p) => p.id)
   } catch {
     return
   }
   for (const profileId of ids) {
+    try {
+      watchlistTickOne(profileId)
+    } catch (e) {
+      console.error('takip hata:', e)
+    }
+  }
+}
+function watchlistTickOne(profileId) {
+  {
     const apiKey = readProfileApiKey(profileId)
-    if (!apiKey) continue
+    if (!apiKey) return
     const home = readJson(profileHomeSettingsFile(profileId), {})
     const boards = readJson(profileBoardsFile(profileId), [])
     const boardId = boards.some((b) => b.id === home.boardId) ? home.boardId : boards[0]?.id
@@ -4137,12 +4176,11 @@ app.post('/api/medya/from-url', async (req, res) => {
   }
 })
 
-app.get('/api/update-check', (req, res) => {
+// git fetch artık arka planda (execFile) — eskiden 10 sn'ye kadar bütün sunucuyu kilitliyordu.
+app.get('/api/update-check', async (req, res) => {
   try {
-    execSync('git fetch --quiet', { cwd: ROOT, timeout: 10000, stdio: 'ignore' })
-    const behind = Number(
-      execSync('git rev-list HEAD..@{u} --count', { cwd: ROOT, timeout: 5000 }).toString().trim(),
-    )
+    await gitOut(['fetch', '--quiet'], 10000)
+    const behind = Number((await gitOut(['rev-list', 'HEAD..@{u}', '--count'], 5000)).trim())
     res.json({ updateAvailable: behind > 0, commitsBehind: behind || 0 })
   } catch {
     res.json({ updateAvailable: false, commitsBehind: 0 })

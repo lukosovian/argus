@@ -77,10 +77,15 @@ export default function HistoryModal({
   useEffect(() => {
     if (onlyRow || !day) return
     setEntries(null)
+    // Günler arasında hızlı geçince önceki günün geç gelen cevabı yenisinin yerine gösterilmesin
+    let alive = true
     api
       .getHistoryDay(board.id, day)
-      .then((r) => setEntries(r.entries))
-      .catch(() => setEntries([]))
+      .then((r) => alive && setEntries(r.entries))
+      .catch(() => alive && setEntries([]))
+    return () => {
+      alive = false
+    }
   }, [board.id, day, onlyRow, reload])
 
   // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)

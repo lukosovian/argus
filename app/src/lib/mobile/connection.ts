@@ -173,6 +173,11 @@ async function flush(): Promise<boolean> {
       if (e instanceof NetworkError) return false
       throw e
     }
+    // PC şu an kabul etmiyorsa (eşleşme kalkmış: 401/403, çok istek: 429, geçici sunucu hatası: 502-504)
+    // değişiklik ATILMIYOR — kuyrukta kalıp sonra tekrar deneniyor. Eskiden bunlar da "gönderilemedi"
+    // deyip siliniyordu, telefonda yapılan değişiklik kalıcı olarak kayboluyordu. (500 gibi kalıcı
+    // hatalar eskisi gibi "gönderilemedi"ye düşüyor — tek bir bozuk değişiklik bütün kuyruğu tıkamasın.)
+    if ([401, 403, 429, 502, 503, 504].includes(r.status)) return false
     if (r.status >= 400) {
       const failed = ((await metaGet<unknown[]>('failed')) ?? []).slice(-49)
       await metaSet('failed', [...failed, { op, status: r.status, error: (r.data as { error?: string })?.error ?? null, t: Date.now() }])

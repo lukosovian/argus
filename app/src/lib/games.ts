@@ -123,7 +123,8 @@ export const fold = (s: string) =>
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/ı/g, 'i')
-    .replace(/[^a-z0-9 ]/g, ' ')
+    // Latin dışı (Kiril, Japonca, Arapça…) adlar da silinmesin — eskiden boş kalıp önerilerde hiç çıkmıyordu
+    .replace(/[^\p{L}\p{N} ]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 

@@ -321,7 +321,7 @@ export default function Navbar() {
               {avatarSrc ? (
                 <img key={avatarSrc} src={avatarSrc} alt={activeProfile?.username} className="h-full w-full object-cover" style={ext.moodAvatar ? { animation: 'argus-toast-in .35s ease-out' } : undefined} />
               ) : (
-                activeProfile?.username.slice(0, 1).toUpperCase() || '?'
+                activeProfile?.username.slice(0, 1).toLocaleUpperCase('tr') || '?'
               )}
             </button>
             </span>
@@ -384,7 +384,7 @@ export default function Navbar() {
                       {activeProfile?.photo ? (
                         <img src={activeProfile.photo} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        activeProfile?.username.slice(0, 1).toUpperCase() || '?'
+                        activeProfile?.username.slice(0, 1).toLocaleUpperCase('tr') || '?'
                       )}
                     </span>
                     <span className="min-w-0">
@@ -407,7 +407,7 @@ export default function Navbar() {
                           className="w-[calc(100%-0.75rem)] mx-1.5 flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-sm text-neutral-300 hover:text-neutral-50 hover:bg-neutral-800 transition"
                         >
                           <span className="h-8 w-8 rounded-full overflow-hidden bg-neutral-800 ring-1 ring-neutral-700 shrink-0 flex items-center justify-center text-[11px] text-neutral-400">
-                            {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : p.username.slice(0, 1).toUpperCase()}
+                            {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : p.username.slice(0, 1).toLocaleUpperCase('tr')}
                           </span>
                           <span className="truncate">{p.username}</span>
                         </button>

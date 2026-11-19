@@ -20,9 +20,18 @@ const fileOf = (profileId) => path.join(PROFILES_DIR, profileId, 'notifications.
 export function pushNotification(profileId, n) {
   const list = readJson(fileOf(profileId), [])
   if (n.key && list.some((x) => x.key === n.key)) return null
+  // Listeden (200) taşan eski bildirimlerin anahtarları ayrıca saklanıyor — yoksa aynı duyuru
+  // liste kaydıkça yeniden geliyordu.
+  const seenFile = path.join(PROFILES_DIR, profileId, 'notifications-seen.json')
+  const seen = n.key ? readJson(seenFile, []) : null
+  if (n.key && seen.includes(n.key)) return null
   const item = { id: makeId(), t: Date.now(), read: false, ...n }
   list.unshift(item)
   writeJson(fileOf(profileId), list.slice(0, 200))
+  if (n.key) {
+    seen.push(n.key)
+    writeJson(seenFile, seen.slice(-5000))
+  }
   return item
 }
 

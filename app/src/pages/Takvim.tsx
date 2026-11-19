@@ -1102,7 +1102,7 @@ function YearView({
 }) {
   // Günün yoğunluğu: izlenen içerik + bölüm sayısı (yaklaşanlar sayılmaz).
   const weight = (d: string) =>
-    (byDay.get(d) ?? []).reduce((n, e) => (e.kind === 'watch' ? n + 1 : e.kind === 'episodes' ? n + (e.episodeCount ?? 1) : n), 0)
+    (byDay.get(d) ?? []).reduce((n, e) => (e.kind === 'watch' && e.part !== 'start' ? n + 1 : e.kind === 'episodes' ? n + (e.episodeCount ?? 1) : n), 0)
 
   const yearDays: string[] = []
   for (let d = new Date(year, 0, 1); d.getFullYear() === year; d.setDate(d.getDate() + 1)) yearDays.push(ymd(d))
@@ -1277,7 +1277,7 @@ function DayPanel({
   const dateProp = resolveRole(board, 'izlemeTarihi')
   const hasDurum = Boolean(resolveRole(board, 'durum') && resolveStatusOption(board, 'izlendi'))
   const canAdd = date <= today
-  const norm = (s: string) => s.toLocaleLowerCase('tr')
+  const norm = (s: string) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i')
   const results = q.trim() ? rows.filter((r) => norm(look.title(r)).includes(norm(q.trim()))).slice(0, 8) : []
   const seasonsOf = (r: Row) => (episodes[r.id] ?? []).filter((s) => s.seasonNumber > 0 && s.episodes.length > 0)
 

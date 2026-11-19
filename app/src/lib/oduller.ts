@@ -118,23 +118,28 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 // Başlangıçtan beri kazanılan paketler. Sadece başlangıç gününden sonraki izlemeler sayılır (eski arşiv bir anda
 // yüzlerce paket vermesin); bir günde toplu işaretlenenler sınırlı sayılır. "İzledim" geri alınırsa sayı da düşer.
 export function computeEarned(board: Board, rows: Row[], watched: WatchedMap, biletDays: string[], startedAt: string) {
+  // Sadece gerçek, gelecekte olmayan tarihler sayılıyor — "?" / "kayit" gibi tarihsiz işaretler
+  // ve ileri bir tarih yazılmış izlemeler/biletler paket kazandırmasın.
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const okDay = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= startedAt && d <= today
   const dateProp = resolveRole(board, 'izlemeTarihi')
   const kategori = resolveRole(board, 'kategori')
   const isSeries = (r: Row) => /dizi|series|tv/i.test(kategori?.options?.find((o) => o.id === r.values[kategori.id])?.label ?? '')
   const filmDays = new Map<string, number>()
   for (const r of rows) {
     if (isSeries(r) || !dateProp) continue
-    for (const d of toEntries(r.values[dateProp.id]).map(entryEnd)) if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d >= startedAt) filmDays.set(d, (filmDays.get(d) ?? 0) + 1)
+    for (const d of toEntries(r.values[dateProp.id]).map(entryEnd)) if (okDay(d)) filmDays.set(d, (filmDays.get(d) ?? 0) + 1)
   }
   const epDays = new Map<string, number>()
-  for (const map of Object.values(watched)) for (const list of Object.values(map)) for (const d of list) if (d && d.slice(0, 10) >= startedAt) epDays.set(d.slice(0, 10), (epDays.get(d.slice(0, 10)) ?? 0) + 1)
+  for (const map of Object.values(watched)) for (const list of Object.values(map)) for (const d of list) if (d && okDay(d.slice(0, 10))) epDays.set(d.slice(0, 10), (epDays.get(d.slice(0, 10)) ?? 0) + 1)
   let films = 0
   for (const n of filmDays.values()) films += Math.min(n, 3)
   let eps = 0
   for (const n of epDays.values()) eps += Math.min(n, 12)
   // Sinema: biletin gösterim günü başlangıçtan sonraysa (eski gösterimlerin biletleri sayılmaz), günde en çok 2
   const sDays = new Map<string, number>()
-  for (const d of biletDays) if (d >= startedAt) sDays.set(d, (sDays.get(d) ?? 0) + 1)
+  for (const d of biletDays) if (okDay(d.slice(0, 10))) sDays.set(d, (sDays.get(d) ?? 0) + 1)
   let sinema = 0
   for (const n of sDays.values()) sinema += Math.min(n, 2)
   return {
@@ -267,7 +272,11 @@ export function rollPack(tier: OdulTier, data: OdulData, pool: PoolCard[], rand 
       }
     }
     if (!got) {
-      const it = CATALOG.filter((c) => c.r === 0)[Math.floor(rand() * 3)]
+      // Yedek ödül de aynı paketteki diğerlerini tekrar etmesin
+      const commons = CATALOG.filter((c) => c.r === 0)
+      const fresh = commons.filter((c) => !usedItems.has(c.key))
+      const pool = fresh.length ? fresh : commons
+      const it = pool[Math.floor(rand() * pool.length)]
       got = { kind: 'item', key: it.key, r: 0 }
     }
     rewards.push(got)
