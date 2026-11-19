@@ -31,7 +31,7 @@ function CriterionRow({
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         className="flex-1 min-w-0 rounded-md bg-neutral-800 border border-neutral-700 px-2 py-1 text-neutral-100 text-xs outline-none focus:border-neutral-500"
       />
-      <button onClick={onDelete} className="text-neutral-600 hover:text-rose-400 text-xs shrink-0 px-1">
+      <button onClick={onDelete} aria-label={tt('{0} kriterini sil', criterion.name)} title={tt('Sil')} className="text-neutral-600 hover:text-rose-400 text-xs shrink-0 px-1">
         ×
       </button>
     </div>
@@ -73,6 +73,8 @@ function OptionRow({
           type="button"
           onClick={() => setPickingColor((v) => !v)}
           title={tt('Renk seç')}
+          aria-label={tt('Renk seç')}
+          aria-expanded={pickingColor}
           className={`h-4 w-4 rounded-full border shrink-0 ${OPTION_COLORS[option.colorIndex % OPTION_COLORS.length].bg} ${OPTION_COLORS[option.colorIndex % OPTION_COLORS.length].border}`}
         />
         <input
@@ -96,6 +98,8 @@ function OptionRow({
                 onChangeColor(i)
                 setPickingColor(false)
               }}
+              aria-label={tt('Renk {0}', i + 1)}
+              aria-pressed={i === option.colorIndex}
               className={`h-4 w-4 rounded-full border ${c.bg} ${c.border} ${i === option.colorIndex ? 'ring-2 ring-white/60' : ''}`}
             />
           ))}

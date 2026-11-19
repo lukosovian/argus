@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useArchive } from './useArchive'
-import { fold, preferWatched, sfx, shuffle, type GameItem } from '../../lib/games'
+import { fold, preferWatched, sfx, shuffle, wrongOptions, type GameItem } from '../../lib/games'
 import { tt } from '../../lib/i18n'
 import PageSkeleton from '../../components/Skeleton'
 import EmptyState from '../../components/EmptyState'
@@ -79,7 +79,7 @@ export default function SinopsistenBil() {
       picked.map((ans) => {
         const toks = tokenize(ans)
         const masked = toks.map((t, i) => (t.mask ? i : -1)).filter((i) => i >= 0)
-        return { ans, opts: shuffle([ans, ...shuffle(items.filter((x) => x.id !== ans.id)).slice(0, 3)]), toks, order: shuffle(masked) }
+        return { ans, opts: shuffle([ans, ...wrongOptions(items, ans, (x) => x.title)]), toks, order: shuffle(masked) }
       }),
     )
     setRound(0)

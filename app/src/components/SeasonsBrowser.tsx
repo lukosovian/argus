@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Season } from '../types'
 import { episodeKey, todayIso } from '../types'
 import { gradientBorderStyle, BRAND_TEXT } from '../lib/theme'
@@ -72,6 +72,7 @@ function EpisodeRow({
   stillUrl,
   dates,
   onSetDates,
+  onUntick,
   editable,
 }: {
   episodeNumber: number
@@ -81,6 +82,8 @@ function EpisodeRow({
   stillUrl: string | null
   dates: string[]
   onSetDates: (dates: string[]) => void
+  // Tik kaldırılırken: birden çok tarih varsa onay sorar, sonra "Geri al"lı bildirim gösterir (bkz. SeasonsBrowser)
+  onUntick: (dates: string[]) => void
   editable: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -88,7 +91,8 @@ function EpisodeRow({
   const watched = dates.length > 0
 
   function toggle() {
-    onSetDates(watched ? [] : [todayIso()])
+    if (watched) onUntick(dates)
+    else onSetDates([todayIso()])
   }
 
   return (
@@ -98,7 +102,7 @@ function EpisodeRow({
       )}
       <div className="w-28 sm:w-36 aspect-video rounded-md overflow-hidden bg-neutral-800 shrink-0">
         {stillUrl ? (
-          <img src={stillUrl} alt={name} className="w-full h-full object-cover" />
+          <img src={stillUrl} alt={name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">{episodeNumber}</div>
         )}
@@ -156,7 +160,31 @@ export default function SeasonsBrowser({
   // Sadece BoardView'ın "Detayı Gör"üyle açılan pencerede true — bkz. EpisodeRow'un başındaki not.
   editable?: boolean
 }) {
-  const { confirm } = useToast()
+  const { confirm, notify } = useToast()
+  // "Geri al" bildirimden sonra (pencere yeniden çizilmiş olabilir) en güncel kaydetme fonksiyonunu kullansın —
+  // eski kopyası o arada yapılan diğer tikleri silebilirdi.
+  const setDatesRef = useRef(onSetEpisodeDates)
+  useEffect(() => {
+    setDatesRef.current = onSetEpisodeDates
+  }, [onSetEpisodeDates])
+
+  // Bir bölümün tikini kaldırmak bütün izleme tarihlerini (tekrar izlemeler dahil) siler — kullanıcı yanlışlıkla
+  // tıklarsa kaybolmasın: birden çok tarih varsa önce sorulur, her durumda "Geri al" düğmeli bildirim çıkar.
+  async function untickEpisode(key: string, label: string, dates: string[]) {
+    const prev = [...dates]
+    if (prev.length > 1) {
+      const ok = await confirm({
+        message: tt('{0}. bölümün {1} izleme tarihi var (tekrar izlemeler dahil). Hepsi silinsin mi?', label, prev.length),
+        confirmLabel: tt('Tarihleri sil'),
+        tone: 'danger',
+      })
+      if (!ok) return
+    }
+    setDatesRef.current(key, [])
+    notify(tt('{0}. bölümün izleme tarihi kaldırıldı.', label), 'info', {
+      action: { label: tt('Geri al'), onClick: () => setDatesRef.current(key, prev) },
+    })
+  }
   const [activeSeason, setActiveSeason] = useState(seasons[0]?.seasonNumber)
   const season = seasons.find((s) => s.seasonNumber === activeSeason) ?? seasons[0]
   const seasonEpisodeDates = season
@@ -271,6 +299,7 @@ export default function SeasonsBrowser({
               stillUrl={ep.stillUrl}
               dates={watched[key] ?? []}
               onSetDates={(dates) => onSetEpisodeDates(key, dates)}
+              onUntick={(dates) => untickEpisode(key, String(ep.episodeNumber), dates)}
               editable={editable}
             />
           )

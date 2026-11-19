@@ -12,6 +12,9 @@ import { fold } from '../lib/turkce'
 import { tt } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
 import PageSkeleton from '../components/Skeleton'
+import { useBirlikte } from '../components/koleksiyon/KiminleIzledin'
+import { entryEnd } from '../lib/dateRange'
+import { longDay } from '../lib/bilet'
 
 // Birlikte izle + Zevk uyumu (v1.23.4, Ayarlar › Ekstralar). İki profilin arşivleri yapımın orijinal adı + çıkış yılıyla
 // eşleştirilir: ikinizin de izlenecekleri, birinizin sevip diğerinin izlemedikleri, puan uyumu ve "Bunu ona öner".
@@ -49,7 +52,11 @@ function index(s: Side): Map<string, Info> {
 }
 
 async function loadOther(pid: string): Promise<Side | null> {
-  const j = async <T,>(u: string) => (await fetch(u)).json() as Promise<T>
+  const j = async <T,>(u: string) => {
+    const r = await fetch(u)
+    if (!r.ok) throw new Error(String(r.status))
+    return (await r.json()) as T
+  }
   try {
     const home = await j<HomeSettings>(`/api/profiles/${pid}/home-settings`)
     const boards = await j<Board[]>(`/api/profiles/${pid}/boards`)
@@ -95,12 +102,50 @@ export default function Birlikte() {
   const [sent, setSent] = useState<Set<string>>(new Set())
   useEffect(() => {
     if (!oid) return
+    // Profil hızlı değiştirilirse geç gelen eski cevap yenisinin üstüne yazılmasın
+    let alive = true
     setBusy(true)
     loadOther(oid).then((s) => {
+      if (!alive) return
       setSide(s)
       setBusy(false)
     })
+    return () => {
+      alive = false
+    }
   }, [oid])
+
+  // Birlikte izledik (v1.25): detaydaki "Kiminle izledin?" etiketlerinden, seçili profille izlediklerin
+  const { data: withData } = useBirlikte()
+  const together = useMemo(() => {
+    if (!board || !other || !withData) return null
+    const who = fold(other.username ?? '')
+    if (!who) return null
+    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+    const poster = resolveRole(board, 'poster')
+    const tur = resolveRole(board, 'tur')
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    const list: { row: Row; title: string; poster: string; last: string }[] = []
+    const genres = new Map<string, number>()
+    for (const [rowId, byDate] of Object.entries(withData)) {
+      const row = byId.get(rowId)
+      if (!row || !byDate) continue
+      const dates = Object.entries(byDate)
+        .filter(([, names]) => Array.isArray(names) && names.some((n) => fold(n) === who))
+        .map(([d]) => d)
+      if (!dates.length) continue
+      const real = dates.filter((d) => d !== 'genel').map(entryEnd).filter((d) => /^\d{4}/.test(d)).sort()
+      list.push({ row, title: tp ? titleText(tp, row.values[tp.id]) : '', poster: poster ? String(row.values[poster.id] ?? '') : '', last: real[real.length - 1] ?? '' })
+      const g = tur ? row.values[tur.id] : null
+      for (const id of Array.isArray(g) ? (g as string[]) : typeof g === 'string' && g ? [g] : []) {
+        const label = tur?.options?.find((o) => o.id === id)?.label
+        if (label) genres.set(label, (genres.get(label) ?? 0) + 1)
+      }
+    }
+    list.sort((a, b) => b.last.localeCompare(a.last))
+    const topGenre = [...genres.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+    return { list, topGenre, lastOne: list.find((x) => x.last) ?? list[0] ?? null }
+  }, [board, rows, other, withData])
 
   const data = useMemo(() => {
     if (!board || !side) return null
@@ -133,11 +178,12 @@ export default function Birlikte() {
   async function suggest(it: { me: Info; them: Info }) {
     if (!oid || !side) return
     try {
-      await fetch(`/api/profiles/${oid}/aklimda`, {
+      const r = await fetch(`/api/profiles/${oid}/aklimda`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: { [it.them.row.id]: { boardId: side.board.id, addedAt: Date.now() } } }),
       })
+      if (!r.ok) throw new Error(String(r.status))
       setSent((s) => new Set(s).add(it.me.key))
       notify(tt('"{0}", {1} profilinin Aklımda listesine eklendi.', it.me.title, other?.username ?? ''), 'success')
     } catch {
@@ -213,6 +259,25 @@ export default function Birlikte() {
               </button>
             )}
             <Posters list={data.shared} onOpen={open} />
+          </section>
+          <section>
+            <h2 className="text-xl font-bold text-neutral-50 mb-1">{tt('{0} ile birlikte izlediklerin', other?.username ?? '')}</h2>
+            {!together?.list.length ? (
+              <p className="text-sm text-neutral-500">{tt('Henüz yok. Bir yapımın detayında, izleme tarihlerinin altındaki "Kiminle?" ile {0} adını eklersen burada toplanır.', other?.username ?? '')}</p>
+            ) : (
+              <>
+                <div className="mb-4 flex flex-wrap gap-2 text-sm">
+                  <span className="rounded-full border border-violet-400/40 bg-violet-500/10 px-3 py-1 text-violet-100">{tt('{0} yapım', together.list.length)}</span>
+                  {together.topGenre && <span className="rounded-full border border-neutral-700 px-3 py-1 text-neutral-300">{tt('En çok: {0}', together.topGenre)}</span>}
+                  {together.lastOne && (
+                    <span className="rounded-full border border-neutral-700 px-3 py-1 text-neutral-300">
+                      {together.lastOne.last ? tt('Son: {0} · {1}', together.lastOne.title, longDay(together.lastOne.last) || together.lastOne.last) : tt('Son: {0}', together.lastOne.title)}
+                    </span>
+                  )}
+                </div>
+                <Posters list={together.list.map((x) => ({ row: x.row, key: x.row.id, title: x.title, poster: x.poster, todo: false, watched: true, score: null }))} onOpen={open} />
+              </>
+            )}
           </section>
           <section>
             <h2 className="text-xl font-bold text-neutral-50 mb-3">{tt('{0} çok sevdi, sen izlemedin', other?.username ?? '')}</h2>

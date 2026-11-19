@@ -47,9 +47,29 @@ function run<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore)
 export const cacheGet = <T = unknown>(key: string) => run<T | undefined>('cache', 'readonly', (s) => s.get(key) as IDBRequest<T | undefined>)
 export const cacheSet = (key: string, value: unknown) => run('cache', 'readwrite', (s) => s.put(value, key)).then(() => undefined)
 export const cacheDelete = (key: string) => run('cache', 'readwrite', (s) => s.delete(key)).then(() => undefined)
+export const cacheAllKeys = async () => ((await run('cache', 'readonly', (s) => s.getAllKeys())) as IDBValidKey[]).map(String)
 export async function cacheKeys(prefix: string): Promise<string[]> {
-  const keys = (await run('cache', 'readonly', (s) => s.getAllKeys())) as IDBValidKey[]
-  return keys.map(String).filter((k) => k.startsWith(prefix))
+  return (await cacheAllKeys()).filter((k) => k.startsWith(prefix))
+}
+
+// Hangi okumalar telefonda saklanır. Eskiden her okuma adresiyle birlikte (arama sözcüğü, tarih aralığı… dahil)
+// saklanıyordu, telefondaki kopya durmadan büyüyordu. Artık "?" içeren adresler saklanmıyor (aşağıdakiler hariç);
+// eşitlemenin kendi adresleri de saklanmıyor.
+const QUERY_ALLOW = [/^\/api\/profiles\/[^/]+\/flashback\/[^/?]+\?year=\d{4}$/, /^\/api\/profiles\/[^/]+\/tmdb-genres\?type=(movie|tv)$/]
+export function shouldCache(path: string): boolean {
+  if (path.startsWith('/api/sync/') || path.startsWith('/api/mobile/') || path.startsWith('/api/ui-prefs')) return false
+  if (!path.includes('?')) return true
+  return QUERY_ALLOW.some((re) => re.test(path))
+}
+
+// Telefondaki kopyada "oku → değiştir → yaz" yapan işler (çevrimdışı değişiklik, PC'den gelen kopyanın üstüne
+// bekleyen değişikliklerin yeniden işlenmesi, gönderilemeyenler listesi) sırayla çalışsın — araya girip birbirinin
+// yazdığını ezmesinler. Tek bir uygulama penceresi var, bellekteki bir sıra yetiyor.
+let lockTail: Promise<unknown> = Promise.resolve()
+export function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const next = lockTail.then(fn, fn)
+  lockTail = next.catch(() => {})
+  return next
 }
 
 export const metaGet = <T = unknown>(key: string) => run<T | undefined>('meta', 'readonly', (s) => s.get(key) as IDBRequest<T | undefined>)

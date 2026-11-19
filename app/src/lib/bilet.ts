@@ -67,7 +67,21 @@ export async function saveBilet(id: string, b: Partial<Record<keyof Bilet, strin
 export function sortedBiletler(items: Record<string, Bilet>) {
   return Object.entries(items)
     .map(([id, b]) => ({ id, ...b }))
-    .sort((a, b) => `${a.date ?? ''}${a.time ?? ''}${a.createdAt ?? 0}`.localeCompare(`${b.date ?? ''}${b.time ?? ''}${b.createdAt ?? 0}`))
+    .sort((a, b) => {
+      // Önce gün, sonra saat (saatsizler o günün sonunda), sonra eklenme zamanı (sayı olarak).
+      // Eskiden üçü tek metne yapıştırılıyordu: "9:30" / "10:00" ve farklı uzunluktaki zamanlar yanlış sıralanıyordu.
+      const d = (a.date ?? '').localeCompare(b.date ?? '')
+      if (d) return d
+      const ta = timeKey(a.time)
+      const tb = timeKey(b.time)
+      if (ta !== tb) return ta === null ? 1 : tb === null ? -1 : ta - tb
+      return (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0)
+    })
+}
+// "9:30", "21.15", "2130" → dakika; boş / anlaşılmayan → null
+function timeKey(t?: string): number | null {
+  const m = /^(\d{1,2})[:.]?(\d{2})/.exec((t ?? '').trim())
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
 }
 
 export function longDay(iso?: string) {

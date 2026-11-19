@@ -13,6 +13,7 @@ import TmdbPreviewModal from './TmdbPreviewModal'
 import PickResult, { type SeriesSwap } from './PickResult'
 import PickerPoolEditor, { DEFAULT_PICKER_TMDB, filterByYears } from './PickerPool'
 import { tt } from '../lib/i18n'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import Icon from './Icon'
 import PickAnimation from './PickAnimation'
 import { PickTrio, PickWizard, applyWizard, rowTitle, type WizardAnswers } from './PickExtras'
@@ -173,6 +174,8 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [winnerId, setWinnerId] = useState<string | null>(null)
   const [phase, setPhase] = useState<'idle' | 'wizard' | 'trio' | 'anim' | 'entering' | 'eliminating' | 'growing' | 'fading' | 'result'>('idle')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, phase !== 'idle')
   // Ekstralar (v1.23.4): seçim animasyonu, üç aday, "bu akşam" soruları
   const extras = settings.extras ?? {}
   const [animKind, setAnimKind] = useState<Exclude<PickerAnim, 'klasik' | 'karisik'>>('cark')
@@ -590,7 +593,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
       {createPortal(
         <>
           {phase !== 'idle' && (
-            <div className="fixed inset-0 z-[60] bg-neutral-950/95 overflow-hidden">
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Ne İzlesem?')} className="fixed inset-0 z-[60] bg-neutral-950/95 overflow-hidden">
               {/* Ortada marka renginde hafif bir parıltı — posterler onun üstünde dağılıyor. */}
               <div
                 aria-hidden

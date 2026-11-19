@@ -3,8 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useProfiles } from '../hooks/useProfiles'
 import { api, type Evren, type EvrenPrefs, type PlatformOzet } from '../lib/api'
-import { tt, ttx, getLang } from '../lib/i18n'
+import { tt, ttx, getLang, regionName } from '../lib/i18n'
 import { MyPlatformsPicker } from '../components/PickerPool'
+import SubscriptionCost from '../components/home/SubscriptionCost'
 
 // Hangi aboneliği almalıyım? — kullanıcı "bu ay hangi platformu alsam" sorusunun cevabını istedi. İzlenecekler
 // listendeki (ya da bir evrende izlemediklerindeki) yapımların hangi abonelik platformunda olduğu toplanır; en çok
@@ -45,6 +46,8 @@ export default function Abonelik() {
   const [universes, setUniverses] = useState<{ list: Evren[]; prefs: Record<string, EvrenPrefs> } | null>(null)
   const [result, setResult] = useState<{ source: string; data: PlatformOzet } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Adresteki evren bulunamadıysa (silinmiş, yanlış bağlantı ya da evrenler alınamadı) izlenecekler listesine dönülür
+  const [missingEvren, setMissingEvren] = useState(false)
 
   useEffect(() => {
     if (!boardId || !activeProfileId) return
@@ -53,6 +56,13 @@ export default function Abonelik() {
       .then((d) => setUniverses({ list: d.universes, prefs: d.prefs }))
       .catch(() => setUniverses({ list: [], prefs: {} }))
   }, [boardId, activeProfileId])
+
+  useEffect(() => {
+    if (source === 'izlenecek' || !universes) return
+    if (universes.list.some((u) => u.id === source)) return
+    setMissingEvren(true)
+    setParams({}, { replace: true })
+  }, [source, universes, setParams])
 
   // Evren seçiliyse: turda (yoksa hiç) izlenmemiş, çıkmış yapımlar; bir dizinin sezonları tek yapım sayılır
   const evrenItems = useMemo(() => {
@@ -109,15 +119,28 @@ export default function Abonelik() {
       >
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
         <h1 className="text-3xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Hangi aboneliği almalıyım?')}</h1>
-        <p className="text-neutral-300 mt-2 max-w-2xl">{tt('İzlemek istediklerinin hangi platformda olduğuna bakıp en çok işine yarayanı söyler. Platformlar Türkiye için, TMDB\'den.')}</p>
+        <p className="text-neutral-300 mt-2 max-w-2xl">{tt('İzlemek istediklerinin hangi platformda olduğuna bakıp en çok işine yarayanı söyler. Platformlar {0} için, TMDB\'den.', regionName())}</p>
       </section>
 
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => setParams({})} className={chip(source === 'izlenecek')}>
+        <button
+          onClick={() => {
+            setMissingEvren(false)
+            setParams({})
+          }}
+          className={chip(source === 'izlenecek')}
+        >
           {tt('İzlenecekler listem')}
         </button>
         {(universes?.list ?? []).map((u) => (
-          <button key={u.id} onClick={() => setParams({ evren: u.id })} className={chip(source === u.id)}>
+          <button
+            key={u.id}
+            onClick={() => {
+              setMissingEvren(false)
+              setParams({ evren: u.id })
+            }}
+            className={chip(source === u.id)}
+          >
             {universes?.prefs[u.id]?.maraton ? tt('{0} turunun kalanı', u.name) : tt('{0}: izlemediklerim', u.name)}
           </button>
         ))}
@@ -162,6 +185,9 @@ export default function Abonelik() {
         )}
       </section>
 
+      {myPlatforms.length > 0 && activeProfileId && <SubscriptionCost boardId={boardId} profileId={activeProfileId} myPlatforms={myPlatforms} />}
+
+      {missingEvren && <p className="text-amber-400 text-sm">{tt('İstenen evren bulunamadı (silinmiş olabilir), izlenecekler listen gösteriliyor.')}</p>}
       {error && <p className="text-rose-400 text-sm">{error}</p>}
       {!data && !error && <p className="text-neutral-500 text-sm">{tt('Platformlar toplanıyor... (ilk seferde biraz sürebilir)')}</p>}
       {data?.needsApiKey && <p className="text-amber-400 text-sm">{tt('Bunun için Ayarlar → Veritabanı → API sekmesinden bir TMDB anahtarı girmelisin.')}</p>}

@@ -1,6 +1,6 @@
 // PC yokken yapılan bir değişikliği telefondaki kopyaya hemen işler ve PC'ye gönderilecek hale getirir.
 // Sadece günlük işler çevrimdışı yapılabiliyor (kayıt düzenleme/ekleme/silme, bölüm işaretleme, ana sayfa
-// ayarları, Koleksiyon, Aklımda, bildirimleri okundu sayma). Arşiv yapısını değiştiren işler (sütun ekleme, toplu
+// ayarları, Koleksiyon, Aklımda, Biletlerim, genel kayıtlar (store), bildirimleri okundu sayma). Arşiv yapısını değiştiren işler (sütun ekleme, toplu
 // içe aktarma, TMDB doldurma…) PC'ye bağlıyken yapılır: null döner.
 //
 // Sunucudaki otomatik kurallar (bölüm işaretleyince İzleniyor, puan sorma…) burada çalışmaz; değişiklik
@@ -66,7 +66,8 @@ export async function applyOffline(op: QueuedOp): Promise<OfflineResult | null> 
   if (method === 'POST' && (m = /^\/api\/profiles\/([^/]+)\/boards\/([^/]+)\/rows$/.exec(path))) {
     const key = `/api/profiles/${m[1]}/boards/${m[2]}/rows`
     const row = { ...(body ?? {}), id: typeof body?.id === 'string' ? body.id : makeId() } as Row
-    const rows = (await cacheGet<Row[]>(key)) ?? []
+    // Aynı kayıt zaten varsa (eşitlemeden sonra yeniden işlenince) ikinci kez eklenmesin
+    const rows = ((await cacheGet<Row[]>(key)) ?? []).filter((r) => r.id !== row.id)
     await cacheSet(key, [row, ...rows])
     return { response: row, op: { ...op, body: JSON.stringify(row) } }
   }
@@ -172,5 +173,90 @@ export async function applyOffline(op: QueuedOp): Promise<OfflineResult | null> 
     return { response: { ok: true }, op }
   }
 
+  // Biletlerim: { items: { biletId: {...} | null } } — kimliği telefon verir (newBiletId), PC de aynısını kullanır.
+  // Sunucudakiyle aynı birleştirme: null siler, alandaki null/boş o alanı siler, adı olmayan bilet kaydedilmez.
+  if (method === 'POST' && (m = /^\/api\/profiles\/([^/]+)\/biletler$/.exec(path))) {
+    const cur = (await cacheGet<{ items?: Record<string, Record<string, unknown>> }>(path)) ?? {}
+    const items = { ...(cur.items ?? {}) }
+    const patch = body?.items
+    if (patch && typeof patch === 'object') {
+      for (const [id, v] of Object.entries(patch as Record<string, unknown>)) {
+        if (!/^[a-z0-9_-]{1,40}$/i.test(id)) continue
+        if (v === null) {
+          delete items[id]
+          continue
+        }
+        if (typeof v !== 'object') continue
+        const merged: Record<string, unknown> = { ...(items[id] ?? {}) }
+        for (const k of BILET_TEXT) {
+          if (!(k in v)) continue
+          const val = (v as Record<string, unknown>)[k]
+          if (val === null || val === '') delete merged[k]
+          else merged[k] = String(val).slice(0, k === 'note' ? 600 : 400)
+        }
+        if (!merged.createdAt) merged.createdAt = Date.now()
+        if (!merged.title) continue
+        items[id] = merged
+      }
+    }
+    const data = { ...cur, items }
+    await cacheSet(path, data)
+    return { response: data, op }
+  }
+
+  // Genel kayıtlar (store): PUT tüm değeri değiştirir
+  if (method === 'PUT' && /^\/api\/profiles\/[^/]+\/store\/[^/?]+$/.test(path)) {
+    const value = body === undefined ? null : body
+    await cacheSet(path, value)
+    return { response: value, op }
+  }
+
   return null
+}
+
+const BILET_TEXT = ['title', 'poster', 'cover', 'logo', 'year', 'rowId', 'boardId', 'date', 'time', 'cinema', 'hall', 'seat', 'format', 'withWho', 'price', 'note', 'front', 'back', 'art', 'artPos', 'artZoom', 'style']
+
+// Sıradaki bir değişikliğin telefondaki kopyada dokunduğu adres ("/" ile bitiyorsa o önekle başlayan hepsi).
+// PC'den yeni kopya gelince bu adresteki bekleyen değişiklikler üstüne yeniden işlenir (bkz. connection › storeFromPc).
+export function opCacheKey(op: QueuedOp): string | null {
+  const { method, path } = op
+  let m: RegExpExecArray | null
+  if ((m = /^(\/api\/profiles\/[^/]+\/boards\/[^/]+\/rows)(\/[^/?]+)?$/.exec(path))) return m[1]
+  if ((m = /^(\/api\/profiles\/[^/]+\/watched)\/[^/?]+(\/diff)?$/.exec(path))) return m[1]
+  if ((m = /^(\/api\/profiles\/[^/]+)\/koleksiyon$/.exec(path))) return `${m[1]}/koleksiyon/`
+  if ((m = /^(\/api\/profiles\/[^/]+\/notifications)(\/read)?$/.exec(path))) return m[1]
+  if ((m = /^(\/api\/profiles\/[^/]+\/songs\/[^/]+)\/[^/?]+$/.exec(path)) && method === 'DELETE') return m[1]
+  if (/^\/api\/profiles\/[^/]+\/(home-settings|aklimda|biletler|store\/[^/?]+)$/.test(path)) return path
+  return null
+}
+
+export function opTouches(op: QueuedOp, key: string): boolean {
+  const k = opCacheKey(op)
+  if (!k) return false
+  return k.endsWith('/') ? key.startsWith(k) : key === k
+}
+
+// Sıradaki (PC'ye henüz gitmemiş) bir değişikliği telefondaki kopyaya yeniden işler. Sırada duran hali bazen
+// arayüzün gönderdiğinden farklı (bölümler → fark), onu da tanıyor. Aynısını iki kez işlemek zararsız.
+export async function replayOnCache(op: QueuedOp): Promise<void> {
+  const m = /^\/api\/profiles\/([^/]+)\/watched\/([^/?]+)\/diff$/.exec(op.path)
+  if (op.method === 'PATCH' && m) {
+    const key = `/api/profiles/${m[1]}/watched`
+    const body = (parse(op.body) ?? {}) as { add?: Record<string, string[]>; remove?: Record<string, string[]> }
+    const all = { ...((await cacheGet<WatchedMap>(key)) ?? {}) }
+    const cur: Record<string, string[]> = { ...(all[m[2]] ?? {}) }
+    for (const [k, list] of Object.entries(body.add ?? {})) {
+      const a = Array.isArray(cur[k]) ? cur[k] : []
+      cur[k] = [...a, ...(list ?? []).filter((d) => !a.includes(d))]
+    }
+    for (const [k, list] of Object.entries(body.remove ?? {})) {
+      if (!Array.isArray(cur[k])) continue
+      cur[k] = cur[k].filter((d) => !(list ?? []).includes(d))
+      if (!cur[k].length) delete cur[k]
+    }
+    all[m[2]] = cur
+    await cacheSet(key, all)
+    return
+  }
+  await applyOffline(op)
 }

@@ -5,6 +5,7 @@ import { fileToCompressedDataUrl } from '../lib/imageUtils'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useProfiles } from '../hooks/useProfiles'
 import ToggleSwitch from './ToggleSwitch'
@@ -36,6 +37,8 @@ export default function ProfileSetupModal({
   const own = !profile || profile.id === activeProfileId
   const ext = own ? (settings.extras ?? {}) : {}
   const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(!!onCancel, () => onCancel?.())
 
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -63,6 +66,7 @@ export default function ProfileSetupModal({
 
   return (
     <div
+      ref={dialogRef} role="dialog" aria-modal="true" aria-label={profile ? tt('Profili Düzenle') : tt('Profil Oluştur')}
       className="fixed inset-0 z-50 bg-neutral-950/80 backdrop-blur-sm flex items-center justify-center px-4"
       onClick={() => onCancel?.()}
     >

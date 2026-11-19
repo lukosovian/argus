@@ -16,6 +16,7 @@ import InlineValueEditor from './InlineValueEditor'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { isoDate, tt } from '../lib/i18n'
 import Icon from './Icon'
+import { isModalOpen, isPopoverOpen, isTypingTarget } from './table/keys'
 
 const TITLE_DEFAULT_WIDTH = 220
 const ACTIONS_COLUMN_WIDTH = 44
@@ -234,8 +235,11 @@ function RowMenu({
         onDragEnd={onDragRowEnd}
         title={onDragRow ? tt('Satır ayarları için tıkla, taşımak için sürükle') : tt('Satır ayarları')}
         className={`h-7 w-7 flex items-center justify-center rounded-md text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition ${onDragRow ? 'cursor-grab active:cursor-grabbing' : ''} ${
-          open ? 'opacity-100 bg-neutral-800 text-neutral-200' : 'opacity-0 group-hover:opacity-100'
+          open ? 'opacity-100 bg-neutral-800 text-neutral-200' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
         }`}
+        aria-label={tt('Satır ayarları')}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <DragHandleIcon />
       </button>
@@ -627,7 +631,13 @@ function useColumnResize(onResize: (propertyId: string, width: number) => void) 
 // sanal liste (useVirtualRows) ve satıra kaydırma bu değerle hesaplandığı için ikisi hep eşleşmeli.
 const ROW_HEIGHT = 37
 const ROW_HEIGHT_ROOMY = 57
+// Gruplamada her grubun başlık satırı (h-9 + üst çizgi)
+const GROUP_HEADER_HEIGHT = 37
 const OVERSCAN = 10
+const EMPTY_GROUP = '__bos__'
+
+// Sanal listedeki bir öğe: gruplama açıkken grupların başlık satırları da kayıtlarla aynı listede (v1.25).
+type TableItem = { kind: 'group'; key: string; optionId: string | null; count: number } | { kind: 'row'; row: Row }
 
 // offsets[i] = i. satırın tablodaki üst kenarı (offsets[n] = toplam yükseklik). "Sıkı"da her satır aynı
 // yükseklikte; "Rahat"ta satırlar içeriğe göre büyüdüğü için ölçülen gerçek yükseklikler kullanılıyor.
@@ -754,6 +764,11 @@ const BoardTable = forwardRef<
     // izleme tarihi diziden herhangi bir bölüme girilmiş en son tarihi alsın" dedi — İzleme Tarihi sütunu
     // dizide bu tarihi (ya da kaydın kendi tarihi daha yeniyse onu) tek tarih olarak gösterir.
     lastEpisodeDates?: Map<string, string>
+    // Bu Seçim sütununa göre gruplanır (v1.25): grup başlıkları seçeneklerin sırasıyla, "(boş)" en sonda
+    groupByProp?: PropertyDef | null
+    // Alt özet satırı (kayıt sayısı, ortalamalar, boşlar) görünsün mü
+    showFooter?: boolean
+    onHideFooter?: () => void
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -800,9 +815,17 @@ const BoardTable = forwardRef<
     duplicateRowIds,
     onMoveRow,
     lastEpisodeDates,
+    groupByProp = null,
+    showFooter = false,
+    onHideFooter,
   },
   ref,
 ) {
+  // "Geri al" bildirimi sonradan tıklandığında eski kopyası (eski satır değerleriyle) değil en güncel hali çağrılsın
+  const onUpdateCellRef = useRef(onUpdateCell)
+  useEffect(() => {
+    onUpdateCellRef.current = onUpdateCell
+  }, [onUpdateCell])
   const roomy = density === 'rahat'
   const watchDateProp = resolveRole(board, 'izlemeTarihi')
   // Dizide Süre bir bölümün süresi (v1.24): tabloda "45 dk/bölüm" diye yazılır
@@ -872,6 +895,18 @@ const BoardTable = forwardRef<
       onUpdateCell(rowId, propertyId, value)
       return
     }
+    // Geri al için seçili kayıtların değişiklikten ÖNCEKİ değerleri. Çoklu seçim penceresi her tıklamada kaydettiği için
+    // aynı sütunda art arda yapılan değişiklikler tek bir "oturum" sayılır; geri al hepsinden önceki hale döndürür.
+    const now = Date.now()
+    let session = bulkEditSession.current
+    const fresh = !session || session.propertyId !== propertyId || now - lastBulkNotice.current > 4000
+    if (fresh || !session) {
+      session = { propertyId, prev: new Map() }
+      bulkEditSession.current = session
+    }
+    for (const id of selectedRowIds) {
+      if (!session.prev.has(id)) session.prev.set(id, rows.find((r) => r.id === id)?.values[propertyId])
+    }
     const before = rows.find((r) => r.id === rowId)?.values[propertyId]
     const prev: unknown[] = Array.isArray(before) ? before : []
     const added = Array.isArray(value) ? (value as unknown[]).filter((x) => !prev.includes(x)) : []
@@ -887,13 +922,23 @@ const BoardTable = forwardRef<
       onUpdateCell(id, propertyId, next as PropertyValue)
     }
     // Çoklu seçim penceresi her tıklamada kaydediyor — bildirim her seferinde tekrar çıkmasın.
-    if (Date.now() - lastBulkNotice.current > 4000) {
+    if (fresh) {
       const name = board.properties.find((p) => p.id === propertyId)?.name ?? tt('Değişiklik')
-      notify(tt('{0} seçili {1} kayda uygulandı.', name, selectedRowIds.size), 'success')
+      const snapshot = session
+      notify(tt('{0} seçili {1} kayda uygulandı.', name, selectedRowIds.size), 'success', {
+        action: {
+          label: tt('Geri al'),
+          onClick: () => {
+            if (bulkEditSession.current === snapshot) bulkEditSession.current = null
+            for (const [id, v] of snapshot.prev) onUpdateCellRef.current(id, snapshot.propertyId, (v ?? null) as PropertyValue)
+          },
+        },
+      })
     }
-    lastBulkNotice.current = Date.now()
+    lastBulkNotice.current = now
   }
   const lastBulkNotice = useRef(0)
+  const bulkEditSession = useRef<{ propertyId: string; prev: Map<string, PropertyValue | undefined> } | null>(null)
 
   // Satır listesi değişince (filtre, arama, silme...) artık listede olmayan id'ler seçimden
   // düşer — aksi halde "N seçili" gerçekte görünmeyen/var olmayan kayıtları sayabilirdi.
@@ -928,7 +973,7 @@ const BoardTable = forwardRef<
     const ids = [...selectedRowIds]
     if (ids.length === 0) return
     const ok = await confirm({
-      message: tt('{0} kaydı silmek istediğine emin misin? Bu işlem geri alınamaz.', ids.length),
+      message: tt('{0} kaydı silmek istediğine emin misin? Yanlışlıkla silersen bildirimdeki "Geri al" ile ya da Geçmiş\'ten geri getirebilirsin.', ids.length),
       confirmLabel: tt('Sil'),
     })
     if (!ok) return
@@ -954,13 +999,14 @@ const BoardTable = forwardRef<
   // de aynı konuma gelir. `syncing` sonsuz döngüyü önlüyor.
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bottomScrollRef = useRef<HTMLDivElement>(null)
+  const footerScrollRef = useRef<HTMLDivElement>(null)
   const syncingScroll = useRef(false)
 
   function syncScrollLeft(source: HTMLDivElement) {
     if (syncingScroll.current) return
     syncingScroll.current = true
     const left = source.scrollLeft
-    for (const el of [headerScrollRef.current, scrollContainerRef.current, bottomScrollRef.current]) {
+    for (const el of [headerScrollRef.current, scrollContainerRef.current, bottomScrollRef.current, footerScrollRef.current]) {
       if (el && el !== source) el.scrollLeft = left
     }
     syncingScroll.current = false
@@ -1004,33 +1050,127 @@ const BoardTable = forwardRef<
       observerRef.current?.observe(el)
     } else observedEls.current.delete(id)
   }
+  // Gruplama (v1.25): kapatılan gruplar bu tarayıcıda, arşiv ve sütun başına hatırlanır.
+  const groupProp = groupByProp && groupByProp.type === 'select' ? groupByProp : null
+  const collapsedKey = groupProp ? `argus_table_collapsed_${board.id}_${groupProp.id}` : null
+  const [collapsed, setCollapsed] = useState<{ key: string | null; set: Set<string> }>({ key: null, set: new Set() })
+  if (collapsed.key !== collapsedKey) {
+    let set = new Set<string>()
+    try {
+      const raw = collapsedKey ? localStorage.getItem(collapsedKey) : null
+      if (raw) set = new Set(JSON.parse(raw) as string[])
+    } catch {
+      // okunamazsa hepsi açık
+    }
+    setCollapsed({ key: collapsedKey, set })
+  }
+  function toggleGroup(key: string) {
+    const next = new Set(collapsed.set)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setCollapsed({ key: collapsedKey, set: next })
+    try {
+      if (collapsedKey) localStorage.setItem(collapsedKey, JSON.stringify([...next]))
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
+  // Satırın hangi grupta olduğu
+  function groupKeyOf(row: Row): string {
+    if (!groupProp) return ''
+    const v = row.values[groupProp.id]
+    return typeof v === 'string' && v && optionMaps.get(groupProp.id)?.has(v) ? v : EMPTY_GROUP
+  }
+  const items = useMemo<TableItem[]>(() => {
+    if (!groupProp) return rows.map((row) => ({ kind: 'row' as const, row }))
+    const buckets = new Map<string, Row[]>()
+    for (const o of groupProp.options ?? []) buckets.set(o.id, [])
+    const empty: Row[] = []
+    for (const r of rows) {
+      const v = r.values[groupProp.id]
+      const b = typeof v === 'string' ? buckets.get(v) : undefined
+      if (b) b.push(r)
+      else empty.push(r)
+    }
+    const out: TableItem[] = []
+    const add = (key: string, optionId: string | null, list: Row[]) => {
+      if (list.length === 0) return
+      out.push({ kind: 'group', key, optionId, count: list.length })
+      if (!collapsed.set.has(key)) for (const row of list) out.push({ kind: 'row', row })
+    }
+    for (const [id, list] of buckets) add(id, id, list)
+    add(EMPTY_GROUP, null, empty)
+    return out
+  }, [rows, groupProp, collapsed.set])
+  // Klavyeyle gezinilen (görünen) kayıtlar, ekrandaki sırayla
+  const navRows = useMemo(() => items.flatMap((it) => (it.kind === 'row' ? [it.row] : [])), [items])
+  const itemIndexByRowId = useMemo(() => {
+    const m = new Map<string, number>()
+    items.forEach((it, i) => it.kind === 'row' && m.set(it.row.id, i))
+    return m
+  }, [items])
+
   const offsets = useMemo(() => {
-    const cum = new Array<number>(rows.length + 1)
+    const cum = new Array<number>(items.length + 1)
     cum[0] = 0
-    for (let i = 0; i < rows.length; i++) cum[i + 1] = cum[i] + (roomy ? (measured.current.get(rows[i].id) ?? rowH) : rowH)
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      cum[i + 1] = cum[i] + (it.kind === 'group' ? GROUP_HEADER_HEIGHT : roomy ? (measured.current.get(it.row.id) ?? rowH) : rowH)
+    }
     return cum
     // measureVersion: ölçümler değişince yeniden hesapla
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, roomy, rowH, measureVersion])
+  }, [items, roomy, rowH, measureVersion])
   const { start: visibleStart, end: visibleEnd } = useVirtualRows(scrollContainerRef, offsets)
-  const visibleRows = rows.slice(visibleStart, visibleEnd)
+  const visibleItems = items.slice(visibleStart, visibleEnd)
+
+  // Sayfayı bir öğenin (satırın) görüneceği yere kaydırır. `onlyIfHidden`: zaten görünüyorsa kıpırdama (klavye gezintisi).
+  function scrollItemIntoView(index: number, onlyIfHidden: boolean) {
+    const el = scrollContainerRef.current
+    if (!el || index < 0) return
+    const rect = el.getBoundingClientRect()
+    const top = rect.top + window.scrollY + offsets[index]
+    const bottom = rect.top + window.scrollY + offsets[index + 1]
+    // Sticky navbar (64px) + tablonun kendi sticky başlığı (37px) (+ seçim çubuğu) satırın üstünü kapatmasın.
+    const coverTop = 64 + 37 + (selectedRowIds.size > 0 ? 40 : 0) + 8
+    // Altta: yatay kaydırma şeridi (14px) + özet satırı
+    const coverBottom = 14 + (showFooter ? 30 : 0) + 8
+    if (onlyIfHidden) {
+      if (top < window.scrollY + coverTop) window.scrollTo(0, Math.max(0, top - coverTop))
+      else if (bottom > window.scrollY + window.innerHeight - coverBottom) window.scrollTo(0, bottom - window.innerHeight + coverBottom)
+      return
+    }
+    // `behavior: 'smooth'` bazı ortamlarda (ör. otomatik/uzaktan kontrollü tarayıcılarda) sessizce hiç
+    // kaydırmıyor — güvenilir olsun diye anlık (varsayılan) kaydırma kullanılıyor.
+    window.scrollTo(0, Math.max(0, top - 64 - rowH - 16))
+  }
+
+  // "+ Yeni Ekle" sonrası kaydırma: satır kapalı bir gruptaysa önce grup açılır, satır listede belirince kaydırılır.
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null)
+  useEffect(() => {
+    if (!scrollTarget) return
+    const index = itemIndexByRowId.get(scrollTarget)
+    if (index !== undefined) {
+      scrollItemIntoView(index, false)
+      setScrollTarget(null)
+      return
+    }
+    const row = rows.find((r) => r.id === scrollTarget)
+    if (!row) return
+    const g = groupKeyOf(row)
+    if (g && collapsed.set.has(g)) toggleGroup(g)
+    else setScrollTarget(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollTarget, itemIndexByRowId])
 
   useImperativeHandle(
     ref,
     () => ({
       scrollToRow(rowId: string) {
-        const index = rows.findIndex((r) => r.id === rowId)
-        if (index === -1 || !scrollContainerRef.current) return
-        const rect = scrollContainerRef.current.getBoundingClientRect()
-        const rowTop = rect.top + window.scrollY + offsets[index]
-        // Sticky navbar (64px) + tablonun kendi sticky başlığı (37px) satırın üstünü
-        // kapatmasın diye biraz pay bırakılıyor. `behavior: 'smooth'` bazı ortamlarda
-        // (ör. otomatik/uzaktan kontrollü tarayıcılarda) sessizce hiç kaydırmıyor —
-        // güvenilir olsun diye anlık (varsayılan) kaydırma kullanılıyor.
-        window.scrollTo(0, Math.max(0, rowTop - 64 - rowH - 16))
+        setScrollTarget(rowId)
       },
     }),
-    [rows, rowH, offsets],
+    [],
   )
 
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
@@ -1055,6 +1195,162 @@ const BoardTable = forwardRef<
   const menuProp = board.properties.find((p) => p.id === menuFor)
   const editingProp = editingCell ? board.properties.find((p) => p.id === editingCell.propertyId) : null
   const editingRow = editingCell ? rows.find((r) => r.id === editingCell.rowId) : null
+
+  // ---- Klavyeyle gezinme (Notion'daki gibi, v1.25) ----
+  // Bir hücreye tıklayınca o hücre "etkin" olur (mavi çerçeve); oklarla/Tab ile hücreler arasında gezilir, Enter
+  // düzenleyiciyi açar (tıklamayla aynı), Esc çıkar. Hiçbir hücre etkin değilken oklar sayfayı eskisi gibi kaydırır.
+  const [activeCell, setActiveCell] = useState<{ rowId: string; propertyId: string } | null>(null)
+  const navByKey = useRef(false)
+  const tableRootRef = useRef<HTMLDivElement>(null)
+  const navCols = useMemo(
+    () => [
+      ...board.properties.filter((p) => p.id === board.titlePropertyId),
+      ...board.properties.filter((p) => p.id !== board.titlePropertyId && !hiddenColumnIds.has(p.id)),
+    ],
+    [board.properties, board.titlePropertyId, hiddenColumnIds],
+  )
+  // Etkin hücrenin satırı listeden çıkarsa (filtre, silme, grup kapandı) etkinlik düşer
+  if (activeCell && !itemIndexByRowId.has(activeCell.rowId)) setActiveCell(null)
+  function activate(rowId: string, propertyId: string) {
+    navByKey.current = false
+    setActiveCell({ rowId, propertyId })
+  }
+  // Tablonun dışına (açılır menüler/pencereler hariç) tıklanınca etkin hücre bırakılır
+  useEffect(() => {
+    if (!activeCell) return
+    function onDown(e: MouseEvent) {
+      const t = e.target as HTMLElement | null
+      if (!t || tableRootRef.current?.contains(t) || t.closest('.fixed')) return
+      setActiveCell(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [activeCell])
+  const navRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  navRef.current = (e: KeyboardEvent) => {
+    if (!activeCell || editingCell || menuFor || showAddCol) return
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
+    if (isTypingTarget(e.target) || isPopoverOpen() || isModalOpen()) return
+    const r = navRows.findIndex((x) => x.id === activeCell.rowId)
+    const c = navCols.findIndex((x) => x.id === activeCell.propertyId)
+    if (r < 0 || c < 0) return
+    let nr = r
+    let nc = c
+    switch (e.key) {
+      case 'ArrowUp':
+        nr = Math.max(0, r - 1)
+        break
+      case 'ArrowDown':
+        nr = Math.min(navRows.length - 1, r + 1)
+        break
+      case 'ArrowLeft':
+        nc = Math.max(0, c - 1)
+        break
+      case 'ArrowRight':
+        nc = Math.min(navCols.length - 1, c + 1)
+        break
+      case 'Tab':
+        if (e.shiftKey) {
+          if (c > 0) nc = c - 1
+          else if (r > 0) [nr, nc] = [r - 1, navCols.length - 1]
+        } else if (c < navCols.length - 1) nc = c + 1
+        else if (r < navRows.length - 1) [nr, nc] = [r + 1, 0]
+        break
+      case 'Enter': {
+        const tag = (e.target as HTMLElement | null)?.tagName
+        if (tag === 'BUTTON' || tag === 'A') return
+        e.preventDefault()
+        const p = navCols[c]
+        const row = navRows[r]
+        if (p.type === 'checkbox') updateCellForSelection(row.id, p.id, !row.values[p.id])
+        else setEditingCell({ rowId: row.id, propertyId: p.id })
+        return
+      }
+      case 'Escape':
+        e.preventDefault()
+        setActiveCell(null)
+        return
+      default:
+        return
+    }
+    e.preventDefault()
+    navByKey.current = true
+    setActiveCell({ rowId: navRows[nr].id, propertyId: navCols[nc].id })
+  }
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => navRef.current(e)
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [])
+  // Klavyeyle gidilen hücre ekranda görünsün: önce dikey (sanal liste o satırı çizsin), sonra yatay.
+  useEffect(() => {
+    if (!activeCell || !navByKey.current) return
+    scrollItemIntoView(itemIndexByRowId.get(activeCell.rowId) ?? -1, true)
+    const id = requestAnimationFrame(() => {
+      const box = scrollContainerRef.current
+      const td = cellRefs.current[`${activeCell.rowId}:${activeCell.propertyId}`]
+      if (!box || !td) return
+      // Soldaki sabit sütunlar (seçim + başlık) hücrenin üstüne binmesin
+      const stickyW = HANDLE_COLUMN_WIDTH + (titleProp && activeCell.propertyId !== titleProp.id ? colWidth(titleProp, TITLE_DEFAULT_WIDTH) : 0)
+      const left = td.offsetLeft
+      const right = left + td.offsetWidth
+      if (activeCell.propertyId === titleProp?.id) return
+      if (left - box.scrollLeft < stickyW) box.scrollLeft = Math.max(0, left - stickyW)
+      else if (right - box.scrollLeft > box.clientWidth) box.scrollLeft = right - box.clientWidth
+      syncScrollLeft(box)
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCell])
+  const ACTIVE_CELL = 'outline outline-2 -outline-offset-2 outline-[#00c0fa]/80'
+  const isActive = (rowId: string, propertyId: string) => activeCell?.rowId === rowId && activeCell.propertyId === propertyId
+
+  // ---- Alt özet satırı (v1.25): o an görünen (filtrelenmiş) kayıtlar için ----
+  const footerStats = useMemo(() => {
+    if (!showFooter) return null
+    const stats = new Map<string, { empty: number; text?: string; title?: string }>()
+    const isEmpty = (v: PropertyValue) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
+    for (const p of navCols) {
+      let empty = 0
+      let sum = 0
+      let n = 0
+      for (const r of rows) {
+        const v = r.values[p.id]
+        if (p.type === 'rating') {
+          const avg = ratingAverage(v, p)
+          if (avg === null) empty++
+          else {
+            sum += avg
+            n++
+          }
+          continue
+        }
+        if (p.type === 'checkbox') {
+          if (v) n++
+          continue
+        }
+        if (isEmpty(v)) {
+          empty++
+          continue
+        }
+        if (p.type === 'number' && typeof v === 'number') {
+          // Süre: dizilerde bölüm başına olduğu için toplama katılmıyor
+          if (p.id === sureRoleProp?.id && isSeriesRow(r)) continue
+          sum += v
+          n++
+        }
+      }
+      const s: { empty: number; text?: string; title?: string } = { empty }
+      if (p.type === 'checkbox') s.text = tt('{0} işaretli', n)
+      else if (p.id === sureRoleProp?.id && p.type === 'number' && n > 0) {
+        s.text = tt('toplam {0} sa', (sum / 60).toLocaleString('tr', { maximumFractionDigits: 1 }))
+        s.title = tt('Dizilerde süre bölüm başına olduğu için dizi kayıtları toplama katılmadı')
+      } else if ((p.type === 'number' || p.type === 'rating') && n > 0) s.text = tt('ort. {0}', (sum / n).toLocaleString('tr', { maximumFractionDigits: p.type === 'rating' ? 1 : 2 }))
+      stats.set(p.id, s)
+    }
+    return stats
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFooter, rows, navCols])
 
   function colWidth(p: PropertyDef, fallback: number) {
     if (liveWidth?.id === p.id) return liveWidth.width
@@ -1110,7 +1406,16 @@ const BoardTable = forwardRef<
           role="button"
           tabIndex={0}
           onClick={() => setMenuFor(menuFor === p.id ? null : p.id)}
-          className="block truncate cursor-pointer hover:text-neutral-200"
+          // Klavyeyle de açılsın (Tab ile gelip Enter / Boşluk)
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setMenuFor(menuFor === p.id ? null : p.id)
+            }
+          }}
+          aria-haspopup="menu"
+          aria-expanded={menuFor === p.id}
+          className="block truncate cursor-pointer hover:text-neutral-200 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#00c0fa]/60"
           title={reorderable ? tt('Sütun ayarları için tıkla, taşımak için sürükle') : tt('Sütun ayarları için tıkla')}
         >
           {p.name}
@@ -1168,8 +1473,14 @@ const BoardTable = forwardRef<
       return (
         <td
           key={p.id}
-          onClick={() => updateCellForSelection(row.id, p.id, !row.values[p.id])}
-          className="px-3 overflow-hidden cursor-pointer border-r border-neutral-800"
+          ref={(el) => {
+            cellRefs.current[key] = el
+          }}
+          onClick={() => {
+            activate(row.id, p.id)
+            updateCellForSelection(row.id, p.id, !row.values[p.id])
+          }}
+          className={`px-3 overflow-hidden cursor-pointer border-r border-neutral-800 ${isActive(row.id, p.id) ? ACTIVE_CELL : ''}`}
         >
           <div className={`${cellH} flex items-center overflow-hidden`}>
             <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} roomy={roomy} />
@@ -1196,8 +1507,11 @@ const BoardTable = forwardRef<
         ref={(el) => {
           cellRefs.current[key] = el
         }}
-        onClick={() => setEditingCell({ rowId: row.id, propertyId: p.id })}
-        className="px-3 overflow-hidden cursor-pointer hover:bg-neutral-800/40 border-r border-neutral-800"
+        onClick={() => {
+          activate(row.id, p.id)
+          setEditingCell({ rowId: row.id, propertyId: p.id })
+        }}
+        className={`px-3 overflow-hidden cursor-pointer hover:bg-neutral-800/40 border-r border-neutral-800 ${isActive(row.id, p.id) ? ACTIVE_CELL : ''}`}
       >
         <div className={`${cellH} flex items-center overflow-hidden`}>
           {seriesWatchDate(row, p) ?? <Cell property={p} value={row.values[p.id]} optionMaps={optionMaps} roomy={roomy} />}
@@ -1225,7 +1539,8 @@ const BoardTable = forwardRef<
     // pencerenin altına yapışık dursun istendiği için (koca gövdenin kendi çubuğu sayfanın
     // gerçek en altında kalıp ulaşılamaz olurdu) üçüncü, ince, sticky bir alt şerit bu işi
     // görüyor — başlığın kendi çubuğu artık gizli.
-    <div>
+    // data-table-busy: bir hücre düzenleyicisi ya da sütun menüsü açıkken BoardView'ın "/" ve "N" kısayolları susar
+    <div ref={tableRootRef} data-table-busy={editingCell || menuFor || showAddCol ? '1' : undefined}>
       {selectedRowIds.size > 0 && (
         <div className="sticky top-16 z-20 flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-t-xl px-4 py-2.5">
           <p className="text-sm text-neutral-300">
@@ -1296,6 +1611,8 @@ const BoardTable = forwardRef<
                   ref={addColRef}
                   onClick={() => setShowAddCol((v) => !v)}
                   title={tt('Sütun ekle')}
+                  aria-label={tt('Sütun ekle')}
+                  aria-expanded={showAddCol}
                   className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-neutral-800 text-neutral-500 hover:text-neutral-50 text-base leading-none transition"
                 >
                   +
@@ -1319,7 +1636,24 @@ const BoardTable = forwardRef<
               <td colSpan={totalColumns} />
             </tr>
           )}
-          {visibleRows.map((row) => {
+          {visibleItems.map((item) => {
+            if (item.kind === 'group') {
+              const opt = item.optionId ? optionMaps.get(groupProp!.id)?.get(item.optionId) : undefined
+              const isClosed = collapsed.set.has(item.key)
+              return (
+                <tr key={`g:${item.key}`} className="border-t border-neutral-800 bg-neutral-900/70 hover:bg-neutral-900 cursor-pointer" onClick={() => toggleGroup(item.key)}>
+                  <td colSpan={totalColumns} className="p-0">
+                    {/* Yatay kaydırınca grup adı solda kalsın */}
+                    <div className="h-9 flex items-center gap-2 text-sm sticky left-0 w-max" style={{ paddingLeft: HANDLE_PAD_LEFT + 6 }}>
+                      <span className={`text-neutral-500 text-xs transition-transform ${isClosed ? '-rotate-90' : ''}`}>▾</span>
+                      {opt ? <OptionBadge label={opt.label} colorIndex={opt.colorIndex} image={opt.image} /> : <span className="text-neutral-400 italic">{tt('(boş)')}</span>}
+                      <span className="text-xs text-neutral-500 tabular-nums">{item.count}</span>
+                    </div>
+                  </td>
+                </tr>
+              )
+            }
+            const row = item.row
             const isSelected = selectedRowIds.has(row.id)
             // Sürüklenirken bu satırın üstündeysek: aşağı taşınıyorsa altına, yukarı taşınıyorsa üstüne mavi çizgi.
             let dropLine = ''
@@ -1370,7 +1704,7 @@ const BoardTable = forwardRef<
                     checked={isSelected}
                     onChange={() => toggleSelectRow(row.id)}
                     label={tt('Satırı seç')}
-                    className={selectedRowIds.size > 0 || isSelected ? '' : 'opacity-0 group-hover:opacity-100'}
+                    className={selectedRowIds.size > 0 || isSelected ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}
                   />
                   <RowMenu
                     board={board}
@@ -1378,7 +1712,8 @@ const BoardTable = forwardRef<
                     onShowHistory={onShowRowHistory ? () => onShowRowHistory(row) : undefined}
                     duplicate={duplicateRowIds?.has(row.id)}
                     onDragRow={
-                      onMoveRow
+                      // Gruplamada satırlar gruplarına göre dizildiği için taşıma kapalı
+                      onMoveRow && !groupProp
                         ? (e) => {
                             e.dataTransfer.effectAllowed = 'move'
                             e.dataTransfer.setData('text/plain', row.id)
@@ -1403,7 +1738,8 @@ const BoardTable = forwardRef<
                   <button
                     onClick={() => onOpenDetail(row)}
                     title={tt('Detayı Gör')}
-                    className="h-7 w-7 flex items-center justify-center rounded-md text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition opacity-0 group-hover:opacity-100"
+                    aria-label={tt('Detayı Gör')}
+                    className="h-7 w-7 flex items-center justify-center rounded-md text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                   >
                     <EyeIcon />
                   </button>
@@ -1430,9 +1766,12 @@ const BoardTable = forwardRef<
                       ref={(el) => {
                         cellRefs.current[key] = el
                       }}
-                      onClick={() => setEditingCell({ rowId: row.id, propertyId: titleProp.id })}
+                      onClick={() => {
+                        activate(row.id, titleProp.id)
+                        setEditingCell({ rowId: row.id, propertyId: titleProp.id })
+                      }}
                       style={STICKY_TITLE_STYLE}
-                      className={`px-3 text-neutral-100 font-medium overflow-hidden cursor-pointer border-r border-neutral-800 shadow-[6px_0_8px_-6px_rgba(0,0,0,0.45)] ${stickyBg(isSelected)}`}
+                      className={`px-3 text-neutral-100 font-medium overflow-hidden cursor-pointer border-r border-neutral-800 shadow-[6px_0_8px_-6px_rgba(0,0,0,0.45)] ${stickyBg(isSelected)} ${isActive(row.id, titleProp.id) ? ACTIVE_CELL : ''}`}
                     >
                       <div className={`${cellH} flex items-center gap-2.5 overflow-hidden`}>
                         {thumbProp && (
@@ -1452,8 +1791,8 @@ const BoardTable = forwardRef<
             </tr>
             )
           })}
-          {visibleEnd < rows.length && (
-            <tr aria-hidden style={{ height: offsets[rows.length] - offsets[visibleEnd] }}>
+          {visibleEnd < items.length && (
+            <tr aria-hidden style={{ height: offsets[items.length] - offsets[visibleEnd] }}>
               <td colSpan={totalColumns} />
             </tr>
           )}
@@ -1470,6 +1809,59 @@ const BoardTable = forwardRef<
           erişilebilir kalır. İçeriği (aşağıdaki boş div) sadece kaydırma aralığını doğru
           vermek için tablo genişliğinde; kendisi görünmez, sadece tarayıcının kendi çubuğu
           görünür. */}
+      {footerStats && (
+        <div
+          ref={footerScrollRef}
+          onScroll={(e) => syncScrollLeft(e.currentTarget)}
+          onWheel={handleTableWheel}
+          className="sticky bottom-[14px] z-10 overflow-x-auto no-scrollbar bg-neutral-900 border-x border-t border-neutral-800"
+        >
+          <table className="w-full text-[11px] text-left" style={{ tableLayout: 'fixed' }}>
+            {renderColgroup()}
+            <tbody>
+              <tr className="text-neutral-500">
+                <td className="bg-neutral-900" style={{ ...STICKY_HANDLE_STYLE, paddingLeft: HANDLE_PAD_LEFT - 4 }}>
+                  <div className="h-7 flex items-center gap-1">
+                    {onHideFooter && (
+                      <button
+                        onClick={onHideFooter}
+                        title={tt('Özet satırını gizle (… menüsünden yine açabilirsin)')}
+                        className="h-5 w-5 flex items-center justify-center rounded text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800"
+                      >
+                        ×
+                      </button>
+                    )}
+                    <span className="text-neutral-300 tabular-nums whitespace-nowrap">{tt('{0} kayıt', rows.length)}</span>
+                  </div>
+                </td>
+                {navCols.map((p) => {
+                  const s = footerStats.get(p.id)
+                  const parts = [s?.text, s && s.empty > 0 ? tt('{0} boş', s.empty) : null].filter(Boolean)
+                  return (
+                    <td
+                      key={p.id}
+                      title={s?.title}
+                      style={p.id === titleProp?.id ? STICKY_TITLE_STYLE : undefined}
+                      className={`px-3 border-r border-neutral-800 truncate tabular-nums ${p.id === titleProp?.id ? 'bg-neutral-900' : ''}`}
+                    >
+                      <div className="h-7 flex items-center overflow-hidden whitespace-nowrap">
+                        {parts.map((x, i) => (
+                          <span key={i} className={i === 0 && s?.text ? 'text-neutral-300' : ''}>
+                            {i > 0 ? ' · ' : ''}
+                            {x}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  )
+                })}
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div
         ref={bottomScrollRef}
         onScroll={(e) => syncScrollLeft(e.currentTarget)}

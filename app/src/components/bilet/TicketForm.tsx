@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom'
 import { api, type BiletGorsel } from '../../lib/api'
 import { biletFromRow, newBiletId, saveBilet, type Bilet } from '../../lib/bilet'
 import { useEscape } from '../../hooks/useEscape'
+import { useDialogFocus } from '../../hooks/useDialogFocus'
 import { useToast } from '../../hooks/useToast'
 import { tt } from '../../lib/i18n'
 import { todayIso, type Board, type Row } from '../../types'
 import { useExtras } from '../../lib/extras'
+import { MOBILE } from '../../lib/mobile/ui'
 import { useOdulData } from '../../lib/oduller'
 import { artOf, styleOf, TicketBack, TicketFront, TICKET_RATIO, TICKET_STYLES, type BiletItem } from './Ticket'
 
@@ -55,6 +57,8 @@ export default function TicketForm({
   const [imgBusy, setImgBusy] = useState(false)
   const [pending, setPending] = useState<BiletGorsel | null>(null)
   const drag = useRef<{ x: number; y: number; pos: [number, number]; w: number; h: number } | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
   const editing = Boolean(id)
   const set = (p: Partial<Bilet>) => setB((x) => ({ ...x, ...p }))
@@ -128,15 +132,17 @@ export default function TicketForm({
     const key = id ?? newBiletId()
     const out: Record<string, string | null> = {}
     let art = b.art
+    let noArt = false
     if (pending && art?.startsWith(TMDB_IMG)) {
       try {
         art = (await api.biletGorselIndir(pending.path, pending.kind)).url
       } catch {
-        setBusy(false)
-        return notify(tt('Görsel indirilemedi.'), 'danger')
+        // İndirilemediyse (ör. telefonda internetsiz) bilet yine kaydedilsin: görselsiz, varsayılan tasarımla
+        art = undefined
+        noArt = true
       }
     }
-    const full: Bilet = { ...b, art }
+    const full: Bilet = { ...b, art, ...(noArt ? { artPos: undefined, artZoom: undefined } : {}) }
     for (const k of ['title', 'poster', 'cover', 'logo', 'year', 'rowId', 'boardId', 'date', 'time', 'cinema', 'hall', 'seat', 'format', 'withWho', 'price', 'note', 'front', 'back', 'art', 'artPos', 'artZoom', 'style'] as const) {
       const v = full[k]
       out[k] = typeof v === 'string' && v.trim() ? v.trim() : null
@@ -144,6 +150,7 @@ export default function TicketForm({
     try {
       await saveBilet(key, out)
       notify(editing ? tt('Bilet güncellendi.') : tt('Bilet koleksiyonuna eklendi.'), 'success')
+      if (noArt) notify(tt('Seçtiğin görsel indirilemedi, bilet görselsiz kaydedildi. İnternete bağlıyken yeniden seçebilirsin.'))
       onSaved?.(key)
       onClose()
     } catch (e) {
@@ -159,7 +166,7 @@ export default function TicketForm({
   const PW = 560
 
   return createPortal(
-    <div className="fixed inset-0 z-[86] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={editing ? tt('Bileti düzenle') : tt('Sinema bileti ekle')} className="fixed inset-0 z-[86] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="flex max-h-[calc(100vh-32px)] w-full max-w-[1120px] flex-col overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 lg:flex-row" onClick={(e) => e.stopPropagation()}>
         {/* önizleme */}
         <div className="flex flex-col items-center justify-center gap-4 border-b border-neutral-800 p-6 lg:w-[620px] lg:border-b-0 lg:border-r" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(0,192,250,.08), transparent 70%)' }}>
@@ -364,6 +371,13 @@ export default function TicketForm({
           </label>
           <div>
             <span className={lbl}>{tt('Gerçek biletin fotoğrafı (isteğe bağlı)')}</span>
+            {/* Telefon uygulaması dosya yüklemeyi desteklemiyor: fotoğraf sadece bilgisayardan eklenir */}
+            {MOBILE ? (
+              <p className="mt-1.5 rounded-lg border border-dashed border-neutral-800 px-3 py-2 text-xs text-neutral-500">
+                {b.front || b.back ? tt('Bu biletin fotoğrafı var. ') : ''}
+                {tt("Biletin fotoğrafını bilgisayardaki ARGUS'tan ekleyebilirsin; telefonda fotoğraf yüklenemiyor.")}
+              </p>
+            ) : (
             <div className="mt-1.5 grid grid-cols-2 gap-2">
               {(['front', 'back'] as const).map((w) => (
                 <div key={w} className="flex items-center gap-2 rounded-lg border border-dashed border-neutral-800 px-3 py-2">
@@ -378,6 +392,7 @@ export default function TicketForm({
                 </div>
               ))}
             </div>
+            )}
             <input ref={frontRef} type="file" accept="image/*" className="hidden" onChange={(e) => void upload('front', e.target.files?.[0])} />
             <input ref={backRef} type="file" accept="image/*" className="hidden" onChange={(e) => void upload('back', e.target.files?.[0])} />
           </div>

@@ -71,6 +71,22 @@ function dist(g: ReturnType<typeof useGraph>, from: string) {
 
 const isTitle = (x: Actor | GameItem): x is GameItem => 'row' in x
 
+// Zincirdeki bir halka: yapım (afiş) ya da oyuncu (yuvarlak fotoğraf). Eskiden render içinde tanımlıydı, her
+// çizimde yeniden oluşup görselleri baştan yüklüyordu.
+function Node({ x, small }: { x: Actor | GameItem; small?: boolean }) {
+  return isTitle(x) ? (
+    <div className="text-center w-16 shrink-0">
+      {x.poster ? <img src={x.poster} alt="" className="h-20 w-14 mx-auto rounded-lg object-cover" /> : <div className="h-20 w-14 mx-auto rounded-lg bg-neutral-800" />}
+      <p className="text-[10px] font-semibold text-neutral-300 mt-1 line-clamp-2 leading-tight">{x.title}</p>
+    </div>
+  ) : (
+    <div className="text-center w-16 shrink-0">
+      {x.image ? <img src={x.image} alt="" className={`${small ? 'h-12 w-12' : 'h-14 w-14'} mx-auto rounded-full object-cover object-top border-2 border-neutral-700`} /> : <div className="h-14 w-14 mx-auto rounded-full bg-neutral-800" />}
+      <p className="text-[10px] font-bold text-neutral-100 mt-1 line-clamp-2 leading-tight">{x.name}</p>
+    </div>
+  )
+}
+
 export default function OyuncuZinciri() {
   const { pool, loading } = useArchive()
   const g = useGraph(pool)
@@ -82,14 +98,16 @@ export default function OyuncuZinciri() {
   const [state, setState] = useState<'play' | 'win' | 'lost'>('play')
   const [phase, setPhase] = useState<'menu' | 'play' | 'done'>('menu')
   const [fin, setFin] = useState<Finish | null>(null)
+  // Arşivdeki oyuncular birbirine yeterince bağlı değilse tur kurulamıyor (eskiden "Başla" sessizce bir şey yapmıyordu)
+  const [noDeal, setNoDeal] = useState<'start' | 'later' | null>(null)
 
   // Fotoğraflı ve en az 2 yapımı olan oyuncular
   const starters = useMemo(() => [...g.actors.values()].filter((a) => a.image && (g.titlesOf.get(a.id)?.length ?? 0) >= 2), [g])
 
   function deal() {
-    for (let tries = 0; tries < 60; tries++) {
-      const a = shuffle(starters)[0]
-      if (!a) break
+    // Rastgele sırayla bütün başlangıç oyuncuları denenir (seyrek arşivde 60 rastgele deneme yetmeyebiliyordu)
+    const order = shuffle(starters).slice(0, 300)
+    for (const a of order) {
       const d = dist(g, a.id)
       const byDist = (n: number) => starters.filter((b) => b.id !== a.id && d.get(b.id) === n)
       const pickFrom = byDist(2).length ? byDist(2) : byDist(3).length ? byDist(3) : []
@@ -106,7 +124,10 @@ export default function OyuncuZinciri() {
     setRound(0)
     setScore(0)
     setFin(null)
-    if (deal()) setPhase('play')
+    if (deal()) {
+      setNoDeal(null)
+      setPhase('play')
+    } else setNoDeal('start')
   }
   const last = chain[chain.length - 1]
   const steps = chain.filter(isTitle).length
@@ -143,27 +164,20 @@ export default function OyuncuZinciri() {
       finish(score).then(setFin)
       return
     }
+    if (!deal()) {
+      // Yeni tur kurulamadıysa oyun takılmasın: o ana kadarki puanla bitir
+      setNoDeal('later')
+      setPhase('done')
+      finish(score).then(setFin)
+      return
+    }
     setRound((r) => r + 1)
-    deal()
   }
 
   if (loading) return <PageSkeleton />
   if (starters.length < 6) return <EmptyState art="kayit" title={tt('Yeterli oyuncu bilgisi yok')} text={tt('Bu oyun arşivdeki Oyuncular sütunuyla oynanır; TMDB\'den Doldur ile oyuncular gelir.')} />
 
   const best = target && state === 'lost' ? shortest(g, target.a.id, target.b.id) : null
-  const Node = ({ x, small }: { x: Actor | GameItem; small?: boolean }) =>
-    isTitle(x) ? (
-      <div className="text-center w-16 shrink-0">
-        {x.poster ? <img src={x.poster} alt="" className="h-20 w-14 mx-auto rounded-lg object-cover" /> : <div className="h-20 w-14 mx-auto rounded-lg bg-neutral-800" />}
-        <p className="text-[10px] font-semibold text-neutral-300 mt-1 line-clamp-2 leading-tight">{x.title}</p>
-      </div>
-    ) : (
-      <div className="text-center w-16 shrink-0">
-        {x.image ? <img src={x.image} alt="" className={`${small ? 'h-12 w-12' : 'h-14 w-14'} mx-auto rounded-full object-cover object-top border-2 border-neutral-700`} /> : <div className="h-14 w-14 mx-auto rounded-full bg-neutral-800" />}
-        <p className="text-[10px] font-bold text-neutral-100 mt-1 line-clamp-2 leading-tight">{x.name}</p>
-      </div>
-    )
-
   return (
     <GameShell game="zincir" title={tt('Oyuncu zinciri')} subtitle={tt('İki oyuncuyu ortak yapımlar üzerinden birbirine bağla.')} score={phase === 'play' ? score : undefined}>
       {phase !== 'play' || !target ? (
@@ -175,6 +189,13 @@ export default function OyuncuZinciri() {
             </div>
           )}
           <FinishInfo f={fin} />
+          {noDeal && (
+            <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
+              {noDeal === 'start'
+                ? tt("Arşivindeki oyuncular birbirine yeterince bağlı değil: ortak yapımla 2-3 adımda bağlanan iki oyuncu bulunamadı. Daha çok yapımda TMDB'den Doldur ile oyuncuları getirince oynanabilir.")
+                : tt('Yeni bir oyuncu çifti bulunamadı, oyun bu turda bitti.')}
+            </p>
+          )}
           <p className="text-sm text-neutral-400">{ttx('{0} tur. Oyuncudan onun bir yapımına, oradan o yapımdaki başka bir oyuncuya geç; hedef oyuncuya ulaş. En fazla {1} yapım.', ROUNDS, MAX_STEPS)}</p>
           <button onClick={start} className={PRIMARY_BTN} style={PRIMARY_BG}>
             <Icon name="play" className="h-4 w-4" />

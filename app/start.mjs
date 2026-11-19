@@ -53,8 +53,14 @@ if (!upToDate()) {
 
 durum('server')
 if (build.status === 0) {
-  run('node server/index.js', { ARGUS_SERVE_UI: '1' })
-  if (devMachine) run('npx vite build --watch --logLevel warn')
+  const srv = run('node server/index.js', { ARGUS_SERVE_UI: '1' })
+  const watch = devMachine ? run('npx vite build --watch --logLevel warn') : null
+  // Sunucu kapanırsa (hata) bu süreç de kapansın: ARGUS uygulaması (desktop/main.cjs) bunu görüp yeniden başlatıyor
+  // ya da hata sayfası gösteriyor. Eskiden paket izleyici açık kaldığı için pencere sessizce donuk kalıyordu.
+  srv.on('exit', (code) => {
+    if (watch?.pid) spawnSync('taskkill', ['/PID', String(watch.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    process.exit(code || 1)
+  })
 } else {
   console.log('Paketleme başarısız oldu, geliştirme modunda açılıyor...')
   run('npx concurrently -n vite,sunucu -c blue,green "vite" "node server/index.js"')

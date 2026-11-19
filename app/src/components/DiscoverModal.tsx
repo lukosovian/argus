@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, type TmdbCard } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { todayIso } from '../types'
@@ -170,16 +170,21 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
   }, [])
 
 
+  // Her isteğe sıra numarası: art arda basılınca/ayar değişince geç gelen ESKİ cevap yenisinin üstüne yazılmasın
+  const reqSeq = useRef(0)
   async function fetchItems() {
+    const seq = ++reqSeq.current
     setLoading(true)
     setWatchedFormFor(null)
     try {
       const res = await api.discoverTmdb(boardId, { type, genreIds: selectedGenres, excludeGenreIds: excludedGenres, count, sort })
+      if (seq !== reqSeq.current) return
       setItems(res.items)
     } catch (e) {
+      if (seq !== reqSeq.current) return
       notify(e instanceof Error ? e.message : tt('Sonuçlar alınamadı.'), 'danger')
     } finally {
-      setLoading(false)
+      if (seq === reqSeq.current) setLoading(false)
     }
   }
 

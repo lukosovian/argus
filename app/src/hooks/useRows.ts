@@ -61,7 +61,9 @@ export function useRows(boardId: string | undefined) {
   // göstermeden, mevcut liste yerinde dururken.
   useEffect(
     () =>
-      onDataChanged((changed) => {
+      onDataChanged((changed, kind) => {
+        // Bölüm tikleri ve arşivin kendi ayarları kayıtları değiştirmiyor — yeniden çekmeye gerek yok.
+        if (kind === 'watched' || kind === 'board') return
         if (!boardId || !activeProfileId || (changed && changed !== boardId)) return
         const key = `${activeProfileId}:${boardId}`
         api

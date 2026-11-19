@@ -11,7 +11,8 @@ import { FinishInfo, GameShell, useFinish, type Finish, PRIMARY_BTN, PRIMARY_BG 
 // (hangisi daha uzun, filmler). Doğru bildikçe seri uzar; kazanan kalır, yanına yenisi gelir. Yanılınca biter.
 
 type Mode = 'puan' | 'yil' | 'sure'
-const MODES: { id: Mode; label: string; q: string }[] = [
+// Etiketler dil seçimine göre her çizimde kurulur (modül yüklenirken tt() çağrılınca dil değişince eski kalıyordu)
+const modes = (): { id: Mode; label: string; q: string }[] => [
   { id: 'puan', label: tt('Puanın'), q: tt('Hangisine daha yüksek puan verdin?') },
   { id: 'yil', label: tt('Çıkış yılı'), q: tt('Hangisi daha yeni?') },
   { id: 'sure', label: tt('Süre'), q: tt('Hangisi daha uzun?') },
@@ -87,6 +88,7 @@ export default function HangisiYuksek() {
   }
 
   if (loading) return <PageSkeleton />
+  const MODES = modes()
   const m = MODES.find((x) => x.id === mode)!
   return (
     <GameShell game={`yuksek_${mode}`} title={tt('Hangisi daha yüksek?')} subtitle={m.q} score={pair && !over ? streak : undefined}>

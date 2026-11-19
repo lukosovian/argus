@@ -92,6 +92,10 @@ export default function ShowcaseBanner({
   const propRef = useRef(videoId)
   propRef.current = videoId
   const aliveRef = useRef(true)
+  // "Şu an oynamalı mı" (hazır olma hariç) — oynatıcı olaylarından okunabilsin diye ref'te; aşağıda her çizimde güncellenir
+  const canPlayRef = useRef(false)
+  // Oynatıcının şu an oynadığını düşündüğümüz durum: hazır olmadan önce hep false (aşağıdaki effect ile tutarlı)
+  const wasPlayingRef = useRef(false)
   useEffect(() => {
     aliveRef.current = true
     return () => {
@@ -106,6 +110,7 @@ export default function ShowcaseBanner({
     setReady(false)
     setStarted(false)
     setMuted(true)
+    wasPlayingRef.current = false
     if (!videoId || !containerRef.current) return
     // YouTube's IFrame API replaces the given element with its own iframe rather than
     // mounting inside it — if we hand it the React-managed ref directly, React later
@@ -181,12 +186,18 @@ export default function ShowcaseBanner({
               // kaydırmasının sayfaya geçmesi (durmaması) için burada da açıkça none veriyoruz.
               iframe.style.pointerEvents = 'none'
             }
+            // autoplay:1 ile kurulduğu için video hazır olunca kendiliğinden başlar — o an oynamaması
+            // gerekiyorsa (ekran dışında, kart önizlemesi açık, durdurulmuş) hemen duraklatılır
+            if (!canPlayRef.current) playerRef.current?.pauseVideo?.()
+            wasPlayingRef.current = canPlayRef.current
             setReady(true)
           },
           onStateChange: (e) => {
             if (window.YT && e.data === window.YT.PlayerState.ENDED) setEnded(true)
             // 1 = oynuyor, 3 = arabelleğe alıyor
             if (!cancelled && (e.data === 1 || e.data === 3)) setStarted(true)
+            // Otomatik oynatma onReady'den sonra başlarsa da oynamaması gerekirken oynamasın
+            if (!cancelled && e.data === 1 && !canPlayRef.current) playerRef.current?.pauseVideo?.()
           },
           // "Video kullanılamıyor" ekranı görünmesin: video hemen gizlenir (kapak görseli kalır),
           // kalıcı bir hataysa aynı yapımın sıradaki fragmanı denenir.
@@ -247,8 +258,9 @@ export default function ShowcaseBanner({
   // Yukarıdaki üç sebepten (görünürlük, kart önizlemesi, manuel durdur/bitti) TEK bir "şu an
   // oynamalı mı" değeri türetip, sadece bu değer GERÇEKTEN değiştiğinde play/pause çağırıyoruz —
   // ayrı ayrı effect'ler birbirinin play/pause çağrısını geçersiz kılabilirdi.
-  const shouldPlay = ready && !stopped && !ended && !hoverVideoActive && isIntersecting
-  const wasPlayingRef = useRef(shouldPlay)
+  const canPlay = !stopped && !ended && !hoverVideoActive && isIntersecting
+  canPlayRef.current = canPlay
+  const shouldPlay = ready && canPlay
   useEffect(() => {
     if (!playerRef.current) return
     if (shouldPlay && !wasPlayingRef.current) playerRef.current.playVideo?.()

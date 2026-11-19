@@ -133,7 +133,7 @@ export default function ForgottenRow({ board, rows, onOpenDetail, titleClass }: 
             <div key={row.id} className="w-[120px] shrink-0">
               <button onClick={() => onOpenDetail(row)} title={name} className="group relative block w-full aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-lg shadow-black/40">
                 {img ? (
-                  <img src={img} alt={name} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img src={img} alt={name} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 ) : (
                   <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{name}</span>
                 )}

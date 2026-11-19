@@ -26,8 +26,8 @@ export function useBoards() {
 
   useEffect(
     () =>
-      onDataChanged(() => {
-        if (!activeProfileId) return
+      onDataChanged((_boardId, kind) => {
+        if (!activeProfileId || kind === 'rows' || kind === 'watched') return
         api.getBoards().then((data) => setBoards(data.sort(byCreatedAtAsc))).catch(() => {})
       }),
     [activeProfileId],

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import FollowButton from './FollowButton'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { MOBILE } from '../lib/mobile/ui'
@@ -9,6 +9,7 @@ import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, ttx, fmtDate } from '../lib/i18n'
 import Icon from './Icon'
 
@@ -64,6 +65,8 @@ export default function PersonModal({
   }, [boardId, name, role])
 
   // Üstünde önizleme ya da başka bir pencere açıkken Esc onları kapatır, bu sayfayı değil
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, () => {
     if (preview) setPreview(null)
     else if (!paused) onClose()
@@ -99,7 +102,7 @@ export default function PersonModal({
 
   return createPortal(
     // Telefonda tam ekran sayfa
-    <div className={`fixed inset-0 z-[70] overflow-y-auto ${MOBILE ? 'bg-neutral-900' : 'bg-black/80 py-6 px-4 sm:px-8'}`} onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={name} className={`fixed inset-0 z-[70] overflow-y-auto ${MOBILE ? 'bg-neutral-900' : 'bg-black/80 py-6 px-4 sm:px-8'}`} onClick={onClose}>
       <div className={MOBILE ? 'relative w-full min-h-full bg-neutral-900 p-4 space-y-6' : 'relative w-full max-w-4xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6 space-y-6'} onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label={tt('Kapat')} className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
           ×

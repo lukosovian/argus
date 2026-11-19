@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useProfiles } from '../hooks/useProfiles'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { useToast } from '../hooks/useToast'
 import { averageColor, darkTone, type RGB } from '../lib/imageColor'
 import { tt } from '../lib/i18n'
@@ -625,6 +626,8 @@ export default function ShareCard({ data, onClose }: { data: ShareData; onClose:
   const [im, setIm] = useState<Imgs | null>(null)
   const [pal, setPal] = useState<Palette>(() => palette(null))
   const cv = useRef<HTMLCanvasElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
   const name = activeProfile?.username ?? ''
   const photo = activeProfile?.photo ?? ''
@@ -713,7 +716,7 @@ export default function ShareCard({ data, onClose }: { data: ShareData; onClose:
   ]
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-md flex items-center justify-center p-6" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Paylaş')} className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-md flex items-center justify-center p-6" onClick={onClose}>
       <div className="flex max-h-full w-full max-w-[1400px] items-center justify-center gap-8" onClick={(e) => e.stopPropagation()}>
         <div className="flex min-w-0 flex-1 items-center justify-center" style={{ height: 'calc(100vh - 48px)' }}>
           <canvas

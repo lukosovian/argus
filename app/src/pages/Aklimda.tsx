@@ -25,6 +25,27 @@ import { AKLIMDA_LIMITS } from '../hooks/useAklimda'
 
 type Filter = 'hepsi' | AklimdaStatus
 
+// Sıralama (v1.25): seçim bu tarayıcıda hatırlanır. "Puan" seçeneği yok — Aklımda'dakiler henüz izlenmediği için
+// kendi puanın boş, arşivde TMDB/IMDb puanı da tutulmuyor.
+type Sort = 'yeni' | 'eski' | 'sure' | 'ad'
+const SORT_KEY = 'argus_aklimda_sirala'
+const SORTS: { value: Sort; label: string }[] = [
+  { value: 'yeni', label: tt('Eklenme: yeniden eskiye') },
+  { value: 'eski', label: tt('Eklenme: eskiden yeniye') },
+  { value: 'sure', label: tt('Süre: kısadan uzuna') },
+  { value: 'ad', label: tt('Ad: A → Z') },
+]
+function readSort(): Sort {
+  try {
+    const v = localStorage.getItem(SORT_KEY)
+    return SORTS.some((x) => x.value === v) ? (v as Sort) : 'yeni'
+  } catch {
+    return 'yeni'
+  }
+}
+// Bu kadar gündür bekleyen "unutulmak üzere" sayılır
+const FORGET_DAYS = 60
+
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'hepsi', label: tt('Hepsi') },
   { id: 'izlenecek', label: tt('İzlenecek') },
@@ -43,6 +64,15 @@ export default function Aklimda() {
   const [detail, setDetail] = useState<Row | null>(null)
   const [preview, setPreview] = useState<TmdbCard | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [sort, setSortState] = useState<Sort>(readSort)
+  const setSort = (v: Sort) => {
+    setSortState(v)
+    try {
+      localStorage.setItem(SORT_KEY, v)
+    } catch {
+      /* kapalı — sadece hatırlanmaz */
+    }
+  }
 
   const all = useMemo(() => aklimdaEntries(board ?? null, rows, akl.items), [board, rows, akl.items])
   const counts = useMemo(() => {
@@ -50,7 +80,19 @@ export default function Aklimda() {
     for (const e of all) c[e.status] = (c[e.status] ?? 0) + 1
     return c
   }, [all])
-  const list = filter === 'hepsi' ? all : all.filter((e) => e.status === filter)
+  const list = useMemo(() => {
+    const base = filter === 'hepsi' ? all : all.filter((e) => e.status === filter)
+    if (sort === 'yeni') return base
+    if (sort === 'eski') return [...base].reverse()
+    if (sort === 'ad') return [...base].sort((a, b) => a.title.localeCompare(b.title, 'tr', { sensitivity: 'base' }))
+    // Süre: arşivdeki Süre sütunundan (dizide bölüm süresi); süresi bilinmeyenler en sonda
+    const sure = board ? resolveRole(board, 'sure') : undefined
+    const min = (e: AklimdaEntry) => {
+      const v = sure && e.row ? e.row.values[sure.id] : undefined
+      return typeof v === 'number' && v > 0 ? v : Infinity
+    }
+    return [...base].sort((a, b) => min(a) - min(b))
+  }, [all, filter, sort, board])
 
   async function remove(e: AklimdaEntry) {
     try {
@@ -151,7 +193,7 @@ export default function Aklimda() {
         />
       ) : (
         <>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {FILTERS.filter((f) => f.id === 'hepsi' || counts[f.id]).map((f) => (
               <button
                 key={f.id}
@@ -161,6 +203,10 @@ export default function Aklimda() {
                 {f.label} <span className="opacity-60">{counts[f.id] ?? 0}</span>
               </button>
             ))}
+            <label className="ml-auto flex items-center gap-2 text-xs text-neutral-400">
+              {tt('Sırala')}
+              <Select value={sort} onChange={(v) => setSort(v as Sort)} options={SORTS} className="w-52" />
+            </label>
           </div>
 
           <div className={`grid gap-x-3 gap-y-5 ${MOBILE ? 'grid-cols-3' : 'grid-cols-[repeat(auto-fill,minmax(150px,1fr))]'}`}>
@@ -173,7 +219,7 @@ export default function Aklimda() {
                 <div className="group relative block w-full aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-lg shadow-black/40 transition duration-300 hover:-translate-y-1 hover:shadow-black/70 hover:ring-1 hover:ring-violet-400/50">
                   <button onClick={() => (e.row ? setDetail(e.row) : setPreview(aklimdaCard(e)))} className="absolute inset-0" title={e.title}>
                     {e.poster ? (
-                      <img src={e.poster} alt={e.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <img src={e.poster} alt={e.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{e.title}</span>
                     )}
@@ -183,12 +229,22 @@ export default function Aklimda() {
                       {e.status === 'yok' ? tt('Arşivinde yok') : e.statusLabel}
                     </span>
                   )}
-                  <span
-                    className={`pointer-events-none absolute top-1.5 right-1.5 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-black/70 backdrop-blur-sm ${days > 30 ? 'text-rose-300' : 'text-neutral-200'}`}
-                    title={tt('eklendi: {0}', daysAgoLabel(e.item.addedAt))}
-                  >
-                    {days === 0 ? tt('bugün') : tt('{0} gündür', days)}
-                  </span>
+                  {days > FORGET_DAYS ? (
+                    // 60 günü geçen: "unutulmak üzere" (v1.25)
+                    <span
+                      className="pointer-events-none absolute top-1.5 right-1.5 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-amber-400/90 text-black"
+                      title={tt('eklendi: {0}', daysAgoLabel(e.item.addedAt))}
+                    >
+                      {tt('unutulmak üzere · {0} gün', days)}
+                    </span>
+                  ) : (
+                    <span
+                      className={`pointer-events-none absolute top-1.5 right-1.5 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-black/70 backdrop-blur-sm ${days > 30 ? 'text-rose-300' : 'text-neutral-200'}`}
+                      title={tt('eklendi: {0}', daysAgoLabel(e.item.addedAt))}
+                    >
+                      {days === 0 ? tt('bugün') : tt('{0} gündür', days)}
+                    </span>
+                  )}
                   {/* Bilgisayarda düğmeler afişin üstüne gelince çıkar; telefonda altta kalır */}
                   {!MOBILE && (
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-1 p-2 pt-10 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">

@@ -116,6 +116,11 @@ const DESKTOP_EN = {
   "ARGUS'u kapat": 'Quit ARGUS',
   'ARGUS arka planda çalışıyor': 'ARGUS is running in the background',
   "Tekrar açmak için bu simgeye tıkla. Tamamen kapatmak için sağ tıkla › ARGUS'u kapat.": 'Click this icon to open it again. To quit completely, right-click › Quit ARGUS.',
+  'ARGUS sunucusu başlatılamadı': 'The ARGUS server could not start',
+  'ARGUS sunucusu kapandı': 'The ARGUS server stopped',
+  "Bir kez kendiliğinden yeniden başlatmayı denedim ama olmadı. Bilgisayarı yeniden başlatmak ya da ARGUS'u kapatıp açmak çoğu zaman düzeltir.": "I tried restarting it once automatically but it didn't work. Restarting the computer or reopening ARGUS usually fixes it.",
+  'Yeniden dene': 'Try again',
+  'Başlatılıyor…': 'Starting…',
 }
 const dt = (s) => (uiLang() === 'en' ? (DESKTOP_EN[s] ?? s) : s)
 let trayLang = null
@@ -253,6 +258,7 @@ async function waitForServer(ms) {
   const until = Date.now() + ms
   while (Date.now() < until) {
     if (await portOpen(5173)) return true
+    if (serverDown) return false // süreç kapandı, beklemeye gerek yok
     await new Promise((r) => setTimeout(r, 300))
   }
   return false
@@ -263,12 +269,62 @@ async function startServer() {
   if (await portOpen(5173)) return
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
-  server = spawn(process.platform === 'win32' ? 'node.exe' : 'node', ['start.mjs'], {
+  serverDown = null
+  const srv = spawn(process.platform === 'win32' ? 'node.exe' : 'node', ['start.mjs'], {
     cwd: APP_DIR,
     env,
     stdio: 'ignore',
     windowsHide: true,
   })
+  server = srv
+  // Sunucu hiç başlayamazsa (node bulunamadı…) ya da sonradan kapanırsa (hata) kullanıcı boş/donmuş bir pencereyle
+  // kalmasın: bir kez kendiliğinden yeniden başlatılır, olmazsa pencerede anlaşılır bir hata sayfası gösterilir.
+  srv.on('error', () => serverFailed(srv, 'start'))
+  srv.on('exit', () => serverFailed(srv, 'exit'))
+}
+
+let serverDown = null // null | 'start' | 'exit'
+let autoRestarted = false
+let showingError = false
+let failedLoads = 0
+function serverFailed(srv, kind) {
+  if (srv !== server || srv.stopped || quitting || serverDown) return
+  serverDown = kind
+  if (!autoRestarted) {
+    autoRestarted = true
+    setTimeout(() => restartServer(kind), 1500)
+  } else showServerError(kind)
+}
+
+async function restartServer(kind) {
+  showingError = false
+  failedLoads = 0
+  if (server && !server.stopped) stopServer()
+  server = null
+  await startServer()
+  if (await waitForServer(3 * 60 * 1000)) {
+    if (view) view.webContents.loadURL(URL)
+    else createWindow()
+  } else showServerError(serverDown || kind)
+}
+
+function errorPage(kind) {
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+  const title = kind === 'exit' ? dt('ARGUS sunucusu kapandı') : dt('ARGUS sunucusu başlatılamadı')
+  const body = dt("Bir kez kendiliğinden yeniden başlatmayı denedim ama olmadı. Bilgisayarı yeniden başlatmak ya da ARGUS'u kapatıp açmak çoğu zaman düzeltir.")
+  // "Yeniden dene": sayfa başlığını değiştirir, uygulama bunu duyup sunucuyu yeniden başlatır (bkz. page-title-updated)
+  return `<!doctype html><html><head><meta charset="utf-8"><title>ARGUS</title><style>
+body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#e5e5e5;font-family:'Segoe UI',system-ui,sans-serif}
+.k{max-width:460px;padding:32px;text-align:center}h1{font-size:20px;margin:0 0 12px;color:#fff}p{color:#a3a3a3;line-height:1.5;font-size:14px}
+button{margin-top:18px;background:#e50914;color:#fff;border:0;border-radius:8px;padding:10px 22px;font-size:14px;cursor:pointer}button:disabled{opacity:.6}
+</style></head><body><div class="k"><h1>${esc(title)}</h1><p>${esc(body)}</p>
+<button onclick="this.disabled=true;this.textContent=${esc(JSON.stringify(dt('Başlatılıyor…')))};document.title='argus-yeniden-dene-'+Date.now()">${esc(dt('Yeniden dene'))}</button></div></body></html>`
+}
+
+function showServerError(kind) {
+  showingError = true
+  if (!win) createWindow({ errorKind: kind })
+  else view.webContents.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(errorPage(kind)))
 }
 
 function stopServer() {
@@ -321,7 +377,7 @@ function isLocal(url) {
   }
 }
 
-function createWindow() {
+function createWindow({ errorKind = null } = {}) {
   const st = loadState()
   win = new BaseWindow({
     ...st,
@@ -445,11 +501,23 @@ function createWindow() {
     if (cmd === 'browser-forward' && h.canGoForward()) h.goForward()
   })
 
-  view.webContents.loadURL(URL)
-  // Sunucu henüz hazır değilken yüklenemediyse (ör. ağır açılış) biraz sonra tekrar dene
-  view.webContents.on('did-fail-load', (_e, code) => {
-    if (code === -3) return // iptal (yönlendirme)
-    setTimeout(() => view && view.webContents.loadURL(URL), 1000)
+  if (errorKind) view.webContents.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(errorPage(errorKind)))
+  else view.webContents.loadURL(URL)
+  // Sunucu henüz hazır değilken yüklenemediyse (ör. ağır açılış) biraz sonra tekrar dene — en fazla 20 kez (eskiden
+  // sonsuza dek saniyede bir deniyordu); olmazsa hata sayfası.
+  view.webContents.on('did-fail-load', (_e, code, _d, url, isMainFrame) => {
+    if (code === -3 || isMainFrame === false || showingError) return // iptal (yönlendirme)
+    if (++failedLoads > 20) return showServerError(serverDown || 'start')
+    setTimeout(() => view && !showingError && view.webContents.loadURL(URL), 1000)
+  })
+  view.webContents.on('did-finish-load', () => {
+    if (isLocal(view.webContents.getURL())) failedLoads = 0
+  })
+  view.webContents.on('page-title-updated', (_e, t) => {
+    if (showingError && typeof t === 'string' && t.startsWith('argus-yeniden-dene-')) {
+      autoRestarted = true
+      restartServer(serverDown || 'start')
+    }
   })
 }
 
@@ -513,9 +581,14 @@ app.whenReady().then(async () => {
   applyHotkey()
   setInterval(checkNotifications, 60 * 1000)
   await startServer()
-  await waitForServer(10 * 60 * 1000)
+  if (!(await waitForServer(10 * 60 * 1000)) && serverDown) {
+    // Sunucu ilk açılışta kapandı: bir kez yeniden başlatılıyor (serverFailed); o da olmazsa hata sayfası açılır
+    const until = Date.now() + 4 * 60 * 1000
+    while (!showingError && !(await portOpen(5173)) && Date.now() < until) await new Promise((r) => setTimeout(r, 500))
+    if (showingError) return
+  }
   await migrateBrowserPrefs()
-  createWindow()
+  if (!win) createWindow()
 })
 
 app.on('window-all-closed', () => app.quit())

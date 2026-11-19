@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoards } from '../hooks/useBoards'
@@ -11,6 +11,7 @@ import HelpHint from '../components/HelpHint'
 import { ROLE_DEFS, resolveRole, resolveStatusOption, type RoleKey, watchedStatusIds } from '../lib/roles'
 import Select from '../components/Select'
 import { entryEnd } from '../lib/dateRange'
+import { dayIso, entryInWindow, episodeDatesInWindow, isSeriesRow, minutesInWindow, rowEntriesInWindow, type DateWindow } from '../lib/watchWindow'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, getLang } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
@@ -120,115 +121,157 @@ function formatTotalMinutes(mins: number): { value: string; rest: string } {
 const TR_MONTHS_SHORT = monthNames('short')
 const TR_MONTHS = monthNames()
 
-function useStats(board: Board | null | undefined, rows: Row[]) {
-  return useMemo(() => {
-    if (!board) return null
+// Aylar listesi: aralık yoksa son 12 ay, varsa aralığın ayları (en çok son 24 ay)
+function monthsFor(win: DateWindow | null, now: Date) {
+  const mk = (d: Date) => ({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, month: d.getMonth(), year: d.getFullYear(), count: 0 })
+  if (!win) return Array.from({ length: 12 }, (_, i) => mk(new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)))
+  const [fy, fm] = win.from.split('-').map(Number)
+  const [ty, tm] = win.to.split('-').map(Number)
+  const out: ReturnType<typeof mk>[] = []
+  for (let d = new Date(fy, fm - 1, 1); d <= new Date(ty, tm - 1, 1); d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) out.push(mk(d))
+  return out.slice(-24)
+}
 
-    const durumProp = resolveRole(board, 'durum')
-    const kategoriProp = resolveRole(board, 'kategori')
-    const turProp = resolveRole(board, 'tur')
-    const ulkeProp = resolveRole(board, 'ulke')
-    const vizyonProp = resolveRole(board, 'vizyon')
-    const sureProp = resolveRole(board, 'sure')
-    const puanProp = resolveRole(board, 'puan')
-    const oyuncularProp = resolveRole(board, 'oyuncular')
-    const tarihProp = resolveRole(board, 'izlemeTarihi')
+// Bütün istatistikler tek yerde; `win` verilirse sadece o tarih aralığında izlenenler (İzleme Tarihi ya da bölüm
+// tiki aralıkta olan kayıtlar) sayılır — tarih aralığı seçimi ve yıl kıyası aynı hesabı kullanıyor (v1.25).
+function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateWindow | null) {
+  const durumProp = resolveRole(board, 'durum')
+  const kategoriProp = resolveRole(board, 'kategori')
+  const turProp = resolveRole(board, 'tur')
+  const ulkeProp = resolveRole(board, 'ulke')
+  const vizyonProp = resolveRole(board, 'vizyon')
+  const sureProp = resolveRole(board, 'sure')
+  const puanProp = resolveRole(board, 'puan')
+  const oyuncularProp = resolveRole(board, 'oyuncular')
+  const tarihProp = resolveRole(board, 'izlemeTarihi')
 
-    // "İzlendi"/"İzlenecek" seçenekleri artık etiket yerine Durum görevinden bulunuyor (bkz. roles.ts)
-    // — etiketin adı değişse de sayılar bozulmasın diye.
-    const izlendiId = resolveStatusOption(board, 'izlendi')
-    const izlenecekId = resolveStatusOption(board, 'izlenecek')
-    const doneIds = watchedStatusIds(board)
-    const izlendiRows = durumProp && izlendiId ? rows.filter((r) => doneIds.has(r.values[durumProp.id] as string)) : []
-    const izlenecekCount = durumProp && izlenecekId ? rows.filter((r) => r.values[durumProp.id] === izlenecekId).length : 0
+  // Aralık seçiliyse: aralıkta izleme tarihi ya da bölüm tiki olan kayıtlar
+  const scope = win ? rows.filter((r) => rowEntriesInWindow(board, r, win).length > 0 || episodeDatesInWindow(watched, r.id, win).length > 0) : rows
 
-    let totalMinutes = 0
-    // Dizilerde Süre bölüm süresi (v1.24) — toplam süreye sadece filmler girer
-    const seriesRow = (r: Row) => /dizi|series|tv/i.test(kategoriProp?.options?.find((o) => o.id === r.values[kategoriProp.id])?.label ?? '')
-    if (sureProp) for (const r of izlendiRows) if (typeof r.values[sureProp.id] === 'number' && !seriesRow(r)) totalMinutes += r.values[sureProp.id] as number
+  // "İzlendi"/"İzlenecek" seçenekleri artık etiket yerine Durum görevinden bulunuyor (bkz. roles.ts)
+  // — etiketin adı değişse de sayılar bozulmasın diye.
+  const izlendiId = resolveStatusOption(board, 'izlendi')
+  const izlenecekId = resolveStatusOption(board, 'izlenecek')
+  const doneIds = watchedStatusIds(board)
+  const izlendiRows = durumProp && izlendiId ? scope.filter((r) => doneIds.has(r.values[durumProp.id] as string)) : []
+  const izlenecekCount = durumProp && izlenecekId ? scope.filter((r) => r.values[durumProp.id] === izlenecekId).length : 0
 
-    const ratings: number[] = []
-    if (puanProp) {
-      for (const r of rows) {
-        const avg = ratingAverage(r.values[puanProp.id], puanProp)
-        if (avg !== null) ratings.push(avg)
-      }
+  let totalMinutes = 0
+  // Dizilerde Süre bölüm süresi (v1.24) — toplam süreye sadece filmler girer
+  if (sureProp) for (const r of izlendiRows) if (typeof r.values[sureProp.id] === 'number' && !isSeriesRow(board, r)) totalMinutes += r.values[sureProp.id] as number
+
+  const ratings: number[] = []
+  if (puanProp) {
+    for (const r of scope) {
+      const avg = ratingAverage(r.values[puanProp.id], puanProp)
+      if (avg !== null) ratings.push(avg)
     }
-    const avgRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null
-    // 0-1, 1-2 … 9-10 dilimleri (10 tam puan son dilime girer).
-    const ratingBins = Array.from({ length: 10 }, (_, i) => ({ from: i, count: 0 }))
-    for (const v of ratings) ratingBins[Math.min(Math.floor(v), 9)].count++
+  }
+  const avgRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null
+  // 0-1, 1-2 … 9-10 dilimleri (10 tam puan son dilime girer).
+  const ratingBins = Array.from({ length: 10 }, (_, i) => ({ from: i, count: 0 }))
+  for (const v of ratings) ratingBins[Math.min(Math.floor(v), 9)].count++
 
-    const decadeCounts = new Map<number, number>()
-    if (vizyonProp) {
-      for (const r of rows) {
-        const v = r.values[vizyonProp.id]
-        if (typeof v === 'string' && v.length >= 4) {
-          const year = Number(v.slice(0, 4))
-          if (!Number.isNaN(year) && year > 1800 && year < 2100) {
-            const decade = Math.floor(year / 10) * 10
-            decadeCounts.set(decade, (decadeCounts.get(decade) ?? 0) + 1)
-          }
+  const decadeCounts = new Map<number, number>()
+  if (vizyonProp) {
+    for (const r of scope) {
+      const v = r.values[vizyonProp.id]
+      if (typeof v === 'string' && v.length >= 4) {
+        const year = Number(v.slice(0, 4))
+        if (!Number.isNaN(year) && year > 1800 && year < 2100) {
+          const decade = Math.floor(year / 10) * 10
+          decadeCounts.set(decade, (decadeCounts.get(decade) ?? 0) + 1)
         }
       }
     }
-    const decadeBreakdown = [...decadeCounts.entries()].sort((a, b) => a[0] - b[0])
+  }
+  const decadeBreakdown = [...decadeCounts.entries()].sort((a, b) => a[0] - b[0])
 
-    // Son 12 ay: İzleme Tarihi'ndeki her tarih bir izleme (tekrar izleme de sayılır).
-    const now = new Date()
-    const months = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
-      return { key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, month: d.getMonth(), year: d.getFullYear(), count: 0 }
-    })
-    const monthIndex = new Map(months.map((m, i) => [m.key, i]))
-    let thisYearRows = 0
-    let lastYearSoFar = 0
-    let anyDate = false
-    // Geçen yılın bugüne kadarki kısmı (sayı kartındaki "geçen yıla göre" karşılaştırması için)
-    const lastYearCut = `${now.getFullYear() - 1}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const lastYearPrefix = String(now.getFullYear() - 1)
-    // Bu yılın her günü kaç izleme (yıl ısı haritası için)
-    const daily = new Map<string, number>()
-    if (tarihProp) {
-      const yearPrefix = String(now.getFullYear())
-      for (const r of rows) {
-        const v = r.values[tarihProp.id]
-        // Aralıklarda (başladım → bitirdim) bitiş günü sayılır.
-        const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).map(entryEnd)
-        if (dates.length) anyDate = true
-        if (dates.some((d) => d.startsWith(yearPrefix))) thisYearRows++
-        if (dates.some((d) => d.startsWith(lastYearPrefix) && d.length >= 10 && d <= lastYearCut)) lastYearSoFar++
-        for (const d of dates) {
-          if (d.startsWith(yearPrefix) && d.length >= 10) daily.set(d.slice(0, 10), (daily.get(d.slice(0, 10)) ?? 0) + 1)
-          const i = monthIndex.get(d.slice(0, 7))
-          if (i !== undefined) months[i].count++
-        }
+  // Aylık: İzleme Tarihi'ndeki her tarih bir izleme (tekrar izleme de sayılır).
+  const now = new Date()
+  const months = monthsFor(win, now)
+  const monthIndex = new Map(months.map((m, i) => [m.key, i]))
+  let thisYearRows = 0
+  // "Geçen yıla göre" kıyası iki tarafta da AYNI kuralla: sadece günü belli tarihler (sadece yılı bilinenler
+  // geçen yılın "bu zamana kadar"ına sokulamadığı için bu yılın tarafında da sayılmıyor)
+  let thisYearSoFar = 0
+  let lastYearSoFar = 0
+  let anyDate = false
+  const todayCut = dayIso(now)
+  const lastYearCut = `${now.getFullYear() - 1}-${todayCut.slice(5)}`
+  const lastYearPrefix = String(now.getFullYear() - 1)
+  // Isı haritasının yılı: aralık seçiliyse aralığın bittiği yıl, yoksa bu yıl
+  const heatYear = win ? Number(win.to.slice(0, 4)) : now.getFullYear()
+  const heatPrefix = String(heatYear)
+  // Yılın her günü kaç izleme (yıl ısı haritası için)
+  const daily = new Map<string, number>()
+  if (tarihProp) {
+    const yearPrefix = String(now.getFullYear())
+    for (const r of rows) {
+      const v = r.values[tarihProp.id]
+      // Aralıklarda (başladım → bitirdim) bitiş günü sayılır.
+      const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).map(entryEnd).filter(Boolean)
+      if (dates.length) anyDate = true
+      if (dates.some((d) => d.startsWith(yearPrefix))) thisYearRows++
+      if (dates.some((d) => d.startsWith(yearPrefix) && d.length >= 10 && d.slice(0, 10) <= todayCut)) thisYearSoFar++
+      if (dates.some((d) => d.startsWith(lastYearPrefix) && d.length >= 10 && d.slice(0, 10) <= lastYearCut)) lastYearSoFar++
+      for (const d of dates) {
+        if (d.startsWith(heatPrefix) && d.length >= 10) daily.set(d.slice(0, 10), (daily.get(d.slice(0, 10)) ?? 0) + 1)
+        if (win && !entryInWindow(d, win)) continue
+        const i = monthIndex.get(d.slice(0, 7))
+        if (i !== undefined) months[i].count++
       }
     }
+  }
 
-    return {
-      total: rows.length,
-      izlendiCount: izlendiRows.length,
-      izlenecekCount,
-      hasDurum: Boolean(durumProp),
-      totalMinutes,
-      hasSureProp: Boolean(sureProp),
-      avgRating,
-      ratedCount: ratings.length,
-      ratingBins,
-      thisYearRows,
-      lastYearSoFar,
-      daily,
-      hasDates: Boolean(tarihProp) && anyDate,
-      months,
-      durumBreakdown: selectBreakdown(rows, durumProp),
-      kategoriBreakdown: selectBreakdown(rows, kategoriProp),
-      genreBreakdown: multiBreakdown(turProp, rows, 8),
-      countryBreakdown: multiBreakdown(ulkeProp, rows, 8),
-      actorBreakdown: multiBreakdown(oyuncularProp, rows, 10),
-      decadeBreakdown,
+  // Aralıktaki izleme özeti: film izlemeleri, bölümler, yaklaşık süre (film süresi + bölüm × bölüm süresi), aktif gün
+  let windowSummary: { films: number; episodes: number; minutes: number; activeDays: number } | null = null
+  if (win) {
+    let films = 0
+    let episodes = 0
+    let minutes = 0
+    const days = new Set<string>()
+    for (const r of scope) {
+      const m = minutesInWindow(board, r, watched, win, false)
+      episodes += m.episodes
+      minutes += m.minutes
+      if (!isSeriesRow(board, r)) films += m.views
+      for (const e of rowEntriesInWindow(board, r, win, true)) days.add(entryEnd(e).slice(0, 10))
+      for (const d of episodeDatesInWindow(watched, r.id, win)) days.add(d)
     }
-  }, [board, rows])
+    windowSummary = { films, episodes, minutes, activeDays: days.size }
+  }
+
+  return {
+    total: scope.length,
+    izlendiCount: izlendiRows.length,
+    izlenecekCount,
+    hasDurum: Boolean(durumProp),
+    totalMinutes,
+    hasSureProp: Boolean(sureProp),
+    avgRating,
+    ratedCount: ratings.length,
+    ratingBins,
+    thisYearRows,
+    thisYearSoFar,
+    lastYearSoFar,
+    daily,
+    heatYear,
+    hasDates: Boolean(tarihProp) && anyDate,
+    months,
+    windowSummary,
+    durumBreakdown: selectBreakdown(scope, durumProp),
+    kategoriBreakdown: selectBreakdown(scope, kategoriProp),
+    genreBreakdown: multiBreakdown(turProp, scope, 8),
+    countryBreakdown: multiBreakdown(ulkeProp, scope, 8),
+    actorBreakdown: multiBreakdown(oyuncularProp, scope, 10),
+    decadeBreakdown,
+  }
+}
+type Stats = ReturnType<typeof computeStats>
+
+function useStats(board: Board | null | undefined, rows: Row[], watched: WatchedMap, win: DateWindow | null) {
+  return useMemo(() => (board ? computeStats(board, rows, watched, win) : null), [board, rows, watched, win])
 }
 
 // ---- ortak parçalar ------------------------------------------------------------------------
@@ -241,13 +284,31 @@ interface Tip {
   title: string
   value: string
 }
-function useTip() {
-  const [tip, setTip] = useState<Tip | null>(null)
-  const bind = (title: string, value: string) => ({
-    onMouseMove: (e: React.MouseEvent) => setTip({ x: e.clientX, y: e.clientY, title, value }),
-    onMouseLeave: () => setTip(null),
-  })
-  const node = tip ? (
+// Bilgi kutusunun konumu küçük ayrı bir depoda: fare her kıpırdadığında bütün grafik (ısı haritasında 365 kare)
+// yeniden çizilmesin diye sadece kutunun kendisi güncellenir (kare başına en çok bir kez, rAF ile). Grafik
+// yalnızca üzerine gelinen öğe DEĞİŞİNCE (vurgulama için) yeniden çizilir; ısı haritası onu da istemiyor.
+function createTipStore() {
+  let tip: Tip | null = null
+  const subs = new Set<() => void>()
+  return {
+    get: () => tip,
+    set: (t: Tip | null) => {
+      tip = t
+      subs.forEach((f) => f())
+    },
+    subscribe: (f: () => void) => {
+      subs.add(f)
+      return () => {
+        subs.delete(f)
+      }
+    },
+  }
+}
+type TipStore = ReturnType<typeof createTipStore>
+function TipLayer({ store }: { store: TipStore }) {
+  const tip = useSyncExternalStore(store.subscribe, store.get)
+  if (!tip) return null
+  return (
     <div
       className="fixed z-50 pointer-events-none rounded-lg border border-neutral-700 bg-neutral-900/95 backdrop-blur-sm shadow-xl px-3 py-2"
       style={{ left: Math.min(tip.x + 14, window.innerWidth - 200), top: Math.max(tip.y - 52, 8) }}
@@ -255,8 +316,45 @@ function useTip() {
       <p className="text-[11px] text-neutral-400">{tip.title}</p>
       <p className="text-sm font-semibold text-neutral-50">{tip.value}</p>
     </div>
-  ) : null
-  return { bind, node, active: tip?.title }
+  )
+}
+function useTip(trackActive = true) {
+  const [store] = useState(createTipStore)
+  const [active, setActive] = useState<string | undefined>(undefined)
+  const activeRef = useRef<string | undefined>(undefined)
+  const frame = useRef(0)
+  const pending = useRef<Tip | null>(null)
+  useEffect(
+    () => () => {
+      if (frame.current) cancelAnimationFrame(frame.current)
+    },
+    [],
+  )
+  const setActiveOnce = (t: string | undefined) => {
+    if (!trackActive || activeRef.current === t) return
+    activeRef.current = t
+    setActive(t)
+  }
+  const bind = (title: string, value: string) => ({
+    onMouseMove: (e: React.MouseEvent) => {
+      pending.current = { x: e.clientX, y: e.clientY, title, value }
+      if (!frame.current)
+        frame.current = requestAnimationFrame(() => {
+          frame.current = 0
+          store.set(pending.current)
+        })
+      setActiveOnce(title)
+    },
+    onMouseLeave: () => {
+      if (frame.current) cancelAnimationFrame(frame.current)
+      frame.current = 0
+      pending.current = null
+      store.set(null)
+      setActiveOnce(undefined)
+    },
+  })
+  const node = <TipLayer store={store} />
+  return { bind, node, active }
 }
 
 function Card({ title, subtitle, children, className = '' }: { title: string; subtitle?: string; children: ReactNode; className?: string }) {
@@ -558,7 +656,7 @@ function YearHeatmap({ daily: titles, eps, year, onPick }: { daily: Map<string, 
     if (!t && !e) return tt('izleme yok')
     return [t ? tt('{0} yapım', t) : '', e ? tt('{0} bölüm', e) : ''].filter(Boolean).join(' · ')
   }
-  const { bind, node } = useTip()
+  const { bind, node } = useTip(false)
   const start = new Date(year, 0, 1)
   const lead = (start.getDay() + 6) % 7
   const today = new Date()
@@ -594,6 +692,7 @@ function YearHeatmap({ daily: titles, eps, year, onPick }: { daily: Map<string, 
                 key={c}
                 onClick={() => onPick(c)}
                 {...bind(c.split('-').reverse().join('.'), tip(c))}
+                aria-label={`${c.split('-').reverse().join('.')}: ${tip(c)}`}
                 className="aspect-square rounded-[3px] hover:ring-1 hover:ring-neutral-300 transition"
                 style={{ background: bg[lvl(daily.get(c) ?? 0)], boxShadow: lvl(daily.get(c) ?? 0) === 4 ? '0 0 6px rgba(0,192,250,.6)' : undefined }}
               />
@@ -626,7 +725,7 @@ function ActorGrid({ buckets, palette }: { buckets: Bucket[]; palette: Palette }
         <div key={b.id} className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 flex flex-col items-center text-center">
           <div className="relative">
             <span className="block h-16 w-16 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center text-lg text-neutral-500">
-              {b.image ? <img src={b.image} alt="" className="h-full w-full object-cover" /> : b.label.slice(0, 1)}
+              {b.image ? <img src={b.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : b.label.slice(0, 1)}
             </span>
             <span
               className="absolute -top-1 -left-1 h-6 w-6 rounded-full text-[11px] font-bold text-white flex items-center justify-center"
@@ -813,6 +912,184 @@ function RatingTasteCard({ board, rows, palette }: { board: Board; rows: Row[]; 
   )
 }
 
+// Tarih aralığı seçimi (v1.25): Tüm zamanlar (eskisi gibi bütün arşiv), Bu yıl, Son 12 ay, Özel aralık ve iki yılı
+// yan yana koyan "Yıl kıyasla". Seçim bu tarayıcıda hatırlanır.
+type RangeMode = 'tum' | 'yil' | 'son12' | 'ozel' | 'kiyas'
+const RANGE_KEY = 'argus_stats_range'
+function readRange(): { mode: RangeMode; from: string; to: string; a: number; b: number } {
+  const y = new Date().getFullYear()
+  const def = { mode: 'tum' as RangeMode, from: `${y}-01-01`, to: dayIso(new Date()), a: y, b: y - 1 }
+  try {
+    const raw = localStorage.getItem(RANGE_KEY)
+    if (!raw) return def
+    const v = JSON.parse(raw)
+    return {
+      mode: ['tum', 'yil', 'son12', 'ozel', 'kiyas'].includes(v?.mode) ? v.mode : def.mode,
+      from: typeof v?.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.from) ? v.from : def.from,
+      to: typeof v?.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.to) ? v.to : def.to,
+      a: Number.isInteger(v?.a) ? v.a : def.a,
+      b: Number.isInteger(v?.b) ? v.b : def.b,
+    }
+  } catch {
+    return def
+  }
+}
+const yearWindow = (y: number): DateWindow => ({ from: `${y}-01-01`, to: `${y}-12-31` })
+
+function RangeBar({
+  mode,
+  setMode,
+  from,
+  to,
+  setFrom,
+  setTo,
+}: {
+  mode: RangeMode
+  setMode: (m: RangeMode) => void
+  from: string
+  to: string
+  setFrom: (v: string) => void
+  setTo: (v: string) => void
+}) {
+  const chip = (on: boolean) => `text-sm rounded-xl px-3 py-1.5 border transition ${on ? 'border-neutral-400 text-neutral-50 bg-neutral-800' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`
+  const opts: { value: RangeMode; label: string }[] = [
+    { value: 'tum', label: tt('Tüm zamanlar') },
+    { value: 'yil', label: tt('Bu yıl') },
+    { value: 'son12', label: tt('Son 12 ay') },
+    { value: 'ozel', label: tt('Özel aralık') },
+    { value: 'kiyas', label: tt('Yıl kıyasla') },
+  ]
+  const input = 'rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm text-neutral-100 focus:outline-none focus:border-[#00c0fa]'
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {opts.map((o) => (
+        <button key={o.value} onClick={() => setMode(o.value)} className={chip(mode === o.value)} aria-pressed={mode === o.value}>
+          {o.label}
+        </button>
+      ))}
+      {mode === 'ozel' && (
+        <span className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+          <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} className={input} aria-label={tt('Başlangıç')} />
+          <span>→</span>
+          <input type="date" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} className={input} aria-label={tt('Bitiş')} />
+        </span>
+      )}
+    </div>
+  )
+}
+
+// İki yıl yan yana: film, bölüm, saat, en çok türler ve üst üste aylık sütunlar
+function YearCompare({ board, rows, watched, years, a, b, setA, setB, palette }: { board: Board; rows: Row[]; watched: WatchedMap; years: number[]; a: number; b: number; setA: (y: number) => void; setB: (y: number) => void; palette: Palette }) {
+  const sa = useMemo(() => computeStats(board, rows, watched, yearWindow(a)), [board, rows, watched, a])
+  const sb = useMemo(() => computeStats(board, rows, watched, yearWindow(b)), [board, rows, watched, b])
+  const { bind, node, active } = useTip()
+  const ca = palette.categorical[0]
+  const cb = palette.categorical[1]
+  const yearOpts = [...new Set([...years, a, b])].sort((x, y) => y - x).map((y) => ({ value: String(y), label: String(y) }))
+  const hoursOf = (s: Stats) => Math.round((s.windowSummary?.minutes ?? 0) / 60)
+  const rowsOf: { label: string; va: number; vb: number }[] = [
+    { label: tt('Film izleme'), va: sa.windowSummary?.films ?? 0, vb: sb.windowSummary?.films ?? 0 },
+    { label: tt('Bölüm'), va: sa.windowSummary?.episodes ?? 0, vb: sb.windowSummary?.episodes ?? 0 },
+    { label: tt('Yaklaşık saat'), va: hoursOf(sa), vb: hoursOf(sb) },
+    { label: tt('İzlediğin gün'), va: sa.windowSummary?.activeDays ?? 0, vb: sb.windowSummary?.activeDays ?? 0 },
+    { label: tt('Yapım'), va: sa.total, vb: sb.total },
+  ]
+  const maxMonth = Math.max(1, ...sa.months.map((m) => m.count), ...sb.months.map((m) => m.count))
+  const H = 160
+  return (
+    <Card title={tt('Yıl kıyasla')} subtitle={tt('İki yılı yan yana koy: ne kadar izledin, neleri izledin')}>
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: ca }} />
+        <Select value={String(a)} onChange={(v) => setA(Number(v))} options={yearOpts} className="w-28" />
+        <span className="text-neutral-500 text-sm">{tt('ile')}</span>
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: cb }} />
+        <Select value={String(b)} onChange={(v) => setB(Number(v))} options={yearOpts} className="w-28" />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2.5">
+          {rowsOf.map((r) => {
+            const max = Math.max(r.va, r.vb, 1)
+            return (
+              <div key={r.label}>
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-neutral-300">{r.label}</span>
+                  <span className="tabular-nums text-neutral-400">
+                    <b style={{ color: ca }}>{r.va}</b> · <b style={{ color: cb }}>{r.vb}</b>
+                  </span>
+                </div>
+                <div className="mt-1 space-y-1">
+                  <div className="h-2 rounded-full bg-neutral-800 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${(r.va / max) * 100}%`, background: ca }} />
+                  </div>
+                  <div className="h-2 rounded-full bg-neutral-800 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${(r.vb / max) * 100}%`, background: cb }} />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { y: a, s: sa, c: ca },
+            { y: b, s: sb, c: cb },
+          ].map(({ y, s, c }, i) => (
+            <div key={i} className="min-w-0">
+              <p className="text-xs font-semibold mb-2" style={{ color: c }}>
+                {tt('{0} · en çok türler', y)}
+              </p>
+              {s.genreBreakdown.top.length === 0 ? (
+                <Empty />
+              ) : (
+                <ol className="space-y-1 text-sm">
+                  {s.genreBreakdown.top.slice(0, 5).map((g, k) => (
+                    <li key={g.id} className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs text-neutral-500 w-3 tabular-nums">{k + 1}</span>
+                      <span className="text-neutral-300 truncate">{g.label}</span>
+                      <span className="ml-auto text-neutral-500 tabular-nums">{g.count}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-6">
+        <p className="text-xs text-neutral-500 mb-2">{tt('Aylık izleme (izleme tarihine göre)')}</p>
+        <div className="flex items-end gap-1.5 sm:gap-2 border-b border-neutral-700" style={{ height: H }}>
+          {sa.months.map((m, i) => {
+            const mb = sb.months[i]
+            const title = TR_MONTHS[m.month]
+            return (
+              <div key={m.key} className="flex-1 min-w-0 h-full flex items-end justify-center gap-[2px]" {...bind(title, `${a}: ${m.count} · ${b}: ${mb?.count ?? 0}`)}>
+                {[
+                  { n: m.count, c: ca },
+                  { n: mb?.count ?? 0, c: cb },
+                ].map((x, k) => (
+                  <div
+                    key={k}
+                    className="w-1/2 max-w-[16px] rounded-t-[4px] transition-opacity"
+                    style={{ height: x.n ? Math.max((x.n / maxMonth) * (H - 10), 3) : 0, background: x.c, opacity: active && active !== title ? 0.45 : 1 }}
+                  />
+                ))}
+              </div>
+            )
+          })}
+        </div>
+        <div className="flex gap-1.5 sm:gap-2 mt-1.5">
+          {sa.months.map((m) => (
+            <span key={m.key} className="flex-1 min-w-0 text-center text-[10px] sm:text-[11px] truncate text-neutral-500">
+              {TR_MONTHS_SHORT[m.month]}
+            </span>
+          ))}
+        </div>
+      </div>
+      {node}
+    </Card>
+  )
+}
+
 export default function Istatistikler() {
   const { settings, loading: settingsLoading } = useHomeSettings()
   const { boards, loading: boardsLoading } = useBoards()
@@ -820,6 +1097,27 @@ export default function Istatistikler() {
   const { theme } = useThemeMode()
   const palette = PALETTE[theme === 'light' ? 'light' : 'dark']
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
+  const [range, setRange] = useState(readRange)
+  const updateRange = (patch: Partial<typeof range>) =>
+    setRange((r) => {
+      const next = { ...r, ...patch }
+      try {
+        localStorage.setItem(RANGE_KEY, JSON.stringify(next))
+      } catch {
+        /* kapalı — sadece hatırlanmaz */
+      }
+      return next
+    })
+  const win = useMemo<DateWindow | null>(() => {
+    const now = new Date()
+    if (range.mode === 'yil') return { from: `${now.getFullYear()}-01-01`, to: dayIso(now) }
+    if (range.mode === 'son12') {
+      const f = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+      return { from: dayIso(f), to: dayIso(now) }
+    }
+    if (range.mode === 'ozel') return range.from <= range.to ? { from: range.from, to: range.to } : { from: range.to, to: range.from }
+    return null
+  }, [range.mode, range.from, range.to])
 
   // Varsayılan seçim: Ana Sayfa'da gösterilen arşiv, yoksa listedeki ilk arşiv.
   useEffect(() => {
@@ -830,7 +1128,6 @@ export default function Istatistikler() {
 
   const { board, loading: boardLoading, saveBoard } = useBoard(selectedBoardId ?? undefined)
   const { rows, loading: rowsLoading } = useRows(selectedBoardId ?? undefined)
-  const stats = useStats(board, rows)
   // Isı haritası takvimle aynı şeyi göstersin: İzleme Tarihi'ne ek olarak bölüm tikleri de (kullanıcı "takvimde eylül
   // neredeyse dolu, ısı haritasında niye dolu değil" dedi — dizi bölümleri sadece bitirdiğin gün sayılıyordu).
   const [watched, setWatched] = useState<WatchedMap>({})
@@ -841,16 +1138,41 @@ export default function Istatistikler() {
       /* profil yoksa boş */
     }
   }, [selectedBoardId])
+  const stats = useStats(board, rows, watched, range.mode === 'kiyas' ? null : win)
+  const heatYear = stats?.heatYear ?? new Date().getFullYear()
   const episodesDaily = useMemo(() => {
     const m = new Map<string, number>()
     const ids = new Set(rows.map((r) => r.id))
-    const y = String(new Date().getFullYear())
+    const y = String(heatYear)
     for (const [rowId, eps] of Object.entries(watched)) {
       if (!ids.has(rowId)) continue
       for (const list of Object.values(eps)) for (const d of list) if (d.startsWith(y)) m.set(d.slice(0, 10), (m.get(d.slice(0, 10)) ?? 0) + 1)
     }
     return m
-  }, [watched, rows])
+  }, [watched, rows, heatYear])
+  // Yıl kıyası için seçilebilecek yıllar: izleme tarihlerinde ve bölüm tiklerinde geçen yıllar (+ bu yıl)
+  const years = useMemo(() => {
+    const set = new Set<number>([new Date().getFullYear()])
+    const tarih = board ? resolveRole(board, 'izlemeTarihi') : undefined
+    const ids = new Set(rows.map((r) => r.id))
+    if (tarih)
+      for (const r of rows) {
+        const v = r.values[tarih.id]
+        for (const e of Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []) {
+          const y = Number(entryEnd(e).slice(0, 4))
+          if (y > 1900 && y < 2100) set.add(y)
+        }
+      }
+    for (const [rowId, eps] of Object.entries(watched)) {
+      if (!ids.has(rowId)) continue
+      for (const list of Object.values(eps))
+        for (const d of list) {
+          const y = Number(d.slice(0, 4))
+          if (y > 1900 && y < 2100) set.add(y)
+        }
+    }
+    return [...set].sort((x, y) => y - x)
+  }, [board, rows, watched])
 
   if (settingsLoading || boardsLoading) return <PageSkeleton />
 
@@ -870,10 +1192,13 @@ export default function Istatistikler() {
   const monthTotal = stats.months.reduce((s, m) => s + m.count, 0)
   const izlendiShare = stats.total ? stats.izlendiCount / stats.total : 0
   const monthSeries = stats.months.map((m) => m.count)
+  // Geçen yılla kıyas iki tarafta da sadece günü belli tarihlerle (bkz. computeStats › thisYearSoFar)
   const yearDelta =
     stats.hasDates && stats.lastYearSoFar > 0
-      ? { up: stats.thisYearRows >= stats.lastYearSoFar, text: tt('geçen yıl {0}', stats.lastYearSoFar) }
+      ? { up: stats.thisYearSoFar >= stats.lastYearSoFar, text: tt('geçen yıl bu zamana kadar {0}', stats.lastYearSoFar) }
       : undefined
+  const ws = stats.windowSummary
+  const compare = range.mode === 'kiyas'
   const thisMonthKey = stats.months[stats.months.length - 1]?.key
 
   return (
@@ -901,6 +1226,41 @@ export default function Istatistikler() {
 
       {selectedBoardId === settings.boardId && <GoalRow titleClass="text-lg font-semibold text-neutral-100" />}
 
+      <RangeBar
+        mode={range.mode}
+        setMode={(mode) => updateRange({ mode })}
+        from={range.from}
+        to={range.to}
+        setFrom={(from) => updateRange({ from })}
+        setTo={(to) => updateRange({ to })}
+      />
+
+      {compare && <YearCompare board={board} rows={rows} watched={watched} years={years} a={range.a} b={range.b} setA={(a) => updateRange({ a })} setB={(b) => updateRange({ b })} palette={palette} />}
+
+      {!compare && ws && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <StatTile label={tt('Aralıkta izlenen')} value={String(stats.total)} sub={tt('yapım')} accent icon="table" color="#3fa9ff" />
+          <StatTile icon="film" color="#22c55e" label={tt('Film izleme')} value={String(ws.films)} sub={tt('tekrar izlemeler dahil')} />
+          <StatTile icon="tv" color="#f97316" label={tt('Bölüm')} value={String(ws.episodes)} sub={tt('işaretlenen bölüm tikleri')} />
+          <StatTile
+            icon="clock"
+            color="#a78bfa"
+            label={tt('Yaklaşık süre')}
+            value={formatTotalMinutes(ws.minutes).value}
+            sub={tt('{0}{1} gün izledin', formatTotalMinutes(ws.minutes).rest, ws.activeDays)}
+            hint={tt('Filmlerde film süresi, dizilerde işaretlediğin her bölüm × bölüm süresi (bilinmiyorsa 40 dk).')}
+          />
+          <StatTile
+            icon="star"
+            color="#eab308"
+            label={tt('Ortalama puan')}
+            value={stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—'}
+            sub={stats.avgRating !== null ? tt('10 üzerinden · {0} kayıt', stats.ratedCount) : undefined}
+          />
+        </div>
+      )}
+
+      {!compare && !ws && (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatTile label={tt('Toplam kayıt')} value={String(stats.total)} accent icon="table" color="#3fa9ff" />
         <StatTile
@@ -942,9 +1302,12 @@ export default function Istatistikler() {
           sub={stats.avgRating !== null ? tt('10 üzerinden · {0} kayıt', stats.ratedCount) : undefined}
         />
       </div>
+      )}
 
+      {!compare && (
+      <>
       {stats.hasDates && (
-        <Card title={tt('Son 12 ayda izlediklerin')} subtitle={tt('İzleme tarihine göre aylık · toplam {0} izleme (tekrar izlemeler dahil) · bir aya tıklayınca Takvim\'de açılır', monthTotal)}>
+        <Card title={ws ? tt('Seçili aralıkta aylık izlediklerin') : tt('Son 12 ayda izlediklerin')} subtitle={tt('İzleme tarihine göre aylık · toplam {0} izleme (tekrar izlemeler dahil) · bir aya tıklayınca Takvim\'de açılır', monthTotal)}>
           <Columns
             palette={palette}
             height={190}
@@ -963,8 +1326,8 @@ export default function Istatistikler() {
       )}
 
       {(stats.hasDates || episodesDaily.size > 0) && (
-        <Card title={tt('{0} yılında izlediğin günler', year)} subtitle={tt('Her kare bir gün; ne kadar çok izlediysen o kadar parlak · bir güne tıklayınca Takvim\'de açılır')}>
-          <YearHeatmap daily={stats.daily} eps={episodesDaily} year={year} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}`)} />
+        <Card title={tt('{0} yılında izlediğin günler', heatYear)} subtitle={tt('Her kare bir gün; ne kadar çok izlediysen o kadar parlak · bir güne tıklayınca Takvim\'de açılır')}>
+          <YearHeatmap daily={stats.daily} eps={episodesDaily} year={heatYear} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}`)} />
         </Card>
       )}
 
@@ -1029,6 +1392,8 @@ export default function Istatistikler() {
         <Card title={tt('En çok karşına çıkan oyuncular')} subtitle={tt('En çok kayıtta rol aldığı ilk 10')}>
           <ActorGrid buckets={stats.actorBreakdown.top} palette={palette} />
         </Card>
+      )}
+      </>
       )}
 
       <MappingPanel board={board} onSave={(patch) => saveBoard(patch)} />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { Board, Row } from '../types'
 import { api } from '../lib/api'
 import { formatDayKey, formatStamp, formatValue, propName, type HistoryDay, type HistoryEntry } from '../lib/history'
@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast'
 import { BRAND_GRADIENT } from '../lib/theme'
 import { HistoryIcon } from './toolbarIcons'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, ttx } from '../lib/i18n'
 import Icon, { IconText } from './Icon'
 import { LineSkeleton } from './Skeleton'
@@ -89,6 +90,8 @@ export default function HistoryModal({
   }, [board.id, day, onlyRow, reload])
 
   // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
 
   async function undo(e: HistoryEntry) {
@@ -161,7 +164,7 @@ export default function HistoryModal({
   const selectedDay = days?.find((d) => d.day === day)
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-8 overflow-y-auto" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={onlyRow ? tt('"{0}" geçmişi', rowTitle || tt('Kayıt')) : tt('Arşiv Geçmişi')} className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-8 overflow-y-auto" onClick={onClose}>
       <div className="w-full max-w-4xl bg-neutral-900 border border-neutral-800 rounded-2xl p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 mb-1">
           <div className="flex items-center gap-3 min-w-0">

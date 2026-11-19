@@ -179,6 +179,8 @@ export interface Board {
   // TMDB Güncelle, başlığa yazılmış İngilizce / orijinal adı Türkçe adla değiştirsin mi (dişli › "Başlığı Türkçe
   // adla değiştir"). Yoksa kapalı — yeni kullanıcılar bilerek yazdıkları adların değişmesini beklemiyor.
   titleTr?: boolean
+  // Kayıtlı tablo görünümleri (filtre + sıralama + gizli sütunlar + gruplama), tablonun üstünde sekme olarak (v1.25)
+  views?: SavedView[]
   createdAt: number
   updatedAt: number
 }
@@ -704,4 +706,16 @@ export function instantiateTemplate(template: Template, boardName: string): Omit
 
 export function emptyRow(): Omit<Row, 'id'> {
   return { values: {}, createdAt: Date.now(), updatedAt: Date.now() }
+}
+
+// Arşiv tablosunda kaydedilmiş bir görünüm (bkz. components/table/SavedViews.tsx). `filtre`, adres çubuğundaki
+// ?filtre= ile aynı biçim (lib/filters.ts › encodeConditions); boşsa filtre yok.
+export interface SavedView {
+  id: string
+  name: string
+  filtre?: string
+  sortPropertyId?: string | null
+  sortDirection?: 'asc' | 'desc'
+  hiddenColumnIds?: string[]
+  groupByPropertyId?: string | null
 }

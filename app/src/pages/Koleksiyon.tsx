@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { useRows } from '../hooks/useRows'
 import { useProfiles } from '../hooks/useProfiles'
 import { useToast } from '../hooks/useToast'
 import { api, type KoleksiyonInfo, type KoleksiyonPatch } from '../lib/api'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
-import { entryEnd, toEntries } from '../lib/dateRange'
 import { titleText, type Row } from '../types'
 import RowDetailModal from '../components/RowDetailModal'
 import SymbolEditor from '../components/SymbolEditor'
 import BackgroundProgress from '../components/BackgroundProgress'
 import ShelfPicker from '../components/ShelfPicker'
 import KoleksiyonImage, { type ImageItem, type ImageShelf } from '../components/KoleksiyonImage'
-import { autoShelf, commonTitle } from '../lib/shelves'
+import { autoShelf } from '../lib/shelves'
+import { DEFAULT_SHELF_SYMBOLS, buildKoleksiyonItems, buildShelves, type KoleksiyonItem } from '../lib/koleksiyonRaflar'
+import { useOdulData } from '../lib/oduller'
+import { useSetBonuses } from '../lib/odulSetler'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { averageColor } from '../lib/imageColor'
 import { tt, ttx } from '../lib/i18n'
@@ -38,31 +41,7 @@ import type { FbCard } from '../lib/api'
 // görünür. Kendiliğinden oluşan serilerde "Yapım ekle" ise taşır (bir film tek bir seriye ait).
 // "Görsel oluştur" koleksiyonun PNG görselini çizer (bkz. KoleksiyonImage).
 
-// ARGUS'la gelen, bazı raflara kendiliğinden konan semboller (değiştirilebilir)
-const DEFAULT_SHELF_SYMBOLS: Record<string, string> = {
-  'star trek': '/semboller/delta.svg',
-  'harry potter': '/semboller/olum-yadigarlari.svg',
-  'fantastic beasts': '/semboller/olum-yadigarlari.svg',
-  'lord of the rings': '/semboller/tek-yuzuk.svg',
-  hobbit: '/semboller/tek-yuzuk.svg',
-  tron: '/semboller/tron.svg',
-}
-
-interface Item {
-  row: Row
-  title: string
-  logo: string
-  poster: string
-  year: string
-  isSeries: boolean
-  lastWatched: string
-  symbol: string | null
-  key: string // bulunduğu raf ('' = rafsız)
-  autoKey: string
-  autoName: string
-  // Ayrıca içinde durduğu, elle açılmış raflar (bkz. KoleksiyonData.shelves[].rows)
-  extra: string[]
-}
+type Item = KoleksiyonItem
 
 type Editing = { kind: 'item'; item: Item } | { kind: 'shelf'; key: string; name: string; symbol: string | null; fallback: string | null }
 
@@ -83,6 +62,8 @@ function Raflar() {
   // "+ Yapım ekle" penceresi, "+ Yeni raf" adı, koleksiyon görseli (açılınca o anki raflar donduruluyor)
   const [picking, setPicking] = useState<{ key: string; name: string } | null>(null)
   const [newShelf, setNewShelf] = useState<string | null>(null)
+  const newShelfRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(newShelfRef, newShelf !== null)
   const [image, setImage] = useState<{ shelves: ImageShelf[]; loose: ImageItem[]; stats: string; filtered: boolean } | null>(null)
   // Sunucuya ulaşılamazsa sonsuza kadar "Yükleniyor" demesin (ör. ARGUS güncellendi ama sunucusu eski)
   const [error, setError] = useState<string | null>(null)
@@ -109,101 +90,15 @@ function Raflar() {
     return () => clearTimeout(t)
   }, [info, load])
 
-  const items = useMemo<Item[]>(() => {
-    if (!board || !info) return []
-    const durum = resolveRole(board, 'durum')
-    // İzlenecek dışındaki her durum (İzlendi, İzleniyor, Yarım…) — sunucudaki koleksiyonRows ile aynı
-    const later = resolveStatusOption(board, 'izlenecek')
-    const tp = board.properties.find((p) => p.id === board.titlePropertyId)
-    const orig = resolveRole(board, 'orjinalAdi')
-    const poster = resolveRole(board, 'poster')
-    const kategori = resolveRole(board, 'kategori')
-    const vizyon = resolveRole(board, 'vizyon')
-    const dateProp = resolveRole(board, 'izlemeTarihi')
-    const str = (r: Row, id?: string) => (id && typeof r.values[id] === 'string' ? (r.values[id] as string) : '')
-    const manual = Object.entries(info.data.shelves).filter(([, v]) => v.manual)
-    return rows
-      .filter((r) => durum && r.values[durum.id] && r.values[durum.id] !== later)
-      .map((r) => {
-        const title = (tp ? titleText(tp, r.values[tp.id]) : '') || tt('İsimsiz')
-        const original = str(r, orig?.id) || title
-        const col = info.collections[r.id]
-        const source = col?.name ?? original
-        const isSeries = info.mediaTypes[r.id] ? info.mediaTypes[r.id] === 'tv' : /dizi/i.test(kategori?.options?.find((o) => o.id === r.values[kategori.id])?.label ?? '')
-        const auto = autoShelf(source, isSeries, Boolean(col))
-        const autoKey = auto.key
-        const override = info.data.items[r.id]?.shelf
-        // Elle açılmış bir rafa "taşınmış" eski kayıtlar da (v1.12) ek raf sayılır, kendi raflarında kalır
-        const overrideManual = Boolean(override && info.data.shelves[override]?.manual)
-        const extra = manual.filter(([k, v]) => v.rows?.includes(r.id) || (overrideManual && override === k)).map(([k]) => k)
-        const dates = dateProp ? toEntries(r.values[dateProp.id]).map(entryEnd).sort() : []
-        return {
-          row: r,
-          title,
-          logo: str(r, board.titleImagePropertyId ?? undefined),
-          poster: str(r, poster?.id),
-          year: str(r, vizyon?.id).slice(0, 4),
-          isSeries,
-          lastWatched: dates[dates.length - 1] ?? '',
-          symbol: info.data.items[r.id]?.image ?? null,
-          key: override !== undefined && !overrideManual ? override : autoKey,
-          autoKey,
-          autoName: auto.name,
-          extra,
-        }
-      })
-  }, [board, rows, info])
+  const items = useMemo<Item[]>(() => (board && info ? buildKoleksiyonItems(board, rows, info) : []), [board, rows, info])
 
-  // Raflar: en az 2 yapımı olanlar, elle oluşturulanlar ya da adı / sembolü değiştirilenler
-  const { shelves, loose } = useMemo(() => {
-    const groups = new Map<string, Item[]>()
-    for (const it of items) {
-      if (!it.key) continue
-      const g = groups.get(it.key) ?? []
-      g.push(it)
-      groups.set(it.key, g)
-    }
-    const data = info?.data
-    const list = [...groups.entries()]
-      .filter(([key, g]) => g.length >= 2 || data?.shelves[key] || g.some((it) => data?.items[it.row.id]?.shelf === key))
-      .map(([key, g]) => {
-        const names = new Map<string, number>()
-        for (const it of g) if (it.autoKey === key) names.set(it.autoName, (names.get(it.autoName) ?? 0) + 1)
-        // Türkçe adları ortak bir başlangıçla başlıyorsa raf adı o olsun ("Recep İvedik 2" … → "Recep İvedik",
-        // "Yüzüklerin Efendisi: İki Kule" … → "Yüzüklerin Efendisi"); yoksa serinin (İngilizce) adı.
-        const series = [...names.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? g[0].autoName
-        const auto = commonTitle(g.map((it) => it.title)) ?? series
-        const symbol: string | null = data?.shelves[key]?.image ?? DEFAULT_SHELF_SYMBOLS[key] ?? null
-        return {
-          key,
-          name: data?.shelves[key]?.name || auto,
-          autoName: auto,
-          seriesName: series,
-          symbol: symbol as string | null,
-          custom: Boolean(data?.shelves[key]?.image),
-          manual: Boolean(data?.shelves[key]?.manual),
-          items: [...g].sort((a, b) => (a.year || '9999').localeCompare(b.year || '9999')),
-        }
-      })
-    // Elle açılmış raflar: içindekiler ayrıca kendi yerlerinde de duruyor. Boşken de görünür (içine
-    // "+ Yapım ekle" ile yapım koyulsun).
-    for (const [key, v] of Object.entries(data?.shelves ?? {})) {
-      if (!v.manual || groups.has(key)) continue
-      const name = v.name || tt('Yeni raf')
-      const members = items.filter((it) => it.extra.includes(key)).sort((a, b) => (a.year || '9999').localeCompare(b.year || '9999'))
-      list.push({ key, name, autoName: name, seriesName: name, symbol: v.image ?? null, custom: Boolean(v.image), manual: true, items: members })
-    }
-    list
-      .sort((a, b) => Number(Boolean(b.symbol)) - Number(Boolean(a.symbol)) || b.items.length - a.items.length || a.name.localeCompare(b.name, 'tr'))
-    // Aynı adı alan raflar (ör. Avatar filmleri ve "Avatar: The Last Airbender" dizileri) serinin kendi adıyla ayrılsın
-    const seen = new Map<string, number>()
-    for (const sh of list) seen.set(sh.name, (seen.get(sh.name) ?? 0) + 1)
-    for (const sh of list) if ((seen.get(sh.name) ?? 0) > 1 && !data?.shelves[sh.key]?.name && sh.seriesName !== sh.name) sh.name = sh.autoName = sh.seriesName
-    // Elle açılan raflardakiler kendi yerlerinden (tek başına olanlar dahil) kalkmıyor
-    const onShelf = new Set(list.filter((s) => !s.manual).flatMap((s) => s.items.map((it) => it.row.id)))
-    const rest = items.filter((it) => !onShelf.has(it.row.id)).sort((a, b) => b.lastWatched.localeCompare(a.lastWatched))
-    return { shelves: list, loose: rest }
-  }, [items, info])
+  // Raflar: en az 2 yapımı olanlar, elle oluşturulanlar ya da adı / sembolü değiştirilenler (bkz. lib/koleksiyonRaflar)
+  const { shelves, loose } = useMemo(() => buildShelves(items, info), [items, info])
+
+  // Seri seti (v1.25): Ödüller açıksa, bir rafın bütün film kartları toplanınca bir kerelik paket ve "Set tamam" rozeti
+  const rewardsOn = useExtras().on('rewards')
+  const odul = useOdulData(rewardsOn)
+  const doneSets = useSetBonuses(info ? shelves : null, odul, rewardsOn)
 
   // Her rafta henüz izlemediğin (İzlenecek'teki) yapımlar: sembolün çevresindeki halka "kaçını izledin"i gösterir
   // (v1.23.3, öneri K1). Raf anahtarı koleksiyondakilerle aynı yolla bulunuyor.
@@ -462,6 +357,11 @@ function Raflar() {
               <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/70 text-neutral-200 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><Icon name="pencil" className="h-3 w-3" /></span>
             </div>
             <p className="text-lg font-bold text-neutral-50 mt-2 leading-tight">{s.name}</p>
+            {doneSets.has(s.key) && (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300" title={tt('Bu serinin bütün film kartlarını topladın')}>
+                ✦ {tt('Set tamam')}
+              </span>
+            )}
             <p className="text-xs" style={{ color: tint ? `rgb(${tint})` : undefined }}>
               {missing > 0 ? tt('{0} yapımın {1} tanesini izledin', total, s.items.length) : ttx('{0} yapım', s.items.length)}
             </p>
@@ -592,7 +492,7 @@ function Raflar() {
         />
       )}
       {newShelf !== null && (
-        <div className="fixed inset-0 z-[70] bg-black/80 flex items-start justify-center px-4 py-24" onClick={() => setNewShelf(null)}>
+        <div ref={newShelfRef} role="dialog" aria-modal="true" aria-label={tt('Yeni raf')} className="fixed inset-0 z-[70] bg-black/80 flex items-start justify-center px-4 py-24" onClick={() => setNewShelf(null)}>
           <form
             onClick={(e) => e.stopPropagation()}
             onSubmit={(e) => {
@@ -662,11 +562,14 @@ export default function Koleksiyon() {
   const rewards = useExtras().on('rewards')
   // Flashback sekmesi sadece en az bir yılın kartı varsa
   const [fbCards, setFbCards] = useState<Record<string, FbCard>>({})
+  // ?sekme=flashback ile gelince kartlar yüklenmeden Raflar açılıp sonra sıçramasın
+  const [fbLoaded, setFbLoaded] = useState(false)
   useEffect(() => {
     api
       .getFbCards()
       .then(setFbCards)
       .catch(() => {})
+      .finally(() => setFbLoaded(true))
   }, [])
   const hasFb = Object.keys(fbCards).length > 0
   const q = sp.get('sekme')
@@ -677,6 +580,13 @@ export default function Koleksiyon() {
     else n.delete('sekme')
     setSp(n, { replace: true })
   }
+  if (q === 'flashback' && !fbLoaded)
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-10 flex items-center gap-3 text-sm text-neutral-400">
+        <span className="h-4 w-4 rounded-full border-2 border-[#00c0fa] border-t-transparent animate-spin" />
+        {tt('Yükleniyor…')}
+      </div>
+    )
   return (
     <div>
       <div className="max-w-6xl mx-auto px-4 pt-6 -mb-2">

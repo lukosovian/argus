@@ -5,7 +5,7 @@ import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { makeId, mediaTemplateProperties, titleText, PROPERTY_TYPE_LABELS, type PropertyDef, type PropertyType, type PropertyValue, type Row } from '../types'
-import { buildProperty, inferColumnType, isFiveScale, mergeOptionsFromValues, parseCellValue } from '../lib/csvImport'
+import { buildProperty, detectDateOrder, inferColumnType, isFiveScale, mergeOptionsFromValues, parseCellValue } from '../lib/csvImport'
 import { api } from '../lib/api'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import HelpHint from '../components/HelpHint'
@@ -471,6 +471,14 @@ export default function Import() {
       // Aynı dosyayı birden çok satırda kullanan kayıtlar için tekrar tekrar
       // yüklemeyi önlemek üzere dosya adı -> sunucudaki yol eşlemesini önbelleğe alıyoruz.
       const uploadedPaths = new Map<string, string>()
+
+      // Tarih sütunlarında "03/12/2023" gün/ay mı ay/gün mü — sütunun bütün değerlerine bakılarak bir kez karar verilir.
+      for (const prop of restProperties) {
+        if (prop.type !== 'date' && prop.type !== 'multidate') continue
+        const header = columnForProperty.get(prop.id)
+        if (!header) continue
+        parseCtx.set(prop.id, { ...(parseCtx.get(prop.id) ?? {}), dateOrder: detectDateOrder(columnValues(header)) })
+      }
 
       const rowsToInsert: Omit<Row, 'id'>[] = []
       for (let i = 0; i < rawRows.length; i++) {

@@ -5,6 +5,8 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { fmtDuration, TR_DAYS, TR_DAYS_SHORT, TR_MONTHS } from '../lib/flashback'
 import { whiteLogo } from '../lib/whiteLogo'
 import { useEscape } from '../hooks/useEscape'
+import { useReducedMotion } from '../lib/reducedMotion'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, fmtDate, locale } from '../lib/i18n'
 import { STAR_PATH } from './Icon'
 import { fontReady } from '../lib/fontReady'
@@ -630,6 +632,9 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
   const [ended, setEnded] = useState(false)
   const elapsed = useRef(0)
   const downAt = useRef(0)
+  // "Hareketi azalt" açıksa: kartlar yine kendiliğinden ilerler ama daha yavaş ve kayarak gelmeden
+  const still = useReducedMotion()
+  const storyMs = still ? STORY_MS * 1.5 : STORY_MS
 
   useEffect(() => {
     let alive = true
@@ -681,7 +686,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
     const tick = (now: number) => {
       elapsed.current += now - last
       last = now
-      const p = Math.min(1, elapsed.current / STORY_MS)
+      const p = Math.min(1, elapsed.current / storyMs)
       setProgress(p)
       if (p >= 1) {
         if (i < cards.length - 1) go(1)
@@ -692,7 +697,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [running, i, cards.length, go])
+  }, [running, i, cards.length, go, storyMs])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -707,6 +712,8 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, go])
 
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
 
   function save(k: number) {
@@ -733,7 +740,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
   const ready = urls.every(Boolean)
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/92 overflow-y-auto py-5 px-4" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Flashback" className="fixed inset-0 z-[70] bg-black/92 overflow-y-auto py-5 px-4" onClick={onClose}>
       <div className="mx-auto w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-2 gap-2">
           <p className="text-neutral-100 font-semibold min-w-0 truncate">
@@ -779,7 +786,7 @@ export default function FlashbackStory({ data, onClose }: { data: StoryData; onC
           }}
         >
           {urls[i] ? (
-            <img key={i} src={urls[i]!} alt={cards[i].label} draggable={false} className="h-full w-full object-contain" style={{ animation: 'fb-card-in .7s ease-out' }} />
+            <img key={i} src={urls[i]!} alt={cards[i].label} draggable={false} className="h-full w-full object-contain" style={still ? undefined : { animation: 'fb-card-in .7s ease-out' }} />
           ) : (
             <span className="text-sm text-neutral-500">{tt('Hazırlanıyor…')}</span>
           )}

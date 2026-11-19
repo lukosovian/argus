@@ -10,6 +10,7 @@ import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useBiletler } from './bilet'
 import { tt } from './i18n'
+import { PackConflict, openPackRequest, useStore } from './useProfileStore'
 
 // Koleksiyon › Ödüller (v1.24): izledikçe kart paketi kazanılır, paket yırtılıp açılır (sunumda kullanıcının seçtiği
 // "kart paketi" stili). Kullanıcı ödül olarak başarım/rozet istemedi ("saçma olur"); ödüller:
@@ -34,9 +35,26 @@ export interface TierInfo {
 }
 export const TIERS: TierInfo[] = [
   { id: 'bronz', label: () => tt('Bronz paket'), odds: [72, 22, 5, 1], foil: 'linear-gradient(160deg,#3a2414,#9a5a2c 38%,#5c3518 62%,#1f130a)', rule: () => tt('Her 4 bölümde bir'), price: 10 },
-  { id: 'gumus', label: () => tt('Gümüş paket'), odds: [50, 32, 14, 4], foil: 'linear-gradient(160deg,#151b3f,#2b3080 38%,#1a1f4d 62%,#0b0f26)', rule: () => tt('Her bitirdiğin film'), price: 25 },
-  { id: 'altin', label: () => tt('Altın paket'), odds: [0, 52, 34, 14], foil: 'linear-gradient(160deg,#3d2a05,#c89211 38%,#7a5508 62%,#2a1c02)', rule: () => tt('Sinemada izleyince, her 10 filmde ve her 40 bölümde'), price: 60 },
+  { id: 'gumus', label: () => tt('Gümüş paket'), odds: [50, 32, 14, 4], foil: 'linear-gradient(160deg,#151b3f,#2b3080 38%,#1a1f4d 62%,#0b0f26)', rule: () => tt('Her bitirdiğin film; 3 filmlik bir serinin bütün kartlarını toplayınca'), price: 25 },
+  { id: 'altin', label: () => tt('Altın paket'), odds: [0, 52, 34, 14], foil: 'linear-gradient(160deg,#3d2a05,#c89211 38%,#7a5508 62%,#2a1c02)', rule: () => tt('Sinemada izleyince, her 10 filmde, her 40 bölümde ve 4+ filmlik bir serinin bütün kartlarını toplayınca'), price: 60 },
 ]
+// Seri seti (v1.25): bir Koleksiyon rafındaki bütün film kartlarını toplayınca bir kerelik paket. Tamamlanan
+// setler profilin 'odul-setler' kaydında durur; bir set bir kez sayılır (kart sonradan gitmez, yine de geri alınmaz).
+export interface OdulSet {
+  at: number
+  tier: OdulTier
+  name: string
+  rows: string[]
+}
+export type OdulSetStore = { sets?: Record<string, OdulSet> }
+export const SET_STORE = 'odul-setler'
+export const setTierFor = (films: number): OdulTier => (films <= 3 ? 'gumus' : 'altin')
+export function setBonusOf(store: OdulSetStore | null | undefined) {
+  const out = { bronz: 0, gumus: 0, altin: 0 } as Record<OdulTier, number>
+  for (const s of Object.values(store?.sets ?? {})) if (s && out[s.tier] !== undefined) out[s.tier] += 1
+  return out
+}
+
 export const tierOf = (id: OdulTier) => TIERS.find((t) => t.id === id) ?? TIERS[1]
 
 export type ItemKind = 'frame' | 'back' | 'bilet'
@@ -117,7 +135,7 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 // Başlangıçtan beri kazanılan paketler. Sadece başlangıç gününden sonraki izlemeler sayılır (eski arşiv bir anda
 // yüzlerce paket vermesin); bir günde toplu işaretlenenler sınırlı sayılır. "İzledim" geri alınırsa sayı da düşer.
-export function computeEarned(board: Board, rows: Row[], watched: WatchedMap, biletDays: string[], startedAt: string) {
+export function computeEarned(board: Board, rows: Row[], watched: WatchedMap, biletDays: string[], startedAt: string, setBonus?: Record<OdulTier, number>) {
   // Sadece gerçek, gelecekte olmayan tarihler sayılıyor — "?" / "kayit" gibi tarihsiz işaretler
   // ve ileri bir tarih yazılmış izlemeler/biletler paket kazandırmasın.
   const now = new Date()
@@ -146,7 +164,12 @@ export function computeEarned(board: Board, rows: Row[], watched: WatchedMap, bi
     films,
     eps,
     sinema,
-    earned: { bronz: Math.floor(eps / 4), gumus: films, altin: sinema + Math.floor(films / 10) + Math.floor(eps / 40) } as Record<OdulTier, number>,
+    sets: (setBonus?.gumus ?? 0) + (setBonus?.altin ?? 0),
+    earned: {
+      bronz: Math.floor(eps / 4) + (setBonus?.bronz ?? 0),
+      gumus: films + (setBonus?.gumus ?? 0),
+      altin: sinema + Math.floor(films / 10) + Math.floor(eps / 40) + (setBonus?.altin ?? 0),
+    } as Record<OdulTier, number>,
   }
 }
 
@@ -181,6 +204,7 @@ export function useOduller(enabled = true) {
   const { data: biletler } = useBiletler()
   const [data, setData] = useState<OdulData | null>(null)
   const [watched, setWatched] = useState<WatchedMap | null>(null)
+  const { data: setStore } = useStore<OdulSetStore>(SET_STORE, on)
   const load = useCallback(() => {
     if (!on) return
     api.getOduller().then(setData).catch(() => {})
@@ -197,14 +221,14 @@ export function useOduller(enabled = true) {
   }, [load])
   const stats = useMemo(() => {
     // hepsi yüklenmeden hesaplanmasın (yarım veriyle sayı önce düşük çıkıp sonra artıyor, "yeni paket" sanılıyordu)
-    if (!board || !data?.startedAt || rowsLoading || !watched || !biletler) return null
+    if (!board || !data?.startedAt || rowsLoading || !watched || !biletler || !setStore) return null
     const biletDays = Object.values(biletler?.items ?? {}).map((b) => {
       if (b.date && /^\d{4}-\d{2}-\d{2}$/.test(b.date)) return b.date
       const c = Number((b as { createdAt?: number }).createdAt)
       return c ? ymd(new Date(c)) : ''
     })
-    return computeEarned(board, rows, watched, biletDays, data.startedAt)
-  }, [board, rows, rowsLoading, watched, biletler, data?.startedAt])
+    return computeEarned(board, rows, watched, biletDays, data.startedAt, setBonusOf(setStore))
+  }, [board, rows, rowsLoading, watched, biletler, data?.startedAt, setStore])
   const available = useMemo(() => {
     const out = { bronz: 0, gumus: 0, altin: 0 } as Record<OdulTier, number>
     if (!data) return out
@@ -218,7 +242,28 @@ export function useOduller(enabled = true) {
     window.dispatchEvent(new Event(EVENT))
     return d
   }, [])
-  return { data, stats, available, pool, act, reload: load, ready: Boolean(board && data) }
+  // Paket açılışı: istemcinin bildiği açılmış sayı da gider; başka cihazda açıldıysa (409) güncel veri yüklenir
+  // ve PackConflict fırlatılır (çağıran "başka bir cihazda açıldı" der).
+  const openPack = useCallback(
+    async (p: { tier: OdulTier; opId: string; pity: number; rewards: OdulReward[] }) => {
+      if (!activeProfileId || !data) throw new Error(tt('Paket açılamadı'))
+      try {
+        const d = await openPackRequest(activeProfileId, { ...p, expectOpened: Number(data.opened[p.tier]) || 0 })
+        setData(d)
+        window.dispatchEvent(new Event(EVENT))
+        return d
+      } catch (e) {
+        if (e instanceof PackConflict) {
+          if (e.data) setData(e.data)
+          load()
+          window.dispatchEvent(new Event(EVENT))
+        }
+        throw e
+      }
+    },
+    [activeProfileId, data, load],
+  )
+  return { data, stats, available, pool, act, openPack, reload: load, ready: Boolean(board && data), setStore, board, rows }
 }
 
 // Bir paket: 5 kart. Her kartın nadirliği paketin oranlarından; en az bir nadir garanti; 10 pakettir epik çıkmadıysa

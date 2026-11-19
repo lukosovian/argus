@@ -4745,3 +4745,130 @@ export function SecenekAramaVisual() {
     </Frame>
   )
 }
+
+// v1.25: tabloda görünüm sekmeleri (1), gruplama (2), alt özet satırı (3), silince "Geri al" (4)
+export function TabloYenilikVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      {[tt('İzlenecek filmler'), '2026', tt('Puansızlar')].map((t, i) => (
+        <g key={i}>
+          <rect x={16 + i * 74} y={16} width={68} height={14} rx={7} fill={i === 0 ? '#00c0fa' : 'none'} className={i === 0 ? '' : 'stroke-neutral-700'} />
+          <Label x={50 + i * 74} y={26} size={6} anchor="middle" muted={i !== 0}>
+            {t}
+          </Label>
+        </g>
+      ))}
+      <Pin x={244} y={23} n={1} />
+      <Label x={18} y={46} size={7}>
+        {tt('▾ İzleniyor · 3')}
+      </Label>
+      <Pin x={92} y={43} n={2} />
+      {[0, 1].map((i) => (
+        <g key={i}>
+          <rect x={18} y={52 + i * 16} width={8} height={11} rx={1.5} className="fill-neutral-800" />
+          <Line x={32} y={56 + i * 16} w={110} light />
+        </g>
+      ))}
+      <Label x={18} y={100} size={7}>
+        {tt('▸ İzlenecek · 143')}
+      </Label>
+      <rect x={16} y={110} width={288} height={14} rx={3} className="fill-neutral-900" />
+      <Label x={22} y={120} size={6} muted>
+        {tt('214 kayıt · ort. 7.8 · 412 saat · 9 boş')}
+      </Label>
+      <Pin x={226} y={117} n={3} />
+      <rect x={90} y={138} width={150} height={22} rx={6} className="fill-neutral-900" stroke="#00c0fa" strokeOpacity={0.4} />
+      <Label x={100} y={152} size={6.5}>
+        {tt('"Dune" silindi')}
+      </Label>
+      <text x={196} y={152} fontSize={6.5} fill="#00c0fa" fontWeight={700} style={{ fontFamily: 'inherit' }}>
+        {tt('Geri al')}
+      </text>
+      <Pin x={252} y={149} n={4} />
+    </Frame>
+  )
+}
+
+// v1.25: Takvim'de ayı paylaş (1), İstatistik'te tarih aralığı ve yıl kıyası (2)
+export function AyPaylasVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <rect x={24} y={18} width={80} height={144} rx={8} fill="#0b2a5c" />
+      <Label x={32} y={32} size={6} muted>
+        {tt('KASIM')}
+      </Label>
+      <Label x={32} y={56} size={18}>
+        14
+      </Label>
+      <Label x={32} y={66} size={6} muted>
+        {tt('film')}
+      </Label>
+      <Label x={32} y={90} size={18}>
+        62
+      </Label>
+      <Label x={32} y={100} size={6} muted>
+        {tt('bölüm')}
+      </Label>
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={32 + i * 22} y={120} width={18} height={27} rx={2} className="fill-neutral-700" />
+      ))}
+      <Pin x={116} y={30} n={1} />
+      {[tt('Bu yıl'), tt('Son 12 ay'), tt('Yıl kıyasla')].map((t, i) => (
+        <g key={i}>
+          <rect x={136 + i * 56} y={22} width={52} height={13} rx={6.5} fill={i === 2 ? '#00c0fa' : 'none'} className={i === 2 ? '' : 'stroke-neutral-700'} />
+          <Label x={162 + i * 56} y={31} size={5.5} anchor="middle" muted={i !== 2}>
+            {t}
+          </Label>
+        </g>
+      ))}
+      <Pin x={302} y={50} n={2} />
+      {[30, 45, 25, 60, 50, 40, 70, 55].map((h, i) => (
+        <g key={i}>
+          <rect x={140 + i * 20} y={150 - h} width={7} height={h} rx={1.5} className="fill-neutral-600" />
+          <rect x={148 + i * 20} y={150 - h * 0.8} width={7} height={h * 0.8} rx={1.5} fill="#00c0fa" />
+        </g>
+      ))}
+    </Frame>
+  )
+}
+
+// v1.25: detayda "Kiminle izledin?" (1), Koleksiyon'da tamamlanan seri seti (2)
+export function KiminleSetVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <Box x={16} y={18} w={140} h={92} r={6} strong />
+      <Label x={24} y={32} size={7}>
+        {tt('İzleme')}
+      </Label>
+      <rect x={24} y={40} width={58} height={14} rx={7} className="fill-neutral-800" />
+      <Label x={32} y={50} size={6.5}>
+        12.11.2026
+      </Label>
+      <Label x={24} y={70} size={6.5} muted>
+        {tt('Kiminle?')}
+      </Label>
+      <rect x={24} y={76} width={40} height={14} rx={7} fill="#00c0fa" fillOpacity={0.2} />
+      <Label x={30} y={86} size={6.5}>
+        Zırtapoz
+      </Label>
+      <Label x={70} y={86} size={6.5} muted>
+        {tt('+ kişi')}
+      </Label>
+      <Pin x={150} y={70} n={1} />
+      <Label x={172} y={30} size={7}>
+        {tt('Yüzüklerin Efendisi')}
+      </Label>
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={172 + i * 34} y={38} width={28} height={42} rx={3} className="fill-neutral-700" stroke="#fbbf24" strokeOpacity={0.7} />
+      ))}
+      <rect x={172} y={88} width={64} height={14} rx={7} fill="#fbbf24" fillOpacity={0.2} />
+      <Label x={180} y={98} size={6.5}>
+        {tt('★ Set tamam')}
+      </Label>
+      <Pin x={246} y={95} n={2} />
+    </Frame>
+  )
+}

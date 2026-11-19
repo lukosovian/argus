@@ -679,3 +679,36 @@ export interface FbCard {
   titles: number
   savedAt?: number
 }
+
+// Genel Güncelleme sunucuda bir iş olarak (v1.25): pencere kapansa / sayfadan çıkılsa da sürer, tekrar açılınca
+// ilerleme buradan okunur. Profil başına aynı anda tek iş (sürerken yeni başlatma 409 döner).
+export interface BulkJobLogEntry {
+  rowId: string
+  title: string
+  ok: boolean
+  filled?: string[]
+  newEpisodes?: number
+  newActors?: number
+  error?: string
+}
+export interface BulkJob {
+  id: string
+  boardId: string
+  label?: string
+  total: number
+  done: number
+  updated: number
+  failed: number
+  current: string | null
+  state: 'running' | 'done' | 'cancelled'
+  startedAt: number
+  finishedAt?: number
+  // En yeni en başta
+  log: BulkJobLogEntry[]
+}
+export const bulkJobApi = {
+  start: (boardId: string, body: { rowIds: string[]; exclude: string[]; overwrite: boolean; label?: string }) =>
+    request<{ job: BulkJob }>(profilePath(`/boards/${boardId}/bulk-job`), { method: 'POST', ...json(body) }),
+  get: () => request<{ job: BulkJob | null }>(profilePath('/bulk-job')),
+  cancel: () => request<{ job?: BulkJob | null }>(profilePath('/bulk-job'), { method: 'DELETE' }),
+}

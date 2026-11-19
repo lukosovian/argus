@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useArchive } from './useArchive'
-import { sfx, shuffle, type GameItem } from '../../lib/games'
+import { fold, sfx, shuffle, wrongOptions, type GameItem } from '../../lib/games'
 import { tt, ttx } from '../../lib/i18n'
 import PageSkeleton from '../../components/Skeleton'
 import EmptyState from '../../components/EmptyState'
@@ -26,7 +26,15 @@ export default function OyuncuyuBil() {
         x.titles.push(t)
         m.set(a.id, x)
       }
-    const l = [...m.values()].sort((a, b) => b.titles.length - a.titles.length)
+    // Aynı adlı iki oyuncu kaydı (farklı id) tek kişi sayılsın, şıklarda iki kez çıkmasın
+    const byName = new Map<string, Actor>()
+    for (const a of m.values()) {
+      const k = fold(a.name)
+      const had = byName.get(k)
+      if (!had) byName.set(k, a)
+      else for (const t of a.titles) if (!had.titles.includes(t)) had.titles.push(t)
+    }
+    const l = [...byName.values()].sort((a, b) => b.titles.length - a.titles.length)
     // En çok yapımı olanlardan (bilinir olsunlar)
     return l.slice(0, Math.max(30, l.filter((a) => a.titles.length >= 2).length))
   }, [pool])
@@ -51,7 +59,7 @@ export default function OyuncuyuBil() {
   }
   function start() {
     const picked = shuffle(actors).slice(0, ROUNDS)
-    setQs(picked.map((ans) => ({ ans, opts: shuffle([ans, ...shuffle(actors.filter((a) => a.id !== ans.id)).slice(0, 3)]) })))
+    setQs(picked.map((ans) => ({ ans, opts: shuffle([ans, ...wrongOptions(actors, ans, (a) => a.name)]) })))
     setRound(0)
     setScore(0)
     setRight(0)

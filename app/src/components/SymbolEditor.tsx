@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from './Select'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt } from '../lib/i18n'
 
 // Koleksiyon'da bir yapımın ya da rafın sembolünü değiştirme penceresi. Sembol: bilgisayardan dosya
@@ -64,6 +65,8 @@ export default function SymbolEditor({
   const shown = previewSrc ?? fallback
 
   // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
 
   useEffect(() => {
@@ -163,7 +166,7 @@ export default function SymbolEditor({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-8 px-4" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={heading} className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-8 px-4" onClick={onClose}>
       <div className="relative w-full max-w-2xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label={tt('Kapat')} className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
           ×

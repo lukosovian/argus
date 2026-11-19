@@ -49,7 +49,9 @@ export function useBoard(boardId: string | undefined) {
 
   useEffect(
     () =>
-      onDataChanged((changed) => {
+      onDataChanged((changed, kind) => {
+        // Sadece kayıtlar ya da izleme tarihleri değiştiyse arşivin kendisi aynı.
+        if (kind === 'rows' || kind === 'watched') return
         if (!boardId || !activeProfileId || (changed && changed !== boardId)) return
         const key = `${activeProfileId}:${boardId}`
         api
@@ -67,7 +69,7 @@ export function useBoard(boardId: string | undefined) {
     const updated = await api.patchBoard(boardId, patch)
     setBoard(updated)
     // Aynı arşivi gösteren diğer açık ekranlar (ör. arşiv adı, sütun görevleri) de güncellensin.
-    notifyDataChanged(boardId)
+    notifyDataChanged(boardId, 'board')
   }
 
   async function setProperties(properties: PropertyDef[]) {

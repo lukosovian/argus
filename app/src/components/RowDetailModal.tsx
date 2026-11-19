@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import SeriesPlan from './SeriesPlan'
 import ShareCard from './ShareCard'
 import TicketForm from './bilet/TicketForm'
@@ -34,9 +34,11 @@ import { showLabel, useShowInfo } from '../lib/showStatus'
 import PersonModal from './PersonModal'
 import CollectionSection from './CollectionSection'
 import SongsSection from './SongsSection'
+import KiminleIzledin from './koleksiyon/KiminleIzledin'
 import ResumePoint from './ResumePoint'
 import { entryEnd, formatEntry } from '../lib/dateRange'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { useThemeMode } from '../hooks/useThemeMode'
 import { averageColor, darkTone } from '../lib/imageColor'
 import { isoDate, locale, tt, ttx } from '../lib/i18n'
@@ -161,6 +163,8 @@ export default function RowDetailModal({
     rowId: string,
   ) => Promise<{ ok: true; mediaType: 'movie' | 'tv'; filled: string[]; newEpisodes: number; newActors: number } | undefined>
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
   const navigate = useNavigate()
   // Bu yapım bir evrende geçiyorsa (MCU, Star Wars…) Evrenler'deki kartına giden düğme
@@ -514,7 +518,7 @@ export default function RowDetailModal({
 
   return (
     // Telefonda tam ekran: görsel durum çubuğunun arkasına kadar uzanır (üstteki boşluk yok, düğmeler aşağı kayar)
-    <div className={`fixed inset-0 z-50 bg-black/85 backdrop-blur-sm overflow-y-auto ${MOBILE ? '' : 'py-6 px-3 sm:px-8 md:px-14'}`} onClick={onClose} style={MOBILE ? { paddingTop: 0 } : undefined}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={title || tt('Kayıt')} className={`fixed inset-0 z-50 bg-black/85 backdrop-blur-sm overflow-y-auto ${MOBILE ? '' : 'py-6 px-3 sm:px-8 md:px-14'}`} onClick={onClose} style={MOBILE ? { paddingTop: 0 } : undefined}>
       {/* Telefonda tam ekran */}
       <div
         className={MOBILE ? 'relative bg-neutral-900 w-full min-h-full' : 'relative bg-neutral-900 rounded-3xl w-full max-w-6xl mx-auto shadow-2xl shadow-black/60 ring-1 ring-white/5'}
@@ -878,6 +882,8 @@ export default function RowDetailModal({
                     </div>
                   </div>
                 )}
+                {/* Birlikte izledik (v1.25): her izleyiş için kiminle izlediğin */}
+                <KiminleIzledin rowId={row.id} dates={[...new Set(watchDates)]} label={(d) => formatEntry(d, formatDate)} />
               </div>
             )}
 

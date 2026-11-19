@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from './Select'
 import { tt, ttx } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import Icon from './Icon'
 
 export interface FillField {
@@ -33,6 +34,8 @@ export default function TmdbFillAdviceModal({
 }) {
   const [wanted, setWanted] = useState<Set<string>>(() => new Set([...missing, ...closed].map((f) => f.key)))
   const [mute, setMute] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, () => onDone(null))
   // Eksik alan için "şu var olan sütuna yaz" seçimi (boş = yeni sütun açılsın).
   const [columns, setColumns] = useState<Record<string, string>>({})
@@ -50,7 +53,7 @@ export default function TmdbFillAdviceModal({
   const skip = all.filter((f) => !wanted.has(f.key)).map((f) => f.key)
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={() => onDone(null)}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('TMDB\'den doldurmadan önce')} className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={() => onDone(null)}>
       <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div>
           <h2 className="text-lg font-semibold text-neutral-50">{tt('TMDB\'den doldurmadan önce')}</h2>

@@ -210,17 +210,26 @@ const rank = (list: number[], id: number) => {
 
 export function MyPlatformsPicker({ value, onChange, prefer }: { value: number[]; onChange: (ids: number[]) => void; prefer?: number[] }) {
   const [items, setItems] = useState<{ id: number; name: string; logo: string | null }[]>([])
+  // Yükleme durumu: yükleniyor / bitti / anahtar yok / hata — eskiden hata ya da boş listede "yükleniyor" sonsuza kadar kalıyordu
+  const [state, setState] = useState<'loading' | 'done' | 'nokey' | 'error'>('loading')
   useEffect(() => {
     let alive = true
     api
       .getPlatforms()
-      .then((d) => alive && setItems(d.items))
-      .catch(() => {})
+      .then((d) => {
+        if (!alive) return
+        setItems(d.items ?? [])
+        setState(d.needsApiKey ? 'nokey' : 'done')
+      })
+      .catch(() => alive && setState('error'))
     return () => {
       alive = false
     }
   }, [])
-  if (items.length === 0) return <p className="text-xs text-neutral-600">{tt('Platformlar yükleniyor...')}</p>
+  if (state === 'loading') return <p className="text-xs text-neutral-600">{tt('Platformlar yükleniyor...')}</p>
+  if (state === 'nokey') return <p className="text-xs text-amber-400">{tt('Platform listesi için Ayarlar → Veritabanı → API sekmesinden bir TMDB anahtarı girmelisin.')}</p>
+  if (state === 'error') return <p className="text-xs text-rose-400">{tt('Platform listesi alınamadı. İnternet bağlantını ve TMDB anahtarını kontrol edip sayfayı yeniden aç.')}</p>
+  if (items.length === 0) return <p className="text-xs text-neutral-500">{tt('Bu bölge için TMDB\'de abonelik platformu bulunamadı.')}</p>
   return (
     <div className="flex flex-wrap gap-1.5">
       {(prefer?.length ? [...items].sort((a, b) => rank(prefer, a.id) - rank(prefer, b.id)) : items).map((p) => {

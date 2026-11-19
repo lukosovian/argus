@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import RowEditorModal from '../components/RowEditorModal'
 import MobileBoardList from '../components/mobile/MobileBoardList'
 import { MOBILE } from '../lib/mobile/ui'
@@ -7,7 +7,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
-import { api, type TmdbChoice } from '../lib/api'
+import { api, bulkJobApi, type BulkJob, type TmdbChoice } from '../lib/api'
 import TmdbChoiceModal from '../components/TmdbChoiceModal'
 import {
   emptyRow,
@@ -19,6 +19,7 @@ import {
   type PropertyValue,
   type Row,
   type Board,
+  type SavedView,
 } from '../types'
 import MultiFilterEditor from '../components/MultiFilterEditor'
 import { decodeConditions, encodeConditions, rowMatchesConditions, type FilterCondition } from '../lib/filters'
@@ -33,6 +34,11 @@ import TmdbFillAdviceModal from '../components/TmdbFillAdviceModal'
 import HistoryModal from '../components/HistoryModal'
 import BulkUpdatePanel, { type BulkLogEntry, type BulkState } from '../components/BulkUpdatePanel'
 import { beginBusy } from '../lib/busy'
+import { useBulkJob } from '../components/table/useBulkJob'
+import { restoreDeletedRows, runBatched } from '../components/table/batch'
+import { downloadRowsCsv } from '../components/table/exportCsv'
+import SavedViews from '../components/table/SavedViews'
+import { isModalOpen, isPopoverOpen, isTypingTarget } from '../components/table/keys'
 import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
 import { useToast } from '../hooks/useToast'
@@ -499,7 +505,7 @@ function DensityIcon({ roomy }: { roomy: boolean }) {
   )
 }
 
-const SORTABLE_TYPES = new Set<PropertyType>(['text', 'longtext', 'url', 'number', 'date', 'multidate', 'select', 'rating', 'checkbox'])
+const SORTABLE_TYPES = new Set<PropertyType>(['text', 'longtext', 'url', 'number', 'date', 'multidate', 'select', 'multiselect', 'rating', 'checkbox'])
 
 // Farklı sütun tiplerini tek bir karşılaştırılabilir değere indirger — sıralama butonunun
 // "neye göre sıralayacağını seçeceğim" ihtiyacı için, tip bazlı tek bir yer.
@@ -516,9 +522,16 @@ function sortValue(row: Row, property: PropertyDef, lastEpisode?: string): strin
     if (lastEpisode) dates.push(lastEpisode)
     return dates.length > 0 ? dates.slice().sort().at(-1)! : ''
   }
-  if (property.type === 'select') {
-    const label = property.options?.find((o) => o.id === v)?.label
-    return label ? label.toLocaleLowerCase('tr') : ''
+  // Seçimlerde seçeneklerin sütundaki kendi sırası (ör. İzlenecek → İzleniyor → İzlendi), alfabetik değil.
+  // Çoklu seçimde kaydın en öndeki seçeneği sayılır. Seçeneği olmayan (boş) kayıt en sonda.
+  if (property.type === 'select' || property.type === 'multiselect') {
+    const ids = Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []
+    let best = Infinity
+    for (const id of ids) {
+      const i = property.options?.findIndex((o) => o.id === id) ?? -1
+      if (i >= 0 && i < best) best = i
+    }
+    return best === Infinity ? -Infinity : best
   }
   return typeof v === 'string' ? v.toLocaleLowerCase('tr') : ''
 }
@@ -553,10 +566,22 @@ function BoardNameInput({ name, onSave }: { name: string; onSave: (name: string)
 // BoardTable'ı hâlâ senkron olarak (memo'lanmamış bir bileşen olduğu için) tekrar çağırıyordu;
 // gerçek çözüm BoardView'ın kendisinin her tuş vuruşunda hiç re-render olmaması.
 // Tıklanmadan sadece bir büyüteç ikonu olarak durur — ana sayfadaki GlobalSearch ile aynı mantık.
-function TableSearchInput({ onSearch, initial = '' }: { onSearch: (value: string) => void; initial?: string }) {
+// `focusSignal` her arttığında kutu açılıp imleç içine konur ("/" kısayolu, v1.25).
+function TableSearchInput({ onSearch, initial = '', focusSignal = 0 }: { onSearch: (value: string) => void; initial?: string; focusSignal?: number }) {
   const [open, setOpen] = useState(Boolean(initial))
   const [draft, setDraft] = useState(initial)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [seenSignal, setSeenSignal] = useState(focusSignal)
+  if (focusSignal !== seenSignal) {
+    setSeenSignal(focusSignal)
+    if (!open) setOpen(true)
+  }
+  useEffect(() => {
+    if (!focusSignal) return
+    const id = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(id)
+  }, [focusSignal])
 
   function handleChange(value: string) {
     setDraft(value)
@@ -588,6 +613,7 @@ function TableSearchInput({ onSearch, initial = '' }: { onSearch: (value: string
   return (
     <div className="relative flex items-center">
       <input
+        ref={inputRef}
         autoFocus
         value={draft}
         onChange={(e) => handleChange(e.target.value)}
@@ -717,6 +743,86 @@ function SortPopover({
   )
 }
 
+// "…" menüsü (v1.25): CSV olarak dışa aktarma, bir Seçim sütununa göre gruplama ve alt özet satırı.
+function TableMorePopover({
+  exportCount,
+  exportSelected,
+  onExport,
+  groupOptions,
+  groupById,
+  onGroupBy,
+  showFooter,
+  onToggleFooter,
+}: {
+  exportCount: number
+  exportSelected: boolean
+  onExport: () => void
+  groupOptions: PropertyDef[]
+  groupById: string | null
+  onGroupBy: (propertyId: string | null) => void
+  showFooter: boolean
+  onToggleFooter: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  useEscape(open, () => setOpen(false))
+  const opt = (active: boolean) =>
+    `block w-full text-left text-xs rounded-lg px-2 py-1.5 transition ${active ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-300 hover:bg-neutral-800'}`
+  return (
+    <div className="relative">
+      <ToolbarIconButton onClick={() => setOpen((v) => !v)} title={tt('Diğer — CSV olarak indir, grupla, özet satırı')} active={Boolean(groupById)}>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+          <circle cx="5" cy="12" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="19" cy="12" r="1.8" />
+        </svg>
+      </ToolbarIconButton>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-11 z-40 w-64 bg-neutral-900 border border-neutral-800 rounded-xl p-2 shadow-lg space-y-2">
+            <button
+              onClick={() => {
+                setOpen(false)
+                onExport()
+              }}
+              className="w-full text-left rounded-lg px-2 py-2 hover:bg-neutral-800 transition"
+            >
+              <span className="block text-sm text-neutral-200">{tt('CSV olarak indir')}</span>
+              <span className="block text-[11px] text-neutral-500">
+                {exportSelected ? tt('Seçili {0} kayıt, görünen sütunlarla (Excel\'de açılır)', exportCount) : tt('Görünen {0} kayıt, görünen sütunlarla (Excel\'de açılır)', exportCount)}
+              </span>
+            </button>
+            <div className="border-t border-neutral-800 pt-2">
+              <p className="text-[11px] uppercase tracking-wide text-neutral-500 px-2 mb-1">{tt('Grupla')}</p>
+              {groupOptions.length === 0 ? (
+                <p className="text-[11px] text-neutral-500 px-2">{tt('Gruplamak için bir Seçim sütunu gerekiyor (ör. Durum, Kategori).')}</p>
+              ) : (
+                <div className="max-h-44 overflow-y-auto space-y-0.5">
+                  <button onClick={() => onGroupBy(null)} className={opt(!groupById)}>
+                    {tt('Gruplama yok')}
+                  </button>
+                  {groupOptions.map((p) => (
+                    <button key={p.id} onClick={() => onGroupBy(p.id)} className={opt(groupById === p.id)}>
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-neutral-800 pt-2 px-2">
+              <span>
+                <span className="block text-sm text-neutral-300">{tt('Alt özet satırı')}</span>
+                <span className="block text-[11px] text-neutral-500">{tt('Kayıt sayısı, ortalamalar, boş hücreler')}</span>
+              </span>
+              <ToggleSwitch checked={showFooter} onChange={onToggleFooter} label={tt('Alt özet satırı')} />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Yavaşlık şikayeti üzerine eklendi: özellikle görsel sütunları (Banner/Poster/KAPAK ADI) her
 // satırda birer <img> yüklüyor — kullanıcı istemediği sütunları burada kapatıp tabloyu daha
 // hafif tutabilir. Aynı ikon+panel deseninde (bkz. Filtre/Sırala), her sütun için bir onay
@@ -770,6 +876,13 @@ export default function BoardView() {
   const { boards, loading: boardsLoading } = useBoards()
   const { confirm, notify } = useToast()
   const boardTableRef = useRef<BoardTableHandle>(null)
+  // "Geri al" bildirimleri sonradan tıklanınca o anki (eski) kopya değil en güncel arşiv/kayıtlar kullanılsın
+  const boardRef = useRef(board)
+  const rowsRef = useRef(rows)
+  useEffect(() => {
+    boardRef.current = board
+    rowsRef.current = rows
+  })
   // Dizilerde bölümlere girilmiş en son izleme tarihi — İzleme Tarihi sütunu dizide bunu gösterir ve
   // ona göre sıralanır (bkz. BoardTable › lastEpisodeDates). Detayda bölüm işaretlenince yenilenir.
   const [lastEpisodeDates, setLastEpisodeDates] = useState<Map<string, string>>(new Map())
@@ -793,7 +906,10 @@ export default function BoardView() {
         })
         .catch(() => {})
     load()
-    const off = onDataChanged(() => load())
+    // Sadece bölüm tarihleri (ya da bilinmeyen bir şey) değişince — her kayıt değişikliğinde değil
+    const off = onDataChanged((_b, kind) => {
+      if (kind === 'watched' || kind === 'all') load()
+    })
     return () => {
       alive = false
       off()
@@ -911,6 +1027,74 @@ export default function BoardView() {
       return next
     })
   }
+  function setHiddenColumns(next: Set<string>) {
+    setHiddenColumnIds(next)
+    try {
+      if (hiddenColumnsKey) localStorage.setItem(hiddenColumnsKey, JSON.stringify([...next]))
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
+
+  // Gruplama (v1.25): hangi Seçim sütununa göre gruplandığı arşiv başına bu tarayıcıda saklanır.
+  const groupKeyName = id ? `argus_table_group_${id}` : null
+  const [groupById, setGroupById] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      setGroupById(groupKeyName ? localStorage.getItem(groupKeyName) : null)
+    } catch {
+      setGroupById(null)
+    }
+  }, [groupKeyName])
+  function changeGroupBy(propertyId: string | null) {
+    setGroupById(propertyId)
+    try {
+      if (groupKeyName) {
+        if (propertyId) localStorage.setItem(groupKeyName, propertyId)
+        else localStorage.removeItem(groupKeyName)
+      }
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
+
+  // Tablonun altındaki özet satırı (v1.25) — varsayılan açık, kapatılırsa bu tarayıcıda hatırlanır.
+  const FOOTER_KEY = 'argus_table_footer_hidden'
+  const [showFooter, setShowFooter] = useState(() => {
+    try {
+      return localStorage.getItem(FOOTER_KEY) !== '1'
+    } catch {
+      return true
+    }
+  })
+  function toggleFooter() {
+    const next = !showFooter
+    setShowFooter(next)
+    try {
+      if (next) localStorage.removeItem(FOOTER_KEY)
+      else localStorage.setItem(FOOTER_KEY, '1')
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
+
+  // "/" tabloda aramayı açar (üstteki genel aramanın yerine — sadece arşiv sayfasında), "N" yeni kayıt ekler.
+  // Yakalama aşamasında dinleniyor ki genel aramanın "/" dinleyicisine hiç ulaşmasın.
+  const [searchFocus, setSearchFocus] = useState(0)
+  useEffect(() => {
+    if (MOBILE) return
+    function onKey(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key !== '/' && e.key.toLocaleLowerCase('tr') !== 'n') return
+      if (isTypingTarget(e.target) || isModalOpen() || isPopoverOpen() || document.querySelector('[data-table-busy="1"]')) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === '/') setSearchFocus((n) => n + 1)
+      else void createRowRef.current?.()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
 
   // Genel Güncelleme öncesi bilgilendirme penceresi (bkz. TmdbFillAdviceModal). "Bir daha sorma"
   // arşiv başına hatırlanıyor.
@@ -1004,44 +1188,81 @@ export default function BoardView() {
   // Tek seferde tüm satırları paralel çağırmak yerine sırayla gidiyor (TMDB'yi yormamak için,
   // Python scriptlerindeki `time.sleep` mantığıyla aynı sebep) — bu yüzden uzun sürebilir,
   // istediği an durdurabilsin diye bulkCancelRef ile iptal edilebiliyor.
-  const [bulkUpdating, setBulkUpdating] = useState(false)
   // Tabloda seçili satırlar (BoardTable bildiriyor) — Genel Güncelleme menüsündeki "Seçili kayıtlar" için.
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([])
   // Arşiv geçmişi penceresi (row verilirse sadece o kaydın geçmişi).
   const [historyFor, setHistoryFor] = useState<{ row: Row | null } | null>(null)
-  const bulkCancelRef = useRef(false)
-  // Ayrıntı kutusu (bkz. BulkUpdatePanel) ve "kaldığı yerden devam": kalan kayıtlar arşiv başına
-  // tarayıcıda saklanıyor — durdurunca, sayfa yenilenince ya da ARGUS kapanıp açılınca da devam edilebilsin.
-  const [bulk, setBulk] = useState<BulkState | null>(null)
-  const bulkResumeKey = id ? `argus_bulk_resume_${id}` : null
-  type BulkSaved = { ids: string[]; done: number; total: number; updated: number; failed: number; exclude: string[]; overwrite: boolean; label?: string }
-  function readBulkSaved(): BulkSaved | null {
+  // Genel Güncelleme v1.25'ten beri sunucuda bir iş (bkz. components/table/useBulkJob.ts): sayfadan çıkılsa,
+  // pencere kapanıp açılsa da sürer; burası sadece ilerlemesini gösterir, başlatır ve durdurur. Eskiden döngü bu
+  // sayfadaydı: arşiv değişince ya da sayfadan çıkınca da durmuyor, "Devam et"e basınca iki kopya birden çalışabiliyordu.
+  const onJobFinished = useCallback(
+    (j: BulkJob) => {
+      const stopped = j.state === 'cancelled'
+      const left = j.total - j.done
+      notify(
+        tt('{0}{1} kayıt güncellendi{2}{3}', stopped ? tt('Durduruldu — ') : tt('Tamamlandı — '), j.updated, j.failed > 0 ? tt(', {0} kayıtta eşleşme bulunamadı/hata oluştu', j.failed) : '', stopped && left > 0 ? tt('. Kalan {0} kayda "Devam et" ile kaldığın yerden devam edebilirsin.', left) : '.'),
+      )
+    },
+    [notify],
+  )
+  const { job, refresh: refreshJob, track: trackJob } = useBulkJob(onJobFinished)
+  // Sütun tipi değişince / geri alınınca kayıtlar yazılırken araç çubuğundaki ilerleme
+  const [columnWork, setColumnWork] = useState<{ label: string; done: number; total: number } | null>(null)
+  const bulkUpdating = job?.state === 'running'
+  // Durdurulan işe "Devam et" diyebilmek için başlatılan işin kayıt listesi bu tarayıcıda saklanır.
+  const JOB_REQ_KEY = 'argus_bulk_job_req'
+  const JOB_DISMISS_KEY = 'argus_bulk_job_dismissed'
+  type JobReq = { jobId: string; boardId: string; rowIds: string[]; exclude: string[]; overwrite: boolean; label?: string }
+  function readJobReq(): JobReq | null {
     try {
-      const raw = bulkResumeKey ? localStorage.getItem(bulkResumeKey) : null
-      return raw ? (JSON.parse(raw) as BulkSaved) : null
+      const raw = localStorage.getItem(JOB_REQ_KEY)
+      return raw ? (JSON.parse(raw) as JobReq) : null
     } catch {
       return null
     }
   }
-  function writeBulkSaved(v: BulkSaved | null) {
+  const [dismissedJobId, setDismissedJobId] = useState<string | null>(() => {
     try {
-      if (!bulkResumeKey) return
-      if (v && v.ids.length > 0) localStorage.setItem(bulkResumeKey, JSON.stringify(v))
-      else localStorage.removeItem(bulkResumeKey)
+      return localStorage.getItem(JOB_DISMISS_KEY)
     } catch {
-      // saklanamazsa sadece bu oturumda devam edilebilir
+      return null
     }
-  }
-  // Arşiv açılınca yarım kalmış bir güncelleme varsa kutu "durduruldu" haliyle görünsün.
+  })
+  // Eski (v1.25 öncesi) tarayıcıda kalan "kaldığı yerden devam" kaydı artık kullanılmıyor
   useEffect(() => {
-    const saved = readBulkSaved()
-    setBulk(
-      saved
-        ? { running: false, done: saved.done, total: saved.total, updated: saved.updated, failed: saved.failed, current: null, startedAt: Date.now(), sessionDone: 0, log: [], label: saved.label }
-        : null,
-    )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bulkResumeKey])
+    try {
+      if (id) localStorage.removeItem(`argus_bulk_resume_${id}`)
+    } catch {
+      // önemsiz
+    }
+  }, [id])
+  // Kutu: süren iş her arşivde görünür (aynı anda tek iş olabildiği için), biten/durdurulan iş sadece kendi arşivinde
+  const showJob = Boolean(job && job.id !== dismissedJobId && (job.state === 'running' || job.boardId === id))
+  const jobReq = job ? readJobReq() : null
+  const canResumeJob = Boolean(job && jobReq && jobReq.jobId === job.id && job.state === 'cancelled' && job.done < job.total)
+  const bulk: BulkState | null =
+    showJob && job
+      ? {
+          running: job.state === 'running',
+          done: job.done,
+          total: job.total,
+          updated: job.updated,
+          failed: job.failed,
+          current: job.current,
+          startedAt: job.startedAt,
+          sessionDone: job.done,
+          label: job.label || undefined,
+          log: job.log.slice(0, 30).map((l): BulkLogEntry => {
+            if (!l.ok) return { title: l.title, kind: 'fail', text: (l.error ?? tt('Hata oluştu')).split(' — ')[0] }
+            const bits = [...(l.filled ?? [])]
+            if (l.newEpisodes) bits.push(tt('{0} yeni bölüm', l.newEpisodes))
+            if (l.newActors) bits.push(tt('{0} yeni oyuncu', l.newActors))
+            return bits.length > 0
+              ? { title: l.title, kind: 'ok', text: tt('eklendi: {0}', bits.join(', ')) }
+              : { title: l.title, kind: 'same', text: tt('TMDB\'de bulundu, eklenecek yeni bilgi yoktu') }
+          }),
+        }
+      : null
 
   // Filtre URL'de tutuluyor (?filterProp=&filterOption=) — böylece başka bir yerden (ör.
   // detay penceresindeki bir oyuncu rozetine tıklayınca) doğrudan bu arşive, o değere göre
@@ -1462,7 +1683,7 @@ export default function BoardView() {
   // Sütun tipi değişince kayıtlardaki değerler de yeni tipe çevrilir — eskiden olduğu gibi kalıyordu; yeni kullanıcı
   // denemesinde Metin'deki "March 12, 2023" tarihleri Tarih tipine geçince hepsi boş görünmüştü. Çevrilemeyen değer
   // (ör. tarihe benzemeyen bir yazı) olduğu gibi bırakılır, tip geri alınınca yine görünür.
-  function changePropertyType(propertyId: string, type: PropertyType) {
+  async function changePropertyType(propertyId: string, type: PropertyType) {
     if (!board) return
     const old = board.properties.find((p) => p.id === propertyId)
     if (!old || old.type === type) return
@@ -1528,14 +1749,72 @@ export default function BoardView() {
           return undefined
       }
     }
-    let changed = 0
+    const updates: { row: Row; prev: PropertyValue; next: PropertyValue }[] = []
     for (const r of rows) {
       const nv = convert(r.values[propertyId])
       if (nv === undefined || JSON.stringify(nv) === JSON.stringify(r.values[propertyId])) continue
-      changed++
-      saveRow({ values: { ...r.values, [propertyId]: nv }, createdAt: r.createdAt, updatedAt: r.updatedAt }, r.id)
+      updates.push({ row: r, prev: r.values[propertyId], next: nv })
     }
-    if (changed) notify(tt('{0} kaydın "{1}" değeri yeni tipe ({2}) çevrildi.', changed, old.name, PROPERTY_TYPE_LABELS[type]))
+    if (updates.length === 0) return
+    // Eskiden her kayıt için ayrı ayrı (~900 istek aynı anda) gönderiliyordu, hatalar sessizce yutuluyordu. Artık
+    // aynı anda en çok 8 istek, sonda tek bir yenileme; çevrilemeyenler varsa söylenir.
+    const failed = await putValues(
+      board.id,
+      updates.map((u) => ({ row: u.row, value: u.next })),
+      propertyId,
+      tt('"{0}" yeni tipe çevriliyor', old.name),
+    )
+    const ok = updates.length - failed
+    if (failed > 0) notify(tt('{0} kaydın "{1}" değeri yeni tipe çevrilemedi (sunucuya kaydedilemedi). Tekrar denemek için tipi değiştirip geri alabilirsin.', failed, old.name), 'danger')
+    if (ok > 0)
+      notify(tt('{0} kaydın "{1}" değeri yeni tipe ({2}) çevrildi.', ok, old.name, PROPERTY_TYPE_LABELS[type]), 'info', {
+        action: { label: tt('Geri al'), onClick: () => undoTypeChange(old, updates.map((u) => ({ rowId: u.row.id, value: u.prev }))) },
+      })
+  }
+
+  // Bir sütunun değerlerini birçok kayıtta yazar (sırayla, aynı anda en çok 8), sonda kayıtları bir kez yeniler.
+  // Sürerken araç çubuğunda ilerleme görünür. Yazılamayanların sayısını döner.
+  async function putValues(boardId: string, items: { row: Row; value: PropertyValue }[], propertyId: string, label: string) {
+    const endBusy = beginBusy()
+    setColumnWork({ label, done: 0, total: items.length })
+    try {
+      return await runBatched(
+        items,
+        ({ row, value }) =>
+          api.updateRow(boardId, row.id, { values: { ...row.values, [propertyId]: value ?? null }, createdAt: row.createdAt, updatedAt: Date.now() }, [propertyId]),
+        {
+          onProgress: (done, total) => {
+            if (done === total || done % 20 === 0) setColumnWork({ label, done, total })
+          },
+        },
+      )
+    } finally {
+      setColumnWork(null)
+      endBusy()
+      await reloadRows().catch(() => {})
+    }
+  }
+
+  // Sütun tipi değişikliğini geri al: sütunun eski tanımı (tip, seçenekler…) ve çevrilen kayıtların eski değerleri.
+  async function undoTypeChange(oldProp: PropertyDef, values: { rowId: string; value: PropertyValue }[]) {
+    const b = boardRef.current
+    if (!b) return
+    try {
+      await saveBoard({ properties: b.properties.map((p) => (p.id === oldProp.id ? oldProp : p)) })
+    } catch {
+      notify(tt('Sütunun eski tipi geri getirilemedi.'), 'danger')
+      return
+    }
+    const byId = new Map(rowsRef.current.map((r) => [r.id, r]))
+    const items = values.flatMap(({ rowId, value }) => {
+      const row = byId.get(rowId)
+      return row ? [{ row, value }] : []
+    })
+    const failed = await putValues(b.id, items, oldProp.id, tt('"{0}" geri alınıyor', oldProp.name))
+    notify(
+      failed > 0 ? tt('"{0}" eski tipine döndü ama {1} kaydın değeri geri yazılamadı.', oldProp.name, failed) : tt('"{0}" eski tipine döndü.', oldProp.name),
+      failed > 0 ? 'danger' : 'success',
+    )
   }
 
   function addOptionToProperty(propertyId: string, label: string): string {
@@ -1752,19 +2031,49 @@ export default function BoardView() {
     return insertRowAfter(rowId, JSON.parse(JSON.stringify(row.values)))
   }
 
+  // Silinen kayıtlar Geçmiş'te tutuluyor — onay mesajı bunu söylüyor, silince de "Geri al"lı bildirim çıkıyor.
   async function deleteRowDirect(rowId: string) {
-    const ok = await confirm({ message: tt('Bu kaydı silmek istediğine emin misin?'), confirmLabel: tt('Sil') })
+    const ok = await confirm({ message: tt('Bu kayıt silinsin mi? Yanlışlıkla silersen Geçmiş\'ten geri getirebilirsin.'), confirmLabel: tt('Sil'), tone: 'danger' })
     if (!ok) return
-    await removeRow(rowId)
+    try {
+      await removeRow(rowId)
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Silinemedi.'), 'danger')
+      return
+    }
+    notifyDeleted([rowId])
+  }
+
+  function notifyDeleted(ids: string[]) {
+    if (!board || ids.length === 0) return
+    const boardId = board.id
+    notify(ids.length === 1 ? tt('Kayıt silindi.') : tt('{0} kayıt silindi.', ids.length), 'info', {
+      action: {
+        label: tt('Geri al'),
+        onClick: async () => {
+          const failed = await restoreDeletedRows(boardId, ids)
+          await reloadRows().catch(() => {})
+          if (failed > 0) notify(tt('{0} kayıt geri getirilemedi — Geçmiş\'ten deneyebilirsin.', failed), 'danger')
+          else notify(ids.length === 1 ? tt('Kayıt geri getirildi.') : tt('{0} kayıt geri getirildi.', ids.length), 'success')
+        },
+      },
+    })
   }
 
   // Toplu silme (tablo başlığındaki "tümünü seç" ya da tek tek işaretlenen satırlar) —
   // onayı BoardTable'ın kendi toplu-işlem çubuğu zaten soruyor, burada tekrar sormuyoruz
   // (aksi halde N kayıt için N kere "emin misin" sorardı).
   async function bulkDeleteRows(rowIds: string[]) {
-    for (const id of rowIds) {
-      await removeRow(id)
+    const deleted: string[] = []
+    try {
+      for (const id of rowIds) {
+        await removeRow(id)
+        deleted.push(id)
+      }
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Bazı kayıtlar silinemedi.'), 'danger')
     }
+    notifyDeleted(deleted)
   }
 
   // Tablo satırındaki 🔄 butonu — sadece başlığa bakıp TMDB'den film/dizi bilgilerini
@@ -1804,7 +2113,11 @@ export default function BoardView() {
   // sadece dizilerin sezon/bölüm listesi yenilenir (başka hiçbir alana dokunulmaz); `scope` hangi kayıtlar —
   // bütün arşiv, şu an görünenler (filtre/arama) ya da tabloda seçilenler (`ids`).
   async function handleBulkUpdate({ mode = 'fill', scope = 'all', ids }: { mode?: BulkMode; scope?: BulkScope; ids?: string[] } = {}) {
-    if (!board || bulkUpdating) return
+    if (!board) return
+    if (bulkUpdating) {
+      notify(tt('Bir Genel Güncelleme zaten sürüyor — bitmesini bekle ya da durdur.'), 'danger')
+      return
+    }
     const pool = scope === 'selected' && ids ? rows.filter((r) => ids.includes(r.id)) : scope === 'visible' ? filteredRows : rows
     if (mode === 'bolum') {
       await startEpisodeRefresh(pool, scope)
@@ -1886,12 +2199,8 @@ export default function BoardView() {
     )
       return
 
-    await runBulk({
-      ids: targets.map((r) => r.id),
-      done: 0,
-      total: targets.length,
-      updated: 0,
-      failed: 0,
+    await startBulkJob(board.id, {
+      rowIds: targets.map((r) => r.id),
       exclude: [...exclude],
       overwrite: tmdbOverwriteExisting,
     })
@@ -1929,12 +2238,8 @@ export default function BoardView() {
       }))
     )
       return
-    await runBulk({
-      ids: targets.map((r) => r.id),
-      done: 0,
-      total: targets.length,
-      updated: 0,
-      failed: 0,
+    await startBulkJob(board.id, {
+      rowIds: targets.map((r) => r.id),
       exclude: FETCHABLE_FIELDS.map((f) => f.key).filter((k) => k !== 'sezonlar'),
       overwrite: false,
       label: tt('Bölüm yenileme'),
@@ -1946,101 +2251,84 @@ export default function BoardView() {
     return (tp ? titleText(tp, row.values[tp.id]) : '') || tt('İsimsiz')
   }
 
-  async function runBulk(start: BulkSaved) {
-    if (!board) return
-    setBulkUpdating(true)
-    const endBusy = beginBusy()
-    bulkCancelRef.current = false
-    const state = { ...start, ids: [...start.ids] }
-    const log: BulkLogEntry[] = []
-    const startedAt = Date.now()
-    let sessionDone = 0
-    const push = (current: string | null) =>
-      setBulk({
-        running: true,
-        done: state.done,
-        total: state.total,
-        updated: state.updated,
-        failed: state.failed,
-        current,
-        startedAt,
-        sessionDone,
-        log: [...log],
-        label: state.label,
-      })
-    writeBulkSaved(state)
-    push(null)
-
-    let sinceReload = 0
-    while (state.ids.length > 0) {
-      if (bulkCancelRef.current) break
-      const rowId = state.ids[0]
-      const row = rows.find((r) => r.id === rowId)
-      if (!row) {
-        // Bu arada silinmiş kayıt: atla.
-        state.ids.shift()
-        state.done++
-        writeBulkSaved(state)
-        continue
-      }
-      const title = rowTitleOf(row)
-      push(title)
+  // Sunucuda yeni bir Genel Güncelleme işi başlatır (bkz. useBulkJob). Başka bir iş sürüyorsa sunucu reddeder (409).
+  async function startBulkJob(boardId: string, req: { rowIds: string[]; exclude: string[]; overwrite: boolean; label?: string }) {
+    try {
+      const { job: started } = await bulkJobApi.start(boardId, req)
       try {
-        const res = await api.fetchTmdb(board.id, rowId, state.exclude, state.overwrite)
-        state.updated++
-        const bits = [...res.filled]
-        if (res.newEpisodes > 0) bits.push(tt('{0} yeni bölüm', res.newEpisodes))
-        if (res.newActors > 0) bits.push(tt('{0} yeni oyuncu', res.newActors))
-        log.unshift(
-          bits.length > 0
-            ? { title, kind: 'ok', text: tt('{0} · eklendi: {1}', res.mediaType === 'tv' ? tt('Dizi') : tt('Film'), bits.join(', ')) }
-            : { title, kind: 'same', text: tt('TMDB\'de bulundu, eklenecek yeni bilgi yoktu') },
-        )
-      } catch (e) {
-        state.failed++
-        log.unshift({ title, kind: 'fail', text: e instanceof Error ? e.message.split(' — ')[0] : tt('Hata oluştu') })
+        localStorage.setItem(JOB_REQ_KEY, JSON.stringify({ ...req, jobId: started.id, boardId } satisfies JobReq))
+      } catch {
+        // saklanamazsa sadece "Devam et" olmaz
       }
-      if (log.length > 30) log.length = 30
-      state.ids.shift()
-      state.done++
-      sessionDone++
-      writeBulkSaved(state)
-      if (++sinceReload >= 15) {
-        sinceReload = 0
-        await Promise.all([reloadBoard(), reloadRows()])
-      }
+      trackJob(started)
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Genel Güncelleme başlatılamadı.'), 'danger')
     }
-
-    await Promise.all([reloadBoard(), reloadRows()])
-    const stoppedEarly = state.ids.length > 0
-    setBulkUpdating(false)
-    endBusy()
-    setBulk({
-      running: false,
-      done: state.done,
-      total: state.total,
-      updated: state.updated,
-      failed: state.failed,
-      current: null,
-      startedAt,
-      sessionDone,
-      log: [...log],
-      label: state.label,
-    })
-    notify(
-      tt('{0}{1} kayıt güncellendi{2}{3}', stoppedEarly ? tt('Durduruldu — ') : tt('Tamamlandı — '), state.updated, state.failed > 0 ? tt(', {0} kayıtta eşleşme bulunamadı/hata oluştu', state.failed) : '', stoppedEarly ? tt('. Kalan {0} kayda "Devam et" ile kaldığın yerden devam edebilirsin.', state.ids.length) : '.'),
-    )
   }
 
+  function stopBulk() {
+    bulkJobApi
+      .cancel()
+      .then(refreshJob)
+      .catch((e) => notify(e instanceof Error ? e.message : tt('Durdurulamadı.'), 'danger'))
+  }
+
+  // Durdurulan işin kalan kayıtlarıyla yeni bir iş — sunucu kayıtları verilen sırayla işlediği için ilk `done` tanesi bitmiş.
   function resumeBulk() {
-    const saved = readBulkSaved()
-    if (!saved || bulkUpdating) return
-    runBulk(saved)
+    const req = readJobReq()
+    if (!job || !req || req.jobId !== job.id || bulkUpdating) return
+    const rest = req.rowIds.slice(job.done)
+    if (rest.length === 0) return
+    void startBulkJob(req.boardId, { rowIds: rest, exclude: req.exclude, overwrite: req.overwrite, label: req.label })
   }
 
   function discardBulk() {
-    writeBulkSaved(null)
-    setBulk(null)
+    if (!job) return
+    setDismissedJobId(job.id)
+    try {
+      localStorage.setItem(JOB_DISMISS_KEY, job.id)
+    } catch {
+      // önemsiz
+    }
+  }
+
+  // ---- Kayıtlı görünümler (v1.25, bkz. components/table/SavedViews.tsx) ----
+  const views = board.views ?? []
+  const viewSig = (filtre: string, sortP: string | null, sortD: 'asc' | 'desc', hidden: string[], group: string | null) =>
+    JSON.stringify([filtre, sortP, sortP ? sortD : 'asc', [...hidden].sort(), group])
+  const currentSig = viewSig(encodeConditions(tableConditions), sortPropertyId, sortDirection, [...hiddenColumnIds], groupById)
+  const activeViewId =
+    views.find((v) => viewSig(v.filtre ?? '', v.sortPropertyId ?? null, v.sortDirection ?? 'asc', v.hiddenColumnIds ?? [], v.groupByPropertyId ?? null) === currentSig)?.id ?? null
+  function currentViewFields(): Omit<SavedView, 'id' | 'name'> {
+    return {
+      filtre: encodeConditions(tableConditions),
+      sortPropertyId,
+      sortDirection,
+      hiddenColumnIds: [...hiddenColumnIds],
+      groupByPropertyId: groupById,
+    }
+  }
+  function applyView(v: SavedView) {
+    setTableConditions(decodeConditions(v.filtre || null))
+    changeSort(v.sortPropertyId ?? null, v.sortDirection ?? 'asc')
+    setHiddenColumns(new Set(v.hiddenColumnIds ?? []))
+    changeGroupBy(v.groupByPropertyId ?? null)
+  }
+  function saveViews(next: SavedView[]) {
+    saveBoard({ views: next }).catch(() => notify(tt('Görünüm kaydedilemedi — ARGUS sunucusu açık mı?'), 'danger'))
+  }
+
+  // CSV: seçili kayıtlar varsa onlar, yoksa görünen (filtrelenmiş) kayıtlar; görünen sütunlar tablodaki sırayla.
+  function exportCsv() {
+    if (!board) return
+    const selected = new Set(selectedRowIds)
+    const list = selected.size > 0 ? filteredRows.filter((r) => selected.has(r.id)) : filteredRows
+    const cols = [
+      ...board.properties.filter((p) => p.id === board.titlePropertyId),
+      ...board.properties.filter((p) => p.id !== board.titlePropertyId && !hiddenColumnIds.has(p.id)),
+    ]
+    downloadRowsCsv(board, list, cols)
+    notify(tt('{0} kayıt CSV olarak indirildi.', list.length), 'success')
   }
 
   // Araç çubuğu — sayfa aşağı kaydırılıp çubuk üst menünün altında kalınca menünün ortasına taşınır (kullanıcı
@@ -2049,7 +2337,7 @@ export default function BoardView() {
   // ya da sağdaki düğmelere değecekse gösterilmez.
   const toolbarItems = (
     <>
-      <TableSearchInput onSearch={setSearch} initial={search} />
+      <TableSearchInput onSearch={setSearch} initial={search} focusSignal={searchFocus} />
       <FilterPopover board={board} conditions={tableConditions} onChange={setTableConditions} />
       <SortPopover
         sortableProps={sortableProps}
@@ -2069,7 +2357,23 @@ export default function BoardView() {
       >
         <DensityIcon roomy={density === 'rahat'} />
       </ToolbarIconButton>
+      <TableMorePopover
+        exportCount={selectedRowIds.length > 0 ? selectedRowIds.length : filteredRows.length}
+        exportSelected={selectedRowIds.length > 0}
+        onExport={exportCsv}
+        groupOptions={board.properties.filter((p) => p.type === 'select')}
+        groupById={groupById}
+        onGroupBy={changeGroupBy}
+        showFooter={showFooter}
+        onToggleFooter={toggleFooter}
+      />
       <ToolbarDivider />
+      {columnWork && (
+        <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5" title={columnWork.label}>
+          <BulkRefreshIcon spinning />
+          {columnWork.done}/{columnWork.total}
+        </div>
+      )}
       <TmdbFieldsPopover
         excludedKeys={tmdbExclude}
         onToggle={toggleTmdbField}
@@ -2083,11 +2387,11 @@ export default function BoardView() {
         <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5">
           <BulkRefreshIcon spinning />
           {bulk ? `${bulk.done}/${bulk.total}` : tt('Güncelleniyor...')}
-          <button onClick={() => (bulkCancelRef.current = true)} className="text-rose-400 hover:underline">
+          <button onClick={stopBulk} className="text-rose-400 hover:underline">
             {tt('Durdur')}
           </button>
         </div>
-      ) : bulk && bulk.done < bulk.total ? (
+      ) : bulk && canResumeJob ? (
         <ToolbarIconButton onClick={resumeBulk} title={tt('Devam et — {0}: kalan {1} kayıt', bulk.label ?? tt('Genel Güncelleme'), bulk.total - bulk.done)} active>
           <BulkRefreshIcon />
         </ToolbarIconButton>
@@ -2202,7 +2506,7 @@ export default function BoardView() {
         )}
 
       {bulk && (
-        <BulkUpdatePanel state={bulk} onStop={() => (bulkCancelRef.current = true)} onResume={resumeBulk} onDiscard={discardBulk} />
+        <BulkUpdatePanel state={bulk} onStop={stopBulk} onResume={resumeBulk} onDiscard={discardBulk} canResume={canResumeJob} />
       )}
 
       {statusProp && statusSummary.length > 0 && (
@@ -2231,6 +2535,45 @@ export default function BoardView() {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* Kayıtlı görünümler ve (filtre/arama açıkken) "X kayıttan Y" + "Filtreyi temizle" — tablonun ALTINDA değil
+          üstünde, 900 satırlık bir tabloda en alta inmeden görülsün (v1.25). */}
+      {!rowsLoading && (!MOBILE || filteredRows.length !== rows.length) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
+          {!MOBILE && (
+            <div className="min-w-0 flex-1">
+              <SavedViews
+                views={views}
+                activeId={activeViewId}
+                onApply={applyView}
+                onSave={(name) => {
+                  saveViews([...views, { id: makeId(), name, ...currentViewFields() }])
+                  notify(tt('"{0}" görünümü kaydedildi.', name), 'success')
+                }}
+                onRename={(vid, name) => saveViews(views.map((v) => (v.id === vid ? { ...v, name } : v)))}
+                onOverwrite={(vid) => {
+                  saveViews(views.map((v) => (v.id === vid ? { ...v, ...currentViewFields() } : v)))
+                  notify(tt('Görünüm şu anki halle güncellendi.'), 'success')
+                }}
+                onDelete={(vid) => saveViews(views.filter((v) => v.id !== vid))}
+              />
+            </div>
+          )}
+          {filteredRows.length !== rows.length && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 ml-auto">
+              <span>
+                {ttx('{0} kayıttan {1} tanesi gösteriliyor', rows.length, <span className="text-neutral-200 font-medium">{filteredRows.length}</span>)}
+              </span>
+              {tableConditions.length > 0 && (
+                <button onClick={() => setTableConditions([])} className="text-[#00c0fa] hover:underline">
+                  {tt('Filtreyi temizle')}
+                </button>
+              )}
+              {search && <span className="text-neutral-600">{tt('(arama açık)')}</span>}
+            </div>
+          )}
         </div>
       )}
 
@@ -2279,6 +2622,9 @@ export default function BoardView() {
           duplicateRowIds={duplicateRowIds}
           onMoveRow={moveRow}
           lastEpisodeDates={lastEpisodeDates}
+          groupByProp={board.properties.find((p) => p.id === groupById && p.type === 'select') ?? null}
+          showFooter={showFooter}
+          onHideFooter={toggleFooter}
         />
       )}
       {!rowsLoading && !MOBILE && (
@@ -2302,19 +2648,6 @@ export default function BoardView() {
         />
       )}
 
-      {!rowsLoading && filteredRows.length !== rows.length && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-sm text-neutral-500">
-          <span>
-            {ttx('{0} kayıttan {1} tanesi gösteriliyor', rows.length, <span className="text-neutral-200 font-medium">{filteredRows.length}</span>)}
-          </span>
-          {tableConditions.length > 0 && (
-            <button onClick={() => setTableConditions([])} className="text-[#00c0fa] hover:underline">
-              {tt('Filtreyi temizle')}
-            </button>
-          )}
-          {search && <span className="text-neutral-600">{tt('(arama açık — büyüteçteki kutuyu boşaltınca hepsi gelir)')}</span>}
-        </div>
-      )}
 
       {detailRow && (
         <RowDetailModal
@@ -2356,10 +2689,11 @@ export default function BoardView() {
             editRow === 'new'
               ? undefined
               : async () => {
-                  if (!(await confirm({ message: tt('Bu kayıt silinsin mi?'), confirmLabel: tt('Sil'), tone: 'danger' }))) return
+                  if (!(await confirm({ message: tt('Bu kayıt silinsin mi? Yanlışlıkla silersen Geçmiş\'ten geri getirebilirsin.'), confirmLabel: tt('Sil'), tone: 'danger' }))) return
                   await removeRow(editRow.id)
                   setEditRow(null)
                   setDetailRow(null)
+                  notifyDeleted([editRow.id])
                 }
           }
         />

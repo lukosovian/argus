@@ -1,9 +1,13 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import type { OdulReward, OdulTier } from '../lib/api'
+import { api, type KoleksiyonInfo, type OdulReward, type OdulTier } from '../lib/api'
 import { CATALOG, RARITY_COLORS, RARITY_NAMES, TIERS, rollPack, tierOf, useOduller, type ItemKind } from '../lib/oduller'
 import { useToast } from '../hooks/useToast'
+import { PackConflict } from '../lib/useProfileStore'
+import { shuffle } from '../lib/games'
+import { shelvesFrom, useSetBonuses } from '../lib/odulSetler'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt } from '../lib/i18n'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import PackOpening from '../components/odul/PackOpening'
@@ -35,10 +39,16 @@ function MiniPack({ tier, size = 64 }: { tier: OdulTier; size?: number }) {
 function CardZoom({ reward, backKey, no, onClose }: { reward: OdulReward; backKey?: string; no?: number; onClose: () => void }) {
   useEscape(true, onClose)
   const ref = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   const [flip, setFlip] = useState(false)
   const w = Math.min(320, window.innerWidth - 64, (window.innerHeight - 120) / 1.48)
   return createPortal(
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={tt('Çevirmek için karta tıkla')}
       className="oc-zoom"
       onClick={onClose}
       onPointerMove={(e) => {
@@ -53,7 +63,20 @@ function CardZoom({ reward, backKey, no, onClose }: { reward: OdulReward; backKe
       }}
     >
       <div className="flex flex-col items-center gap-4" onClick={(e) => e.stopPropagation()} style={{ perspective: 1200 }}>
-        <div ref={ref} className="oc-tilt relative" onClick={() => setFlip((f) => !f)}>
+        <div
+          ref={ref}
+          className="oc-tilt relative"
+          onClick={() => setFlip((f) => !f)}
+          role="button"
+          tabIndex={0}
+          aria-label={tt('Çevirmek için karta tıkla')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setFlip((f) => !f)
+            }
+          }}
+        >
           <RewardCard reward={reward} w={w} backKey={backKey} shown={!flip} no={no}>
             <div className="oc-glare" />
           </RewardCard>
@@ -66,7 +89,7 @@ function CardZoom({ reward, backKey, no, onClose }: { reward: OdulReward; backKe
 }
 
 export default function Oduller() {
-  const { data, stats, available, pool, act, ready } = useOduller(true)
+  const { data, stats, available, pool, act, openPack, reload, ready, board, rows, setStore } = useOduller(true)
   const { notify } = useToast()
   const RN = RARITY_NAMES()
   const [opening, setOpening] = useState<{ id: string; tier: OdulTier; rewards: OdulReward[]; badges: ({ text: string; dup?: boolean } | null)[]; posters: string[] } | null>(null)
@@ -88,6 +111,24 @@ export default function Oduller() {
       .forEach(([id], i) => m.set(id, i + 1))
     return m
   }, [data])
+  // Seri seti (v1.25): yeni açılan kartlar bir rafı tamamladıysa bonus paket burada da hemen yazılsın
+  const [kol, setKol] = useState<KoleksiyonInfo | null>(null)
+  const boardId = board?.id
+  useEffect(() => {
+    if (!boardId) return
+    let alive = true
+    api
+      .getKoleksiyon(boardId)
+      .then((d) => alive && setKol(d))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [boardId])
+  const kolShelves = useMemo(() => shelvesFrom(board, rows, kol), [board, rows, kol])
+  useSetBonuses(kolShelves, data, true)
+  const doneSets = Object.values(setStore?.sets ?? {}).sort((a, b) => b.at - a.at)
+
   const shownCards = cards.filter((c) => (filter === null ? true : filter === 'parlak' ? c.foil : c.r === filter))
 
   async function open(tier: OdulTier) {
@@ -109,11 +150,14 @@ export default function Oduller() {
         return data.items[r.key] ? { text: tt('+{0} makara', MAKARA_OF[r.r]), dup: true } : { text: tt('YENİ') }
       })
       const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-      await act({ action: 'open', tier, opId: id, pity, rewards })
-      const posters = [...pool].sort(() => Math.random() - 0.5).slice(0, 3).map((p) => p.poster)
+      await openPack({ tier, opId: id, pity, rewards })
+      const posters = shuffle(pool).slice(0, 3).map((p) => p.poster)
       setOpening({ id, tier, rewards, badges, posters })
     } catch (e) {
-      notify(e instanceof Error ? e.message : tt('Paket açılamadı'), 'danger')
+      if (e instanceof PackConflict) {
+        reload()
+        notify(tt('Bu paket başka bir cihazda açıldı.'), 'danger')
+      } else notify(e instanceof Error ? e.message : tt('Paket açılamadı'), 'danger')
     } finally {
       setBusy(false)
     }
@@ -222,6 +266,10 @@ export default function Oduller() {
           })}
         </div>
         <p className="mt-2 text-[11px] text-neutral-600">{tt('10 paket üst üste epik çıkmazsa bir sonrakinde epik garanti.')}</p>
+        <p className="mt-1 text-[11px] text-neutral-500">
+          {tt("Seri seti: Koleksiyon'daki bir serinin (raf) bütün film kartlarını toplayınca bir kerelik paket — 3 filme kadar gümüş, daha uzun serilerde altın.")}
+          {doneSets.length > 0 && <> {tt('Tamamlanan setler: {0}', doneSets.map((s) => s.name).join(', '))}</>}
+        </p>
       </section>
 
       {/* film kartları */}

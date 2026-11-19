@@ -2,7 +2,8 @@ import { tt, ttx } from '../lib/i18n'
 import Icon from './Icon'
 // Genel Güncelleme sürerken (ve durdurulunca) tablonun üstünde duran ayrıntı kutusu. Kullanıcı
 // "genel güncelleme yaparken daha fazla detay görebiliyosak görelim, o an ne yapıyo" ve
-// "durdurup sonra kaldığı yerden devam ettirme" istedi.
+// "durdurup sonra kaldığı yerden devam ettirme" istedi. v1.25'ten beri iş sunucuda sürüyor (bkz. BoardView ›
+// useBulkJob): pencere kapatılıp açılsa ya da başka sayfaya gidilse de devam eder, bu kutu ilerlemeyi gösterir.
 export interface BulkLogEntry {
   title: string
   kind: 'ok' | 'same' | 'fail'
@@ -37,11 +38,14 @@ export default function BulkUpdatePanel({
   onStop,
   onResume,
   onDiscard,
+  canResume = true,
 }: {
   state: BulkState
   onStop: () => void
   onResume: () => void
   onDiscard: () => void
+  // Durdurulan işin kalan kayıtları biliniyorsa "Devam et" görünür
+  canResume?: boolean
 }) {
   const pct = state.total ? Math.round((state.done / state.total) * 100) : 0
   const left = state.total - state.done
@@ -63,7 +67,8 @@ export default function BulkUpdatePanel({
             {state.failed > 0 && <span className="text-rose-400"> {' '}{ttx('· {0} bulunamadı/hata', state.failed)}</span>}
             {left > 0 && <span> {' '}{ttx('· {0} kaldı', left)}</span>}
             {eta !== null && <span>{' '}{ttx('· yaklaşık {0}', formatEta(eta))}</span>}
-            {!state.running && left > 0 && <span>{' '}{tt('· istediğin zaman kaldığın yerden devam edebilirsin')}</span>}
+            {!state.running && left > 0 && canResume && <span>{' '}{tt('· istediğin zaman kaldığın yerden devam edebilirsin')}</span>}
+            {state.running && <span>{' '}{tt('· pencereyi kapatsan ya da başka sayfaya geçsen de sürer')}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -73,7 +78,7 @@ export default function BulkUpdatePanel({
             </button>
           ) : (
             <>
-              {left > 0 && (
+              {left > 0 && canResume && (
                 <button
                   onClick={onResume}
                   className="text-sm font-semibold rounded-lg text-white px-3.5 py-1.5 bg-gradient-to-r from-[#00c0fa] to-[#015eea] hover:opacity-90 transition inline-flex items-center gap-1.5"

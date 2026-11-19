@@ -240,7 +240,7 @@ export function HomeCard({
           {!mobilePoster && (titleImage || title) && (
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 pointer-events-none">
               {titleImage ? (
-                <img src={titleImage} alt={title} className="h-7 w-auto max-w-[85%] object-contain" />
+                <img src={titleImage} alt={title} loading="lazy" decoding="async" className="h-7 w-auto max-w-[85%] object-contain" />
               ) : (
                 <p className="text-white text-sm font-semibold truncate" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
                   {title}
@@ -701,7 +701,7 @@ function TopRatedRow({
               </svg>
               <span className="relative block w-[112px] aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-lg shadow-black/40 transition-transform duration-300 group-hover:scale-105">
                 {img ? (
-                  <img src={img} alt={name} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                  <img src={img} alt={name} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                   <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{name}</span>
                 )}
@@ -861,7 +861,12 @@ export default function AnaSayfa() {
 
   // Vitrinde her girişte havuzdan rastgele bir kayıt seçilir, ama o ziyaret boyunca (aynı
   // bölüm/filtre havuzunda kaldığı sürece) sabit kalır — art arda değişip durmaz.
-  const [featured, setFeatured] = useState<Row | undefined>(undefined)
+  // Kaydın kopyası değil sadece kimliği tutulur; kayıt her çizimde güncel listeden bulunur — yoksa
+  // düzenlenen kayıt vitrinde eski haliyle, silinen kayıt da vitrinde kalıyordu (bulunamazsa yenisi seçilir)
+  const [featuredId, setFeaturedId] = useState<string | null>(null)
+  const poolById = new Map(showcasePool.map((r) => [r.id, r] as const))
+  const featured = featuredId ? poolById.get(featuredId) : undefined
+  const setFeatured = (r: Row | undefined) => setFeaturedId(r ? r.id : null)
   const pickedForKey = useRef<string | null>(null)
 
   useEffect(() => {
@@ -882,26 +887,31 @@ export default function AnaSayfa() {
   // birkaç kayıt 8 saniyede bir sırayla değişiyor, noktalardan istenen seçilebiliyor, fare üzerindeyken
   // (ya da detay penceresi açıkken) duruyor. İlk slayt yukarıdaki normal seçim; diğerleri ona eklenir.
   const slideshow = (settings.showcaseStyle ?? 'klasik') === 'slayt'
-  const [slides, setSlides] = useState<Row[]>([])
+  // Slaytlar da kimlik olarak tutulur; silinen kayıtlar listeden kendiliğinden düşer
+  const [slideIds, setSlideIds] = useState<string[]>([])
+  const slides = slideIds.map((id) => poolById.get(id)).filter((r): r is Row => Boolean(r))
+  const slidesKey = slides.map((r) => r.id).join(',')
   const [slidePaused, setSlidePaused] = useState(false)
   useEffect(() => {
     if (!slideshow || !featured) {
-      setSlides([])
+      setSlideIds([])
       return
     }
-    setSlides((prev) => {
-      if (prev.some((r) => r.id === featured.id)) return prev
+    setSlideIds((prev) => {
+      if (prev.includes(featured.id)) return prev
       const others = shuffle(showcasePool.filter((r) => r.id !== featured.id)).slice(0, 5)
-      return [featured, ...others]
+      return [featured.id, ...others.map((r) => r.id)]
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideshow, featured, poolKey])
+  }, [slideshow, featured?.id, poolKey])
   const slideIndex = featured ? slides.findIndex((r) => r.id === featured.id) : -1
   useEffect(() => {
     if (!slideshow || slides.length < 2 || slidePaused || detailRow) return
-    const t = setTimeout(() => setFeatured(slides[(slideIndex + 1) % slides.length]), 8000)
+    const ids = slidesKey.split(',')
+    const t = setTimeout(() => setFeaturedId(ids[(slideIndex + 1) % ids.length] ?? null), 8000)
     return () => clearTimeout(t)
-  }, [slideshow, slides, slideIndex, slidePaused, detailRow])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slideshow, slidesKey, slideIndex, slidePaused, detailRow])
 
   const featuredTitle = featured && titleProp ? titleText(titleProp, featured.values[titleProp.id]) : ''
   const featuredTitleImage = featured && titleImageProp ? ((featured.values[titleImageProp.id] as string) ?? '') : ''

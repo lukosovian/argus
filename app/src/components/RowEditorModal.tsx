@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { MOBILE } from '../lib/mobile/ui'
 import type { Board, PropertyValue, Row } from '../types'
 import PropertyValueInput from './PropertyValueInput'
@@ -26,6 +27,8 @@ export default function RowEditorModal({
 }) {
   const [values, setValues] = useState<Record<string, PropertyValue>>(row?.values ?? {})
   const [saving, setSaving] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
 
   function update(propertyId: string, v: PropertyValue) {
@@ -44,6 +47,7 @@ export default function RowEditorModal({
 
   return (
     <div
+      ref={dialogRef} role="dialog" aria-modal="true" aria-label={row ? tt('Kaydı Düzenle') : tt('Yeni Kayıt')}
       className={MOBILE ? 'fixed inset-0 z-[70] bg-neutral-950 overflow-y-auto' : 'fixed inset-0 z-40 bg-black/60 flex items-start justify-center overflow-y-auto py-10 px-4'}
       onClick={onClose}
       style={MOBILE ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}

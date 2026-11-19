@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { tt } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { MOBILE } from '../lib/mobile/ui'
 
 // "?" tuşuna basınca açılan klavye kısayolları listesi (bilgisayarda). Yazı yazılan bir kutudayken açılmaz.
@@ -11,6 +12,14 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['Esc'], label: 'Açık pencereyi kapat' },
   { keys: ['1', '2', '3', '…'], label: '"Kim izliyor?" ekranında profil seç' },
   { keys: ['←', '→'], label: 'Flashback hikâyesinde önceki / sonraki' },
+  // Arşiv tablosu (bir hücreye tıkladıktan sonra)
+  { keys: ['←', '↑', '→', '↓'], label: 'Arşiv tablosunda hücreler arasında gez (önce bir hücreye tıkla)' },
+  { keys: ['Enter'], label: 'Tabloda seçili hücreyi düzenle' },
+  { keys: ['Tab', 'Shift + Tab'], label: 'Tabloda sonraki / önceki hücre' },
+  { keys: ['Esc'], label: 'Tablodan çık' },
+  { keys: ['/'], label: 'Arşiv sayfasında tabloda ara' },
+  { keys: ['N'], label: 'Arşiv sayfasında yeni kayıt ekle' },
+  { keys: ['←', '→'], label: 'Takvimde önceki / sonraki ay' },
   { keys: ['?'], label: 'Bu listeyi aç / kapat' },
 ]
 
@@ -21,6 +30,8 @@ function typing(e: KeyboardEvent) {
 
 export default function KeyboardShortcuts() {
   const [open, setOpen] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, open)
   useEscape(open, () => setOpen(false))
   useEffect(() => {
     if (MOBILE) return
@@ -34,9 +45,9 @@ export default function KeyboardShortcuts() {
   }, [])
   if (!open) return null
   return createPortal(
-    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Klavye kısayolları')} className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setOpen(false)}>
       <div
-        className="w-full max-w-sm rounded-2xl bg-neutral-900 ring-1 ring-white/10 shadow-2xl shadow-black/60 p-5"
+        className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl bg-neutral-900 ring-1 ring-white/10 shadow-2xl shadow-black/60 p-5"
         style={{ animation: 'argus-fade-in .25s ease-out' }}
         onClick={(e) => e.stopPropagation()}
       >

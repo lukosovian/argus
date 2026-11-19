@@ -128,6 +128,21 @@ export const fold = (s: string) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+// Dört şıklı oyunlar için yanlış şıklar: adı (fold) doğru cevapla aynı olanlar (kopya kayıt, yeniden çevrim)
+// ve birbirinin aynısı olanlar şık olmasın — yoksa iki "doğru" görünen şık çıkıyordu.
+export function wrongOptions<T>(list: T[], ans: T, name: (x: T) => string, n = 3, rand = Math.random): T[] {
+  const used = new Set([fold(name(ans))])
+  const out: T[] = []
+  for (const x of shuffle(list, rand)) {
+    const k = fold(name(x))
+    if (!k || used.has(k)) continue
+    used.add(k)
+    out.push(x)
+    if (out.length >= n) break
+  }
+  return out
+}
+
 // ---- rekorlar --------------------------------------------------------------------------------------
 const recKey = (pid: string, game: string) => `argus_oyun_rekor_${pid}_${game}`
 export function readRecord(pid: string, game: string): number {

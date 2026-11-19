@@ -5,8 +5,9 @@ import { useRows } from '../hooks/useRows'
 import { useProfiles } from '../hooks/useProfiles'
 import { useAklimda } from '../hooks/useAklimda'
 import { useToast } from '../hooks/useToast'
-import { fold, sfx, shuffle, useGamePool, type GameItem } from '../lib/games'
+import { fold, sfx, shuffle, useGamePool, wrongOptions, type GameItem } from '../lib/games'
 import { tt, ttx } from '../lib/i18n'
+import { useReducedMotion } from '../lib/reducedMotion'
 import PageSkeleton from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
 import Icon from '../components/Icon'
@@ -92,6 +93,9 @@ interface Result {
 function Scene({ src, fx, p, done, focus, tiles }: { src: string; fx: Fx[]; p: number; done: boolean; focus: { x: number; y: number }; tiles: number[] }) {
   const show = done ? 1 : Math.min(1, Math.max(0, p))
   const has = (f: Fx) => fx.includes(f) && !done
+  // "Hareketi azalt" açıksa: yakınlaşma sürekli kaymak yerine 6 basamakta açılır, anahtar deliği gezinmez
+  const still = useReducedMotion()
+  const zoomShow = still ? Math.floor(show * 6) / 6 : show
   const canvas = useRef<HTMLCanvasElement>(null)
   const img = useRef<HTMLImageElement | null>(null)
   // Pikselden netleşme: küçük bir tuvale çizip büyütmek (kare kare netleşir)
@@ -116,14 +120,14 @@ function Scene({ src, fx, p, done, focus, tiles }: { src: string; fx: Fx[]; p: n
   }, [src, pixN, fx.join(), done])
   const style: CSSProperties = {
     transformOrigin: `${focus.x}% ${focus.y}%`,
-    transform: `scale(${has('zoom') ? 1 + 1.6 * Math.pow(1 - show, 1.2) : 1}) ${has('mirror') ? 'scaleX(-1)' : ''}`,
+    transform: `scale(${has('zoom') ? 1 + 1.6 * Math.pow(1 - zoomShow, 1.2) : 1}) ${has('mirror') ? 'scaleX(-1)' : ''}`,
     filter: `${has('blur') ? `blur(${(14 * Math.pow(1 - show, 1.3)).toFixed(1)}px)` : ''} ${has('gray') ? `grayscale(${(1 - show).toFixed(2)})` : ''}`.trim() || 'none',
-    transition: done ? 'transform .6s cubic-bezier(.2,.8,.2,1), filter .4s' : 'transform .12s linear, filter .12s linear',
+    transition: still ? 'none' : done ? 'transform .6s cubic-bezier(.2,.8,.2,1), filter .4s' : 'transform .12s linear, filter .12s linear',
   }
   const hiddenTiles = has('tiles') ? Math.round(tiles.length * (1 - Math.min(1, show * 1.15))) : 0
   const hide = new Set(tiles.slice(0, hiddenTiles))
-  const kx = focus.x + Math.cos(p * 9) * 22
-  const ky = focus.y + Math.sin(p * 12) * 18
+  const kx = still ? focus.x : focus.x + Math.cos(p * 9) * 22
+  const ky = still ? focus.y : focus.y + Math.sin(p * 12) * 18
   const kr = 60 + Math.pow(show, 1.6) * 520
   return (
     <div className="absolute inset-0">
@@ -244,7 +248,9 @@ export default function SahnedenBil() {
         .map((it) => {
           const ans = byId.get(it.rowId)!
           // Yanlış şıklar önce aynı havuzdan, yetmezse bütün arşivden
-          const others = shuffle([...candidates, ...all].filter((p, i, a) => a.indexOf(p) === i && p.id !== ans.id && p.title !== ans.title)).slice(0, optCount - 1)
+          // Adı doğru cevapla aynı olanlar (kopya kayıt, yeniden çevrim) ve birbirinin aynısı olanlar şık olmasın
+          const fromPool = wrongOptions(candidates, ans, (p) => p.title, optCount - 1)
+          const others = fromPool.length >= optCount - 1 ? fromPool : wrongOptions([...new Set([...fromPool, ...candidates, ...all])], ans, (p) => p.title, optCount - 1)
           return {
             ans,
             opts: shuffle([ans, ...others]),
@@ -310,8 +316,10 @@ export default function SahnedenBil() {
   function answer(id: string) {
     if (!q || chosen !== null) return
     stopTimer()
-    setChosen(id || '-')
-    const ok = id === q.ans.id
+    // Yazarak seçilen, adı aynı başka bir kayıt (kopya / yeniden çevrim) da doğru sayılır
+    const picked = id ? all.find((x) => x.id === id) : undefined
+    const ok = id === q.ans.id || Boolean(picked && fold(picked.title) === fold(q.ans.title))
+    setChosen(ok ? q.ans.id : id || '-')
     const mult = 1 + Math.min(streak, 4) * 0.25
     const fxMult = set.fx.length === 0 ? 0.7 : 1 + 0.25 * (set.fx.length - 1)
     const optMult = set.opts === 0 ? 2 : set.opts === 2 ? 0.6 : set.opts === 6 ? 1.3 : 1

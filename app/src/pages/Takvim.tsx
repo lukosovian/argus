@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import MobileMonth from '../components/mobile/MobileMonth'
 import { MOBILE } from '../lib/mobile/ui'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -23,6 +23,7 @@ import { useEscape } from '../hooks/useEscape'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, dayNames, fmtDate, getLang, EP } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
+import { drawAndDownload, drawMonthCard } from '../lib/canvasShare'
 import Icon from '../components/Icon'
 import { planDays, remainingEpisodes, type Plans } from '../components/SeriesPlan'
 
@@ -282,6 +283,67 @@ export default function Takvim() {
     const d = new Date(year, month + delta, 1)
     go({ ay: monthKey(d.getFullYear(), d.getMonth()) })
   }
+  // ←/→ ile önceki/sonraki ay (yıl görünümünde yıl); yazı yazılırken ya da bir pencere açıkken çalışmaz.
+  // Dokunmatik ekranda sola/sağa kaydırınca da ay değişir (v1.25).
+  const shiftBy = (dir: number) => (view === 'yil' ? go({ ay: monthKey(year + dir, month) }) : shiftMonth(dir))
+  const shiftLatest = useRef(shiftBy)
+  useEffect(() => {
+    shiftLatest.current = shiftBy
+  })
+  useEffect(() => {
+    const modalOpen = () => {
+      if (document.querySelector('[aria-modal="true"], [role="dialog"], [role="alertdialog"]')) return true
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>('.fixed.inset-0'))) {
+        if (!el.getClientRects().length) continue
+        const cs = getComputedStyle(el)
+        if (cs.pointerEvents === 'none' || cs.visibility === 'hidden') continue
+        const z = Number(cs.zIndex)
+        if (Number.isFinite(z) && z >= 30) return true
+      }
+      return false
+    }
+    const typing = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null
+      return Boolean(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable))
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      if (typing(e.target) || modalOpen()) return
+      e.preventDefault()
+      shiftLatest.current(e.key === 'ArrowLeft' ? -1 : 1)
+    }
+    let sx = 0
+    let sy = 0
+    let tracking = false
+    function onStart(e: TouchEvent) {
+      tracking = e.touches.length === 1 && !typing(e.target) && !modalOpen()
+      if (!tracking) return
+      sx = e.touches[0].clientX
+      sy = e.touches[0].clientY
+    }
+    function onEnd(e: TouchEvent) {
+      if (!tracking) return
+      tracking = false
+      const t = e.changedTouches[0]
+      if (!t) return
+      const dx = t.clientX - sx
+      const dy = t.clientY - sy
+      // Yatay ve belirgin bir kaydırma; yatay kayan şeritlerin (no-scrollbar, overflow-x) içinde değilse
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+      const el = e.target as HTMLElement | null
+      if (el?.closest('.overflow-x-auto, .no-scrollbar')) return
+      shiftLatest.current(dx < 0 ? 1 : -1)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('touchstart', onStart, { passive: true })
+    window.addEventListener('touchend', onEnd, { passive: true })
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('touchstart', onStart)
+      window.removeEventListener('touchend', onEnd)
+    }
+  }, [])
 
   const [conditions, setConditions] = useState<FilterCondition[]>([])
   const [filterOpen, setFilterOpen] = useState(false)
@@ -635,7 +697,7 @@ function EventItem({ ev, look, onClick, big = false }: { ev: CalEvent; look: Ret
       }`}
     >
       <span className={`relative shrink-0 rounded overflow-hidden bg-neutral-800 ${big ? 'h-16 w-11' : 'h-9 w-6'}`}>
-        {poster && <img src={poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+        {poster && <img src={poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className={`block truncate font-medium text-neutral-100 ${big ? 'text-sm' : 'text-[11px] leading-tight'}`}>{look.title(ev.row)}</span>
@@ -740,6 +802,42 @@ function MonthView({
 
   const agendaDays = days.filter((d) => d.startsWith(monthPrefix) && ((byDay.get(d)?.length ?? 0) > 0 || releasesByDay.has(d)))
 
+  // Ayı paylaş (v1.25): hikâye boyunda (1080×1920) PNG — ayın adı, sayılar, ayın öne çıkan afişleri, ARGUS yazısı
+  const { notify } = useToast()
+  const [sharing, setSharing] = useState(false)
+  async function shareMonth() {
+    if (sharing) return
+    setSharing(true)
+    try {
+      // Afişler: önce filmler ve bitirilen diziler (izleme sırasıyla), sonra en çok bölüm izlenen diziler
+      const seen = new Set<string>()
+      const picks: { src: string; title: string }[] = []
+      const add = (r: Row) => {
+        if (seen.has(r.id) || picks.length >= 6) return
+        seen.add(r.id)
+        const src = look.poster(r)
+        if (src) picks.push({ src, title: look.title(r) })
+      }
+      for (const e of [...films, ...finishedList].sort(byDate)) add(e.row)
+      const epsByRow = new Map<string, { row: Row; n: number }>()
+      for (const e of episodeList) epsByRow.set(e.row.id, { row: e.row, n: (epsByRow.get(e.row.id)?.n ?? 0) + (e.episodeCount ?? 0) })
+      for (const x of [...epsByRow.values()].sort((a, b) => b.n - a.n)) add(x.row)
+      const stats = [
+        { value: String(films.length), label: tt('film') },
+        { value: String(episodeCount), label: tt('bölüm') },
+        { value: String(activeDays), label: tt('gün izleme') },
+        filmMinutes > 0 ? { value: String(Math.round(filmMinutes / 60)), label: tt('saat film') } : { value: String(finishedSeries), label: tt('dizi bitirdin') },
+      ]
+      const title = `${TR_MONTHS[month]} ${year}`
+      const ok = await drawAndDownload((withImages) => drawMonthCard({ title, stats, posters: picks }, withImages), `ARGUS ${title}.png`)
+      notify(ok ? tt('Görsel indirildi — İndirilenler klasörüne bakabilirsin.') : tt('Görsel oluşturulamadı.'), ok ? 'success' : 'danger')
+    } catch {
+      notify(tt('Görsel oluşturulamadı.'), 'danger')
+    } finally {
+      setSharing(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -779,6 +877,16 @@ function MonthView({
           >
             <Icon name="clapper" className="h-3.5 w-3.5" /> {tt('Vizyondakiler')}
           </button>
+          {past.length > 0 && (
+            <button
+              onClick={() => void shareMonth()}
+              disabled={sharing}
+              title={tt('Bu ayın özetini hikâye boyunda bir görsel olarak indir')}
+              className="rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1.5 text-neutral-400 hover:border-[#00c0fa]/60 hover:text-[#7fdcff] transition disabled:opacity-50"
+            >
+              {sharing ? tt('Hazırlanıyor...') : tt('Ayı paylaş')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -866,7 +974,7 @@ function MonthView({
                       className="block w-full overflow-hidden rounded-lg bg-neutral-800/60 text-left transition hover:ring-1 hover:ring-neutral-500"
                     >
                       <span className="block aspect-video bg-neutral-800">
-                        <img src={look.banner(solo.row)} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        <img src={look.banner(solo.row)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       </span>
                       <span className="block px-1.5 py-1">
                         <span className="block truncate text-[11px] font-semibold text-neutral-100">{look.title(solo.row)}</span>
@@ -894,7 +1002,7 @@ function MonthView({
                         <span className="flex shrink-0">
                           {rel.slice(0, 4).map((c, k) => (
                             <span key={c.tmdbId} className="h-6 w-4 overflow-hidden rounded-[3px] bg-neutral-800 ring-[1.5px] ring-neutral-950" style={{ marginLeft: k ? -6 : 0 }}>
-                              {c.poster && <img src={c.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                              {c.poster && <img src={c.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
                             </span>
                           ))}
                         </span>
@@ -1019,7 +1127,7 @@ function ReleaseItem({ card, onClick, big = false }: { card: ReleaseCard; onClic
       className={`w-full flex items-center gap-2 rounded-lg text-left transition min-w-0 border border-dashed border-amber-400/40 hover:border-amber-300 opacity-80 hover:opacity-100 ${big ? 'p-2' : 'p-1'}`}
     >
       <span className={`relative shrink-0 rounded overflow-hidden bg-neutral-800 ${big ? 'h-16 w-11' : 'h-9 w-6'}`}>
-        {card.poster && <img src={card.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+        {card.poster && <img src={card.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className={`block truncate font-medium text-neutral-100 ${big ? 'text-sm' : 'text-[11px] leading-tight'}`}>{card.title}</span>
@@ -1340,7 +1448,7 @@ function DayPanel({
       for (const [k, ds] of Object.entries(watched[r.id] ?? {})) for (const d of ds ?? []) if (!last || d > last.d) last = { d, k }
       if (!last) return tt('Dizi · henüz bölüm işaretlemedin')
       const [sn, en] = last.k.split('-')
-      return tt('Dizi · en son S{0}B{1} ({2})', sn, en, shortDate(last.d))
+      return tt('Dizi · en son {0} ({1})', `S${sn}${EP()}${en}`, shortDate(last.d))
     }
     const v = dateProp ? r.values[dateProp.id] : undefined
     const all = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(Boolean)
@@ -1362,7 +1470,7 @@ function DayPanel({
         className="w-full flex items-center gap-2 rounded-lg p-1.5 hover:bg-neutral-800 text-left transition disabled:opacity-50"
       >
         <span className="h-10 w-7 rounded overflow-hidden bg-neutral-800 shrink-0">
-          {look.poster(r) && <img src={look.poster(r)} alt="" className="h-full w-full object-cover" />}
+          {look.poster(r) && <img src={look.poster(r)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
         </span>
         <span className="flex-1 min-w-0">
           <span className="block text-sm text-neutral-200 truncate">{look.title(r)}</span>
@@ -1499,7 +1607,7 @@ function DayPanel({
           <div className="rounded-xl border border-[#00c0fa]/30 bg-neutral-950/40 p-3 space-y-3">
             <div className="flex items-center gap-2">
               <span className="h-12 w-8 rounded overflow-hidden bg-neutral-800 shrink-0">
-                {look.poster(picked) && <img src={look.poster(picked)} alt="" className="h-full w-full object-cover" />}
+                {look.poster(picked) && <img src={look.poster(picked)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-neutral-100 truncate">{look.title(picked)}</p>

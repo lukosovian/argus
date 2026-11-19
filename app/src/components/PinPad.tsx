@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Profile } from '../types'
 import { tt } from '../lib/i18n'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 // PIN kilidi (v1.23.4): kilitli profile geçerken 4 haneli PIN sorulur (bkz. useProfiles). Klavyeden de yazılabilir.
 export default function PinPad({ profile, onOk, onCancel }: { profile: Profile; onOk: () => void; onCancel: () => void }) {
   const [pin, setPin] = useState('')
   const [err, setErr] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   function press(k: string) {
     if (k === '⌫') return setPin((p) => p.slice(0, -1))
     setPin((p) => (p.length < 4 ? p + k : p))
@@ -36,7 +39,7 @@ export default function PinPad({ profile, onOk, onCancel }: { profile: Profile; 
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center" onClick={onCancel}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('PIN gir')} className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center" onClick={onCancel}>
       <div className="flex flex-col items-center" onClick={(e) => e.stopPropagation()} style={{ animation: 'argus-toast-in .25s ease-out' }}>
         <div className="relative h-24 w-24 rounded-2xl overflow-hidden bg-neutral-800">
           {profile.photo ? <img src={profile.photo} alt="" className="h-full w-full object-cover" /> : <span className="h-full w-full flex items-center justify-center text-3xl text-neutral-400">{profile.username.slice(0, 1).toLocaleUpperCase('tr')}</span>}

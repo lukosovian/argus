@@ -18,6 +18,7 @@ import AnchoredMenu from '../components/AnchoredMenu'
 import { fmtDate, tt, ttx } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
 import PageSkeleton from '../components/Skeleton'
+import { drawAndDownload, drawOrderList } from '../lib/canvasShare'
 
 // Evrenler — kullanıcı "VisionQuest'i anlamak için önce şunları izle dedi, madem öyle Marvel'ı baştan izleyeyim;
 // evrendeki filmleri dizileri sıralasın, ben oradan işaretleyeyim, izlenmiş olarak arşivime ve takvime düşsün"
@@ -321,7 +322,7 @@ function UniverseList({ universes, prefs, onNew, onChanged }: { universes: Evren
               <div className="relative h-36 overflow-hidden" style={{ background: `linear-gradient(135deg, ${u.color}55, #0a0a0a 75%)` }}>
                 <div className="absolute inset-0 flex justify-end gap-1.5 pr-3 pt-3 opacity-80 group-hover:opacity-100 transition">
                   {posters.map((i, n) => (
-                    <img key={i.key} src={i.poster!} alt="" loading="lazy" className="h-32 aspect-[2/3] object-cover rounded-md shadow-lg" style={{ transform: `translateY(${n % 2 ? 10 : 0}px)` }} />
+                    <img key={i.key} src={i.poster!} alt="" loading="lazy" decoding="async" className="h-32 aspect-[2/3] object-cover rounded-md shadow-lg" style={{ transform: `translateY(${n % 2 ? 10 : 0}px)` }} />
                   ))}
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/50 to-transparent" />
@@ -352,7 +353,7 @@ function UniverseList({ universes, prefs, onNew, onChanged }: { universes: Evren
                   </span>
                   {next ? (
                     <span className="flex min-w-0 flex-1 items-center gap-2.5">
-                      {next.poster && <img src={next.poster} alt="" loading="lazy" className="h-12 aspect-[2/3] shrink-0 rounded object-cover" />}
+                      {next.poster && <img src={next.poster} alt="" loading="lazy" decoding="async" className="h-12 aspect-[2/3] shrink-0 rounded object-cover" />}
                       <span className="min-w-0">
                         <span className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-500">{tt('Sıradaki')}</span>
                         <span className="block truncate text-sm font-semibold text-neutral-100">{next.archiveTitle || next.title}</span>
@@ -603,8 +604,10 @@ function UniverseView({
     setFormTarget(prefs.hedef ?? '')
     setTourMenu(true)
   }
+  // Hedef bitiş başlangıçtan önce olamaz
+  const targetBeforeStart = Boolean(formTarget && formStart && formTarget < formStart)
   function saveTour() {
-    if (!formStart) return
+    if (!formStart || targetBeforeStart) return
     const starting = !tur
     setTourMenu(false)
     onPrefs(starting ? ({ maraton: formStart, hedef: formTarget || null, atla: [], turKeys: null, turHedefKey: null } as unknown as EvrenPrefs) : ({ maraton: formStart, hedef: formTarget || null } as unknown as EvrenPrefs))
@@ -648,6 +651,35 @@ function UniverseView({
   const heroImage = (bannerRole && nextRow && (nextRow.values[bannerRole.id] as string)) || next?.poster || ''
   // Zaman çizgisi: çıkmış yapımlar tarih sırasıyla, izlediklerin evrenin renginde, şu an olduğun yer parlıyor
   const timeline = orderItems(u, 'cikis', showExtra).filter((i) => i.released && i.date && (!subset || showAll || subset.includes(i.key)) && !skip.has(i.key))
+
+  // Sırayı paylaş (v1.25): izleme sırası numaralı, yıllı, izlenenler ✓ — panoya metin ya da uzun bir PNG
+  const shareList = ordered.filter((i) => !skip.has(i.key))
+  const shareTitle = subsetTarget ? tt('{0} · {1} öncesi', u.name, subsetTarget.archiveTitle || subsetTarget.title) : u.name
+  const shareSub = `${mode === 'hikaye' ? tt('Hikâye sırası') : tt('Çıkış sırası')} · ${tt('{0}/{1} izlendi', shareList.filter((i) => isDone(i, tur)).length, shareList.length)}`
+  async function copyOrder() {
+    const lines = shareList.map((it, n) => `${n + 1}. ${it.archiveTitle || it.title}${it.date ? ` (${it.date.slice(0, 4)})` : ''}${isDone(it, tur) ? ' ✓' : ''}`)
+    const text = [`${shareTitle} — ${shareSub}`, '', ...lines, '', tt('ARGUS ile hazırlandı')].join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+      notify(tt('İzleme sırası panoya kopyalandı ({0} yapım).', shareList.length), 'success')
+    } catch {
+      notify(tt('Panoya kopyalanamadı.'), 'danger')
+    }
+  }
+  const [orderBusy, setOrderBusy] = useState(false)
+  async function downloadOrder() {
+    if (orderBusy) return
+    setOrderBusy(true)
+    try {
+      const data = { title: shareTitle, subtitle: shareSub, items: shareList.map((it) => ({ title: it.archiveTitle || it.title, year: it.date ? it.date.slice(0, 4) : '', done: isDone(it, tur), poster: it.poster })) }
+      const ok = await drawAndDownload((withImages) => drawOrderList(data, withImages), `ARGUS ${u.name} - izleme sirasi.png`)
+      notify(ok ? tt('Görsel indirildi — İndirilenler klasörüne bakabilirsin.') : tt('Görsel oluşturulamadı.'), ok ? 'success' : 'danger')
+    } catch {
+      notify(tt('Görsel oluşturulamadı.'), 'danger')
+    } finally {
+      setOrderBusy(false)
+    }
+  }
 
   const nextAction = (it: EvrenItem) => {
     if (it.type === 'movie') return { label: tt('✓ İzledim'), run: () => mark(it, todayIso()) }
@@ -754,7 +786,15 @@ function UniverseView({
               </label>
               <label className="block space-y-1">
                 <span className="text-xs text-neutral-500">{tt('Hedef bitiş (isteğe bağlı)')}</span>
-                <input type="date" value={formTarget} min={formStart || today} onChange={(e) => setFormTarget(e.target.value)} className="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
+                <input
+                  type="date"
+                  value={formTarget}
+                  min={formStart || today}
+                  onChange={(e) => setFormTarget(e.target.value)}
+                  aria-invalid={targetBeforeStart}
+                  className={`w-full rounded-lg bg-neutral-950 border px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark] ${targetBeforeStart ? 'border-rose-500' : 'border-neutral-700'}`}
+                />
+                {targetBeforeStart && <span className="block text-xs text-rose-400">{tt('Hedef bitiş, başlangıçtan önce olamaz.')}</span>}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {quickTargets.map((q) => (
@@ -768,7 +808,7 @@ function UniverseView({
                   </button>
                 )}
               </div>
-              <button disabled={!formStart} onClick={saveTour} className={`${ACCENT_BTN} w-full rounded-lg px-3 py-2 text-sm`} style={accentBtn(u.color)}>
+              <button disabled={!formStart || targetBeforeStart} onClick={saveTour} className={`${ACCENT_BTN} w-full rounded-lg px-3 py-2 text-sm disabled:opacity-50`} style={accentBtn(u.color)}>
                 {tur ? tt('Kaydet') : tt('Turu başlat')}
               </button>
             </div>
@@ -777,7 +817,7 @@ function UniverseView({
 
         {next && (
           <div className="relative mt-5 flex items-center gap-3 rounded-2xl bg-black/50 backdrop-blur-md border border-white/10 p-2.5 max-w-xl">
-            {next.poster && <img src={next.poster} alt="" className="h-16 aspect-[2/3] object-cover rounded-md" />}
+            {next.poster && <img src={next.poster} alt="" loading="lazy" decoding="async" className="h-16 aspect-[2/3] object-cover rounded-md" />}
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-wider text-neutral-500">{tt('Sıradaki')}</p>
               <p className="font-semibold text-neutral-50 truncate">{next.archiveTitle || next.title}</p>
@@ -828,6 +868,16 @@ function UniverseView({
           </button>
         )}
         <span className="flex-1" />
+        {shareList.length > 0 && (
+          <>
+            <button onClick={() => void copyOrder()} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition" title={tt('İzleme sırasını numaralı bir liste olarak panoya kopyala')}>
+              {tt('Sırayı paylaş')}
+            </button>
+            <button onClick={() => void downloadOrder()} disabled={orderBusy} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition disabled:opacity-60">
+              {orderBusy ? tt('Hazırlanıyor...') : tt('Görsel olarak indir')}
+            </button>
+          </>
+        )}
         {u.builtin ? (
           <button onClick={onCopy} className="text-sm rounded-lg px-3 py-1.5 border border-neutral-800 text-neutral-300 hover:text-neutral-50 hover:border-neutral-600 transition" title={tt('Bu evrenin bir kopyasını oluştur, yapım ekle çıkar, sırasını değiştir')}>
             {tt('Kopyala ve düzenle')}
@@ -1058,7 +1108,7 @@ function Card({
       >
         <button onClick={onOpen} className="block h-full w-full" title={it.archiveTitle || it.title}>
           {it.poster ? (
-            <img src={it.poster} alt={it.title} loading="lazy" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released || (skipped && !done) ? 'opacity-30 grayscale' : !it.rowId ? 'opacity-60' : ''}`} />
+            <img src={it.poster} alt={it.title} loading="lazy" decoding="async" className={`h-full w-full object-cover group-hover:scale-105 transition ${!it.released || (skipped && !done) ? 'opacity-30 grayscale' : !it.rowId ? 'opacity-60' : ''}`} />
           ) : (
             <span className="flex h-full items-center justify-center p-2 text-center text-xs text-neutral-400">{it.title}</span>
           )}
@@ -1310,7 +1360,7 @@ function PrereqModal({
     if (!it) return null
     return (
       <div className="flex items-center gap-2 py-1">
-        <div className="h-10 w-7 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}</div>
+        <div className="h-10 w-7 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}</div>
         <div className="min-w-0 flex-1">
           <p className={`text-sm truncate ${it.watched ? 'text-neutral-400' : 'text-neutral-100'}`}>{it.archiveTitle || it.title}</p>
           <p className="text-[11px] text-neutral-500">
@@ -1347,7 +1397,7 @@ function PrereqModal({
               {shown.map((i) => (
                 <button key={i.key} onClick={() => setTarget(i.key)} className="text-left group">
                   <div className="aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 group-hover:ring-2" style={{ ['--tw-ring-color' as string]: u.color }}>
-                    {i.poster && <img src={i.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                    {i.poster && <img src={i.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
                   </div>
                   <p className="text-[11px] text-neutral-200 mt-1 line-clamp-2 leading-tight">{i.archiveTitle || i.title}</p>
                   <p className="text-[10px] text-neutral-500">{kindLabel(i)}</p>
@@ -1449,7 +1499,7 @@ function BulkAddModal({ items, color, onClose, onAdd }: { items: EvrenItem[]; co
             const isOld = v != null
             return (
               <li key={it.key} className="flex flex-wrap items-center gap-2 rounded-xl bg-neutral-900/70 border border-neutral-800 px-2 py-1.5">
-                <div className="h-11 w-8 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}</div>
+                <div className="h-11 w-8 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}</div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-neutral-100 truncate">{it.title}</p>
                   <p className="text-[11px] text-neutral-500">
@@ -1686,7 +1736,7 @@ function ContentSearch({ boardId, color, items, onAdd, onRemove }: { boardId: st
               return (
                 <div key={c.mediaType + c.tmdbId} className="min-w-0">
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800" style={added || seasonCount ? { boxShadow: `0 0 0 2px ${color}` } : undefined}>
-                    {c.poster ? <img src={c.poster} alt="" loading="lazy" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center p-2 text-center text-xs text-neutral-400">{c.title}</span>}
+                    {c.poster ? <img src={c.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center p-2 text-center text-xs text-neutral-400">{c.title}</span>}
                   </div>
                   <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{c.title}</p>
                   <p className="text-[11px] text-neutral-500">
@@ -1758,7 +1808,7 @@ function OrderList({ items, setItems, color }: { items: EvrenSaveItem[]; setItem
         {items.map((it, i) => (
           <li key={it.key} className="flex items-center gap-2 rounded-xl bg-neutral-900 border border-neutral-800 px-2 py-1.5">
             <span className="w-5 text-right text-xs font-bold" style={{ color }}>{i + 1}</span>
-            <div className="h-10 w-7 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" className="h-full w-full object-cover" />}</div>
+            <div className="h-10 w-7 shrink-0 rounded overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}</div>
             <div className="min-w-0 flex-1">
               <p className="text-sm text-neutral-100 truncate">{it.title}</p>
               <p className="text-[11px] text-neutral-500">

@@ -1,5 +1,8 @@
 import { BRAND_TEXT } from '../../lib/theme'
+import { useRef } from 'react'
 import { tt } from '../../lib/i18n'
+import { useEscape } from '../../hooks/useEscape'
+import { useDialogFocus } from '../../hooks/useDialogFocus'
 import { GearIcon } from '../toolbarIcons'
 
 // Ayarlar → Veritabanı başlığının yanındaki "?" ile açılan, bu bölümün nasıl çalıştığını
@@ -207,8 +210,16 @@ const SECTIONS: { title: string; wireframe: React.ReactNode; text: React.ReactNo
 ]
 
 export default function DatabaseHelpModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
+  // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  useEscape(true, onClose)
   return (
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={tt('Veritabanı Nasıl Çalışır?')}
       className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto"
       onClick={onClose}
     >

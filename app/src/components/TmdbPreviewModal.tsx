@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { api, type TmdbCard, type TmdbItem } from '../lib/api'
@@ -12,6 +12,7 @@ import ShowcaseBanner from './ShowcaseBanner'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { tt } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import Icon from './Icon'
 import AklimdaButton from './AklimdaButton'
 import { surfaceHex } from '../lib/theme'
@@ -42,6 +43,8 @@ export default function TmdbPreviewModal({
   // Ayrıntılar alınamazsa (ör. sunucu eski sürümde kaldıysa ya da internet yoksa) sonsuza kadar
   // "Yükleniyor..." yazmasın — eldeki kart bilgisiyle devam edilip bir not gösteriliyor.
   const [failed, setFailed] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
   const { theme } = useThemeMode()
   const [busy, setBusy] = useState(false)
@@ -99,7 +102,7 @@ export default function TmdbPreviewModal({
   // açılınca oranın bulanıklık efekti pencereyi kaydırılan içeriğe hapsedip en üstte açtırıyordu.
   return createPortal(
     // Telefonda tam ekran (görsel durum çubuğunun arkasına uzanır)
-    <div className={`fixed inset-0 z-[70] bg-black/80 overflow-y-auto ${MOBILE ? '' : 'py-6 px-4 sm:px-10'}`} onClick={onClose} style={MOBILE ? { paddingTop: 0 } : undefined}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={shown.title} className={`fixed inset-0 z-[70] bg-black/80 overflow-y-auto ${MOBILE ? '' : 'py-6 px-4 sm:px-10'}`} onClick={onClose} style={MOBILE ? { paddingTop: 0 } : undefined}>
       <div className={MOBILE ? 'bg-neutral-900 w-full min-h-full overflow-hidden' : 'bg-neutral-900 rounded-xl w-full max-w-4xl mx-auto overflow-hidden'} onClick={(e) => e.stopPropagation()}>
         <div className="relative">
           {/* Arşivdeki detay penceresiyle aynı üst bölüm: yatay görsel, üstünde başlık logosu,

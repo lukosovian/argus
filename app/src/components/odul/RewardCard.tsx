@@ -88,7 +88,13 @@ export function RewardCard({
   const RN = RARITY_NAMES()
   const it = reward.kind === 'item' ? catalogItem(reward.key) : null
   return (
-    <div className={`oc r${reward.r} ${shown ? 'shown' : ''} ${still ? 'static' : ''}`} style={{ '--w': `${w}px`, ...style } as CSSProperties} onClick={onClick}>
+    <div className={`oc r${reward.r} ${shown ? 'shown' : ''} ${still ? 'static' : ''}`} style={{ '--w': `${w}px`, ...style } as CSSProperties}
+      onClick={onClick}
+      // Tıklanabilen kart klavyeyle de çevrilebilsin
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+    >
       <div className="oc-flip">
         {!still && <CardBack backKey={backKey} />}
         <div className="oc-face">

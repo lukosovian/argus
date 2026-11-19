@@ -4,6 +4,7 @@ import { TicketBack, TicketFront, TICKET_RATIO, useTicketTint, type BiletItem } 
 import { longDay } from '../../lib/bilet'
 import Icon from '../Icon'
 import { useEscape } from '../../hooks/useEscape'
+import { useDialogFocus } from '../../hooks/useDialogFocus'
 import { tt } from '../../lib/i18n'
 
 // Bilete tıklayınca: bilet tıklandığı yerden ekranın ortasına büyür; fareyle oynatınca hafifçe yatar ve üstünde
@@ -46,6 +47,8 @@ export default function TicketViewer({
   const tilt = useRef<HTMLDivElement>(null)
   const startIndex = useRef(index)
   const closing = useRef(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, () => close())
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export default function TicketViewer({
   const h = width / TICKET_RATIO
   const btn = 'inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1.5 text-xs text-neutral-200 hover:bg-white/[0.12] hover:text-white transition'
   return createPortal(
-    <div className="fixed inset-0 z-[85] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md" onClick={close} style={{ animation: 'argus-fade-in .3s ease-out' }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Biletlerim')} className="fixed inset-0 z-[85] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md" onClick={close} style={{ animation: 'argus-fade-in .3s ease-out' }}>
       <style>{CSS}</style>
       {/* biletin renginde hafif bir ışık */}
       <div className="pointer-events-none absolute inset-0 transition-[background] duration-700" style={{ background: `radial-gradient(ellipse 60% 45% at 50% 48%, ${tint.accent}38, transparent 70%)` }} />

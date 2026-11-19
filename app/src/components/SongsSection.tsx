@@ -198,8 +198,18 @@ export default function SongsSection({ rowId, seasons }: { rowId: string; season
 
   useEffect(() => {
     load()
-    const t = window.setInterval(load, POLL_MS)
-    return () => window.clearInterval(t)
+    // Pencere gizliyken (simge durumunda, başka sekmede) sorulmasın; geri gelince hemen yenilensin
+    const t = window.setInterval(() => {
+      if (!document.hidden) load()
+    }, POLL_MS)
+    const onVis = () => {
+      if (!document.hidden) load()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.clearInterval(t)
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [load])
 
   // Dizide bölüm bölüm, bölüm içinde dakikaya göre

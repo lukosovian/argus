@@ -227,12 +227,14 @@ function MoodCard({
 // map içinde useDailyPick çağırmak — mod sayısı değiştikçe hook sayısını değiştirip React'ın
 // Hooks kurallarını bozardı).
 function useDailyMoodPicks(moods: Mood[], rows: Row[], profileId: string | null): { mood: Mood; row: Row }[] {
-  const [result, setResult] = useState<{ mood: Mood; row: Row }[]>([])
+  // Seçimler kimlik (mod id → kayıt id) olarak tutulur, kayıt her çizimde güncel listeden bulunur —
+  // kopya tutulunca düzenlenen kayıt eski haliyle, silinen kayıt da şeritte kalıyordu
+  const [picks, setPicks] = useState<{ moodId: string; rowId: string }[]>([])
   const moodsKey = moods.map((m) => `${m.id}:${conditionsKey(filterConditions(m))}:${m.image}:${m.name}`).join('|')
   const rowsKey = rows.map((r) => r.id).join(',')
 
   useEffect(() => {
-    const next: { mood: Mood; row: Row }[] = []
+    const next: { moodId: string; rowId: string }[] = []
     for (const mood of moods) {
       const conds = filterConditions(mood)
       if (conds.length === 0) continue
@@ -251,22 +253,32 @@ function useDailyMoodPicks(moods: Mood[], rows: Row[], profileId: string | null)
       const stillThere = isFresh && cached ? pool.find((r) => r.id === cached!.rowId) : undefined
 
       if (stillThere) {
-        next.push({ mood, row: stillThere })
+        next.push({ moodId: mood.id, rowId: stillThere.id })
         continue
       }
       const picked = pool[Math.floor(Math.random() * pool.length)]
-      next.push({ mood, row: picked })
+      next.push({ moodId: mood.id, rowId: picked.id })
       try {
         localStorage.setItem(cacheKey, JSON.stringify({ rowId: picked.id, generatedAt: Date.now() }))
       } catch {
         // localStorage dolu/kapalı olabilir — sorun değil, sadece her ziyarette yeniden seçilir
       }
     }
-    setResult(next)
+    setPicks(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moodsKey, rowsKey, profileId])
 
-  return result
+  return useMemo(() => {
+    const rowById = new Map(rows.map((r) => [r.id, r] as const))
+    const moodById = new Map(moods.map((m) => [m.id, m] as const))
+    const out: { mood: Mood; row: Row }[] = []
+    for (const p of picks) {
+      const mood = moodById.get(p.moodId)
+      const row = rowById.get(p.rowId)
+      if (mood && row) out.push({ mood, row })
+    }
+    return out
+  }, [picks, rows, moods])
 }
 
 // TEK bir satır: kullanıcının tanımladığı her modun görseli, o moda uyan (Durum="İzlenecek"
@@ -366,6 +378,8 @@ export default function MoodRow({
                 src={resolveMoodImageSrc(mood.image, theme)}
                 alt={mood.name}
                 title={mood.name}
+                loading="lazy"
+                decoding="async"
                 className="shrink-0 h-auto w-auto object-contain"
                 style={{
                   height: REST_WIDTH * 1.5,

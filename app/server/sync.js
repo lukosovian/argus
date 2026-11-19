@@ -201,7 +201,14 @@ function walkData() {
   }
   for (const p of profiles) {
     const dir = path.join(PROFILES_DIR, p.name)
-    for (const f of fs.readdirSync(dir)) if (f.endsWith('.json') && f !== 'api-key.json') add(path.join(dir, f))
+    // bulk-job.json (Genel Güncelleme'nin ilerlemesi) telefona gerekmiyor
+    for (const f of fs.readdirSync(dir)) if (f.endsWith('.json') && f !== 'api-key.json' && f !== 'bulk-job.json') add(path.join(dir, f))
+    // Genel veri deposu (bkz. routes/store.js): profiles/<id>/store/<ad>.json
+    try {
+      for (const f of fs.readdirSync(path.join(dir, 'store'))) if (f.endsWith('.json')) add(path.join(dir, 'store', f))
+    } catch {
+      /* depo yok */
+    }
     try {
       for (const f of fs.readdirSync(path.join(dir, 'rows'))) if (f.endsWith('.json')) add(path.join(dir, 'rows', f))
     } catch {

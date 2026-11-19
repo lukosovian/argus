@@ -175,9 +175,25 @@ export default function Navbar() {
     if (MOBILE) return
     let gAt = 0
     const map: Record<string, string> = { a: settings.boardId ? `/board/${settings.boardId}` : '/arsivlerim', m: '/aklimda', k: '/koleksiyon', e: '/evrenler', i: '/istatistikler', 'ı': '/istatistikler', t: '/takvim', h: '/' }
+    // Açık bir pencere (modal) var mı? Uygulamadaki pencereler çoğunlukla tam ekran "fixed inset-0" katman olarak
+    // çiziliyor (profil seçme ekranı da öyle); aria-modal/role=dialog işaretli olanlar da sayılır
+    function modalOpen() {
+      if (document.querySelector('[aria-modal="true"], [role="dialog"], [role="alertdialog"]')) return true
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>('.fixed.inset-0'))) {
+        if (!el.getClientRects().length) continue
+        const cs = getComputedStyle(el)
+        if (cs.pointerEvents === 'none' || cs.visibility === 'hidden') continue
+        const z = Number(cs.zIndex)
+        if (Number.isFinite(z) && z >= 50) return true
+      }
+      return false
+    }
     function onKey(e: KeyboardEvent) {
+      if (e.defaultPrevented) return
       const t = e.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      // Profil seçilmemişken (profil ekranı açık) kısayol yok
+      if (!activeProfileId) return
       if (e.ctrlKey && e.key === ',') {
         e.preventDefault()
         navigate('/arsivlerim')
@@ -193,6 +209,10 @@ export default function Navbar() {
         return
       }
       if (e.ctrlKey || e.altKey || e.metaKey) return
+      if (modalOpen()) {
+        gAt = 0
+        return
+      }
       const k = e.key.toLocaleLowerCase('tr')
       if (k === 'g') {
         gAt = Date.now()

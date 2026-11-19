@@ -5,6 +5,9 @@ import { clearConfig, getConfig, prefetchPosters, syncNow } from '../../lib/mobi
 import { ArgusNative } from '../../lib/mobile/native'
 import { wipeAll } from '../../lib/mobile/store'
 import { useMobileState } from './MobileStatusBar'
+
+// PendingChanges'i buraya almadan (o ayrı parçada) açar — ekranı üstteki gösterge (MobileStatusBar) tutuyor
+const openPendingChanges = () => window.dispatchEvent(new Event('argus-bekleyenler-ac'))
 import { locale, tt } from '../../lib/i18n'
 
 // ARGUS Android › Ayarlar › Uygulama Ayarları: hangi PC'ye bağlı, son eşitleme, bekleyen değişiklikler,
@@ -49,13 +52,20 @@ export default function MobileConnectionPanel() {
         <p className="text-xs text-neutral-500">{s.lastSync ? tt('Son eşitleme: {0}', fmtTime(s.lastSync)) : tt('Henüz eşitlenmedi')}</p>
         {s.pending > 0 && <p className="text-xs text-amber-300">{tt('{0} değişiklik PC\'ye gönderilmeyi bekliyor', s.pending)}</p>}
         {s.failed > 0 && <p className="text-xs text-red-400">{tt('{0} değişiklik PC\'de uygulanamadı (ör. kayıt PC\'de silinmişti).', s.failed)}</p>}
-        <button
-          onClick={() => syncNow().then(() => notify(tt('Eşitlendi.'), 'success'))}
-          disabled={s.status === 'syncing'}
-          className="mt-2 text-xs rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-1.5 text-neutral-200 disabled:opacity-50"
-        >
-          {tt('Şimdi eşitle')}
-        </button>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            onClick={() => syncNow().then(() => notify(tt('Eşitlendi.'), 'success'))}
+            disabled={s.status === 'syncing'}
+            className="text-xs rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-1.5 text-neutral-200 disabled:opacity-50"
+          >
+            {tt('Şimdi eşitle')}
+          </button>
+          {(s.pending > 0 || s.failed > 0) && (
+            <button onClick={openPendingChanges} className="text-xs rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-1.5 text-neutral-200">
+              {tt('Bekleyen değişiklikler')}
+            </button>
+          )}
+        </div>
       </div>
       <div className="space-y-1">
         <p className="text-sm text-neutral-100">{tt('Görseller')}</p>

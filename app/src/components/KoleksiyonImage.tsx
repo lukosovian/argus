@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useToast } from '../hooks/useToast'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { whiteLogo } from '../lib/whiteLogo'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, ttx } from '../lib/i18n'
 import { fontReady } from '../lib/fontReady'
 
@@ -330,6 +331,8 @@ export default function KoleksiyonImage({
   }, [shelves, loose, stats, withLoose])
 
   // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
 
   function download() {
@@ -344,7 +347,7 @@ export default function KoleksiyonImage({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/90 overflow-y-auto py-5 px-4" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Koleksiyon görseli')} className="fixed inset-0 z-[70] bg-black/90 overflow-y-auto py-5 px-4" onClick={onClose}>
       <div className="mx-auto w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>

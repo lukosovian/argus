@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import type { OdulReward, OdulTier } from '../../lib/api'
 import { RARITY_COLORS, RARITY_NAMES, tierOf } from '../../lib/oduller'
 import { useEscape } from '../../hooks/useEscape'
+import { useDialogFocus } from '../../hooks/useDialogFocus'
+import { prefersReducedMotion } from '../../lib/reducedMotion'
 import { tt } from '../../lib/i18n'
 import { RewardCard } from './RewardCard'
 import './odul.css'
@@ -44,6 +46,8 @@ class FX {
     cancelAnimationFrame(this.raf)
   }
   burst(x: number, y: number, col: string, n: number, o: BurstOpts = {}) {
+    // "Hareketi azalt" açıksa kıvılcım patlaması yok
+    if (prefersReducedMotion()) return
     for (let i = 0; i < n; i++) {
       const a = (o.dir ?? -Math.PI / 2) + (Math.random() - 0.5) * (o.spread ?? Math.PI * 2)
       const v = (o.v ?? 6) * (0.3 + Math.random() * 0.9)
@@ -136,6 +140,7 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
   const [ready, setReady] = useState(false)
   const [L, setL] = useState(layout)
   const alive = useRef(true)
+  useDialogFocus(stage)
   useEscape(true, onClose)
 
   useLayoutEffect(() => {
@@ -162,7 +167,7 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
   }
   const flash = (col: string) => {
     const f = flashEl.current
-    if (!f) return
+    if (!f || prefersReducedMotion()) return
     stage.current?.style.setProperty('--rc', col)
     f.classList.remove('go')
     void f.offsetWidth
@@ -290,7 +295,7 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
   }
 
   return createPortal(
-    <div ref={stage} className="op-stage" onPointerMove={onMove} onPointerLeave={() => S.current.state === 'idle' && pack.current && (pack.current.style.transform = '')} style={{ '--rc': RARITY_COLORS[best] } as CSSProperties}>
+    <div ref={stage} role="dialog" aria-modal="true" aria-label={t.label()} className="op-stage" onPointerMove={onMove} onPointerLeave={() => S.current.state === 'idle' && pack.current && (pack.current.style.transform = '')} style={{ '--rc': RARITY_COLORS[best] } as CSSProperties}>
       <div ref={flashEl} className="op-flash" />
       {allDone && <div className="op-tag">{tt('EN İYİSİ: {0}', RN[best].toLocaleUpperCase('tr'))}</div>}
       <button className="op-close" onClick={onClose} aria-label={tt('Kapat')} title={tt('Kapat')}>
@@ -302,6 +307,16 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
           ref={pack}
           className="op-pack"
           style={{ '--foil': t.foil } as CSSProperties}
+          // Klavyeyle de açılabilsin: Enter / Boşluk paketi kendisi yırtar
+          role="button"
+          tabIndex={opened ? -1 : 0}
+          aria-label={tt('Paketi aç')}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && S.current.state === 'idle') {
+              e.preventDefault()
+              void autoTear()
+            }
+          }}
           onPointerDown={(e) => {
             if (S.current.state !== 'idle') return
             S.current.state = 'tearing'

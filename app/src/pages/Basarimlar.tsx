@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { Board, Row, WatchedMap } from '../types'
 import { titleText } from '../types'
@@ -7,6 +7,7 @@ import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useProfiles } from '../hooks/useProfiles'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { api } from '../lib/api'
 import { computeAchievements, countDone, GROUP_NAMES, TIER_COLORS, TIER_NAMES, unlockedDatesKey, type Achievement, type AchievementGroup } from '../lib/achievements'
 import { resolveRole } from '../lib/roles'
@@ -211,6 +212,8 @@ const PAGE = 48
 function BadgeDetail({ a, board, dates, onClose }: { a: Achievement; board: Board; dates: Record<string, string>; onClose: () => void }) {
   const [detail, setDetail] = useState<Row | null>(null)
   const [limit, setLimit] = useState(PAGE)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(!detail, onClose)
   const tp = board.properties.find((p) => p.id === board.titlePropertyId)
   const poster = resolveRole(board, 'poster')
@@ -219,7 +222,7 @@ function BadgeDetail({ a, board, dates, onClose }: { a: Achievement; board: Boar
   return createPortal(
     <>
     {/* bir yapımın detayı açıkken rozet penceresi gizlenir (detay onun arkasında kalıyordu), kapanınca geri gelir */}
-    <div className={`fixed inset-0 z-[70] ${detail ? 'hidden' : 'flex'} items-start justify-center overflow-y-auto bg-black/75 backdrop-blur-sm p-4 sm:p-8`} onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={a.title} className={`fixed inset-0 z-[70] ${detail ? 'hidden' : 'flex'} items-start justify-center overflow-y-auto bg-black/75 backdrop-blur-sm p-4 sm:p-8`} onClick={onClose}>
       <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 shadow-2xl" onClick={(e) => e.stopPropagation()} style={{ animation: 'argus-toast-in .25s ease-out' }}>
         <div className="relative px-6 pt-6 pb-5 sm:px-8" style={{ background: `radial-gradient(ellipse at 15% 0%, ${a.colors[0]}66, transparent 60%), radial-gradient(ellipse at 90% 0%, ${TIER_COLORS[a.level][0]}40, transparent 60%)` }}>
           <button onClick={onClose} className="absolute right-4 top-4 rounded-full bg-black/40 px-3 py-1 text-sm text-neutral-300 hover:text-white transition">

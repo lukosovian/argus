@@ -111,10 +111,10 @@ export default function ContinueRow({
               className="group w-[300px] shrink-0 text-left rounded-xl overflow-hidden bg-neutral-900 shadow-lg shadow-black/40 transition duration-300 hover:-translate-y-1 hover:shadow-black/70"
             >
               <span className="relative block aspect-video bg-neutral-800">
-                {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />}
+                {image && <img src={image} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />}
                 <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
                 {logo ? (
-                  <img src={logo} alt={title} className="absolute left-3 bottom-3 max-h-[38%] max-w-[60%] object-contain" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.8))' }} />
+                  <img src={logo} alt={title} loading="lazy" decoding="async" className="absolute left-3 bottom-3 max-h-[38%] max-w-[60%] object-contain" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.8))' }} />
                 ) : (
                   <span className="absolute left-3 bottom-2.5 right-3 text-base font-bold text-white truncate" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
                     {title}

@@ -19,8 +19,24 @@ function iso(y: number, m: number, d: number) {
   return `${y}-${pad(m)}-${pad(d)}`
 }
 
+// Sütundaki "03/12/2023" gibi belirsiz tarihlerin sırası: bir değerin ilk sayısı 12'den büyükse sütun gün/ay,
+// ikinci sayısı 12'den büyükse ay/gün (ABD) biçimindedir; ikisi de yoksa Türkiye biçimi (gün/ay) varsayılır.
+// Eskiden her değer kendi başına karar veriyordu — aynı sütunda "12/25/2023" ay/gün okunurken "03/12/2023" gün/ay okunuyordu.
+export type DateOrder = 'dmy' | 'mdy'
+export function detectDateOrder(values: string[]): DateOrder {
+  let dmy = false
+  let mdy = false
+  for (const v of values) {
+    for (const m of (v ?? '').matchAll(/(?:^|[^\d])(\d{1,2})[./](\d{1,2})[./]\d{4}/g)) {
+      if (+m[1] > 12) dmy = true
+      if (+m[2] > 12) mdy = true
+    }
+  }
+  return mdy && !dmy ? 'mdy' : 'dmy'
+}
+
 // Tek bir tarih → 'YYYY-AA-GG' ya da ''. `yearOnly`: sadece yıl yazılmışsa (ör. "1994") yılın ilk günü.
-export function parseDateLoose(raw: string, yearOnly = false): string {
+export function parseDateLoose(raw: string, yearOnly = false, order: DateOrder = 'dmy'): string {
   let s = (raw ?? '').trim()
   if (!s) return ''
   // Saat ve saat dilimi at: "1:00 AM", "13:45", "(GMT+3)"
@@ -31,7 +47,8 @@ export function parseDateLoose(raw: string, yearOnly = false): string {
   if (m) {
     let d = +m[1]
     let mo = +m[2]
-    // ABD biçimi (ay/gün) sadece gün 12'den büyükse anlaşılıyor; belirsizse Türkiye biçimi (gün/ay)
+    // Sütunun biçimi ay/gün ise (bkz. detectDateOrder) yer değiştir; tek bir değer yine de açıkça belliyse ona uy
+    if (order === 'mdy' && d <= 12) [d, mo] = [mo, d]
     if (mo > 12 && d <= 12) [d, mo] = [mo, d]
     return iso(+m[3], mo, d)
   }
@@ -52,13 +69,13 @@ function hasRangeSeparator(raw: string) {
 
 // Birden çok tarih/aralık: ";" ile, ya da arkasından yıl gelmeyen virgülle ayrılmış ("March 12, 2023" içindeki
 // virgül bölmesin). Her parça tek tarih ya da "başlangıç → bitiş".
-export function parseDateEntries(raw: string): string[] {
+export function parseDateEntries(raw: string, order: DateOrder = 'dmy'): string[] {
   const value = (raw ?? '').trim()
   if (!value) return []
   return value
     .split(/;|,(?!\s*\d{4}\b)/)
     .map((part) => {
-      const [a, b] = part.split(/→|->/).map((x) => parseDateLoose(x))
+      const [a, b] = part.split(/→|->/).map((x) => parseDateLoose(x, false, order))
       return a ? makeEntry(a, b || null) : ''
     })
     .filter(Boolean)
@@ -186,6 +203,8 @@ export interface ParseContext {
   fiveScale?: boolean
   // Tarih sütununa sadece yıl yazılmışsa yılın ilk gününü kullan (Vizyon Tarihi)
   yearOnly?: boolean
+  // Belirsiz "03/12/2023" tarihleri gün/ay mı ay/gün mü (bkz. detectDateOrder)
+  dateOrder?: DateOrder
 }
 
 export function parseCellValue(property: PropertyDef, raw: string, ctx: ParseContext = {}): PropertyValue {
@@ -195,11 +214,11 @@ export function parseCellValue(property: PropertyDef, raw: string, ctx: ParseCon
   switch (property.type) {
     case 'date':
       // Aralık yazılmışsa başlangıcı
-      return parseDateLoose(value.split(/→|->/)[0], ctx.yearOnly)
+      return parseDateLoose(value.split(/→|->/)[0], ctx.yearOnly, ctx.dateOrder)
     // Birden fazla tarih; Notion'un "12/03/2023 → 20/03/2023" ya da "March 12, 2023 → March 20, 2023" aralıkları
     // başlangıç/bitiş olarak.
     case 'multidate':
-      return parseDateEntries(value)
+      return parseDateEntries(value, ctx.dateOrder)
     case 'number': {
       const n = Number(value.replace(',', '.'))
       return Number.isFinite(n) ? n : ''

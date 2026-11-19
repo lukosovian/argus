@@ -56,6 +56,8 @@ export function SoundToggle() {
       }}
       title={label[m]}
       aria-label={label[m]}
+      // Üç kademeli (kapalı / sadece sonuç / hepsi): ekran okuyucu için "ses açık mı" bilgisi
+      aria-pressed={m !== 'kapali'}
       className={`h-10 w-10 rounded-xl border flex items-center justify-center transition ${m === 'kapali' ? 'border-neutral-700 text-neutral-500' : 'border-[#00c0fa]/60 text-[#7fdcff] bg-[#00c0fa]/10'}`}
     >
       <span className="text-lg leading-none">{m === 'kapali' ? '🔇' : m === 'sonuc' ? '🔉' : '🔊'}</span>

@@ -13,6 +13,7 @@ import {
   SortIcon,
 } from './toolbarIcons'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt } from '../lib/i18n'
 
 // Arşiv tablosunun sağ üstündeki "i" butonuyla açılan kullanım rehberi — kullanıcı "burası
@@ -319,6 +320,8 @@ const SECTIONS = [
 ]
 
 export default function TableGuideModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -328,7 +331,7 @@ export default function TableGuideModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-8" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Arşiv tablosu nasıl kullanılır?')} className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-8" onClick={onClose}>
       <div
         className="w-full max-w-3xl max-h-[calc(100vh-4rem)] flex flex-col bg-neutral-900 border border-neutral-800 rounded-2xl"
         onClick={(e) => e.stopPropagation()}

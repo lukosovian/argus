@@ -71,7 +71,11 @@ export default function GlobalSearch() {
   const [searchParams] = useSearchParams()
   const { settings } = useHomeSettings()
   const { board } = useBoard(settings.boardId ?? undefined)
-  const { rows } = useRows(settings.boardId ?? undefined)
+  // Kayıtlar arama ilk kez açılınca yüklenir — eskiden arama hiç açılmasa da arşivin bütün kayıtlarının ikinci bir
+  // kopyası hep bellekte duruyor, her değişiklikte de baştan çekiliyordu.
+  const [everOpened, setEverOpened] = useState(false)
+  if (open && !everOpened) setEverOpened(true)
+  const { rows } = useRows(everOpened ? (settings.boardId ?? undefined) : undefined)
 
   const query = q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
   const titleProp = useMemo(

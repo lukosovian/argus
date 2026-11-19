@@ -80,12 +80,12 @@ export default function PhonePanel() {
   return (
     <SettingsSection
       title={tt('Telefon')}
-      description={tt("Telefondaki ARGUS, bu bilgisayarla aynı Wi-Fi\'a girince değişiklikleri kendiliğinden eşitler. PC kapalıyken de telefonda kullanabilirsin.")}
+      description={tt("Telefondaki ARGUS, bu bilgisayarla aynı Wi-Fi'a girince değişiklikleri kendiliğinden eşitler. PC kapalıyken de telefonda kullanabilirsin.")}
     >
       <div className="space-y-3">
         {pairing ? (
           <div className="rounded-xl border border-[#00c0fa]/30 bg-[#00c0fa]/[0.06] p-4">
-            <p className="text-xs text-neutral-400">{tt("Telefondaki ARGUS\'ta bu kodu yaz:")}</p>
+            <p className="text-xs text-neutral-400">{tt("Telefondaki ARGUS'ta bu kodu yaz:")}</p>
             <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-neutral-50">{pairing.code}</p>
             <p className="mt-2 text-xs text-neutral-500">
               {tt('{0}:{1} içinde geçerli.', Math.floor(left / 60), String(left % 60).padStart(2, '0'))}{' '}
@@ -97,7 +97,7 @@ export default function PhonePanel() {
             <div className="min-w-0">
               <p className="text-sm text-neutral-100">{tt('Telefon bağla')}</p>
               <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">
-                {tt("Telefonda ARGUS\'u aç, bu bilgisayar aynı Wi-Fi\'dayken çıkan kodu orada yaz.")}
+                {tt("Telefonda ARGUS'u aç, bu bilgisayar aynı Wi-Fi'dayken çıkan kodu orada yaz.")}
               </p>
             </div>
             <button onClick={newCode} className={`${PRIMARY_BUTTON} shrink-0 rounded-lg text-xs px-3 py-1.5`} style={primaryButtonStyle}>

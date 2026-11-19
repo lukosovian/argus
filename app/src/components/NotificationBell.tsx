@@ -91,12 +91,20 @@ export default function NotificationBell() {
   useEffect(() => {
     knownIds.current = null
     load()
-    const id = setInterval(load, POLL_MS)
+    // Sekme/pencere gizliyken sorma; görünür olunca hemen tazele
+    const id = setInterval(() => {
+      if (!document.hidden) load()
+    }, POLL_MS)
     const onPing = () => load()
+    const onVis = () => {
+      if (document.visibilityState === 'visible') load()
+    }
     window.addEventListener('argus-notifications', onPing)
+    document.addEventListener('visibilitychange', onVis)
     return () => {
       clearInterval(id)
       window.removeEventListener('argus-notifications', onPing)
+      document.removeEventListener('visibilitychange', onVis)
     }
   }, [load])
 

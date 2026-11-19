@@ -647,6 +647,36 @@ html.argus-mobile .safe-shift {
   animation-play-state: paused;
 }
 
+/* "Hareketi azalt" (işletim sisteminin erişilebilirlik ayarı) açıksa: animasyonlar ve geçişler anında biter,
+   sonsuz dönen/nabız atan süsler bir kez (yani hiç) oynar. Animasyon bitince elemanlar zaten son hâlinde
+   durduğu için pencereler, vitrin ve videolar yine görünür — sadece kayarak/solarak gelmezler.
+   Yükleniyor çarkı (.animate-spin) işlevsel olduğu için dönmeye devam ediyor. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Dönen avatar çerçeveleri (Lav, Galaksi, Altın varak, Neon) dursun */
+  [style*='argus-cerceve'] {
+    animation: none !important;
+  }
+  /* Flashback jeneriği: kaymak yerine baştan görünsün, elle kaydırılsın */
+  .fb-roll {
+    overflow-y: auto !important;
+  }
+  .fb-roll .fb-roll-in {
+    animation: none !important;
+    top: 0 !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fb-anim .fb-c, .fb-anim .fb-p, .fb-anim .fb-slice, .fb-menu, .fb-menu > a::after { animation: none !important }
   .fb-reveal { opacity: 1; transform: none }

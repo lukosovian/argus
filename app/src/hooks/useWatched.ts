@@ -32,8 +32,9 @@ export function useWatched() {
     setWatched((prev) => ({ ...prev, [rowId]: map }))
     try {
       await api.saveRowWatched(rowId, map)
-      // Ana sayfadaki "Yeni Bölümler" satırı izlenen bölümü düşürsün diye.
-      notifyDataChanged()
+      // Ana sayfadaki "Yeni Bölümler" satırı izlenen bölümü düşürsün diye. 'watched': sadece izleme tarihleri
+      // değişti — açık arşiv tablosu bütün kayıtları baştan çekmesin.
+      notifyDataChanged(undefined, 'watched')
     } catch (e) {
       setWatched((prev) => ({ ...prev, [rowId]: previous ?? {} }))
       notify(e instanceof Error ? e.message : tt('İzleme tarihi kaydedilemedi.'), 'danger')

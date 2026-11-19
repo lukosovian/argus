@@ -9,7 +9,8 @@
 //   - PC'nin adresi değiştiyse (modem yeni IP verdi) aynı ağda taranıp aynı ARGUS (serverId) bulunur.
 import { CapacitorHttp } from '@capacitor/core'
 import { ArgusNative } from './native'
-import { cacheGet, cacheKeys, cacheSet, metaGet, metaSet, queueAll, queueCount, queueDelete, type QueuedOp } from './store'
+import { cacheAllKeys, cacheDelete, cacheGet, cacheKeys, cacheSet, metaGet, metaSet, queueAdd, queueAll, queueCount, queueDelete, shouldCache, withLock, type QueuedOp } from './store'
+import { opCacheKey, opTouches, replayOnCache } from './localApply'
 import { notifyDataChanged } from '../dataEvents'
 
 export interface ServerConfig {
@@ -146,20 +147,40 @@ async function pathsForFile(file: string): Promise<string[]> {
       return [`${base}/recent-watch`]
     case 'aklimda.json':
       return [`${base}/aklimda`]
+    case 'biletler.json':
+      return [`${base}/biletler`]
+    case 'oduller.json':
+      return [`${base}/oduller`]
     case 'koleksiyon.json': {
       const boards = ((await cacheGet<{ id: string }[]>(`${base}/boards`)) ?? []).map((b) => `${base}/koleksiyon/${b.id}`)
       return boards
     }
     case 'songs.json':
       return cacheKeys(`${base}/songs/`)
-    default:
-      return []
+    default: {
+      // Genel kayıtlar: profiles/<id>/store/<ad>.json → /api/profiles/<id>/store/<ad>
+      const st = /^store\/([^/]+)\.json$/.exec(rest)
+      return st ? [`${base}/store/${st[1]}`] : []
+    }
   }
+}
+
+// PC'den gelen bir okumayı telefona yazar. O adreste PC'ye henüz gitmemiş değişiklik varsa PC'nin kopyasının
+// üstüne yeniden işlenir — yoksa eşitleme sürerken telefonda yapılan değişiklik, PC'nin (o değişikliği henüz
+// bilmeyen) kopyasıyla ezilip bir sonraki eşitlemeye kadar kayboluyordu. Arayüze dönecek son hali verir.
+export function storeFromPc(path: string, data: unknown): Promise<unknown> {
+  return withLock(async () => {
+    await cacheSet(path, data)
+    const ops = (await queueAll()).filter(({ op }) => opTouches(op, path))
+    if (!ops.length) return data
+    for (const { op } of ops) await replayOnCache(op).catch((e) => console.error('yeniden işlenemedi:', e))
+    return cacheGet(path)
+  })
 }
 
 async function fetchAndStore(path: string) {
   const r = await pcRequest(path, { timeoutMs: 60000 })
-  if (r.status === 200) await cacheSet(path, r.data)
+  if (r.status === 200) await storeFromPc(path, r.data)
 }
 
 // Bekleyen değişiklikleri sırayla PC'ye gönderir. Ağ koparsa durur (false). PC reddederse (ör. kayıt artık yok)
@@ -179,9 +200,13 @@ async function flush(): Promise<boolean> {
     // hatalar eskisi gibi "gönderilemedi"ye düşüyor — tek bir bozuk değişiklik bütün kuyruğu tıkamasın.)
     if ([401, 403, 429, 502, 503, 504].includes(r.status)) return false
     if (r.status >= 400) {
-      const failed = ((await metaGet<unknown[]>('failed')) ?? []).slice(-49)
-      await metaSet('failed', [...failed, { op, status: r.status, error: (r.data as { error?: string })?.error ?? null, t: Date.now() }])
-      setState({ failed: failed.length + 1 })
+      await withLock(async () => {
+        const failed = ((await metaGet<FailedOp[]>('failed')) ?? []).slice(-49)
+        await metaSet('failed', [...failed, { op, status: r.status, error: (r.data as { error?: string })?.error ?? null, t: Date.now() }])
+        setState({ failed: failed.length + 1 })
+      })
+      // Telefondaki kopyada bu değişiklik hâlâ görünüyor — sonraki eşitlemede PC'deki hali yeniden çekilsin
+      await markRefetch(op)
     }
     await queueDelete(key)
     setState({ pending: Math.max(0, state.pending - 1) })
@@ -197,9 +222,64 @@ export function sendOp(op: QueuedOp) {
   })
 }
 
+export interface FailedOp {
+  op: QueuedOp
+  status: number
+  error: string | null
+  t: number
+}
+
+// Bekleyen değişiklikler ekranı (bkz. components/mobile/PendingChanges.tsx)
+export const getFailed = async () => (await metaGet<FailedOp[]>('failed')) ?? []
+const sameFailed = (a: FailedOp, b: FailedOp) => a.op.id === b.op.id && a.t === b.t
+
+// Gönderilemeyen değişiklikleri sıraya geri koyar ve eşitler
+export async function retryFailed(items: FailedOp[]) {
+  await withLock(async () => {
+    for (const f of items) {
+      await queueAdd(f.op)
+      // Telefondaki kopyada da yeniden görünsün
+      await replayOnCache(f.op).catch(() => {})
+    }
+    const rest = (await getFailed()).filter((f) => !items.some((x) => sameFailed(f, x)))
+    await metaSet('failed', rest)
+    setState({ failed: rest.length })
+  })
+  await refreshPending()
+  if (state.status !== 'offline') await syncNow()
+  else check()
+}
+
+export async function dropFailed(item: FailedOp) {
+  await withLock(async () => {
+    const rest = (await getFailed()).filter((f) => !sameFailed(f, item))
+    await metaSet('failed', rest)
+    setState({ failed: rest.length })
+  })
+}
+
+// Sıradaki bir değişikliği PC'ye göndermeden siler. Telefondaki kopyada görünen hali PC'deki haline döner
+// (PC'ye bağlıyken hemen, değilse bağlanınca).
+export async function dropPending(key: IDBValidKey, op: QueuedOp) {
+  await withLock(() => queueDelete(key))
+  await refreshPending()
+  await markRefetch(op)
+  if (state.status === 'online') await syncNow()
+}
+
+// Telefondaki kopyası PC'dekinden farklı kalmış olabilecek adresler: sonraki eşitlemede yeniden çekilir
+async function markRefetch(op: QueuedOp) {
+  const k = opCacheKey(op)
+  if (!k) return
+  await withLock(async () => {
+    const list = (await metaGet<string[]>('refetch')) ?? []
+    if (!list.includes(k)) await metaSet('refetch', [...list, k].slice(-50))
+  })
+}
+
 type Manifest = { serverId: string; files: Record<string, { m: number; s: number }> }
 
-async function pull(full: boolean) {
+async function pull(full: boolean): Promise<{ changed: number; rows: boolean }> {
   const r = await pcRequest('/api/sync/manifest')
   if (r.status !== 200) throw new NetworkError('manifest ' + r.status)
   const next = r.data as Manifest
@@ -209,11 +289,16 @@ async function pull(full: boolean) {
     .filter((f) => !prev || prev.files[f]?.m !== next.files[f].m || prev.files[f]?.s !== next.files[f].s)
     .sort((a, b) => Number(b.endsWith('boards.json')) - Number(a.endsWith('boards.json')))
   for (const f of changed) for (const p of await pathsForFile(f)) await fetchAndStore(p)
+  // Bekleyen değişikliği silinen / PC'de uygulanamayan adresler (bkz. markRefetch)
+  const refetch = (await metaGet<string[]>('refetch')) ?? []
+  for (const k of refetch) for (const p of k.endsWith('/') ? await cacheKeys(k) : [k]) await fetchAndStore(p).catch(() => {})
+  // Bu arada eklenenler kalsın
+  if (refetch.length) await withLock(async () => metaSet('refetch', ((await metaGet<string[]>('refetch')) ?? []).filter((k) => !refetch.includes(k))))
   if (full) {
     // Dosyası olmayan ama ekranların ilk açılışta istediği okumalar
     const profiles = (await cacheGet<{ id: string }[]>('/api/profiles')) ?? []
     for (const p of profiles) {
-      for (const s of ['/home-settings', '/watched', '/notifications', '/recent-watch', '/templates', '/aklimda']) {
+      for (const s of ['/home-settings', '/watched', '/notifications', '/recent-watch', '/templates', '/aklimda', '/biletler']) {
         const key = `/api/profiles/${p.id}${s}`
         if ((await cacheGet(key)) === undefined) await fetchAndStore(key).catch(() => {})
       }
@@ -221,7 +306,8 @@ async function pull(full: boolean) {
     await fetchAndStore('/api/features').catch(() => {})
   }
   await metaSet('manifest', next)
-  return changed.length
+  // Afişler sadece arşiv kayıtları (ya da profil fotoğrafları) değiştiyse yeniden taranır
+  return { changed: changed.length + refetch.length, rows: changed.some((f) => f === 'profile.json' || /\/rows\//.test(f)) }
 }
 
 // Afişler (ve profil fotoğrafları) PC yokken de görünsün diye önceden indirilir; diğer görseller görüldükçe birikir.
@@ -250,7 +336,7 @@ export function syncNow(opts: { full?: boolean } = {}): Promise<void> {
     try {
       await refreshPending()
       if (!(await flush())) throw new NetworkError('flush')
-      const changed = await pull(Boolean(opts.full) || !(await metaGet('manifest')))
+      const { changed, rows } = await pull(Boolean(opts.full) || !(await metaGet('manifest')))
       const now = Date.now()
       await metaSet('lastSync', now)
       setState({ status: 'online', lastSync: now })
@@ -258,7 +344,8 @@ export function syncNow(opts: { full?: boolean } = {}): Promise<void> {
         notifyDataChanged()
         window.dispatchEvent(new Event('argus-notifications'))
       }
-      prefetchPosters()
+      // Eskiden her eşitlemeden sonra (değişiklik beklerken 8 sn'de bir) bütün arşiv taranıyordu
+      if (rows) prefetchPosters()
       checkAppUpdate()
     } catch (e) {
       setState({ status: 'offline' })
@@ -343,6 +430,17 @@ async function check() {
   }
 }
 
+// Bir kereye mahsus: eskiden her okuma (arama sözcüğü, tarih aralığı…) saklanıyordu — artık saklanmayanları sil
+async function cleanCacheOnce() {
+  try {
+    if (await metaGet('cacheTemiz1')) return
+    for (const k of await cacheAllKeys()) if (!shouldCache(k)) await cacheDelete(k)
+    await metaSet('cacheTemiz1', Date.now())
+  } catch (e) {
+    console.error('telefondaki kopya temizlenemedi:', e)
+  }
+}
+
 let started = false
 export async function startConnection() {
   if (started) return
@@ -354,6 +452,7 @@ export async function startConnection() {
   if (c) await ArgusNative.setServer({ host: c.host, token: c.token }).catch(() => {})
   ArgusNative.addListener('prefetch', (e) => setState({ prefetch: e.done >= e.total ? null : e })).catch(() => {})
   ArgusNative.addListener('update', (e) => setState({ updating: e.percent })).catch(() => {})
+  cleanCacheOnce()
   check()
   setInterval(() => {
     if (document.visibilityState === 'visible') check()

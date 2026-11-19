@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, ttx } from '../lib/i18n'
 
 // Koleksiyon'da bir rafa yapım ekleme / çıkarma — kullanıcı "serinin içine kendim film ekleyebilmeliyim" dedi.
@@ -37,6 +38,8 @@ export default function ShelfPicker({
   const [busy, setBusy] = useState(false)
 
   // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
 
   // İşaretliler üstte, sonra aramaya uyanlar (adı aramayla başlayanlar önce)
@@ -50,7 +53,7 @@ export default function ShelfPicker({
   const changed = items.filter((i) => i.inShelf !== selected.has(i.id)).length
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-8 px-4" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('{0} rafı', shelfName)} className="fixed inset-0 z-[70] bg-black/80 overflow-y-auto py-8 px-4" onClick={onClose}>
       <div className="relative w-full max-w-xl mx-auto bg-neutral-900 rounded-2xl border border-neutral-800 p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label={tt('Kapat')} className="absolute top-4 right-4 h-9 w-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-lg">
           ×

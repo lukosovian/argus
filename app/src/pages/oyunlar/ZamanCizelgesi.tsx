@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useArchive } from './useArchive'
 import { preferWatched, sfx, shuffle, type GameItem } from '../../lib/games'
 import { tt, ttx } from '../../lib/i18n'
@@ -9,6 +9,8 @@ import { FinishInfo, GameShell, useFinish, type Finish, PRIMARY_BTN, PRIMARY_BG 
 
 // G3 Zaman çizelgesi (v1.24): 5 yapımı çıkış yılına göre eskiden yeniye diz (sürükle ya da oklar). Kontrol edince doğru
 // yerdekiler yeşil yanar, yıllar görünür. 5 tur; doğru yer başına 20 puan, hepsi doğruysa +50.
+// v1.25: sürükleme fare ve dokunmatikte (telefon uygulaması) çalışsın diye pointer olaylarıyla; önceki turlarda
+// çıkan yapımlar yeniden gelmez (arşiv yetmezse gelir).
 
 const ROUNDS = 5
 const PER = 5
@@ -24,17 +26,23 @@ export default function ZamanCizelgesi() {
   const [phase, setPhase] = useState<'menu' | 'play' | 'done'>('menu')
   const [drag, setDrag] = useState<number | null>(null)
   const [fin, setFin] = useState<Finish | null>(null)
+  const used = useRef(new Set<string>())
+  const rowEls = useRef<(HTMLDivElement | null)[]>([])
 
-  function deal() {
-    // Yılları birbirinden farklı 5 yapım
+  function deal(fresh = false) {
+    if (fresh) used.current = new Set()
+    // Yılları birbirinden farklı 5 yapım; önce önceki turlarda çıkmamış olanlardan
+    const unused = items.filter((x) => !used.current.has(x.id))
+    const from = new Set(unused.map((x) => x.year)).size >= PER ? unused : items
     const out: GameItem[] = []
     const years = new Set<number>()
-    for (const x of shuffle(items)) {
+    for (const x of shuffle(from)) {
       if (years.has(x.year!)) continue
       years.add(x.year!)
       out.push(x)
       if (out.length === PER) break
     }
+    for (const x of out) used.current.add(x.id)
     setList(out)
     setChecked(false)
   }
@@ -43,7 +51,7 @@ export default function ZamanCizelgesi() {
     setScore(0)
     setFin(null)
     setPhase('play')
-    deal()
+    deal(true)
   }
   const sorted = [...list].sort((a, b) => a.year! - b.year!)
   const correct = list.filter((x, i) => sorted[i].id === x.id).length
@@ -71,6 +79,16 @@ export default function ZamanCizelgesi() {
     l.splice(j, 0, x)
     setList(l)
   }
+  // Parmağın / farenin altındaki satır
+  function rowAt(y: number) {
+    for (let k = 0; k < rowEls.current.length; k++) {
+      const el = rowEls.current[k]
+      if (!el) continue
+      const r = el.getBoundingClientRect()
+      if (y >= r.top && y <= r.bottom) return k
+    }
+    return null
+  }
 
   if (loading) return <PageSkeleton />
   if (new Set(items.map((x) => x.year)).size < PER) return <EmptyState art="kayit" title={tt('Yeterli yapım yok')} text={tt('En az 5 farklı yılda çıkmış, afişi olan yapım gerekli.')} />
@@ -86,7 +104,7 @@ export default function ZamanCizelgesi() {
             </div>
           )}
           <FinishInfo f={fin} />
-          <p className="text-sm text-neutral-400">{ttx('{0} tur, her turda {1} yapım. Sürükleyerek ya da oklarla diz, sonra "Kontrol et".', ROUNDS, PER)}</p>
+          <p className="text-sm text-neutral-400">{ttx('{0} tur, her turda {1} yapım. Soldaki tutamaçtan sürükleyerek ya da oklarla diz, sonra "Kontrol et".', ROUNDS, PER)}</p>
           <button onClick={start} className={PRIMARY_BTN} style={PRIMARY_BG}>
             <Icon name="play" className="h-4 w-4" />
             {phase === 'done' ? tt('Tekrar oyna') : tt('Başla')}
@@ -107,16 +125,37 @@ export default function ZamanCizelgesi() {
               return (
                 <div
                   key={x.id}
-                  draggable={!checked}
-                  onDragStart={() => setDrag(i)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => {
-                    if (drag !== null) move(drag, i)
-                    setDrag(null)
+                  ref={(el) => {
+                    rowEls.current[i] = el
                   }}
-                  className={`flex items-center gap-3 rounded-2xl border bg-neutral-900 px-3 py-2 transition ${ok ? 'border-emerald-500/70 bg-emerald-500/10' : bad ? 'border-rose-500/60 bg-rose-500/10' : 'border-neutral-800 cursor-grab active:cursor-grabbing hover:border-neutral-600'}`}
+                  className={`flex items-center gap-3 rounded-2xl border bg-neutral-900 px-3 py-2 transition ${ok ? 'border-emerald-500/70 bg-emerald-500/10' : bad ? 'border-rose-500/60 bg-rose-500/10' : drag === i ? 'border-[#00c0fa]/70 bg-[#00c0fa]/10 scale-[1.01]' : 'border-neutral-800 hover:border-neutral-600'}`}
                 >
-                  <span className="w-5 text-center text-sm font-bold text-neutral-500">{i + 1}</span>
+                  {/* Tutamaç: fare ve dokunmatikte sürüklenir (touch-action: none, sayfa kaymasın) */}
+                  <span
+                    role="button"
+                    aria-label={tt('Sürükleyerek taşı')}
+                    onPointerDown={(e) => {
+                      if (checked) return
+                      e.preventDefault()
+                      e.currentTarget.setPointerCapture(e.pointerId)
+                      setDrag(i)
+                    }}
+                    onPointerMove={(e) => {
+                      if (drag === null) return
+                      const k = rowAt(e.clientY)
+                      if (k !== null && k !== drag) {
+                        move(drag, k)
+                        setDrag(k)
+                      }
+                    }}
+                    onPointerUp={() => setDrag(null)}
+                    onPointerCancel={() => setDrag(null)}
+                    className={`flex w-6 select-none flex-col items-center text-sm font-bold text-neutral-500 ${checked ? '' : 'cursor-grab active:cursor-grabbing'}`}
+                    style={{ touchAction: 'none' }}
+                  >
+                    {!checked && <span className="text-[10px] leading-none text-neutral-600">⋮⋮</span>}
+                    {i + 1}
+                  </span>
                   <img src={x.poster} alt="" className="h-16 w-11 rounded-md object-cover" />
                   <span className="flex-1 min-w-0 font-bold text-neutral-100 truncate">{x.title}</span>
                   <span className={`font-mono text-sm font-bold ${checked ? (ok ? 'text-emerald-300' : 'text-rose-300') : 'text-neutral-600'}`}>{checked ? x.year : '????'}</span>

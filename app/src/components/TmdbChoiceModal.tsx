@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { TmdbChoice } from '../lib/api'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt } from '../lib/i18n'
 
 // Güncelle'ye basınca TMDB'de birden fazla yapım çıkarsa hangisi olduğunu kullanıcıya seçtiren pencere —
@@ -18,10 +20,12 @@ export default function TmdbChoiceModal({
   onCancel: () => void
 }) {
   // Esc: sadece en üstteki pencere kapanır (bkz. hooks/useEscape)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onCancel)
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onCancel}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Hangisi?')} className="fixed inset-0 z-[70] bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onCancel}>
       <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>

@@ -3,9 +3,9 @@
 //   - PC'ye bağlıyken: istek PC'ye gider, okuma cevapları telefonda saklanır.
 //   - PC yokken: okumalar telefondaki kopyadan gelir; günlük değişiklikler kopyaya işlenir ve sıraya girer
 //     (bkz. localApply.ts); diğerleri "PC'ye bağlıyken yapılabilir" diye reddedilir.
-import { cacheGet, cacheSet, queueAdd, type QueuedOp } from './store'
+import { cacheGet, cacheSet, queueAdd, shouldCache, withLock, type QueuedOp } from './store'
 import { applyOffline } from './localApply'
-import { NetworkError, getConfig, getState, markOffline, pcRequest, refreshPending, sendOp, syncNow } from './connection'
+import { NetworkError, getConfig, getState, markOffline, pcRequest, refreshPending, sendOp, storeFromPc, syncNow } from './connection'
 import { tt } from '../i18n'
 
 function jsonResponse(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -48,7 +48,11 @@ async function handleGet(path: string): Promise<Response> {
   if (getState().status === 'online') {
     try {
       const r = await pcRequest(path)
-      if (r.status === 200 && r.data !== undefined) cacheSet(path, r.data).catch(() => {})
+      if (r.status === 200 && r.data !== undefined && shouldCache(path)) {
+        // PC'ye henüz gitmemiş değişiklik varsa PC'nin kopyası onların üstüne yazılmasın (bkz. storeFromPc)
+        if (getState().pending > 0) return jsonResponse(await storeFromPc(path, r.data), r.status, pickHeaders(r.headers))
+        cacheSet(path, r.data).catch(() => {})
+      }
       return jsonResponse(r.data, r.status, pickHeaders(r.headers))
     } catch (e) {
       if (!(e instanceof NetworkError)) throw e
@@ -74,7 +78,7 @@ async function handleWrite(method: string, path: string, body: BodyInit | null |
     return errorResponse(tt('Bu işlem için PC\'ye bağlı olmalısın.'))
   }
   const op: QueuedOp = { id: opId(), at: Date.now(), method, path, body: body ?? undefined }
-  if (getState().status === 'online' && getState().pending === 0) {
+  const direct = async (): Promise<Response | null> => {
     try {
       const r = await sendOp(op)
       return jsonResponse(r.data, r.status, pickHeaders(r.headers))
@@ -82,14 +86,35 @@ async function handleWrite(method: string, path: string, body: BodyInit | null |
       if (!(e instanceof NetworkError)) throw e
       // İstek PC'ye ulaşmış ama cevap kaybolmuş olabilir — sıraya aynı kimlikle girer, PC ikinci kez uygulamaz.
       markOffline()
+      return null
     }
   }
-  const local = await applyOffline(op)
-  if (!local) return errorResponse(tt('Bu işlem için PC\'ye bağlı olmalısın.'))
-  await queueAdd(local.op)
-  await refreshPending()
-  if (getState().status === 'online') syncNow()
-  return jsonResponse(local.response)
+  if (getState().status === 'online' && getState().pending === 0) {
+    const r = await direct()
+    if (r) return r
+  }
+  // Telefondaki kopyaya işle ve sıraya koy — ikisi birlikte, eşitleme araya girip kopyayı ezmesin
+  const local = await withLock(async () => {
+    const res = await applyOffline(op)
+    if (res) await queueAdd(res.op)
+    return res
+  })
+  if (local) {
+    await refreshPending()
+    if (getState().status === 'online') syncNow()
+    return jsonResponse(local.response)
+  }
+  // Telefonda yapılamayan bir işlem (paket açma, oyun ödülü, sütun düzenleme…). PC'ye bağlıyken (eşitleme sürüyor
+  // ya da sırada değişiklik var) eskiden yine "PC'ye bağlı olmalısın" deniyordu, oyunların paketleri sessizce
+  // kayboluyordu: önce sıradakiler gönderilir, sonra bu işlem doğrudan PC'ye gider.
+  if (getState().status !== 'offline') {
+    await syncNow()
+    if (getState().status !== 'offline') {
+      const r = await direct()
+      if (r) return r
+    }
+  }
+  return errorResponse(tt('Bu işlem için PC\'ye bağlı olmalısın.'))
 }
 
 export function installFetchShim() {

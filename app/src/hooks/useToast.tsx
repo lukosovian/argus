@@ -6,6 +6,7 @@ import { tt } from '../lib/i18n'
 // sağ altta beliren küçük kartlar. İki kullanımı var:
 //   notify('Profil silindi')                       → kendiliğinden kaybolan bilgi mesajı
 //   await confirm({ message: 'Emin misin?' })      → "Sil / Vazgeç" butonlu, cevabı beklenen kart
+//   notify('Kayıt silindi', 'info', { action: { label: 'Geri al', onClick } })  → yanında bir düğme olan bilgi
 // `confirm` bir Promise<boolean> döner, yani çağıran taraf `if (!(await confirm(...))) return`
 // diyerek tam da native `window.confirm` gibi kullanabilir — ama ekranı kilitleyen bir
 // pop-up açılmaz, kullanıcı isterse görmezden gelebilir (bir süre sonra kendiliğinden kapanır
@@ -27,7 +28,12 @@ type ConfirmOptions = {
   persist?: boolean
 }
 
+/** Bilgi kartındaki tek düğme (ör. "Geri al") — tıklanınca kart kapanır. */
+export type ToastAction = { label: string; onClick: () => void | Promise<unknown> }
+type NotifyOptions = { action?: ToastAction }
+
 type Toast = {
+  action?: ToastAction
   id: string
   message: string
   tone: ToastTone
@@ -40,7 +46,7 @@ type Toast = {
 }
 
 type ToastContextValue = {
-  notify: (message: string, tone?: ToastTone) => void
+  notify: (message: string, tone?: ToastTone, options?: NotifyOptions) => void
   confirm: (options: ConfirmOptions) => Promise<boolean>
 }
 
@@ -53,6 +59,8 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 const NOTIFY_MIN_MS = 7000
 const NOTIFY_MAX_MS = 20000
 const notifyMs = (message: string) => Math.min(NOTIFY_MAX_MS, Math.max(NOTIFY_MIN_MS, message.length * 70))
+// "Geri al" gibi bir düğmesi olan kart biraz daha uzun durur — kullanıcı fark edip tıklayabilsin.
+const ACTION_EXTRA_MS = 5000
 // Fareyle üstünden çıkınca kalan süre
 const RESUME_MS = 3000
 const CONFIRM_MS = 12000
@@ -107,8 +115,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   )
 
   const notify = useCallback(
-    (message: string, tone: ToastTone = 'info') => {
-      push({ message, tone }, notifyMs(message))
+    (message: string, tone: ToastTone = 'info', options?: NotifyOptions) => {
+      push({ message, tone, action: options?.action }, notifyMs(message) + (options?.action ? ACTION_EXTRA_MS : 0))
     },
     [push],
   )
@@ -231,6 +239,23 @@ function ToastCard({ toast: t, onAnswer, onHold }: { toast: Toast; onAnswer: (id
           </button>
         </div>
       ) : (
+        <>
+        {t.action && (
+          <div className="mt-2.5">
+            <button
+              onClick={() => {
+                const run = t.action!.onClick
+                onAnswer(t.id, false)
+                void Promise.resolve()
+                  .then(run)
+                  .catch(() => {})
+              }}
+              className="rounded-lg border border-[#00c0fa]/50 px-3 py-1 text-sm text-[#00c0fa] hover:bg-[#00c0fa]/10 transition"
+            >
+              {t.action.label}
+            </button>
+          </div>
+        )}
         <button
           onClick={() => onAnswer(t.id, false)}
           className="absolute top-2 right-3 text-neutral-600 hover:text-neutral-300 text-lg leading-none"
@@ -238,6 +263,7 @@ function ToastCard({ toast: t, onAnswer, onHold }: { toast: Toast; onAnswer: (id
         >
           ×
         </button>
+        </>
       )}
     </div>
   )

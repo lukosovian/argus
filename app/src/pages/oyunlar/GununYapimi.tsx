@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useArchive } from './useArchive'
 import { useProfiles } from '../../hooks/useProfiles'
 import { fold, preferWatched, readDaily, seeded, sfx, today, writeDaily, type GameItem } from '../../lib/games'
@@ -12,7 +12,9 @@ import { FinishInfo, GameShell, useFinish, type Finish } from '../../components/
 // 8 hakta bul. Günde bir oyun; bildiğin günler seri yapar, 7 günlük seri Ödüller'e Altın paket.
 
 const MAX = 8
-type Day = { guesses: string[]; done: boolean; won: boolean }
+// secretId (v1.25): günün gizli yapımı ilk açılışta yazılır, gün içinde arşiv değişince başkası seçilmesin.
+// replaced: o yapım arşivden kalktığı için yenisi seçildi.
+type Day = { guesses: string[]; done: boolean; won: boolean; secretId?: string; replaced?: boolean }
 type Cell = { text: string; c: 'g' | 'y' | 'x' }
 
 function compare(g: GameItem, s: GameItem): Cell[] {
@@ -20,7 +22,7 @@ function compare(g: GameItem, s: GameItem): Cell[] {
     g.year === null || s.year === null
       ? { text: '?', c: 'x' }
       : g.year === s.year
-        ? { text: `${g.year} ✓`, c: 'g' }
+        ? { text: `${g.year}`, c: 'g' }
         : { text: `${g.year} ${s.year > g.year ? '↑' : '↓'}`, c: Math.abs(g.year - s.year) <= 3 ? 'y' : 'x' }
   const set = (a: string[], b: string[]): Cell => {
     const common = a.filter((x) => b.includes(x))
@@ -40,6 +42,10 @@ function compare(g: GameItem, s: GameItem): Cell[] {
   ]
 }
 
+// Renk görmeyenler için de: her hücrede küçük bir işaret ve ekran okuyucu etiketi (A6)
+const CELL_GLYPH: Record<Cell['c'], string> = { g: '✓', y: '≈', x: '✕' }
+const cellLabel = (c: Cell['c']) => (c === 'g' ? tt('aynı') : c === 'y' ? tt('yakın') : tt('yok'))
+
 const CELL_CLASS: Record<Cell['c'], string> = {
   g: 'bg-emerald-500/30 border-emerald-500/50 text-white',
   y: 'bg-amber-500/25 border-amber-400/50 text-amber-50',
@@ -52,16 +58,31 @@ export default function GununYapimi() {
   const finish = useFinish('gunluk')
   const day = today()
   const cands = useMemo(() => preferWatched(pool.filter((x) => x.year && x.genres.length && x.poster), 20), [pool])
-  const secret = useMemo(() => {
-    if (!cands.length) return null
-    const sorted = [...cands].sort((a, b) => a.id.localeCompare(b.id))
-    return sorted[Math.floor(seeded(`gunun-yapimi:${day}`)() * sorted.length)]
-  }, [cands, day])
   const [all, setAll] = useState<Record<string, Day>>(() => (activeProfileId ? readDaily<Day>(activeProfileId, 'gunluk') : {}))
   const st: Day = all[day] ?? { guesses: [], done: false, won: false }
   const [q, setQ] = useState('')
   const [fin, setFin] = useState<Finish | null>(null)
   const byId = useMemo(() => new Map(pool.map((x) => [x.id, x])), [pool])
+  // Bugün için kaydedilmiş gizli yapım varsa o; yoksa (ya da arşivden kalktıysa) tarihe bağlı yeni bir seçim
+  const storedId = st.secretId
+  const secret = useMemo(() => {
+    const kept = storedId ? byId.get(storedId) : undefined
+    if (kept) return kept
+    const list = cands.filter((x) => x.id !== storedId)
+    if (!list.length) return null
+    const sorted = [...list].sort((a, b) => a.id.localeCompare(b.id))
+    return sorted[Math.floor(seeded(`gunun-yapimi:${day}`)() * sorted.length)]
+  }, [cands, day, storedId, byId])
+  useEffect(() => {
+    if (loading || !pool.length || !secret || !activeProfileId || storedId === secret.id) return
+    const cur = all[day] ?? { guesses: [], done: false, won: false }
+    const replaced = Boolean(storedId)
+    // Eski gizli yapım arşivden kalktıysa: bitmemiş günün tahminleri eskisine göreydi, sıfırlanır
+    const entry: Day = { ...cur, secretId: secret.id, ...(replaced ? { replaced: true, ...(cur.done ? {} : { guesses: [] }) } : {}) }
+    const next = { ...all, [day]: entry }
+    setAll(next)
+    writeDaily(activeProfileId, 'gunluk', next)
+  }, [loading, pool.length, secret, activeProfileId, storedId, all, day])
   const sugg = useMemo(() => {
     const t = fold(q)
     if (t.length < 2) return []
@@ -85,9 +106,10 @@ export default function GununYapimi() {
   function guess(x: GameItem) {
     if (!secret || st.done || !activeProfileId) return
     const guesses = [...st.guesses, x.id]
-    const won = x.id === secret.id
+    // Aynı adlı başka bir kayıt (kopya / yeniden çevrim) da doğru sayılır
+    const won = x.id === secret.id || fold(x.title) === fold(secret.title)
     const done = won || guesses.length >= MAX
-    const next = { ...all, [day]: { guesses, done, won } }
+    const next = { ...all, [day]: { ...st, guesses, done, won, secretId: secret.id } }
     setAll(next)
     writeDaily(activeProfileId, 'gunluk', next)
     setQ('')
@@ -163,6 +185,7 @@ export default function GununYapimi() {
               </div>
             </div>
           )}
+          {st.replaced && <p className="text-xs text-amber-300/80">{tt('Bugünün yapımı arşivden kalktığı için yerine yenisi seçildi.')}</p>}
           <FinishInfo f={fin} />
           <div className="overflow-x-auto">
             <div className="min-w-[640px] space-y-1.5">
@@ -180,13 +203,20 @@ export default function GununYapimi() {
                 const cells = compare(g, secret)
                 return (
                   <div key={id} className="grid grid-cols-[1.6fr_repeat(6,1fr)] gap-1.5" style={{ animation: 'argus-toast-in .3s ease-out' }}>
-                    <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${id === secret.id ? CELL_CLASS.g : 'border-neutral-700 bg-neutral-900'}`}>
+                    <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${id === secret.id || fold(g.title) === fold(secret.title) ? CELL_CLASS.g : 'border-neutral-700 bg-neutral-900'}`}>
                       {g.poster && <img src={g.poster} alt="" className="h-9 w-6 rounded object-cover" />}
                       <span className="text-xs font-bold text-neutral-100 line-clamp-2">{g.title}</span>
                     </div>
                     {cells.map((c, i) => (
-                      <div key={i} className={`flex items-center justify-center rounded-lg border px-1 py-1.5 text-[11px] font-semibold text-center leading-tight ${CELL_CLASS[c.c]}`}>
+                      <div
+                        key={i}
+                        aria-label={`${heads[i]}: ${c.text} (${cellLabel(c.c)})`}
+                        className={`relative flex items-center justify-center rounded-lg border px-1 py-1.5 text-[11px] font-semibold text-center leading-tight ${CELL_CLASS[c.c]}`}
+                      >
                         {c.text}
+                        <span aria-hidden className="absolute top-0.5 right-1 text-[9px] opacity-80">
+                          {CELL_GLYPH[c.c]}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -194,7 +224,7 @@ export default function GununYapimi() {
               })}
             </div>
           </div>
-          <p className="text-xs text-neutral-500">{tt('Yeşil: aynı · Sarı: yakın / ortak var · Ok: gizli yapım daha yeni (↑) ya da daha eski (↓).')}</p>
+          <p className="text-xs text-neutral-500">{tt('Yeşil ✓: aynı · Sarı ≈: yakın / ortak var · ✕: yok · Ok: gizli yapım daha yeni (↑) ya da daha eski (↓).')}</p>
         </div>
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
           <p className="text-xs font-bold tracking-wider text-neutral-500 mb-3">{tt('SON 14 GÜN')}</p>

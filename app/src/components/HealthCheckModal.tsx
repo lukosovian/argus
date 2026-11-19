@@ -11,7 +11,9 @@ import { useToast } from '../hooks/useToast'
 import UndatedSeriesSection from './UndatedSeriesSection'
 import ArchiveVerifySection from './ArchiveVerifySection'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, ttx } from '../lib/i18n'
+import { useProfiles } from '../hooks/useProfiles'
 
 const MAX_SHOWN = 40
 const collator = new Intl.Collator('tr', { sensitivity: 'base', numeric: true })
@@ -71,6 +73,8 @@ export default function HealthCheckModal({
   onIgnoreVerify: (rowId: string) => void
   onClose: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
   const [brokenLoading, setBrokenLoading] = useState(true)
   const [brokenImages, setBrokenImages] = useState<{ rowId: string; propertyName: string; value: string }[]>([])
@@ -302,7 +306,7 @@ export default function HealthCheckModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Sağlık Kontrolü')} className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onClose}>
       <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
           <div className="flex items-center gap-3">
@@ -665,6 +669,7 @@ export default function HealthCheckModal({
             })}
             onOpenRow={onOpenRow}
           />
+          <OrphanSection />
         </div>
       </div>
     </div>
@@ -909,6 +914,102 @@ function HealthSection({
             </button>
           )}
           {footer}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Artık veriler (v1.25): silinmiş kayıt/arşivlerden dosyalarda kalan TMDB eşleşmesi, bölümler, kadro, işaretler…
+// Sunucu sayar (bkz. server/routes/orphans.js); geçmişten geri getirilebilecek kayıtlarınki korunur.
+const ORPHAN_FILE_NAMES: Record<string, string> = {
+  'tmdb.json': 'TMDB eşleşmesi',
+  'episodes.json': 'Bölüm listesi',
+  'cast.json': 'Oyuncu kadrosu',
+  'watched.json': 'Bölüm işaretleri',
+  'songs.json': 'Şarkılar',
+  'progress.json': 'Yarım kalanlar',
+  'planlar.json': 'Bitirme planları',
+  'recent-watch.json': 'Son izlenenler',
+  'koleksiyon.json': 'Koleksiyon sembolleri',
+}
+function OrphanSection() {
+  const { activeProfileId } = useProfiles()
+  const { confirm, notify } = useToast()
+  const [data, setData] = useState<{ files: Record<string, number>; total: number; protected: number } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
+  const base = activeProfileId ? `/api/profiles/${activeProfileId}/orphans` : null
+  useEffect(() => {
+    if (!base) return
+    let cancelled = false
+    fetch(base)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => !cancelled && setData(d))
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [base])
+  const total = data?.total ?? 0
+  const clean = async () => {
+    if (!base) return
+    const ok = await confirm({
+      message: tt('Silinmiş kayıtlardan kalan {0} artık veri temizlenecek. Geçmişten geri getirilebilecek kayıtlarınki korunur. Devam edilsin mi?', total),
+      confirmLabel: tt('Temizle'),
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const r = await fetch(`${base}/clean`, { method: 'POST' })
+      if (!r.ok) throw new Error(tt('Temizlenemedi'))
+      const out = (await r.json()) as { total: number }
+      notify(tt('{0} artık veri temizlendi.', out.total), 'success')
+      setData({ files: {}, total: 0, protected: data?.protected ?? 0 })
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Temizlenemedi'), 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="border border-neutral-800 rounded-xl">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={!data || total === 0}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left disabled:cursor-default"
+      >
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-50">{tt('Artık veriler')}</h3>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            {tt('Silinmiş kayıtlardan dosyalarda kalan bilgiler (TMDB eşleşmesi, bölümler, kadro…). Arşivini etkilemez; geçmişten geri getirilebilecek kayıtlarınki korunur.')}
+          </p>
+        </div>
+        <span
+          className={`shrink-0 text-xs font-semibold rounded-full px-2.5 py-1 ${
+            !data ? 'text-neutral-500' : total === 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-neutral-300 bg-neutral-800'
+          }`}
+        >
+          {!data ? tt('Kontrol ediliyor...') : total === 0 ? tt('Sorun yok') : tt('{0} artık {1}', total, open ? '▴' : '▾')}
+        </span>
+      </button>
+      {open && total > 0 && data && (
+        <div className="px-4 pb-4">
+          <ul className="space-y-0.5 mb-3">
+            {Object.entries(data.files).map(([file, n]) => (
+              <li key={file} className="flex items-center justify-between text-sm text-neutral-300 px-2.5 py-1">
+                <span>{ORPHAN_FILE_NAMES[file] ? tt(ORPHAN_FILE_NAMES[file]) : file}</span>
+                <span className="text-xs text-neutral-400">{n}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            onClick={clean}
+            disabled={busy}
+            className="text-sm rounded-lg px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-100 disabled:opacity-50 transition"
+          >
+            {busy ? tt('Temizleniyor...') : tt('Temizle')}
+          </button>
         </div>
       )}
     </div>

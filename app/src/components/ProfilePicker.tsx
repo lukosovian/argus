@@ -4,6 +4,7 @@ import { useProfiles } from '../hooks/useProfiles'
 import { useToast } from '../hooks/useToast'
 import ProfileSetupModal from './ProfileSetupModal'
 import { tt } from '../lib/i18n'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { MOBILE } from '../lib/mobile/ui'
 import { averageColor, darkTone, type RGB } from '../lib/imageColor'
 import MobileProfileHero, { LAST_PROFILE_KEY, useHeroSlides } from './mobile/MobileProfileHero'
@@ -323,6 +324,8 @@ function DesktopPicker({
     8000,
   )
   const current = slides[index]
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   const tile = 'relative h-32 w-32 rounded-lg overflow-hidden flex items-center justify-center transition duration-200'
   // Ekstralar › Kazanılan çerçeveler: çerçeveyi açmış profillerin izlediği sayısı (sunucudan)
   const [frames, setFrames] = useState<Record<string, number>>({})
@@ -346,7 +349,7 @@ function DesktopPicker({
     }
   }, [profiles])
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-950 overflow-hidden select-none">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={managing ? tt('Profil Yönetimi') : tt('Kim izliyor?')} className="fixed inset-0 z-50 bg-neutral-950 overflow-hidden select-none">
       {slides.map((s, i) => (
         <img
           key={s.image + i}
@@ -463,6 +466,8 @@ function MobilePicker({
   onClose?: () => void
   children?: React.ReactNode
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   const [rgb, setRgb] = useState<[number, number, number] | null>(null)
   const [panelH, setPanelH] = useState(0)
   const panel = useRef<HTMLDivElement>(null)
@@ -478,7 +483,7 @@ function MobilePicker({
   const tint = rgb ? darkTone(rgb) : 'rgb(23,23,23)'
   const tile = 'w-full aspect-square rounded-lg overflow-hidden flex items-center justify-center'
   return (
-    <div className="fixed inset-0 z-50 bg-black overflow-hidden" style={{ ['--profil-panel' as string]: `${panelH}px` }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={managing ? tt('Profil Yönetimi') : tt('Kim izliyor?')} className="fixed inset-0 z-50 bg-black overflow-hidden" style={{ ['--profil-panel' as string]: `${panelH}px` }}>
       <MobileProfileHero profileIds={profiles.map((p) => p.id)} onColor={onColor} />
       {/* Görsel alttaki bölümün rengine yumuşakça geçsin */}
       <div className="absolute inset-x-0 pointer-events-none transition-[background] duration-1000" style={{ bottom: panelH, height: '38%', background: `linear-gradient(to top, ${tint}, transparent)` }} />

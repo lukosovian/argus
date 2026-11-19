@@ -16,6 +16,8 @@ const DEFAULT_LIMIT = 5 * GB
 let DATA_DIR = ''
 let PROFILES_DIR = ''
 let readJson = (_f, fb) => fb
+// Sadece okumak için (değiştirilmeyen, önbellekteki dondurulmuş kopya — bkz. storage.js readJsonShared)
+let readShared = (f, fb) => readJson(f, fb)
 let rawWrite = (_f, _d) => {}
 let makeId = () => Math.random().toString(36).slice(2, 10)
 
@@ -23,6 +25,7 @@ export function initHistory(opts) {
   DATA_DIR = opts.dataDir
   PROFILES_DIR = opts.profilesDir
   readJson = opts.readJson
+  if (opts.readShared) readShared = opts.readShared
   rawWrite = opts.rawWrite
   makeId = opts.makeId
 }
@@ -69,7 +72,7 @@ export function findBoard(profileId, boardId) {
   } catch {}
   let hit = boardsCache.get(file)
   if (!hit || hit.stamp !== stamp) {
-    hit = { stamp, boards: readJson(file, []) }
+    hit = { stamp, boards: readShared(file, []) }
     boardsCache.set(file, hit)
   }
   return (Array.isArray(hit.boards) ? hit.boards : []).find((b) => b.id === boardId) ?? null
@@ -111,7 +114,7 @@ export function beforeWrite(file, data) {
     const rowsMatch = f.match(/\/profiles\/([^/]+)\/rows\/([^/.]+)\.json$/)
     if (rowsMatch) {
       const [, profileId, boardId] = rowsMatch
-      const oldRows = readJson(file, [])
+      const oldRows = readShared(file, [])
       const board = findBoard(profileId, boardId)
       ensureSnapshot(profileId, boardId, oldRows, board)
       const oldById = new Map((Array.isArray(oldRows) ? oldRows : []).map((r) => [r.id, r]))
@@ -147,7 +150,7 @@ export function beforeWrite(file, data) {
     const boardsMatch = f.match(/\/profiles\/([^/]+)\/boards\.json$/)
     if (boardsMatch) {
       const [, profileId] = boardsMatch
-      const oldBoards = readJson(file, [])
+      const oldBoards = readShared(file, [])
       const newBoards = Array.isArray(data) ? data : []
       for (const ob of Array.isArray(oldBoards) ? oldBoards : []) {
         const nb = newBoards.find((b) => b.id === ob.id)

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FbMark } from './FbLogo'
 import { tt, locale } from '../../lib/i18n'
+import { prefersReducedMotion } from '../../lib/reducedMotion'
 
 // F1 "Geri Sarma" açılışı (v1.24): ekran VHS gibi titrer, köşede ◀◀ REW, tarih bugünden (geçmiş yılda 31 Aralık'tan)
 // 1 Ocak'a hızla geri sayar, yılın afişleri geriye doğru akar. 1 Ocak'ta durur, logo belirir, sayfa açılır. Ses yok.
@@ -27,7 +28,7 @@ export default function FbIntro({ year, posters, onDone }: { year: string; poste
   }
 
   useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    if (prefersReducedMotion()) {
       onDone()
       return
     }

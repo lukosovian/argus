@@ -1,7 +1,9 @@
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { SelectOption } from '../types'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useEscape } from '../hooks/useEscape'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, ttx } from '../lib/i18n'
 
 // Bayrak emojisi (iki "regional indicator" harfi) Windows'ta "us" gibi harf olarak görünüyor — ayıkla.
@@ -22,12 +24,14 @@ export default function OptionDetailModal({
   onClose: () => void
   onShowContents: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
   useEscape(true, onClose)
   // document.body'ye çiziliyor: detay penceresinin arka planındaki bulanıklık efekti (backdrop-blur)
   // içindeki "tam ekran" pencereleri kendi kaydırılan içeriğine hapsediyordu — kullanıcı aşağıdayken
   // oyuncuya tıklayınca pencere sayfanın en üstünde açılıyor, görünmüyordu.
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center px-4" onClick={onClose}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={option.label} className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center px-4" onClick={onClose}>
       <div
         className="bg-neutral-900 rounded-xl w-full max-w-sm overflow-hidden text-center p-6"
         onClick={(e) => e.stopPropagation()}
