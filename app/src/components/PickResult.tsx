@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SNOOZE_DAYS, snoozePick, unsnoozePick } from '../lib/pickSnooze'
 import type { Board, Row } from '../types'
 import { titleText, todayIso, ratingAverage, RATING_OVERALL } from '../types'
 import { api, type TmdbCard, type TmdbItem } from '../lib/api'
@@ -354,6 +355,15 @@ export default function PickResult({
     onAgain()
   }
 
+  // Arşivdeki bir yapımı bir haftalığına seçiciden çıkar (v1.26, Y23) — 7 gün sonra kendiliğinden geri döner
+  function snooze() {
+    if (!r) return
+    const id = r.id
+    snoozePick(id)
+    notify(tt('"{0}" {1} gün önerilmeyecek.', title, SNOOZE_DAYS), 'info', { action: { label: tt('Geri al'), onClick: () => unsnoozePick(id) } })
+    onAgain()
+  }
+
   const inArchive = Boolean(tmdb?.inArchive || item?.inArchive)
   const secondary =
     'text-sm rounded-full border border-neutral-700 hover:border-neutral-400 text-neutral-200 hover:text-white bg-neutral-900/60 backdrop-blur-sm px-4 py-2 transition disabled:opacity-50'
@@ -481,6 +491,9 @@ export default function PickResult({
                     )}
                     <button onClick={() => onOpenRow(r)} className={secondary}>
                       {tt('Detayı aç')}
+                    </button>
+                    <button onClick={snooze} disabled={busy} className={`${secondary} hover:border-amber-400 hover:text-amber-200`} title={tt('Bir hafta boyunca seçiciye girmez, sonra kendiliğinden geri döner')}>
+                      {tt('Bu hafta önerme')}
                     </button>
                   </div>
                 </>

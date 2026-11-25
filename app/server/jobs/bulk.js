@@ -8,6 +8,7 @@ import { app } from '../app.js'
 import { stt } from '../lang.js'
 import { PROFILES_DIR, makeId, profileBoardsFile, profileDir, profileRowsFile, rawWriteJson, readJson, readJsonShared } from '../storage.js'
 import { fillRowFromTmdb } from '../fill.js'
+import { pushNotification } from '../notifications.js'
 
 const LOG_MAX = 200
 const jobs = new Map() // profileId → { job, params: { rowIds, exclude, overwrite, next } }
@@ -21,6 +22,11 @@ function save(profileId, st) {
   } catch (e) {
     console.error('bulk-job yazılamadı:', e)
   }
+}
+// Durdurulup hemen yenisi başlatılan bir işin eski döngüsü (o an TMDB cevabını bekliyordu) bitince dosyaya kendi
+// (durdurulmuş) halini yazıp yeni işin ilerlemesini ezmesin — yoksa ARGUS yeniden açılınca yeni iş devam etmiyordu.
+function saveIfCurrent(profileId, st) {
+  if (jobs.get(profileId) === st) save(profileId, st)
 }
 function current(profileId) {
   return jobs.get(profileId) ?? readJson(jobFile(profileId), null)
@@ -53,7 +59,12 @@ async function run(profileId) {
         if (!deleted) {
           const ok = out.status === 200 && out.data?.ok === true
           if (ok) job.updated++
-          else job.failed++
+          else {
+            job.failed++
+            // "Hata verenleri tekrar dene" (Y5) için: günlük 200 satırla sınırlı, hata verenlerin hepsi ayrıca tutuluyor
+            params.failedIds = [...(params.failedIds ?? []), rowId].slice(-5000)
+            job.retryable = params.failedIds.length
+          }
           job.log.unshift({
             rowId,
             title,
@@ -66,7 +77,7 @@ async function run(profileId) {
       // Bu arada silinen kayıtlar atlanır (bitti sayılır, hata sayılmaz)
       job.done++
       params.next++
-      save(profileId, st)
+      saveIfCurrent(profileId, st)
     }
   } catch (e) {
     console.error('Genel Güncelleme hata:', e)
@@ -74,7 +85,28 @@ async function run(profileId) {
     if (job.state === 'running') job.state = 'done'
     job.current = null
     job.finishedAt = job.finishedAt ?? Date.now()
-    save(profileId, st)
+    saveIfCurrent(profileId, st)
+    if (job.state === 'done' && jobs.get(profileId) === st) notifyDone(profileId, job)
+  }
+}
+
+// İş bitince zile (ve oradan Windows bildirimine) haber (v1.26, Y5). Gece kendiliğinden yapılan haftalık tur da
+// sonucunu buradan bırakır — sabah zilde görünür.
+function notifyDone(profileId, job) {
+  try {
+    const name = job.auto ? stt('Haftalık otomatik güncelleme') : job.label || stt('Genel Güncelleme')
+    pushNotification(profileId, {
+      key: `bulk:${job.id}`,
+      type: 'bulkDone',
+      title: stt('{0} bitti', name),
+      text:
+        job.failed > 0
+          ? stt('{0} kayıt güncellendi, {1} kayıtta hata/eşleşme yok. Arşivdeki kutudan "Hata verenleri tekrar dene" diyebilirsin.', job.updated, job.failed)
+          : stt('{0} kayıt güncellendi.', job.updated),
+      link: `/board/${job.boardId}`,
+    })
+  } catch {
+    /* bildirim yazılamadıysa önemsiz */
   }
 }
 
@@ -95,17 +127,19 @@ export function resumeBulkJobs() {
   }
 }
 
-app.post('/api/profiles/:profileId/boards/:boardId/bulk-job', (req, res) => {
-  const { profileId, boardId } = req.params
-  const prev = jobs.get(profileId)
-  if (prev?.job.state === 'running') return res.status(409).json({ error: stt('Zaten süren bir Genel Güncelleme var.'), job: prev.job })
-  if (!readJsonShared(profileBoardsFile(profileId), []).some((b) => b.id === boardId)) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
-  const b = req.body ?? {}
-  const rowIds = Array.isArray(b.rowIds) ? [...new Set(b.rowIds.filter((x) => typeof x === 'string' && x))] : []
+export function isBulkRunning(profileId) {
+  return jobs.get(profileId)?.job.state === 'running'
+}
+export function lastBulkJob(profileId) {
+  return current(profileId)
+}
+
+// Yeni iş başlatır (arayüzden, "Hata verenleri tekrar dene"den ya da haftalık otomatik turdan)
+export function startBulkJob(profileId, boardId, { rowIds, exclude = [], overwrite = false, label = '', auto = false }) {
   const job = {
     id: makeId(),
     boardId,
-    label: typeof b.label === 'string' ? b.label.slice(0, 120) : '',
+    label: typeof label === 'string' ? label.slice(0, 120) : '',
     total: rowIds.length,
     done: 0,
     updated: 0,
@@ -114,11 +148,44 @@ app.post('/api/profiles/:profileId/boards/:boardId/bulk-job', (req, res) => {
     state: 'running',
     startedAt: Date.now(),
     log: [],
+    ...(auto ? { auto: true } : {}),
   }
-  const st = { job, params: { rowIds, exclude: Array.isArray(b.exclude) ? b.exclude.filter((x) => typeof x === 'string') : [], overwrite: Boolean(b.overwrite), next: 0 } }
+  const st = { job, params: { rowIds, exclude, overwrite: Boolean(overwrite), next: 0, failedIds: [] } }
   jobs.set(profileId, st)
   save(profileId, st)
   run(profileId)
+  return job
+}
+
+app.post('/api/profiles/:profileId/boards/:boardId/bulk-job', (req, res) => {
+  const { profileId, boardId } = req.params
+  const prev = jobs.get(profileId)
+  if (prev?.job.state === 'running') return res.status(409).json({ error: stt('Zaten süren bir Genel Güncelleme var.'), job: prev.job })
+  if (!readJsonShared(profileBoardsFile(profileId), []).some((b) => b.id === boardId)) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+  const b = req.body ?? {}
+  const rowIds = Array.isArray(b.rowIds) ? [...new Set(b.rowIds.filter((x) => typeof x === 'string' && x))] : []
+  const job = startBulkJob(profileId, boardId, {
+    rowIds,
+    exclude: Array.isArray(b.exclude) ? b.exclude.filter((x) => typeof x === 'string') : [],
+    overwrite: Boolean(b.overwrite),
+    label: b.label,
+  })
+  res.json({ job })
+})
+
+// "Hata verenleri tekrar dene" (v1.26, Y5): son işte hata veren kayıtlarla, aynı ayarlarla yeni bir iş
+app.post('/api/profiles/:profileId/bulk-job/retry', (req, res) => {
+  const { profileId } = req.params
+  const prev = current(profileId)
+  if (prev?.job?.state === 'running') return res.status(409).json({ error: stt('Zaten süren bir Genel Güncelleme var.'), job: prev.job })
+  const ids = [...new Set(prev?.params?.failedIds ?? [])]
+  if (!prev?.job || !ids.length) return res.status(400).json({ error: stt('Tekrar denenecek hatalı kayıt yok.') })
+  const boardId = prev.job.boardId
+  if (!readJsonShared(profileBoardsFile(profileId), []).some((b) => b.id === boardId)) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
+  const live = new Set(readJsonShared(profileRowsFile(profileId, boardId), []).map((r) => r.id))
+  const rowIds = ids.filter((id) => live.has(id))
+  if (!rowIds.length) return res.status(400).json({ error: stt('Hata veren kayıtlar artık arşivde yok.') })
+  const job = startBulkJob(profileId, boardId, { rowIds, exclude: prev.params.exclude ?? [], overwrite: prev.params.overwrite, label: stt('Hata verenleri tekrar deneme') })
   res.json({ job })
 })
 

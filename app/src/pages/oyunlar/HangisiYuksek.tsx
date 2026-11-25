@@ -6,6 +6,7 @@ import PageSkeleton from '../../components/Skeleton'
 import EmptyState from '../../components/EmptyState'
 import Icon from '../../components/Icon'
 import { FinishInfo, GameShell, useFinish, type Finish, PRIMARY_BTN, PRIMARY_BG } from '../../components/oyun/GameShell'
+import { MOBILE } from '../../lib/mobile/ui'
 
 // G1 Hangisi daha yüksek? (v1.24): iki yapım yan yana; puan (senin verdiğin), çıkış yılı (hangisi daha yeni) ya da süre
 // (hangisi daha uzun, filmler). Doğru bildikçe seri uzar; kazanan kalır, yanına yenisi gelir. Yanılınca biter.
@@ -125,6 +126,8 @@ export default function HangisiYuksek() {
             </button>
           )}
         </div>
+      ) : MOBILE ? (
+        <MobileDuel pair={pair} picked={picked} mode={mode} q={m.q} streak={streak} onPick={pick} />
       ) : (
         <div className="max-w-3xl mx-auto">
           <p className="text-center text-xl font-bold text-neutral-100 mb-5">{m.q}</p>
@@ -162,5 +165,98 @@ export default function HangisiYuksek() {
         </div>
       )}
     </GameShell>
+  )
+}
+
+// A20: telefonda iki afiş üst ve alt yarıyı kaplar. Seçtiğin afişi ortaya doğru kaydırırsın (ya da dokunursun);
+// doğruysa yeşil parlar, kazanan yukarı kayar, yenisi alttan gelir. Masaüstündeki yan yana düzen değişmedi.
+const DUEL_CSS = `
+@keyframes hy-from-bottom { from { transform: translateY(105%); opacity: .4 } to { transform: none; opacity: 1 } }
+@keyframes hy-up { from { transform: translateY(calc(100% + 12px)) } to { transform: none } }
+@keyframes hy-glow { 0%,100% { box-shadow: 0 0 0 3px rgba(52,211,153,.9) } 50% { box-shadow: 0 0 0 3px rgba(52,211,153,1), 0 0 40px rgba(52,211,153,.7) } }
+`
+function MobileDuel({ pair, picked, mode, q, streak, onPick }: { pair: [GameItem, GameItem]; picked: number | null; mode: Mode; q: string; streak: number; onPick: (i: number) => void }) {
+  const [drag, setDrag] = useState<{ i: number; dy: number } | null>(null)
+  const start = useRef<{ i: number; y: number } | null>(null)
+  // Önceki turda alttaki kazandıysa şimdi üstte: yukarı kayarak gelsin
+  const prevBottom = useRef<string | null>(null)
+  const topFromBottom = prevBottom.current === pair[0].id
+  useEffect(() => {
+    prevBottom.current = pair[1].id
+  }, [pair])
+  useEffect(() => {
+    if (picked === null) return
+    const v = val(mode, pair[picked])!
+    const o = val(mode, pair[1 - picked])!
+    try {
+      navigator.vibrate?.(v >= o ? 15 : [40, 60, 40])
+    } catch {
+      /* desteklenmiyor */
+    }
+  }, [picked, mode, pair])
+  return (
+    <div className="flex flex-col gap-3" style={{ height: 'calc(100dvh - 210px)', minHeight: 420 }}>
+      <style>{DUEL_CSS}</style>
+      <p className="text-center text-base font-bold text-neutral-100">{q}</p>
+      {pair.map((x, i) => {
+        const v = val(mode, x)!
+        const other = val(mode, pair[1 - i])!
+        const win = v >= other
+        const dy = drag?.i === i ? drag.dy : 0
+        // Üstteki aşağı, alttaki yukarı (ortaya doğru) çekilir
+        const toward = i === 0 ? Math.max(0, dy) : Math.max(0, -dy)
+        const anim = i === 1 ? 'hy-from-bottom .45s cubic-bezier(.2,.8,.2,1)' : topFromBottom ? 'hy-up .45s cubic-bezier(.2,.8,.2,1)' : undefined
+        return (
+          <div key={x.id + i} className="relative min-h-0 flex-1" style={{ animation: anim }}>
+            <button
+              disabled={picked !== null}
+              onPointerDown={(e) => {
+                if (picked !== null) return
+                start.current = { i, y: e.clientY }
+                e.currentTarget.setPointerCapture(e.pointerId)
+              }}
+              onPointerMove={(e) => {
+                const st = start.current
+                if (st && st.i === i) setDrag({ i, dy: e.clientY - st.y })
+              }}
+              onPointerUp={() => {
+                if (!start.current) return
+                const d = drag?.i === i ? drag.dy : 0
+                start.current = null
+                setDrag(null)
+                const t = i === 0 ? d : -d
+                if (t > 70 || Math.abs(d) < 8) onPick(i)
+              }}
+              onPointerCancel={() => {
+                start.current = null
+                setDrag(null)
+              }}
+              className="absolute inset-0 touch-none select-none overflow-hidden rounded-3xl text-left"
+              style={{
+                transform: `translateY(${i === 0 ? toward : -toward}px) scale(${1 - Math.min(toward, 120) / 1200})`,
+                transition: drag?.i === i ? 'none' : 'transform .3s cubic-bezier(.2,.8,.2,1)',
+                animation: picked !== null && win ? 'hy-glow 1s ease-in-out' : undefined,
+                boxShadow: picked !== null ? (win ? '0 0 0 3px rgba(52,211,153,.9)' : '0 0 0 3px rgba(244,63,94,.6)') : toward > 70 ? '0 0 0 3px #00c0fa' : undefined,
+              }}
+            >
+              <img src={x.poster} alt="" draggable={false} className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-md" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
+              <div className="absolute inset-0 flex items-end gap-3 p-3">
+                <img src={x.poster} alt="" draggable={false} className="h-full max-h-full w-auto rounded-xl object-cover shadow-2xl" style={{ aspectRatio: '2 / 3' }} />
+                <div className="min-w-0 flex-1 pb-1">
+                  <p className="line-clamp-3 text-xl font-black leading-tight text-white">{x.title}</p>
+                  {mode !== 'yil' && x.year && <p className="text-sm text-neutral-300">{x.year}</p>}
+                  {picked !== null && <p className={`mt-2 inline-block rounded-lg px-2.5 py-1 text-2xl font-black text-white ${win ? 'bg-emerald-500' : 'bg-black/70'}`}>{show(mode, v)}</p>}
+                </div>
+              </div>
+            </button>
+            {i === 0 && (
+              <span className="pointer-events-none absolute -bottom-[22px] left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-neutral-700 bg-neutral-950 text-xs font-black text-neutral-400">VS</span>
+            )}
+          </div>
+        )
+      })}
+      <p className="text-center text-xs text-neutral-500">{picked === null ? tt('Seçtiğini ortaya doğru kaydır ya da dokun') : tt('Seri: {0}', streak)}</p>
+    </div>
   )
 }

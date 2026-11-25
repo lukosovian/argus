@@ -188,7 +188,9 @@ export function autoStartWatching(profileId, rowId, before, after) {
   const cut = new Date()
   cut.setDate(cut.getDate() - 14)
   const recent = localDay(cut)
-  const added = Object.entries(after).some(([k, ds]) => Array.isArray(ds) && ds.some((d) => !(before[k] ?? []).includes(d) && String(d) >= recent))
+  // Sadece gerçek gün sayılır: "?" (hatırlamıyorum) yazı olarak her tarihten "büyük" çıktığı için eskiden
+  // yeni izleme sanılıyor, eski bir bölüme "?" girince dizi İzleniyor'a alınıyordu.
+  const added = Object.entries(after).some(([k, ds]) => Array.isArray(ds) && ds.some((d) => !(before[k] ?? []).includes(d) && /^\d{4}-\d{2}-\d{2}/.test(String(d)) && String(d) >= recent))
   if (!added) return null
   for (const board of boardsWithRow(profileId, rowId)) {
     const rowsFile = profileRowsFile(profileId, board.id)
@@ -252,7 +254,12 @@ export function autoMarkSeriesWatched(profileId, rowId, seen) {
     row.values = { ...row.values, [durumProp.id]: doneId }
     const doneLabel = durumProp.options?.find((o) => o.id === doneId)?.label ?? stt('İzlendi')
     const dateProp = resolveRole(board, 'izlemeTarihi')
-    const allDates = Object.values(seen).flat().filter(Boolean).sort()
+    // Yaklaşık tarihler ("2019", "?") gerçek günlerin önüne geçmesin: "?" sıralamada en sona düştüğü için
+    // izleme tarihine "2026-11-01/?" gibi bozuk bir aralık yazılıyordu. Gerçek gün varsa sadece onlara bakılır.
+    const rawDates = Object.values(seen).flat().filter(Boolean).map(String).sort()
+    const realDates = rawDates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    const yearDates = rawDates.filter((d) => /^\d{4}$/.test(d))
+    const allDates = realDates.length ? realDates : yearDates.length ? yearDates : rawDates
     const lastDate = allDates[allDates.length - 1]
     if (dateProp && lastDate) {
       const v = row.values[dateProp.id]

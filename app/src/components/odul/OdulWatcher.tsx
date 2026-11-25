@@ -11,12 +11,17 @@ export default function OdulWatcher() {
   const { stats, ready, data } = useOduller(true)
   const { activeProfileId } = useProfiles()
   const { notify } = useToast()
-  const prev = useRef<number | null>(null)
+  // Profil değişince önceki profilin sayısıyla kıyaslanmasın (yanlış "yeni paket" bildirimi çıkıyordu)
+  const prev = useRef<{ pid: string; seen: number | null } | null>(null)
+  // Profil değişince eski profilin verisi yenisi gelene kadar duruyor: o arada sayılmasın
+  const stale = useRef<{ pid: string; data: unknown } | null>(null)
   const total = stats ? stats.earned.bronz + stats.earned.gumus + stats.earned.altin : 0
   useEffect(() => {
     if (!ready || !data?.startedAt || !stats || !activeProfileId) return
+    if (prev.current && prev.current.pid !== activeProfileId && stale.current?.pid !== activeProfileId) stale.current = { pid: activeProfileId, data }
+    if (stale.current?.pid === activeProfileId && stale.current.data === data) return
     const key = `argus_odul_gorulen_${activeProfileId}`
-    let seen = prev.current
+    let seen = prev.current?.pid === activeProfileId ? prev.current.seen : null
     if (seen === null) {
       try {
         const v = localStorage.getItem(key)
@@ -34,7 +39,7 @@ export default function OdulWatcher() {
       }
       seen = total
     }
-    prev.current = seen
-  }, [ready, total, stats, data?.startedAt, notify, activeProfileId])
+    prev.current = { pid: activeProfileId, seen }
+  }, [ready, total, stats, data, notify, activeProfileId])
   return null
 }

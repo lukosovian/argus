@@ -1,8 +1,9 @@
 // Koleksiyon, Aklımda, Biletlerim, Ödüller, planlar ve kişi takibi.
+import fs from 'node:fs'
 import path from 'node:path'
 import { resolveRole, resolveStatusOption } from '../roles.js'
 import { stt } from '../lang.js'
-import { PROFILES_DIR, loadBoardAndRows, localDay, profileBoardsFile, profileDir, profileRowsFile, profileTmdbFile, readJson, readProfileApiKey, writeJson } from '../storage.js'
+import { MEDYA_DIR, PROFILES_DIR, loadBoardAndRows, localDay, profileBoardsFile, profileDir, profileRowsFile, profileTmdbFile, readJson, readProfileApiKey, writeJson } from '../storage.js'
 import { app } from '../app.js'
 import { ensureTmdbRef, tmdbGet } from '../tmdb.js'
 
@@ -221,6 +222,22 @@ app.post('/api/profiles/:profileId/aklimda', (req, res) => {
 export function profileBiletFile(profileId) {
   return path.join(profileDir(profileId), 'biletler.json')
 }
+// "data:image/jpeg;base64,..." → medya/bilet_*.jpg ("/medya/<ad>"); bozuk/çok büyükse null
+function saveBiletPhoto(dataUrl) {
+  const m = /^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUrl)
+  if (!m) return null
+  const buf = Buffer.from(m[2], 'base64')
+  if (!buf.length || buf.length > 8 * 1024 * 1024) return null
+  const ext = m[1] === 'png' ? '.png' : m[1] === 'webp' ? '.webp' : '.jpg'
+  let name = `bilet_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}${ext}`
+  while (fs.existsSync(path.join(MEDYA_DIR, name))) name = `bilet_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}${ext}`
+  try {
+    fs.writeFileSync(path.join(MEDYA_DIR, name), buf)
+  } catch {
+    return null
+  }
+  return `/medya/${name}`
+}
 export const BILET_TEXT = ['title', 'poster', 'cover', 'logo', 'year', 'rowId', 'boardId', 'date', 'time', 'cinema', 'hall', 'seat', 'format', 'withWho', 'price', 'note', 'front', 'back', 'art', 'artPos', 'artZoom', 'style']
 app.get('/api/profiles/:profileId/biletler', (req, res) => {
   const data = readJson(profileBiletFile(req.params.profileId), { items: {} })
@@ -245,7 +262,12 @@ app.post('/api/profiles/:profileId/biletler', (req, res) => {
       for (const k of BILET_TEXT) {
         if (!(k in v)) continue
         if (v[k] === null || v[k] === '') delete merged[k]
-        else merged[k] = String(v[k]).slice(0, k === 'note' ? 600 : 400)
+        else if ((k === 'front' || k === 'back') && typeof v[k] === 'string' && v[k].startsWith('data:image/')) {
+          // Y14: telefonda çekilen bilet fotoğrafı metin olarak gelir (PC yokken sıraya girebilsin diye); burada
+          // medya klasörüne dosya olarak yazılır, bilette dosyanın adresi kalır.
+          const saved = saveBiletPhoto(v[k])
+          if (saved) merged[k] = saved
+        } else merged[k] = String(v[k]).slice(0, k === 'note' ? 600 : 400)
       }
       if (!merged.createdAt) merged.createdAt = Date.now()
       if (!merged.title) continue

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { searchFold } from '../lib/search'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useDialogFocus } from '../hooks/useDialogFocus'
@@ -14,7 +15,7 @@ import BackgroundProgress from '../components/BackgroundProgress'
 import ShelfPicker from '../components/ShelfPicker'
 import KoleksiyonImage, { type ImageItem, type ImageShelf } from '../components/KoleksiyonImage'
 import { autoShelf } from '../lib/shelves'
-import { DEFAULT_SHELF_SYMBOLS, buildKoleksiyonItems, buildShelves, type KoleksiyonItem } from '../lib/koleksiyonRaflar'
+import { DEFAULT_SHELF_SYMBOLS, buildKoleksiyonItems, buildShelves, shelfSetMembers, type KoleksiyonItem } from '../lib/koleksiyonRaflar'
 import { useOdulData } from '../lib/oduller'
 import { useSetBonuses } from '../lib/odulSetler'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
@@ -142,7 +143,7 @@ function Raflar() {
   const match = (it: Item) =>
     (kind === 'hepsi' || (kind === 'dizi') === it.isSeries) &&
     (!onlySymbols || Boolean(it.symbol)) &&
-    (!q.trim() || it.title.toLocaleLowerCase('tr').includes(q.trim().toLocaleLowerCase('tr')))
+    (!q.trim() || searchFold(it.title).includes(searchFold(q.trim())))
   const noFilter = kind === 'hepsi' && !onlySymbols && !q.trim()
   const filteredShelves = shelves
     .map((s) => ({ ...s, shown: s.items.filter(match) }))
@@ -362,6 +363,20 @@ function Raflar() {
                 ✦ {tt('Set tamam')}
               </span>
             )}
+            {/* A18: Ödüller açıksa set ilerlemesi ("3 / 5 kart") */}
+            {rewardsOn && odul?.startedAt && !doneSets.has(s.key) && (() => {
+              const mem = shelfSetMembers(s)
+              if (!mem.length) return null
+              const have = mem.filter((id) => odul.cards[id]).length
+              return (
+                <span className="mt-1 flex items-center gap-2 text-[11px] text-neutral-400" title={tt('Bu serinin film kartlarından kaçını topladın (hepsini toplayınca paket kazanırsın)')}>
+                  <span className="h-1 w-14 overflow-hidden rounded-full bg-neutral-800">
+                    <span className="block h-full rounded-full bg-amber-400" style={{ width: `${(have / mem.length) * 100}%` }} />
+                  </span>
+                  {tt('{0} / {1} kart', have, mem.length)}
+                </span>
+              )
+            })()}
             <p className="text-xs" style={{ color: tint ? `rgb(${tint})` : undefined }}>
               {missing > 0 ? tt('{0} yapımın {1} tanesini izledin', total, s.items.length) : ttx('{0} yapım', s.items.length)}
             </p>
@@ -564,13 +579,17 @@ export default function Koleksiyon() {
   const [fbCards, setFbCards] = useState<Record<string, FbCard>>({})
   // ?sekme=flashback ile gelince kartlar yüklenmeden Raflar açılıp sonra sıçramasın
   const [fbLoaded, setFbLoaded] = useState(false)
+  // profil değişince o profilin kartları gelsin
+  const { activeProfileId } = useProfiles()
   useEffect(() => {
+    if (!activeProfileId) return
+    setFbCards({})
     api
       .getFbCards()
       .then(setFbCards)
       .catch(() => {})
       .finally(() => setFbLoaded(true))
-  }, [])
+  }, [activeProfileId])
   const hasFb = Object.keys(fbCards).length > 0
   const q = sp.get('sekme')
   const tab = q === 'biletler' ? 'biletler' : q === 'oduller' && rewards ? 'oduller' : q === 'flashback' && hasFb ? 'flashback' : 'raflar'

@@ -4872,3 +4872,167 @@ export function KiminleSetVisual() {
     </Frame>
   )
 }
+
+// v1.26: bilet kaydedilince yapım o gün izlendi olur (1) ve puanı yoksa puan sorulur (2)
+export function BiletIzlendiVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <rect x={20} y={40} width={120} height={60} rx={6} className="fill-neutral-900" stroke="#d9b56a" strokeOpacity={0.6} />
+      <Label x={30} y={58} size={7}>
+        {tt('Sinema bileti')}
+      </Label>
+      <Line x={30} y={68} w={80} light />
+      <Label x={30} y={88} size={6.5} muted>
+        {tt('25 Kasım · 20:30')}
+      </Label>
+      <Label x={150} y={74} size={10} muted>
+        →
+      </Label>
+      <Box x={168} y={28} w={132} h={52} r={6} strong />
+      <rect x={178} y={38} width={44} height={12} rx={6} fill="#22c55e" fillOpacity={0.25} />
+      <Label x={184} y={47} size={6.5}>
+        {tt('İzlendi')}
+      </Label>
+      <Label x={178} y={68} size={6.5} muted>
+        {tt('izleme tarihi: 25 Kasım')}
+      </Label>
+      <Pin x={296} y={26} n={1} />
+      <Box x={168} y={94} w={132} h={58} r={6} strong />
+      <Label x={178} y={110} size={6.5}>
+        {tt('Kaç puan verirsin?')}
+      </Label>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Label key={i} x={180 + i * 16} y={132} size={10} muted>
+          ★
+        </Label>
+      ))}
+      <Pin x={296} y={92} n={2} />
+    </Frame>
+  )
+}
+
+// v1.26: arşivde Pano görünümü (1, kart sürükleyince durum değişir) ve afiş Galerisi (2)
+export function PanoGaleriVisual() {
+  const cols = [tt('İzlenecek'), tt('İzleniyor'), tt('İzlendi')]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      {cols.map((c, i) => (
+        <g key={i}>
+          <rect x={16 + i * 62} y={18} width={56} height={146} rx={5} className="fill-neutral-900" />
+          <Label x={22 + i * 62} y={30} size={6.5} muted>
+            {c}
+          </Label>
+          {[0, 1].map((k) => (
+            <rect key={k} x={22 + i * 62} y={38 + k * 40} width={44} height={34} rx={3} className="fill-neutral-700" />
+          ))}
+        </g>
+      ))}
+      <rect x={146} y={118} width={44} height={34} rx={3} fill={ACCENT} fillOpacity={0.35} stroke={ACCENT} />
+      <Label x={106} y={140} size={10} muted>
+        →
+      </Label>
+      <Pin x={192} y={116} n={1} />
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <Poster key={i} x={210 + (i % 3) * 32} y={22 + Math.floor(i / 3) * 52} w={26} />
+      ))}
+      <Label x={212} y={136} size={6.5} muted>
+        {tt('Galeri')}
+      </Label>
+      <Pin x={300} y={20} n={2} />
+    </Frame>
+  )
+}
+
+// v1.26: Netflix izleme geçmişini bırak (1), önizleme (2)
+export function NetflixAktarVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <rect x={20} y={30} width={110} height={110} rx={8} fill="none" stroke={ACCENT} strokeDasharray="4 3" />
+      <Label x={36} y={80} size={7}>
+        {tt('NetflixViewingHistory.csv')}
+      </Label>
+      <Label x={44} y={96} size={6.5} muted>
+        {tt('buraya bırak')}
+      </Label>
+      <Pin x={128} y={28} n={1} />
+      <Box x={146} y={30} w={154} h={110} r={6} strong />
+      <Label x={156} y={46} size={7}>
+        {tt('Önizleme')}
+      </Label>
+      {[tt('89 bölüm tarihi'), tt('85 film'), tt('1 yeni yapım')].map((t, i) => (
+        <g key={i}>
+          <circle cx={160} cy={62 + i * 16} r={3} fill="#22c55e" />
+          <Label x={168} y={65 + i * 16} size={6.5} muted>
+            {t}
+          </Label>
+        </g>
+      ))}
+      <MiniButton x={156} y={118} w={60} text={tt('Aktar')} accent />
+      <Pin x={298} y={28} n={2} />
+    </Frame>
+  )
+}
+
+// v1.26: telefonda ana ekran kutusu (1) ve afişe basılı tutunca hızlı menü (2)
+export function TelefonYeniVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <rect x={40} y={16} width={86} height={150} rx={12} className="fill-neutral-900 stroke-neutral-700" />
+      <rect x={48} y={30} width={70} height={42} rx={8} fill={ACCENT} fillOpacity={0.18} stroke={ACCENT} />
+      <Poster x={53} y={35} w={20} />
+      <Label x={78} y={46} size={6}>
+        {tt('Sıradaki')}
+      </Label>
+      <Label x={78} y={58} size={6} muted>
+        {tt('S2 · B5')}
+      </Label>
+      <Pin x={122} y={28} n={1} />
+      <rect x={180} y={16} width={86} height={150} rx={12} className="fill-neutral-900 stroke-neutral-700" />
+      {[0, 1, 2].map((i) => (
+        <Poster key={i} x={188 + i * 25} y={28} w={21} dim />
+      ))}
+      <rect x={186} y={96} width={74} height={62} rx={7} className="fill-neutral-800" />
+      {[tt('✓ İzledim'), tt('+ Aklımda'), tt('★ Puan ver')].map((t, i) => (
+        <Label key={i} x={194} y={110 + i * 15} size={6.5}>
+          {t}
+        </Label>
+      ))}
+      <Pin x={262} y={94} n={2} />
+    </Frame>
+  )
+}
+
+// v1.26: Biletlerim'de yaklaşan seans (1) ve Sinema yılın (2)
+export function BiletSeansVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <rect x={18} y={20} width={140} height={60} rx={6} className="fill-neutral-900" stroke="#d9b56a" strokeOpacity={0.6} />
+      <Label x={28} y={36} size={6.5} muted>
+        {tt('Yaklaşan seans')}
+      </Label>
+      <Label x={28} y={52} size={8}>
+        {tt('2 gün 4 saat')}
+      </Label>
+      <Line x={28} y={62} w={90} light />
+      <Pin x={156} y={18} n={1} />
+      <Box x={18} y={92} w={284} h={70} r={6} strong />
+      <Label x={28} y={108} size={7}>
+        {tt('Sinema yılın')}
+      </Label>
+      {[[tt('14 seans'), 28], [tt('1.920 ₺'), 110], [tt('En çok: Cinemaximum'), 180]].map(([t, x], i) => (
+        <Label key={i} x={x as number} y={128} size={6.5} muted>
+          {t as string}
+        </Label>
+      ))}
+      {[4, 7, 3, 9, 5, 6, 8, 2, 6, 7, 4, 5].map((h, i) => (
+        <rect key={i} x={28 + i * 12} y={154 - h * 2} width={8} height={h * 2} rx={1.5} fill={ACCENT} fillOpacity={0.6} />
+      ))}
+      <Pin x={300} y={90} n={2} />
+    </Frame>
+  )
+}

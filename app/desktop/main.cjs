@@ -42,6 +42,8 @@ let quitting = false
 //   zoom      : yazı ve arayüz boyutu (0.9 / 1 / 1.1 / 1.25)
 //   kisayol   : Ctrl+Alt+A her yerden ARGUS'u öne getirsin
 //   guncelleme: 'otomatik' (açılışta kendiliğinden) ya da 'sor' (ARGUS.exe açılışta sorar)
+//   sessiz    : sessiz saatler (v1.26, Y7) — sessizBas–sessizBit arasında Windows bildirimi çıkmaz, haberler zilde
+//               birikir; aralık bitince tek bir özet bildirim gelir
 const settingsFile = path.join(app.getPath('userData'), 'ayarlar.json')
 const DEFAULTS = {
   baslangic: false,
@@ -52,6 +54,10 @@ const DEFAULTS = {
   zoom: 1,
   kisayol: false,
   guncelleme: 'otomatik',
+  sessiz: true,
+  sessizBas: '23:00',
+  sessizBit: '09:00',
+  sessizBiriken: [],
   tepsiBilgisiGosterildi: false,
   sonProfil: null,
   bildirimSon: {},
@@ -121,9 +127,85 @@ const DESKTOP_EN = {
   "Bir kez kendiliğinden yeniden başlatmayı denedim ama olmadı. Bilgisayarı yeniden başlatmak ya da ARGUS'u kapatıp açmak çoğu zaman düzeltir.": "I tried restarting it once automatically but it didn't work. Restarting the computer or reopening ARGUS usually fixes it.",
   'Yeniden dene': 'Try again',
   'Başlatılıyor…': 'Starting…',
+  'Kaldığın yerden': 'Continue watching',
+  "S{0}B{1}'i izledim": 'I watched S{0}E{1}',
+  'İşaretlendi': 'Marked',
+  '{0} — S{1}B{2} bugünün tarihiyle izlendi olarak işaretlendi.': '{0} — S{1}E{2} was marked as watched today.',
+  'İşaretlenemedi': 'Could not mark',
+  "ARGUS'a ulaşılamadı, biraz sonra tekrar dene.": "Couldn't reach ARGUS, try again in a moment.",
+  'Sessiz saatlerde {0} haber geldi': '{0} updates arrived during quiet hours',
+  've {0} haber daha': 'and {0} more',
 }
-const dt = (s) => (uiLang() === 'en' ? (DESKTOP_EN[s] ?? s) : s)
+const dt = (s, ...a) => String(uiLang() === 'en' ? (DESKTOP_EN[s] ?? s) : s).replace(/\{(\d+)\}/g, (_m, i) => String(a[Number(i)] ?? ''))
 let trayLang = null
+
+// Tepsi menüsünün başında "Kaldığın yerden" (v1.26, A2): izlemekte olduğun son 3 dizinin sıradaki bölümü — tek tıkla
+// bugünün tarihiyle işaretlenir, pencere açılmaz; köşede küçük bir onay balonu çıkar (bkz. server/routes/desktop.js).
+let trayItems = []
+let trayItemsKey = ''
+async function refreshTrayItems() {
+  if (!tray || !settings.sonProfil) return
+  let items = []
+  try {
+    const r = await fetch('http://127.0.0.1:4000/api/profiles/' + settings.sonProfil + '/tepsi-devam')
+    if (r.ok) items = (await r.json()).items || []
+  } catch {
+    return
+  }
+  const key = JSON.stringify(items)
+  if (key === trayItemsKey) return
+  trayItemsKey = key
+  trayItems = items
+  if (tray) tray.setContextMenu(buildTrayMenu())
+}
+async function markFromTray(it) {
+  const k = it.season + '-' + it.episode
+  let ok = false
+  try {
+    const r = await fetch('http://127.0.0.1:4000/api/profiles/' + settings.sonProfil + '/watched/' + encodeURIComponent(it.rowId) + '/diff', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ add: { [k]: [todayIso()] } }),
+    })
+    ok = r.ok
+  } catch {
+    ok = false
+  }
+  if (tray)
+    tray.displayBalloon({
+      title: ok ? dt('İşaretlendi') : dt('İşaretlenemedi'),
+      content: ok ? dt('{0} — S{1}B{2} bugünün tarihiyle izlendi olarak işaretlendi.', it.title, it.season, it.episode) : dt("ARGUS'a ulaşılamadı, biraz sonra tekrar dene."),
+      iconType: ok ? 'info' : 'warning',
+      noSound: true,
+    })
+  trayItemsKey = ''
+  refreshTrayItems()
+}
+function buildTrayMenu() {
+  const cont = trayItems.length
+    ? [
+        { label: dt('Kaldığın yerden'), enabled: false },
+        ...trayItems.map((it) => ({ label: (it.title.length > 34 ? it.title.slice(0, 33) + '…' : it.title) + ' — ' + dt("S{0}B{1}'i izledim", it.season, it.episode), click: () => markFromTray(it) })),
+        { type: 'separator' },
+      ]
+    : []
+  return Menu.buildFromTemplate([
+    ...cont,
+    { label: dt("ARGUS'u aç"), click: showWindow },
+    { type: 'separator' },
+    { label: dt('Ne İzlesem?'), click: () => openInApp('ne-izlesem') },
+    { label: dt('Takvim'), click: () => openInApp('/takvim') },
+    { label: dt('Bugün izlediğimi ekle'), click: () => openInApp('/takvim?ay=' + todayIso().slice(0, 7) + '&gun=' + todayIso()) },
+    { type: 'separator' },
+    {
+      label: dt("ARGUS'u kapat"),
+      click: () => {
+        quitting = true
+        app.quit()
+      },
+    },
+  ])
+}
 
 function applyTray() {
   // Dil değiştiyse menü yeniden kurulur
@@ -135,23 +217,8 @@ function applyTray() {
     trayLang = uiLang()
     tray = new Tray(ICON)
     tray.setToolTip('ARGUS')
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        { label: dt("ARGUS'u aç"), click: showWindow },
-        { type: 'separator' },
-        { label: dt('Ne İzlesem?'), click: () => openInApp('ne-izlesem') },
-        { label: dt('Takvim'), click: () => openInApp('/takvim') },
-        { label: dt('Bugün izlediğimi ekle'), click: () => openInApp('/takvim?ay=' + todayIso().slice(0, 7) + '&gun=' + todayIso()) },
-        { type: 'separator' },
-        {
-          label: dt("ARGUS'u kapat"),
-          click: () => {
-            quitting = true
-            app.quit()
-          },
-        },
-      ]),
-    )
+    tray.setContextMenu(buildTrayMenu())
+    refreshTrayItems()
     tray.on('click', showWindow)
   } else if (!settings.tepsi && tray) {
     tray.destroy()
@@ -178,11 +245,15 @@ function publicSettings() {
     kisayolCalisiyor: hotkeyOk,
     guncelleme: settings.guncelleme,
     exeVar: fs.existsSync(LAUNCHER_EXE),
+    sessiz: settings.sessiz,
+    sessizBas: settings.sessizBas,
+    sessizBit: settings.sessizBit,
   }
 }
 ipcMain.handle('ayarlar:al', () => publicSettings())
 ipcMain.handle('ayarlar:yaz', (_e, patch) => {
-  for (const k of ['baslangic', 'gizliBasla', 'tepsi', 'buyukBasla', 'bildirim', 'kisayol']) if (typeof patch?.[k] === 'boolean') settings[k] = patch[k]
+  for (const k of ['baslangic', 'gizliBasla', 'tepsi', 'buyukBasla', 'bildirim', 'kisayol', 'sessiz']) if (typeof patch?.[k] === 'boolean') settings[k] = patch[k]
+  for (const k of ['sessizBas', 'sessizBit']) if (typeof patch?.[k] === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(patch[k])) settings[k] = patch[k]
   if (ZOOMS.includes(patch?.zoom)) settings.zoom = patch.zoom
   if (patch?.guncelleme === 'otomatik' || patch?.guncelleme === 'sor') settings.guncelleme = patch.guncelleme
   saveSettings()
@@ -197,6 +268,8 @@ ipcMain.on('profil', (_e, id) => {
   if (typeof id === 'string' && id !== settings.sonProfil) {
     settings.sonProfil = id
     saveSettings()
+    trayItemsKey = ''
+    refreshTrayItems()
   }
 })
 
@@ -223,7 +296,25 @@ async function checkNotifications() {
   }
   // "Artık şu platformda izlenebilir" haberleri Windows bildirimi olarak çıkmaz (kullanıcı istemedi) —
   // onlar uygulamanın içinde tek bir toplu bildirim olarak görünür (bkz. NotificationBell).
-  const fresh = items.filter((x) => x.t > last && !x.read && x.type !== 'platform').sort((x, y) => x.t - y.t).slice(-3)
+  const all = items.filter((x) => x.t > last && !x.read && x.type !== 'platform').sort((x, y) => x.t - y.t)
+  // Sessiz saatler (Y7): bu aralıkta Windows bildirimi çıkmaz, haberler zilde birikir; aralık bitince tek bir özet
+  if (inQuietHours()) {
+    if (all.length) settings.sessizBiriken = [...(settings.sessizBiriken || []), ...all.map((n) => n.title || 'ARGUS')].slice(-60)
+    if (newest > last) settings.bildirimSon[settings.sonProfil] = newest
+    if (all.length || newest > last) saveSettings()
+    return
+  }
+  if (settings.sessizBiriken && settings.sessizBiriken.length) {
+    const list = settings.sessizBiriken
+    settings.sessizBiriken = []
+    saveSettings()
+    const uniq = [...new Set(list)]
+    const body = uniq.slice(0, 4).join(' · ') + (uniq.length > 4 ? ' ' + dt('ve {0} haber daha', uniq.length - 4) : '')
+    const sum = new Notification({ title: dt('Sessiz saatlerde {0} haber geldi', list.length), body, icon: ICON, silent: false })
+    sum.on('click', () => openInApp('/'))
+    sum.show()
+  }
+  const fresh = all.slice(-3)
   for (const n of fresh) {
     const note = new Notification({ title: n.title || 'ARGUS', body: n.text || '', icon: ICON, silent: false })
     note.on('click', () => {
@@ -237,6 +328,19 @@ async function checkNotifications() {
     settings.bildirimSon[settings.sonProfil] = newest
     saveSettings()
   }
+}
+
+function hm(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || ''))
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+function inQuietHours(d = new Date()) {
+  if (!settings.sessiz) return false
+  const a = hm(settings.sessizBas)
+  const b = hm(settings.sessizBit)
+  if (a === null || b === null || a === b) return false
+  const m = d.getHours() * 60 + d.getMinutes()
+  return a < b ? m >= a && m < b : m >= a || m < b
 }
 
 function portOpen(port) {
@@ -254,10 +358,15 @@ function portOpen(port) {
   })
 }
 
+// Arayüz (5173) VE veri sunucusu (4000) birlikte hazır olmalı (H17): eskiden sadece arayüze bakılıyordu; veri
+// sunucusu bir an geç açılınca ilk ekranda kısa bir "bağlanamadı" görülebiliyordu.
+async function serverReady() {
+  return (await portOpen(5173)) && (await portOpen(4000))
+}
 async function waitForServer(ms) {
   const until = Date.now() + ms
   while (Date.now() < until) {
-    if (await portOpen(5173)) return true
+    if (await serverReady()) return true
     if (serverDown) return false // süreç kapandı, beklemeye gerek yok
     await new Promise((r) => setTimeout(r, 300))
   }
@@ -269,6 +378,8 @@ async function startServer() {
   if (await portOpen(5173)) return
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
+  // Sunucu kendini yeniden başlatmak isterse (ör. yedekten dönüşten sonra) RESTART_EXIT_CODE ile çıkar (bkz. server/restart.js)
+  env.ARGUS_ELECTRON = '1'
   serverDown = null
   const srv = spawn(process.platform === 'win32' ? 'node.exe' : 'node', ['start.mjs'], {
     cwd: APP_DIR,
@@ -280,7 +391,21 @@ async function startServer() {
   // Sunucu hiç başlayamazsa (node bulunamadı…) ya da sonradan kapanırsa (hata) kullanıcı boş/donmuş bir pencereyle
   // kalmasın: bir kez kendiliğinden yeniden başlatılır, olmazsa pencerede anlaşılır bir hata sayfası gösterilir.
   srv.on('error', () => serverFailed(srv, 'start'))
-  srv.on('exit', () => serverFailed(srv, 'exit'))
+  srv.on('exit', (code) => (code === RESTART_EXIT_CODE ? plannedRestart(srv) : serverFailed(srv, 'exit')))
+}
+
+// Sunucunun bilerek yeniden başlaması (yedekten dönüş, H6): hata sayılmaz, "bir kez yeniden dene" hakkı harcanmaz.
+const RESTART_EXIT_CODE = 75
+async function plannedRestart(srv) {
+  if (srv !== server || srv.stopped || quitting) return
+  server = null
+  serverDown = null
+  await new Promise((r) => setTimeout(r, 400))
+  await startServer()
+  if (await waitForServer(3 * 60 * 1000)) {
+    if (view) view.webContents.loadURL(URL)
+    else createWindow()
+  } else showServerError(serverDown || 'start')
 }
 
 let serverDown = null // null | 'start' | 'exit'
@@ -573,18 +698,26 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark'
   Menu.setApplicationMenu(null)
   // İndirilenler (Flashback görselleri vb.) sormadan İndirilenler klasörüne kaydedilsin
+  // Aynı adla ikinci indirme öncekinin üstüne yazmasın: "ad (1).png", "ad (2).png"… (tarayıcılardaki gibi)
   session.defaultSession.on('will-download', (_e, item) => {
-    item.setSavePath(path.join(app.getPath('downloads'), item.getFilename()))
+    const dir = app.getPath('downloads')
+    const name = item.getFilename()
+    const ext = path.extname(name)
+    const base = name.slice(0, name.length - ext.length)
+    let target = path.join(dir, name)
+    for (let i = 1; fs.existsSync(target) && i < 1000; i++) target = path.join(dir, `${base} (${i})${ext}`)
+    item.setSavePath(target)
   })
   applyTray()
   applyLoginItem()
   applyHotkey()
   setInterval(checkNotifications, 60 * 1000)
+  setInterval(refreshTrayItems, 60 * 1000)
   await startServer()
   if (!(await waitForServer(10 * 60 * 1000)) && serverDown) {
     // Sunucu ilk açılışta kapandı: bir kez yeniden başlatılıyor (serverFailed); o da olmazsa hata sayfası açılır
     const until = Date.now() + 4 * 60 * 1000
-    while (!showingError && !(await portOpen(5173)) && Date.now() < until) await new Promise((r) => setTimeout(r, 500))
+    while (!showingError && !(await serverReady()) && Date.now() < until) await new Promise((r) => setTimeout(r, 500))
     if (showingError) return
   }
   await migrateBrowserPrefs()

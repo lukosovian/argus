@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Board, EpisodesMap, Row, WatchedMap } from '../types'
-import { titleText, episodeKey } from '../types'
+import { titleText, episodeKey, todayIso } from '../types'
 import { api } from '../lib/api'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { onDataChanged } from '../lib/dataEvents'
@@ -30,6 +30,7 @@ export default function ContinueRow({
 }) {
   const [watched, setWatched] = useState<WatchedMap>({})
   const [prog, setProg] = useState<Prog>({})
+  const [brokenStill, setBrokenStill] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -68,20 +69,36 @@ export default function ContinueRow({
   const bannerProp = resolveRole(board, 'banner')
   const posterProp = resolveRole(board, 'poster')
 
-  function info(row: Row): { pct: number | null; text: string } {
+  // still: sıradaki bölümün karesi (TMDB), episode: "S2 · B5 · Bölüm adı" (v1.26, A12)
+  function info(row: Row): { pct: number | null; text: string; still?: string; episode?: string } {
     const seasons = (episodes[row.id] ?? []).filter((s) => s.seasonNumber > 0)
     if (seasons.length) {
       const w = watched[row.id] ?? {}
       let total = 0
       let seen = 0
       let next: string | null = null
+      let nextEp: { name: string; still: string | null } | null = null
+      const today = todayIso()
       for (const s of seasons)
         for (const e of s.episodes) {
+          // Henüz yayınlanmamış bölümler ilerlemeye ve "sıradaki"ye girmez (izlenmişse yine sayılır)
+          const done = Boolean(w[episodeKey(s.seasonNumber, e.episodeNumber)]?.length)
+          if (!done && e.airDate && e.airDate > today) continue
           total++
           if (w[episodeKey(s.seasonNumber, e.episodeNumber)]?.length) seen++
-          else if (!next) next = `S${s.seasonNumber} · ${EP()}${e.episodeNumber}`
+          else if (!next) {
+            next = `S${s.seasonNumber} · ${EP()}${e.episodeNumber}`
+            nextEp = { name: e.name, still: e.stillUrl }
+          }
         }
-      return { pct: total ? seen / total : null, text: next ?? tt('{0}/{1} bölüm', seen, total) }
+      // Genel adlar ("Bölüm 5", "Episode 5") bölüm adı sayılmaz
+      const epName = nextEp?.name && !/^(bölüm|episode|b)\s*\d+$/i.test(nextEp.name.trim()) ? nextEp.name.trim() : ''
+      return {
+        pct: total ? seen / total : null,
+        text: next ?? tt('{0}/{1} bölüm', seen, total),
+        still: nextEp?.still || undefined,
+        episode: next ? (epName ? `${next} · ${epName}` : next) : undefined,
+      }
     }
     const p = prog[row.id]
     if (p?.atMs && p.durationMs) {
@@ -100,9 +117,11 @@ export default function ContinueRow({
       <div className="no-scrollbar flex gap-3 overflow-x-auto -mx-4 px-4 pt-1 pb-3">
         {list.map((row) => {
           const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
-          const image = [coverProp, bannerProp, posterProp].map((p) => (p ? (row.values[p.id] as string) : '')).find(Boolean) ?? ''
+          const fallback = [coverProp, bannerProp, posterProp].map((p) => (p ? (row.values[p.id] as string) : '')).find(Boolean) ?? ''
           const logo = logoProp ? ((row.values[logoProp.id] as string) ?? '') : ''
-          const { pct, text } = info(row)
+          const { pct, text, still, episode } = info(row)
+          // Dizide sıradaki bölümün kendi karesi; yoksa (ya da yüklenemezse) eski görsel
+          const image = (still && !brokenStill.has(row.id) ? still : '') || fallback
           return (
             <button
               key={row.id}
@@ -111,7 +130,16 @@ export default function ContinueRow({
               className="group w-[300px] shrink-0 text-left rounded-xl overflow-hidden bg-neutral-900 shadow-lg shadow-black/40 transition duration-300 hover:-translate-y-1 hover:shadow-black/70"
             >
               <span className="relative block aspect-video bg-neutral-800">
-                {image && <img src={image} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />}
+                {image && (
+                  <img
+                    src={image}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => image !== fallback && setBrokenStill((b) => new Set(b).add(row.id))}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                )}
                 <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
                 {logo ? (
                   <img src={logo} alt={title} loading="lazy" decoding="async" className="absolute left-3 bottom-3 max-h-[38%] max-w-[60%] object-contain" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.8))' }} />
@@ -129,10 +157,17 @@ export default function ContinueRow({
               <span className="block h-[3px] bg-neutral-800">
                 {pct !== null && <span className="block h-full" style={{ width: `${Math.max(3, Math.round(pct * 100))}%`, background: 'linear-gradient(90deg,#015eea,#00c0fa)' }} />}
               </span>
-              <span className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                <span className="font-semibold text-neutral-100 truncate">{title}</span>
-                <span className="shrink-0 text-neutral-400">{text}</span>
-              </span>
+              {episode ? (
+                <span className="block px-3 py-2 text-xs">
+                  <span className="block font-semibold text-neutral-100 truncate">{title}</span>
+                  <span className="block text-neutral-400 truncate mt-0.5">{episode}</span>
+                </span>
+              ) : (
+                <span className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                  <span className="font-semibold text-neutral-100 truncate">{title}</span>
+                  <span className="shrink-0 text-neutral-400">{text}</span>
+                </span>
+              )}
             </button>
           )
         })}

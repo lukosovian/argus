@@ -5,6 +5,8 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../../lib/theme'
 import { SettingsSection, choiceClass } from './SettingsUi'
 import { tt, ttx, fmtDate, locale } from '../../lib/i18n'
 import { LineSkeleton } from '../Skeleton'
+import RecoveryCard from './RecoveryCard'
+import StorageCare from './StorageCare'
 
 // Yedekleme (bkz. server/backup.js): seçilen klasöre veri + görseller. OneDrive / Google Drive klasörü
 // seçilirse yedek kendiliğinden buluta da gider. İş arka planda sürer, burada ilerlemesi görünür.
@@ -22,8 +24,23 @@ export default function BackupPanel() {
   const [info, setInfo] = useState<BackupInfo | null>(null)
   const [custom, setCustom] = useState('')
   const [busy, setBusy] = useState(false)
+  // Yedekten dönüşten sonra ARGUS yeniden başlarken: eski sunucunun kimliği (yenisi gelince sayfa yenilenir)
+  const [restarting, setRestarting] = useState<string | null>(null)
 
   const load = useCallback(() => api.getBackup().then(setInfo).catch(() => {}), [])
+  useEffect(() => {
+    if (restarting === null) return
+    const started = Date.now()
+    const id = setInterval(async () => {
+      const next = await api.getBackup().catch(() => null)
+      // Yeni sunucu cevap verdi (kimliği değişti) ya da 2 dakika geçti: sayfa yenilensin
+      if ((next && next.bootId && next.bootId !== restarting) || Date.now() - started > 120_000) {
+        clearInterval(id)
+        window.location.reload()
+      }
+    }, 1500)
+    return () => clearInterval(id)
+  }, [restarting])
   useEffect(() => {
     load()
   }, [load])
@@ -38,8 +55,15 @@ export default function BackupPanel() {
       if (next.job && !next.job.running) {
         if (next.job.error) notify(next.job.error, 'danger')
         else if (next.job.kind === 'restore') {
-          notify(tt('Yedek geri yüklendi, sayfa yenileniyor...'))
-          setTimeout(() => window.location.reload(), 1200)
+          // v1.26 (H6): dönüş bitince ARGUS kendini yeniden başlatıyor — yeni sunucu ayağa kalkınca sayfa yenilenir
+          const restarting = Boolean((next.job.result as { restarting?: boolean } | null)?.restarting)
+          if (restarting) {
+            notify(tt('Yedek geri yüklendi. ARGUS yeniden başlatılıyor, birkaç saniye sürer…'))
+            setRestarting(next.bootId ?? '')
+          } else {
+            notify(tt('Yedek geri yüklendi, sayfa yenileniyor...'))
+            setTimeout(() => window.location.reload(), 1200)
+          }
         } else {
           const r = next.job.result as { mediaCopied?: number } | null
           notify(tt('Yedek alındı{0}.', r?.mediaCopied ? tt(' — {0} yeni görsel kopyalandı', r.mediaCopied) : ''), 'success')
@@ -92,6 +116,13 @@ export default function BackupPanel() {
 
   return (
     <div className="space-y-4">
+      {restarting !== null && (
+        <div className="flex items-center gap-3 rounded-xl border border-[#00c0fa]/30 bg-[#00c0fa]/[0.06] px-4 py-3">
+          <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[#00c0fa] border-t-transparent animate-spin" />
+          <p className="text-sm text-neutral-200">{tt('Yedek geri yüklendi. ARGUS yeniden başlatılıyor — hazır olunca sayfa kendiliğinden yenilenecek.')}</p>
+        </div>
+      )}
+      <RecoveryCard />
       <SettingsSection
         title={tt('Yedeklerin konacağı klasör')}
         description={tt('OneDrive ya da Google Drive klasörünü seçersen yedeklerin kendiliğinden buluta da gider; bilgisayarına bir şey olsa bile kaybolmaz.')}
@@ -229,6 +260,8 @@ export default function BackupPanel() {
           </ul>
         )}
       </SettingsSection>
+
+      <StorageCare />
     </div>
   )
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { SettingsSection } from '../settings/SettingsUi'
 import { useToast } from '../../hooks/useToast'
-import { clearConfig, getConfig, prefetchPosters, syncNow } from '../../lib/mobile/connection'
+import { clearConfig, getConfig, getState, prefetchPosters, reconnectNow } from '../../lib/mobile/connection'
 import { ArgusNative } from '../../lib/mobile/native'
 import { wipeAll } from '../../lib/mobile/store'
 import { useMobileState } from './MobileStatusBar'
+import PhoneExtrasSection from './PhoneExtrasSection'
 
 // PendingChanges'i buraya almadan (o ayrı parçada) açar — ekranı üstteki gösterge (MobileStatusBar) tutuyor
 const openPendingChanges = () => window.dispatchEvent(new Event('argus-bekleyenler-ac'))
@@ -40,9 +41,10 @@ export default function MobileConnectionPanel() {
   }
 
   const statusText =
-    s.status === 'online' ? tt('Bağlı') : s.status === 'syncing' ? tt('Eşitleniyor...') : tt('Çevrimdışı — PC ile aynı Wi-Fi\'a girince eşitlenir')
+    s.status === 'online' ? tt('Bağlı') : s.status === 'syncing' ? tt('Eşitleniyor...') : s.unpaired ? tt('PC bu telefonu artık tanımıyor — yeniden bağlan') : tt('Çevrimdışı — PC ile aynı Wi-Fi\'a girince eşitlenir')
 
   return (
+    <>
     <SettingsSection title={tt('PC bağlantısı')} description={tt('Telefonda yaptığın değişiklikler, PC ile aynı Wi-Fi\'a girince kendiliğinden PC\'ye gider.')}>
       <div className="space-y-1">
         <p className="text-sm text-neutral-100">{c?.pcName || 'ARGUS'}</p>
@@ -52,15 +54,26 @@ export default function MobileConnectionPanel() {
         <p className="text-xs text-neutral-500">{s.lastSync ? tt('Son eşitleme: {0}', fmtTime(s.lastSync)) : tt('Henüz eşitlenmedi')}</p>
         {s.pending > 0 && <p className="text-xs text-amber-300">{tt('{0} değişiklik PC\'ye gönderilmeyi bekliyor', s.pending)}</p>}
         {s.failed > 0 && <p className="text-xs text-red-400">{tt('{0} değişiklik PC\'de uygulanamadı (ör. kayıt PC\'de silinmişti).', s.failed)}</p>}
+        {s.skipped > 0 && <p className="text-xs text-amber-300">{tt("{0} değişiklik uygulanmadı — PC'de daha yeni hali var. Hangisinin kalacağını Bekleyen değişiklikler'den seç.", s.skipped)}</p>}
         <div className="mt-2 flex flex-wrap gap-2">
           <button
-            onClick={() => syncNow().then(() => notify(tt('Eşitlendi.'), 'success'))}
+            onClick={async () => {
+              // Eskiden PC'ye ulaşılamasa da "Eşitlendi." deniyordu; artık gerekirse ağı tarayıp PC'yi arıyor
+              if (await reconnectNow()) notify(tt('Eşitlendi.'), 'success')
+              else if (getState().unpaired) notify(tt('PC bu telefonu artık tanımıyor. Yeniden bağlanman gerekiyor.'), 'danger')
+              else notify(tt('PC bulunamadı. PC\'de ARGUS açık mı, telefon aynı Wi-Fi\'da mı?'), 'danger')
+            }}
             disabled={s.status === 'syncing'}
             className="text-xs rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-1.5 text-neutral-200 disabled:opacity-50"
           >
             {tt('Şimdi eşitle')}
           </button>
-          {(s.pending > 0 || s.failed > 0) && (
+          {s.unpaired && s.status === 'offline' && (
+            <button onClick={() => window.dispatchEvent(new Event('argus-yeniden-bagla'))} className="text-xs rounded-lg border border-[#00c0fa]/50 bg-[#00c0fa]/10 px-3 py-1.5 text-[#bdeeff]">
+              {tt('Yeniden bağlan')}
+            </button>
+          )}
+          {(s.pending > 0 || s.failed > 0 || s.skipped > 0) && (
             <button onClick={openPendingChanges} className="text-xs rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 py-1.5 text-neutral-200">
               {tt('Bekleyen değişiklikler')}
             </button>
@@ -89,5 +102,8 @@ export default function MobileConnectionPanel() {
         </button>
       </div>
     </SettingsSection>
+    {/* Telefon bildirimleri, arka plan eşitlemesi, parmak izi, ana ekran kutusu (bkz. PhoneExtrasSection) */}
+    <PhoneExtrasSection />
+    </>
   )
 }

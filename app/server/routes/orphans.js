@@ -5,15 +5,26 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { app } from '../app.js'
-import { profileBoardsFile, profileDir, profileRowsFile, readJson, readJsonShared, writeJson } from '../storage.js'
+import { profileBoardsFile, profileDir, profileRowsFile, readJson, readJsonShared, unreadableFiles, writeJson } from '../storage.js'
+import { stt } from '../lang.js'
 
 // rowId ile anahtarlanan dosyalar
 const MAP_FILES = ['tmdb.json', 'episodes.json', 'cast.json', 'watched.json', 'songs.json', 'progress.json', 'planlar.json']
 const KEEP_SNAP_DAYS = 30
 
+// Arşiv dosyalarından biri o an okunamadıysa (kilitli/bozuk) null: içindeki kayıtlar "silinmiş" sanılıp bölümleri,
+// izleme işaretleri, TMDB eşleşmeleri temizlenmesin.
 function liveRowIds(profileId) {
   const ids = new Set()
-  for (const b of readJsonShared(profileBoardsFile(profileId), [])) for (const r of readJsonShared(profileRowsFile(profileId, b.id), [])) ids.add(r.id)
+  const boardsFile = profileBoardsFile(profileId)
+  const boards = readJsonShared(boardsFile, [])
+  if (unreadableFiles.has(boardsFile)) return null
+  for (const b of boards) {
+    const rowsFile = profileRowsFile(profileId, b.id)
+    const rows = readJsonShared(rowsFile, [])
+    if (unreadableFiles.has(rowsFile)) return null
+    for (const r of rows) ids.add(r.id)
+  }
   return ids
 }
 
@@ -64,6 +75,10 @@ function restorableRowIds(profileId) {
 function scan(profileId, clean) {
   const dir = profileDir(profileId)
   const live = liveRowIds(profileId)
+  if (!live) {
+    if (clean) throw new Error(stt('Arşiv dosyalarından biri şu an okunamadı — verin korunuyor, hiçbir şey silinmedi. ARGUS\'u yeniden başlatıp tekrar dene.'))
+    return { files: {}, total: 0, protected: 0 }
+  }
   const keep = restorableRowIds(profileId)
   const orphan = (id) => !live.has(id) && !keep.has(id)
   const files = {}

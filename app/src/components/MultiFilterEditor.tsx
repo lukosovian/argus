@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import type { Board } from '../types'
-import type { FilterCondition } from '../lib/filters'
+import { searchFold } from '../lib/search'
+import type { Board, PropertyDef } from '../types'
+import { isActiveCondition, type FilterCondition, type RelativeRange } from '../lib/filters'
 import OptionBadge from './OptionBadge'
 import { tt } from '../lib/i18n'
 import Icon from './Icon'
@@ -17,6 +18,7 @@ export default function MultiFilterEditor({
   onChange,
   emptyText,
   compact = false,
+  ranges = false,
 }: {
   board: Board | undefined
   conditions: FilterCondition[]
@@ -25,8 +27,11 @@ export default function MultiFilterEditor({
   emptyText?: string
   // Dar yerler (tablo filtresi) için: kutu çerçevesiz.
   compact?: boolean
+  // Y16 (arşiv tablosu): puan/sayı aralığı, tarih aralığı ve kısayolları, her sütunda boş / dolu olanlar
+  ranges?: boolean
 }) {
-  const props = board?.properties.filter((p) => (p.type === 'select' || p.type === 'multiselect') && (p.options?.length ?? 0) > 0) ?? []
+  const hasOptions = (p: PropertyDef) => (p.type === 'select' || p.type === 'multiselect') && (p.options?.length ?? 0) > 0
+  const props = board?.properties.filter((p) => ranges || hasOptions(p)) ?? []
   const [openId, setOpenId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
 
@@ -35,7 +40,7 @@ export default function MultiFilterEditor({
 
   function setCond(next: FilterCondition) {
     const others = conditions.filter((c) => c.propertyId !== next.propertyId)
-    const keep = next.include.length > 0 || next.exclude.length > 0
+    const keep = isActiveCondition(next)
     // Sütun sırası korunsun: var olanın yerine koy, yoksa sona ekle.
     const idx = conditions.findIndex((c) => c.propertyId === next.propertyId)
     if (!keep) return onChange(others)
@@ -55,7 +60,7 @@ export default function MultiFilterEditor({
     setCond({ ...c, include: c.include.filter((x) => x !== optionId), exclude: c.exclude.filter((x) => x !== optionId) })
   }
 
-  const active = conditions.filter((c) => c.include.length > 0 || c.exclude.length > 0)
+  const active = conditions.filter(isActiveCondition)
 
   if (props.length === 0) return <p className="text-xs text-neutral-500">{tt('Bu arşivde filtrelenecek seçim sütunu yok.')}</p>
 
@@ -79,6 +84,16 @@ export default function MultiFilterEditor({
                   const o = opt(id)
                   return o ? <SummaryChip key={id} kind="out" label={o.label} colorIndex={o.colorIndex} image={o.image} onRemove={() => remove(p.id, id)} /> : null
                 })}
+                {extrasLabel(c) && (
+                  <button
+                    onClick={() => setCond({ propertyId: c.propertyId, include: c.include, exclude: c.exclude })}
+                    title={tt('Kaldırmak için tıkla')}
+                    className="group inline-flex items-center gap-1 rounded-full border border-[#00c0fa]/40 bg-[#00c0fa]/10 px-2 py-0.5 text-[11px] text-[#7fdcff]"
+                  >
+                    {extrasLabel(c)}
+                    <span className="text-neutral-500 group-hover:text-neutral-100">×</span>
+                  </button>
+                )}
               </div>
             )
           })}
@@ -97,12 +112,12 @@ export default function MultiFilterEditor({
           const open = openId === p.id
           const options = p.options ?? []
           const many = options.length > MANY_OPTIONS
-          const q = query.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
+          const q = searchFold(query.trim())
           const shown = !open
             ? []
             : many
               ? q
-                ? options.filter((o) => o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(q)).slice(0, SEARCH_LIMIT)
+                ? options.filter((o) => searchFold(o.label).includes(q)).slice(0, SEARCH_LIMIT)
                 : options.length > 150
                   ? options.filter((o) => c.include.includes(o.id) || c.exclude.includes(o.id))
                   : options
@@ -118,6 +133,7 @@ export default function MultiFilterEditor({
               >
                 <span className={`inline-flex text-neutral-500 transition-transform ${open ? 'rotate-90' : ''}`}><Icon name="caret" className="h-3 w-3" /></span>
                 <span className="truncate">{p.name}</span>
+                {extrasLabel(c) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#00c0fa]" />}
                 {picked > 0 && (
                   <span className="text-[11px] text-neutral-500">
                     {c.include.length > 0 && <span className="text-emerald-400">✓{c.include.length}</span>}
@@ -126,7 +142,8 @@ export default function MultiFilterEditor({
                   </span>
                 )}
               </button>
-              {open && (
+              {open && ranges && <RangeControls property={p} cond={c} onChange={setCond} />}
+              {open && hasOptions(p) && (
                 <div className="mt-2.5 pl-5 space-y-2">
                   <p className="text-[11px] text-neutral-500">{tt('Tıkla: ✓ gelsin → tekrar tıkla: ✕ gelmesin → tekrar tıkla: seçimi kaldır')}</p>
                   {many && (
@@ -205,5 +222,170 @@ function SummaryChip({
       </span>
       <span className="text-neutral-600 group-hover:text-neutral-200 text-xs transition">×</span>
     </button>
+  )
+}
+
+const REL_LABELS: [RelativeRange, string][] = [
+  ['buYil', tt('Bu yıl')],
+  ['gecenYil', tt('Geçen yıl')],
+  ['buAy', tt('Bu ay')],
+  ['gecenAy', tt('Geçen ay')],
+  ['son30', tt('Son 30 gün')],
+]
+
+function fmtBound(s: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : s
+}
+
+// Seçenek dışı şartların kısa yazısı ("8 – 10", "bu yıl", "2023", "boş olanlar")
+function extrasLabel(c: FilterCondition): string {
+  const parts: string[] = []
+  if (c.min !== undefined && c.max !== undefined) parts.push(`${c.min} – ${c.max}`)
+  else if (c.min !== undefined) parts.push(tt('{0} ve üstü', c.min))
+  else if (c.max !== undefined) parts.push(tt('{0} ve altı', c.max))
+  if (c.rel) parts.push((REL_LABELS.find(([k]) => k === c.rel)?.[1] ?? '').toLocaleLowerCase('tr'))
+  else if (c.from && c.to) parts.push(c.from === c.to ? fmtBound(c.from) : `${fmtBound(c.from)} – ${fmtBound(c.to)}`)
+  else if (c.from) parts.push(tt('{0} ve sonrası', fmtBound(c.from)))
+  else if (c.to) parts.push(tt('{0} ve öncesi', fmtBound(c.to)))
+  if (c.presence) parts.push(c.presence === 'empty' ? tt('boş olanlar') : tt('dolu olanlar'))
+  return parts.filter(Boolean).join(' · ')
+}
+
+// Sütunun tipine göre aralık / tarih / boş-dolu seçimleri (Y16)
+function RangeControls({ property, cond, onChange }: { property: PropertyDef; cond: FilterCondition; onChange: (c: FilterCondition) => void }) {
+  const [yearText, setYearText] = useState(cond.from && cond.from === cond.to && /^\d{4}$/.test(cond.from) ? cond.from : '')
+  const numeric = property.type === 'number' || property.type === 'rating'
+  const dated = property.type === 'date' || property.type === 'multidate'
+  const isRating = property.type === 'rating'
+  const chip = (on: boolean) =>
+    `whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] transition ${
+      on ? 'border-[#00c0fa] bg-[#00c0fa]/15 text-[#7fdcff]' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
+    }`
+  const input = 'rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-100 outline-none focus:border-[#00c0fa]'
+  const num = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v.replace(',', '.'))) ? undefined : Number(v.replace(',', '.')))
+  return (
+    <div className="mt-2.5 pl-5 space-y-2.5">
+      {numeric && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+            <span>{tt('En az')}</span>
+            <input
+              type="number"
+              step={isRating ? 0.5 : 1}
+              min={isRating ? 0 : undefined}
+              max={isRating ? 10 : undefined}
+              value={cond.min ?? ''}
+              onChange={(e) => onChange({ ...cond, min: num(e.target.value) })}
+              className={`${input} w-16`}
+            />
+            <span>{tt('en çok')}</span>
+            <input
+              type="number"
+              step={isRating ? 0.5 : 1}
+              min={isRating ? 0 : undefined}
+              max={isRating ? 10 : undefined}
+              value={cond.max ?? ''}
+              onChange={(e) => onChange({ ...cond, max: num(e.target.value) })}
+              className={`${input} w-16`}
+            />
+          </div>
+          {isRating && (
+            <>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={0.5}
+                value={cond.min ?? 0}
+                onChange={(e) => onChange({ ...cond, min: Number(e.target.value) || undefined })}
+                className="w-full accent-[#00c0fa]"
+                aria-label={tt('En az puan')}
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {[7, 8, 9].map((n) => {
+                  const on = cond.min === n && cond.max === undefined
+                  return (
+                    <button key={n} onClick={() => onChange({ ...cond, min: on ? undefined : n, max: undefined })} className={chip(on)}>
+                      {tt('{0} ve üstü', n)}
+                    </button>
+                  )
+                })}
+                <button
+                  onClick={() => onChange({ ...cond, min: undefined, max: cond.max === 5 && cond.min === undefined ? undefined : 5 })}
+                  className={chip(cond.max === 5 && cond.min === undefined)}
+                >
+                  {tt('{0} ve altı', 5)}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {dated && (
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap gap-1.5">
+            {REL_LABELS.map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => {
+                  setYearText('')
+                  onChange({ ...cond, rel: cond.rel === k ? undefined : k, from: undefined, to: undefined })
+                }}
+                className={chip(cond.rel === k)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+            <span>{tt('Yıl')}</span>
+            <input
+              inputMode="numeric"
+              maxLength={4}
+              value={yearText}
+              placeholder={String(new Date().getFullYear() - 1)}
+              onChange={(e) => {
+                const t = e.target.value.replace(/\D/g, '')
+                setYearText(t)
+                if (/^\d{4}$/.test(t)) onChange({ ...cond, rel: undefined, from: t, to: t })
+                else if (cond.from && cond.from === cond.to && /^\d{4}$/.test(cond.from)) onChange({ ...cond, from: undefined, to: undefined })
+              }}
+              className={`${input} w-16`}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
+            <input
+              type="date"
+              value={cond.from && cond.from.length === 10 ? cond.from : ''}
+              onChange={(e) => {
+                setYearText('')
+                onChange({ ...cond, rel: undefined, from: e.target.value || undefined, to: cond.to && cond.to.length === 4 ? undefined : cond.to })
+              }}
+              className={input}
+              aria-label={tt('Şu tarihten')}
+            />
+            <span>–</span>
+            <input
+              type="date"
+              value={cond.to && cond.to.length === 10 ? cond.to : ''}
+              onChange={(e) => {
+                setYearText('')
+                onChange({ ...cond, rel: undefined, to: e.target.value || undefined, from: cond.from && cond.from.length === 4 ? undefined : cond.from })
+              }}
+              className={input}
+              aria-label={tt('Şu tarihe')}
+            />
+          </div>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {(['empty', 'filled'] as const).map((k) => (
+          <button key={k} onClick={() => onChange({ ...cond, presence: cond.presence === k ? undefined : k })} className={chip(cond.presence === k)}>
+            {k === 'empty' ? tt('Boş olanlar') : tt('Dolu olanlar')}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

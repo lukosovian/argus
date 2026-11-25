@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
@@ -11,6 +11,11 @@ import TicketViewer from '../components/bilet/TicketViewer'
 import TicketForm from '../components/bilet/TicketForm'
 import RowDetailModal from '../components/RowDetailModal'
 import Icon from '../components/Icon'
+import { MOBILE } from '../lib/mobile/ui'
+import { isUpcoming } from '../components/bilet/seans'
+import YaklasanSeans from '../components/bilet/YaklasanSeans'
+import SinemaYilin from '../components/bilet/SinemaYilin'
+import BiletWallet from '../components/bilet/BiletWallet'
 
 // Koleksiyon › Biletlerim (v1.23.11): sinemada izlediklerinin koleksiyonluk biletleri, yıllara göre bir albüm gibi.
 // Bilete tıklayınca büyür ve çevrilebilir (TicketViewer). Bilet, yapımın detayındaki "Sinemada izledim"den ya da
@@ -46,8 +51,16 @@ export default function Biletlerim() {
   const [detail, setDetail] = useState<Row | null>(null)
 
   const list = useMemo(() => (data ? sortedBiletler(data.items).map((b, i) => ({ ...b, no: i + 1 })) : []), [data])
+  // Y26: ileri tarihli biletler (yaklaşan seans) duvara girmez, üstte geri sayımla durur. Dakikada bir yenilenir.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30000)
+    return () => window.clearInterval(t)
+  }, [])
+  const upcoming = useMemo(() => list.filter((b) => isUpcoming(b, now)), [list, now])
+  const past = useMemo(() => list.filter((b) => !upcoming.includes(b)), [list, upcoming])
   // duvarda yeniden eskiye
-  const shown = useMemo(() => [...list].reverse(), [list])
+  const shown = useMemo(() => [...past].reverse(), [past])
   const years = useMemo(() => {
     const m = new Map<string, typeof shown>()
     for (const b of shown) {
@@ -62,12 +75,12 @@ export default function Biletlerim() {
   const thisYear = String(new Date().getFullYear())
   const stats = useMemo(
     () => ({
-      total: list.length,
-      year: list.filter((b) => (b.date ?? '').startsWith(thisYear)).length,
-      cinema: topOf(list.map((b) => b.cinema)),
-      who: topOf(list.map((b) => b.withWho)),
+      total: past.length,
+      year: past.filter((b) => (b.date ?? '').startsWith(thisYear)).length,
+      cinema: topOf(past.map((b) => b.cinema)),
+      who: topOf(past.map((b) => b.withWho)),
     }),
-    [list, thisYear],
+    [past, thisYear],
   )
   const suggestions = useMemo(
     () => ({
@@ -146,6 +159,10 @@ export default function Biletlerim() {
         </div>
       </section>
 
+      <YaklasanSeans items={upcoming} now={now} onOpen={(b, el) => setView({ index: list.indexOf(b as (typeof list)[number]), origin: el.getBoundingClientRect() })} onEdit={(b) => setForm({ id: b.id, b })} />
+      {/* Y31: biletlerden yıllık özet */}
+      <SinemaYilin list={past} />
+
       {data && list.length === 0 && (
         <div className="flex flex-col items-center rounded-3xl border border-dashed border-neutral-800 px-6 py-14 text-center">
           <div className="relative mb-6 h-28 w-72">
@@ -162,7 +179,19 @@ export default function Biletlerim() {
       )}
 
       {/* Duvar: her yılın biletleri yanında dikey yıl etiketiyle; yıllar yan yana akar (az biletli yıllar satırı boş bırakmaz) */}
-      {years.length > 0 && (
+      {MOBILE && shown.length > 0 && (
+        <BiletWallet
+          items={shown}
+          onEdit={(b) => setForm({ id: b.id, b })}
+          onDelete={(b) => void remove(b)}
+          onOpenRow={(b) => {
+            const r = rows.find((x) => x.id === b.rowId)
+            if (r) setDetail(r)
+            else notify(tt('Bu yapım artık arşivinde yok.'), 'danger')
+          }}
+        />
+      )}
+      {!MOBILE && years.length > 0 && (
         <div className="flex flex-wrap items-start gap-x-12 gap-y-12 border-t border-neutral-800/80 pt-8">
           {years.map(([y, items]) => (
             <section key={y} className="flex min-w-0 max-w-full gap-4">

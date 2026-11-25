@@ -15,6 +15,7 @@ import { ensureRole, ensureStatusOption, isWatchedStatus, resolveRole, resolveSt
 import { langDate, stt } from './lang.js'
 import { pushNotification } from './notifications.js'
 import { evrenOtoStatus, hideAuto, initEvrenOto, mergeBuiltins, runEvrenOto } from './evrenOto.js'
+import { adultTmdbKeys, hiddenRowIds, isKid } from './kid.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const IMG = 'https://image.tmdb.org/t/p/w342'
@@ -174,7 +175,7 @@ function publicItem(ctx, item, since) {
 }
 
 export function registerEvrenlerRoutes(app) {
-  app.get('/api/profiles/:profileId/evrenler/:boardId', (req, res) => {
+  app.get('/api/profiles/:profileId/evrenler/:boardId', async (req, res) => {
     const { profileId, boardId } = req.params
     const ctx = makeContext(profileId, boardId)
     if (!ctx) return res.status(404).json({ error: stt('Arşiv bulunamadı') })
@@ -183,7 +184,7 @@ export function registerEvrenlerRoutes(app) {
       ...Object.values(builtins()).map((u) => ({ ...u, builtin: true })),
       ...Object.values(user.custom).map((u) => ({ ...u, builtin: false })),
     ]
-    const universes = all.map((u) => ({
+    let universes = all.map((u) => ({
       id: u.id,
       name: u.name,
       short: u.short ?? '',
@@ -195,6 +196,22 @@ export function registerEvrenlerRoutes(app) {
       deps: u.deps ?? {},
       items: (u.items ?? []).map((it) => publicItem(ctx, it, user.prefs[u.id]?.maraton)),
     }))
+    // Çocuk profili (v1.26): yaş sınırı 13+ olan yapımlar Evrenler'de de görünmez — arşivdeki kaydın Yaş Sınırı'na,
+    // arşivde yoksa TMDB'deki yaş sınırına bakılır (bkz. kid.js). Hiç yapımı kalmayan evren listeden çıkar.
+    if (isKid(profileId)) {
+      const hidden = hiddenRowIds(profileId) ?? new Set()
+      const adult = await adultTmdbKeys(
+        universes.flatMap((u) => u.items).filter((it) => it.tmdbId && !it.rowId).map((it) => ({ mediaType: it.type, id: it.tmdbId })),
+        d.readProfileApiKey(profileId),
+      )
+      universes = universes
+        .map((u) => {
+          const items = u.items.filter((it) => !(it.rowId && hidden.has(it.rowId)) && !(!it.rowId && adult.has(`${it.type}:${it.tmdbId}`)))
+          const keep = new Set(items.map((it) => it.key))
+          return { ...u, items, story: u.story.filter((k) => keep.has(k)) }
+        })
+        .filter((u) => u.items.length > 0)
+    }
     res.json({ universes, prefs: user.prefs, today: ctx.today })
   })
 

@@ -1,38 +1,60 @@
 package com.argus.mobil;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import java.io.ByteArrayOutputStream;
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.NetworkInterface;
-import java.net.Socket;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 // Arayüzün (src/lib/mobile) telefonun kendisinden istediği işler: PC'nin adresini/anahtarını kaydetme,
-// aynı Wi-Fi'daki ARGUS'u bulma, afişleri önceden indirme, görsel deposunun boyutu.
+// aynı Wi-Fi'daki ARGUS'u bulma, PC'ye istek (Wi-Fi üzerinden), afişleri önceden indirme, görsel deposunun
+// boyutu, ana ekran kutusu, arka plan eşitlemesi, paylaş menüsü / kısayollar, parmak izi, kare kod okuma.
 @CapacitorPlugin(name = "ArgusNative")
 public class ArgusPlugin extends Plugin {
     private final ExecutorService prefetcher = Executors.newSingleThreadExecutor();
+    private final ExecutorService requests = Executors.newCachedThreadPool();
     private volatile int prefetchGeneration = 0;
+
+    static final String LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK";
+
+    // Paylaş menüsünden / kısayoldan / ana ekran kutusundan gelen istekler: arayüz hazır olunca takeIntents ile alır.
+    private static final List<JSObject> pendingIntents = new ArrayList<>();
+    private static ArgusPlugin instance;
+
+    @Override
+    public void load() {
+        instance = this;
+        WifiAg.watch(getContext());
+    }
 
     @PluginMethod
     public void setServer(PluginCall call) {
@@ -48,6 +70,8 @@ public class ArgusPlugin extends Plugin {
     @PluginMethod
     public void clearServer(PluginCall call) {
         Medya.prefs(getContext()).edit().clear().apply();
+        EsitlemeWorker.cancel(getContext());
+        SiradakiWidget.updateAll(getContext());
         prefetchGeneration++;
         call.resolve();
     }
@@ -59,100 +83,81 @@ public class ArgusPlugin extends Plugin {
         call.resolve();
     }
 
-    private static List<String> localIps() {
-        List<String> out = new ArrayList<>();
-        try {
-            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!ni.isUp() || ni.isLoopback()) continue;
-                for (InetAddress a : Collections.list(ni.getInetAddresses())) {
-                    if (a instanceof Inet4Address && a.isSiteLocalAddress()) out.add(a.getHostAddress());
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return out;
-    }
-
-    private static JSONObject hello(String host, int timeoutMs) {
-        HttpURLConnection c = null;
-        try {
-            c = (HttpURLConnection) new URL("http://" + host + ":" + Medya.PORT + "/api/sync/hello").openConnection();
-            c.setConnectTimeout(timeoutMs);
-            c.setReadTimeout(timeoutMs);
-            if (c.getResponseCode() != 200) return null;
-            ByteArrayOutputStream bo = new ByteArrayOutputStream();
-            try (InputStream in = c.getInputStream()) {
-                byte[] buf = new byte[4096];
-                int n;
-                while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
-            }
-            JSONObject j = new JSONObject(bo.toString("UTF-8"));
-            if (!"ARGUS".equals(j.optString("app"))) return null;
-            j.put("host", host);
-            return j;
-        } catch (Exception e) {
-            return null;
-        } finally {
-            if (c != null) c.disconnect();
-        }
-    }
-
-    private static boolean portOpen(String host, int timeoutMs) {
-        try (Socket s = new Socket()) {
-            s.connect(new InetSocketAddress(host, Medya.PORT), timeoutMs);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     // Önce verilen adresler (kayıtlı IP, elle yazılan), sonra telefonun bulunduğu ağdaki (x.y.z.1-254) bütün
     // adresler denenir. { servers: [{ host, serverId, pcName, version }] }
     @PluginMethod
     public void findServers(PluginCall call) {
         final JSArray hintsArr = call.getArray("hints", new JSArray());
         final boolean scan = call.getBoolean("scan", true);
+        final Context ctx = getContext();
         new Thread(() -> {
-            Set<String> hosts = new LinkedHashSet<>();
+            List<String> hints = new ArrayList<>();
             try {
-                for (int i = 0; i < hintsArr.length(); i++) hosts.add(hintsArr.getString(i));
+                for (int i = 0; i < hintsArr.length(); i++) hints.add(hintsArr.getString(i));
             } catch (Exception ignored) {
             }
-            final List<JSONObject> found = Collections.synchronizedList(new ArrayList<>());
-            for (String h : hosts) {
-                JSONObject j = hello(h, 1500);
-                if (j != null) found.add(j);
-            }
-            if (found.isEmpty() && scan) {
-                ExecutorService pool = Executors.newFixedThreadPool(48);
-                Set<String> seen = new LinkedHashSet<>(hosts);
-                for (String ip : localIps()) {
-                    String base = ip.substring(0, ip.lastIndexOf('.') + 1);
-                    for (int i = 1; i < 255; i++) {
-                        final String h = base + i;
-                        if (h.equals(ip) || !seen.add(h)) continue;
-                        pool.execute(() -> {
-                            if (!portOpen(h, 350)) return;
-                            JSONObject j = hello(h, 1500);
-                            if (j != null) found.add(j);
-                        });
-                    }
-                }
-                pool.shutdown();
-                try {
-                    pool.awaitTermination(20, TimeUnit.SECONDS);
-                } catch (InterruptedException ignored) {
-                }
-            }
-            JSObject ret = new JSObject();
             JSONArray arr = new JSONArray();
-            synchronized (found) {
-                for (JSONObject j : found) arr.put(j);
-            }
+            for (JSONObject j : PcBul.find(ctx, hints, scan, null)) arr.put(j);
+            JSObject ret = new JSObject();
             ret.put("servers", arr);
-            ret.put("ips", new JSONArray(localIps()));
+            ret.put("ips", new JSONArray(PcBul.localIps(ctx)));
             call.resolve(ret);
         }).start();
+    }
+
+    // PC'ye tek bir istek (H3: Wi-Fi'a bağlı). { status, headers, data (metin) }; ağ hatası → reject("NETWORK")
+    @PluginMethod
+    public void request(PluginCall call) {
+        final String host = call.getString("host");
+        final String path = call.getString("path", "/");
+        final String method = call.getString("method", "GET");
+        final String body = call.getString("body");
+        final int connectMs = call.getInt("connectTimeout", 4000);
+        final int readMs = call.getInt("readTimeout", 15000);
+        final JSObject h = call.getObject("headers", new JSObject());
+        if (host == null) {
+            call.reject("no host", "NETWORK");
+            return;
+        }
+        final Map<String, String> headers = new LinkedHashMap<>();
+        Iterator<String> keys = h.keys();
+        while (keys.hasNext()) {
+            String k = keys.next();
+            headers.put(k, h.optString(k));
+        }
+        final Context ctx = getContext();
+        requests.execute(() -> {
+            try {
+                PcBul.Cevap r = PcBul.istek(ctx, host, path, method, headers, body, connectMs, readMs);
+                JSObject rh = new JSObject();
+                if (r.headers != null) {
+                    for (Map.Entry<String, List<String>> e : r.headers.entrySet()) {
+                        if (e.getKey() == null || e.getValue() == null) continue;
+                        rh.put(e.getKey(), android.text.TextUtils.join(", ", e.getValue()));
+                    }
+                }
+                call.resolve(new JSObject().put("status", r.status).put("headers", rh).put("data", r.body));
+            } catch (Exception e) {
+                call.reject(String.valueOf(e.getMessage()), "NETWORK");
+            }
+        });
+    }
+
+    // H18: Android 17'den itibaren (uygulama o sürümü hedefleyince) ev ağına erişim ayrı bir izin. Uygulama henüz
+    // Android 16'yı (API 36) hedeflediği için Android bu izni kendiliğinden veriyor; hedef yükseltilince ilk açılışta sorulur.
+    @PluginMethod
+    public void localNetworkPermission(PluginCall call) {
+        Context ctx = getContext();
+        boolean needed = Build.VERSION.SDK_INT >= 37 && ctx.getApplicationInfo().targetSdkVersion >= 37;
+        if (!needed) {
+            call.resolve(new JSObject().put("state", "granted").put("needed", false));
+            return;
+        }
+        boolean granted = ContextCompat.checkSelfPermission(ctx, LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED;
+        if (!granted && call.getBoolean("request", false) && getActivity() != null) {
+            ActivityCompat.requestPermissions(getActivity(), new String[] { LOCAL_NETWORK }, 4711);
+        }
+        call.resolve(new JSObject().put("state", granted ? "granted" : "prompt").put("needed", true));
     }
 
     // Verilen görselleri (ör. bütün afişler) arka planda indirir. İlerleme "prefetch" olayıyla bildirilir.
@@ -221,7 +226,7 @@ public class ArgusPlugin extends Plugin {
             File out = new File(ctx.getCacheDir(), "argus-guncelleme.apk");
             HttpURLConnection c = null;
             try {
-                c = (HttpURLConnection) new URL("http://" + host + ":" + Medya.PORT + "/api/mobile/apk").openConnection();
+                c = WifiAg.open(ctx, new URL("http://" + host + ":" + Medya.PORT + "/api/mobile/apk"));
                 c.setConnectTimeout(5000);
                 c.setReadTimeout(30000);
                 c.setRequestProperty("X-Argus-Token", token);
@@ -242,6 +247,8 @@ public class ArgusPlugin extends Plugin {
                         }
                     }
                 }
+                // Bağlantı yarıda kesilip dosya eksik indiyse kurulum penceresi "paket ayrıştırılamadı" diyordu
+                if (total > 0 && done != total) throw new Exception("eksik indi (" + done + "/" + total + ")");
                 android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", out);
                 android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW);
                 i.setDataAndType(uri, "application/vnd.android.package-archive");
@@ -277,5 +284,195 @@ public class ArgusPlugin extends Plugin {
         File[] files = Medya.dir(getContext()).listFiles();
         if (files != null) for (File f : files) f.delete();
         call.resolve();
+    }
+
+    // ---- Y11: ana ekran kutusu "Sıradaki bölüm" ----
+    // items: [{ title, sub, poster ("/medya/..." ya da https://...), yol (uygulamada açılacak sayfa) }]
+    @PluginMethod
+    public void setWidget(PluginCall call) {
+        final JSArray items = call.getArray("items", new JSArray());
+        final String empty = call.getString("empty", "");
+        final Context ctx = getContext();
+        requests.execute(() -> {
+            JSONArray out = new JSONArray();
+            try {
+                for (int i = 0; i < items.length() && i < 3; i++) {
+                    JSONObject it = items.getJSONObject(i);
+                    File img = widgetImage(ctx, it.optString("poster", ""));
+                    JSONObject o = new JSONObject();
+                    o.put("title", it.optString("title"));
+                    o.put("sub", it.optString("sub"));
+                    o.put("yol", it.optString("yol", "/"));
+                    if (img != null) o.put("img", img.getAbsolutePath());
+                    out.put(o);
+                }
+                Medya.prefs(ctx).edit().putString("widget", new JSONObject().put("items", out).put("empty", empty).put("at", System.currentTimeMillis()).toString()).apply();
+            } catch (Exception ignored) {
+            }
+            SiradakiWidget.updateAll(ctx);
+            call.resolve();
+        });
+    }
+
+    private static File widgetImage(Context ctx, String src) {
+        if (src == null || src.isEmpty()) return null;
+        String name = Medya.nameOf(src);
+        if (name != null) {
+            File f = Medya.file(ctx, name);
+            return f.exists() ? f : Medya.download(ctx, name, 4000);
+        }
+        if (!src.startsWith("https://")) return null;
+        File f = new File(new File(ctx.getCacheDir(), "kutu"), Integer.toHexString(src.hashCode()) + ".jpg");
+        if (f.exists()) return f;
+        f.getParentFile().mkdirs();
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(src).openConnection();
+            c.setConnectTimeout(5000);
+            c.setReadTimeout(10000);
+            if (c.getResponseCode() != 200) return null;
+            File tmp = new File(f.getPath() + ".part");
+            try (InputStream in = c.getInputStream(); FileOutputStream o = new FileOutputStream(tmp)) {
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) > 0) o.write(buf, 0, n);
+            }
+            return tmp.renameTo(f) ? f : null;
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
+    // ---- G4: arka planda eşitleme ----
+    // Arayüz, PC'ye gitmeyi bekleyen değişikliklerin bir kopyasını buraya yazar; Android arada bir (Wi-Fi'dayken)
+    // EsitlemeWorker'ı çalıştırır, PC bulunursa bunlar gönderilir (sunucu aynı değişikliği iki kez uygulamaz).
+    @PluginMethod
+    public void setBackgroundSync(PluginCall call) {
+        Context ctx = getContext();
+        boolean enabled = call.getBoolean("enabled", true);
+        SharedPreferences.Editor e = Medya.prefs(ctx).edit().putBoolean("bg_enabled", enabled);
+        String serverId = call.getString("serverId");
+        if (serverId != null) e.putString("serverId", serverId);
+        JSArray ops = call.getArray("ops");
+        if (ops != null) e.putString("bg_ops", ops.toString());
+        e.apply();
+        if (enabled && Medya.host(ctx) != null) EsitlemeWorker.schedule(ctx);
+        else EsitlemeWorker.cancel(ctx);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void backgroundInfo(PluginCall call) {
+        SharedPreferences p = Medya.prefs(getContext());
+        int pending = 0;
+        try {
+            pending = new JSONArray(p.getString("bg_ops", "[]")).length();
+        } catch (Exception ignored) {
+        }
+        call.resolve(
+            new JSObject()
+                .put("host", p.getString("host", null))
+                .put("serverId", p.getString("serverId", null))
+                .put("lastRun", p.getLong("bg_lastRun", 0))
+                .put("lastReach", p.getLong("bg_lastReach", 0))
+                .put("sent", p.getInt("bg_sent", 0))
+                .put("sentAt", p.getLong("bg_sentAt", 0))
+                .put("pending", pending)
+        );
+    }
+
+    // ---- Y13 / Y15 / bildirim / kutu: dışarıdan gelen istekler ----
+    static void deliver(Intent intent) {
+        if (intent == null) return;
+        JSObject o = null;
+        String action = intent.getAction();
+        if (Intent.ACTION_SEND.equals(action) && "text/plain".equals(intent.getType())) {
+            String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+            String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+            if (text != null || subject != null) o = new JSObject().put("kind", "share").put("text", text == null ? "" : text).put("subject", subject == null ? "" : subject);
+        } else if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null && "argus".equals(intent.getData().getScheme())) {
+            o = new JSObject().put("kind", "url").put("url", intent.getData().toString());
+        }
+        if (o == null) return;
+        // Aynı isteğin iki kez işlenmemesi için (ör. ekran dönünce aynı intent yeniden gelirse)
+        intent.setAction("com.argus.mobil.ISLENDI");
+        synchronized (pendingIntents) {
+            pendingIntents.add(o);
+        }
+        ArgusPlugin p = instance;
+        if (p != null) p.notifyListeners("intent", new JSObject());
+    }
+
+    @PluginMethod
+    public void takeIntents(PluginCall call) {
+        JSONArray arr = new JSONArray();
+        synchronized (pendingIntents) {
+            for (JSObject o : pendingIntents) arr.put(o);
+            pendingIntents.clear();
+        }
+        call.resolve(new JSObject().put("items", arr));
+    }
+
+    // ---- Y24: parmak izi / yüz ----
+    private static final int BIO = BiometricManager.Authenticators.BIOMETRIC_WEAK;
+
+    @PluginMethod
+    public void biometricAvailable(PluginCall call) {
+        int r = BiometricManager.from(getContext()).canAuthenticate(BIO);
+        call.resolve(new JSObject().put("available", r == BiometricManager.BIOMETRIC_SUCCESS));
+    }
+
+    @PluginMethod
+    public void biometricAuth(PluginCall call) {
+        final String title = call.getString("title", "ARGUS");
+        final String subtitle = call.getString("subtitle", "");
+        final String cancel = call.getString("cancel", "PIN");
+        if (!(getActivity() instanceof FragmentActivity)) {
+            call.resolve(new JSObject().put("ok", false).put("error", "no-activity"));
+            return;
+        }
+        final FragmentActivity act = (FragmentActivity) getActivity();
+        final AtomicBoolean done = new AtomicBoolean(false);
+        act.runOnUiThread(() -> {
+            try {
+                BiometricPrompt prompt = new BiometricPrompt(act, ContextCompat.getMainExecutor(act), new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                        if (done.compareAndSet(false, true)) call.resolve(new JSObject().put("ok", true));
+                    }
+
+                    @Override
+                    public void onAuthenticationError(int code, CharSequence msg) {
+                        if (done.compareAndSet(false, true)) call.resolve(new JSObject().put("ok", false).put("code", code).put("error", String.valueOf(msg)));
+                    }
+                });
+                BiometricPrompt.PromptInfo.Builder b = new BiometricPrompt.PromptInfo.Builder().setTitle(title).setNegativeButtonText(cancel).setAllowedAuthenticators(BIO);
+                if (!subtitle.isEmpty()) b.setSubtitle(subtitle);
+                prompt.authenticate(b.build());
+            } catch (Exception e) {
+                if (done.compareAndSet(false, true)) call.resolve(new JSObject().put("ok", false).put("error", String.valueOf(e.getMessage())));
+            }
+        });
+    }
+
+    // ---- A8: kare kod okuma (Google Play Hizmetleri'nin tarayıcısı; uygulamanın kamera izni gerekmez) ----
+    @PluginMethod
+    public void scanQr(PluginCall call) {
+        if (getActivity() == null) {
+            call.reject("no-activity");
+            return;
+        }
+        try {
+            GmsBarcodeScannerOptions o = new GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).enableAutoZoom().build();
+            GmsBarcodeScanning.getClient(getActivity(), o)
+                .startScan()
+                .addOnSuccessListener((b) -> call.resolve(new JSObject().put("text", b.getRawValue())))
+                .addOnCanceledListener(() -> call.resolve(new JSObject().put("cancelled", true)))
+                .addOnFailureListener((e) -> call.reject(String.valueOf(e.getMessage())));
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()));
+        }
     }
 }

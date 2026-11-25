@@ -1,4 +1,5 @@
 import { useState, type ComponentType } from 'react'
+import { searchFold } from '../lib/search'
 import Icon from '../components/Icon'
 import { useSearchParams } from 'react-router-dom'
 import { BRAND_GRADIENT } from '../lib/theme'
@@ -83,10 +84,13 @@ const TABS: { key: Tab; label: string; hint: string; icon: ComponentType }[] = [
 
 // Ayar arama dizini (v1.23.3, öneri Y1): "yedek" yazınca ilgili ayarlar ve hangi sekmede oldukları çıkar,
 // tıklayınca o sekme (ve alt sekmesi) açılır. Yeni bir ayar eklenince buraya da bir satır eklenir.
-const SEARCH: { label: string; tab: Tab; alt?: string; where: string; words?: string }[] = [
+const SEARCH: { label: string; tab: Tab; alt?: string; tur?: string; where: string; words?: string }[] = [
   { label: tt('Yeni arşiv oluştur'), tab: 'veritabani', alt: 'arsivler', where: tt('Veritabanı › Arşivler'), words: 'tablo board' },
   { label: tt('Sütun şablonları'), tab: 'veritabani', alt: 'sablonlar', where: tt('Veritabanı › Şablonlar'), words: 'şablon kolon' },
-  { label: tt('İçe aktar (CSV, Notion, Netflix)'), tab: 'veritabani', alt: 'ice-aktar', where: tt('Veritabanı › İçe Aktar'), words: 'import csv notion netflix' },
+  { label: tt('İçe aktar (CSV, Notion)'), tab: 'veritabani', alt: 'ice-aktar', where: tt('Veritabanı › İçe Aktar'), words: 'import csv notion excel' },
+  { label: tt('CSV\'yi var olan arşive ekle'), tab: 'veritabani', alt: 'ice-aktar', tur: 'mevcut', where: tt('Veritabanı › İçe Aktar'), words: 'import csv excel liste birleştir mükerrer' },
+  // v1.26 (H16/Y17): eskiden burada "Netflix" yazıyordu ama Netflix'e özel bir aktarma yoktu
+  { label: tt('Netflix izleme geçmişini aktar'), tab: 'veritabani', alt: 'ice-aktar', tur: 'netflix', where: tt('Veritabanı › İçe Aktar › Netflix Geçmişi'), words: 'netflix izleme geçmişi viewing history görüntüleme etkinliği bölüm tarih' },
   { label: tt('TMDB API anahtarı'), tab: 'veritabani', alt: 'api', where: tt('Veritabanı › API'), words: 'tmdb key anahtar' },
   { label: tt('Yedekleme klasörü ve otomatik yedek'), tab: 'veritabani', alt: 'yedek', where: tt('Veritabanı › Yedekleme'), words: 'yedek backup' },
   { label: tt('Yedekten geri yükle'), tab: 'veritabani', alt: 'yedek', where: tt('Veritabanı › Yedekleme'), words: 'yedek geri restore' },
@@ -111,6 +115,12 @@ const SEARCH: { label: string; tab: Tab; alt?: string; where: string; words?: st
   { label: tt('Birlikte izle, zevk uyumu, Başarımlar, Sahneden bil'), tab: 'profil', where: tt('Profil Ayarları'), words: 'birlikte zevk başarım rozet sahne oyun' },
   { label: tt('Dizi bitirme planı ve paylaşım kartı'), tab: 'profil', where: tt('Profil Ayarları'), words: 'plan paylaş kart' },
   { label: tt('Oyuncu takibi ve haftalık özet'), tab: 'uygulama', where: tt('Uygulama Ayarları'), words: 'takip haftalık özet bildirim' },
+  { label: tt('Yeni bölüm, platformdan kalkma, puan, sabah bülteni, seans bildirimleri'), tab: 'uygulama', where: tt('Uygulama Ayarları › Zil bildirimleri'), words: 'bildirim yeni bölüm platform netflix puan sabah bülten seans sinema bilet' },
+  { label: tt('Sessiz saatler'), tab: 'uygulama', where: tt('Uygulama Ayarları › Bildirimler'), words: 'sessiz gece rahatsız etme bildirim saat' },
+  { label: tt('Haftada bir kendiliğinden güncelle'), tab: 'uygulama', where: tt('Uygulama Ayarları › Otomatik bakım'), words: 'otomatik genel güncelleme gece haftalık tmdb' },
+  { label: tt('Telefon bağla, QR ile eşleştir, telefonu kaldır'), tab: 'uygulama', where: tt('Uygulama Ayarları › Telefon'), words: 'telefon android qr eşleştir kaldır bağlantı kes cihaz' },
+  { label: tt('Disk ve alan, kullanılmayan görseller'), tab: 'veritabani', alt: 'yedek', where: tt('Veritabanı › Yedekleme'), words: 'disk alan yer görsel medya temizle geçmiş sil' },
+  { label: tt('Bozuk dosyayı kurtar'), tab: 'veritabani', alt: 'yedek', where: tt('Veritabanı › Yedekleme'), words: 'bozuk kurtar okunamadı dosya' },
 ]
 
 function SparkleIcon() {
@@ -131,20 +141,23 @@ export default function Boards() {
   const param = searchParams.get('sekme')
   const tab: Tab = isTab(param) ? param : 'veritabani'
 
-  function setTab(key: Tab, alt?: string) {
+  function setTab(key: Tab, alt?: string, tur?: string) {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
         next.set('sekme', key)
         if (alt) next.set('alt', alt)
         else next.delete('alt')
+        // İçe Aktar'ın içindeki sekme (ör. Netflix Geçmişi)
+        if (tur) next.set('tur', tur)
+        else next.delete('tur')
         return next
       },
       { replace: true },
     )
   }
   const [q, setQ] = useState('')
-  const norm = (s: string) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i')
+  const norm = searchFold
   const hits = q.trim() ? SEARCH.filter((s) => norm(`${s.label} ${s.where} ${s.words ?? ''}`).includes(norm(q.trim()))) : []
   const alt = searchParams.get('alt') ?? ''
 
@@ -174,7 +187,7 @@ export default function Boards() {
               <button
                 key={h.label}
                 onClick={() => {
-                  setTab(h.tab, h.alt)
+                  setTab(h.tab, h.alt, h.tur)
                   setQ('')
                 }}
                 className="block w-full border-b border-neutral-800/70 last:border-0 px-3 py-2 text-left hover:bg-neutral-800/70 transition"
@@ -222,7 +235,7 @@ export default function Boards() {
         </div>
 
         <div className="flex-1 min-w-0 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-4 sm:p-6 md:p-7">
-          {tab === 'veritabani' && <ArchivesPanel key={alt} />}
+          {tab === 'veritabani' && <ArchivesPanel key={`${alt}:${searchParams.get('tur') ?? ''}`} />}
           {tab === 'ana-sayfa' && <HomeSettingsPanel key={alt} />}
           {tab === 'uygulama' && <AppSettingsPanel />}
           {tab === 'profil' && <ProfileSettingsPanel />}

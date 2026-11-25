@@ -4,17 +4,18 @@ import { stt } from '../lang.js'
 import { makeId, profileCastFile, profileDir, profileEpisodesFile, profileProgressFile, profileSongsFile, profileWatchedFile, readJson, readJsonShared, writeJson } from '../storage.js'
 import { app } from '../app.js'
 import { profileRecentWatchFile, saveWatched } from '../watchLogic.js'
+import { hiddenRowIds, omitHiddenKeys } from '../kid.js'
 
 app.get('/api/profiles/:profileId/cast', (req, res) => {
-  res.json(readJsonShared(profileCastFile(req.params.profileId), {}))
+  res.json(omitHiddenKeys(req.params.profileId, readJsonShared(profileCastFile(req.params.profileId), {})))
 })
 
 app.get('/api/profiles/:profileId/episodes', (req, res) => {
-  res.json(readJsonShared(profileEpisodesFile(req.params.profileId), {}))
+  res.json(omitHiddenKeys(req.params.profileId, readJsonShared(profileEpisodesFile(req.params.profileId), {})))
 })
 
 app.get('/api/profiles/:profileId/watched', (req, res) => {
-  res.json(readJsonShared(profileWatchedFile(req.params.profileId), {}))
+  res.json(omitHiddenKeys(req.params.profileId, readJsonShared(profileWatchedFile(req.params.profileId), {})))
 })
 
 app.put('/api/profiles/:profileId/watched/:rowId', (req, res) => saveWatched(req, res, () => req.body))
@@ -190,5 +191,8 @@ app.delete('/api/profiles/:profileId/progress/:rowId', (req, res) => {
 })
 
 app.get('/api/profiles/:profileId/recent-watch', (req, res) => {
-  res.json(readJsonShared(profileRecentWatchFile(req.params.profileId), []))
+  // Çocuk profilinde gizli kayıtlar "son izlenenler"de de görünmez (bkz. kid.js)
+  const hidden = hiddenRowIds(req.params.profileId)
+  const list = readJsonShared(profileRecentWatchFile(req.params.profileId), [])
+  res.json(hidden?.size && Array.isArray(list) ? list.filter((x) => !hidden.has(x?.rowId)) : list)
 })

@@ -39,6 +39,8 @@ export default function BulkUpdatePanel({
   onResume,
   onDiscard,
   canResume = true,
+  retryable = 0,
+  onRetryFailed,
 }: {
   state: BulkState
   onStop: () => void
@@ -46,6 +48,9 @@ export default function BulkUpdatePanel({
   onDiscard: () => void
   // Durdurulan işin kalan kayıtları biliniyorsa "Devam et" görünür
   canResume?: boolean
+  // v1.26 (Y5): iş bitince hata veren kayıtlar — "Hata verenleri tekrar dene" sadece onlarla yeni bir iş başlatır
+  retryable?: number
+  onRetryFailed?: () => void
 }) {
   const pct = state.total ? Math.round((state.done / state.total) * 100) : 0
   const left = state.total - state.done
@@ -78,6 +83,14 @@ export default function BulkUpdatePanel({
             </button>
           ) : (
             <>
+              {retryable > 0 && onRetryFailed && (
+                <button
+                  onClick={onRetryFailed}
+                  className="text-sm rounded-lg border border-rose-500/40 text-rose-200 hover:bg-rose-500/10 px-3 py-1.5 transition inline-flex items-center gap-1.5"
+                >
+                  <Icon name="repeat" className="h-3.5 w-3.5" /> {ttx('Hata verenleri tekrar dene ({0})', retryable)}
+                </button>
+              )}
               {left > 0 && canResume && (
                 <button
                   onClick={onResume}

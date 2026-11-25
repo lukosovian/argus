@@ -27,6 +27,47 @@ function Row({ title, description, children, dim }: { title: string; description
   )
 }
 
+// Sessiz saatler (v1.26, Y7): bu aralıkta Windows bildirimi çıkmaz, haberler zilde birikir; aralık bitince tek bir özet
+// bildirim gelir (bkz. desktop/main.cjs inQuietHours). Ayarlar bu bilgisayardaki uygulamada (ayarlar.json).
+type QuietSettings = AppSettings & { sessiz: boolean; sessizBas: string; sessizBit: string }
+const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`)
+function QuietHoursRow({ s, dim, onChange }: { s: QuietSettings; dim: boolean; onChange: (patch: Partial<QuietSettings>, message: string) => void }) {
+  const sel = 'rounded-lg bg-neutral-800 border border-neutral-700 px-2 py-1 text-xs text-neutral-100 outline-none disabled:opacity-40'
+  return (
+    <Row
+      title={tt('Sessiz saatler')}
+      description={tt('Bu saatler arasında Windows bildirimi çıkmaz, ses de gelmez; haberler zilde birikir ve aralık bitince tek bir özet bildirim olarak çıkar.')}
+      dim={dim}
+    >
+      <div className="flex flex-col items-end gap-2">
+        <ToggleSwitch
+          label={tt('Sessiz saatler')}
+          checked={s.sessiz}
+          disabled={dim}
+          onChange={(v) => onChange({ sessiz: v }, v ? tt('Sessiz saatler açık: {0}–{1}.', s.sessizBas, s.sessizBit) : tt('Sessiz saatler kapatıldı.'))}
+        />
+        <div className={`flex items-center gap-1.5 ${s.sessiz ? '' : 'opacity-50'}`}>
+          <select value={s.sessizBas} disabled={dim || !s.sessiz} onChange={(e) => onChange({ sessizBas: e.target.value }, tt('Sessiz saatler: {0}–{1}.', e.target.value, s.sessizBit))} className={sel}>
+            {[...new Set([...HOURS, s.sessizBas])].sort().map((h) => (
+              <option key={h} value={h}>
+                {h}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-neutral-500">–</span>
+          <select value={s.sessizBit} disabled={dim || !s.sessiz} onChange={(e) => onChange({ sessizBit: e.target.value }, tt('Sessiz saatler: {0}–{1}.', s.sessizBas, e.target.value))} className={sel}>
+            {[...new Set([...HOURS, s.sessizBit])].sort().map((h) => (
+              <option key={h} value={h}>
+                {h}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </Row>
+  )
+}
+
 const ZOOMS: [number, string][] = [
   [0.9, '%90'],
   [1, '%100'],
@@ -131,7 +172,7 @@ export default function AppSettingsPanel() {
               title={tt('Kapatınca tepsiye küçült')}
               description={
                 <>
-                  {tt('Açıksa × ARGUS\'u kapatmaz, saatin yanındaki simgelere (sistem tepsisi) küçültür; ARGUS arkada çalışmaya devam eder, otomatik yedekleme ve yeni bölüm kontrolleri de sürer. Simgeye tıklayınca açılır; sağ tıklayınca "Ne İzlesem?", "Takvim" ve "Bugün izlediğimi ekle" kısayolları ile "ARGUS\'u kapat" çıkar. Kapalıysa × ARGUS\'u tamamen kapatır.')}
+                  {tt('Açıksa × ARGUS\'u kapatmaz, saatin yanındaki simgelere (sistem tepsisi) küçültür; ARGUS arkada çalışmaya devam eder, otomatik yedekleme ve yeni bölüm kontrolleri de sürer. Simgeye tıklayınca açılır; sağ tıklayınca en üstte "Kaldığın yerden" (izlediğin son 3 dizinin sıradaki bölümü, tek tıkla bugünün tarihiyle işaretlenir), sonra "Ne İzlesem?", "Takvim" ve "Bugün izlediğimi ekle" kısayolları ile "ARGUS\'u kapat" çıkar. Kapalıysa × ARGUS\'u tamamen kapatır.')}
                 </>
               }
             >
@@ -154,6 +195,14 @@ export default function AppSettingsPanel() {
                 onChange={(v) => update({ bildirim: v }, v ? tt('Yeni haberler Windows bildirimi olarak da çıkacak.') : tt('Windows bildirimleri kapatıldı (zil yine çalışır).'))}
               />
             </Row>
+            {/* v1.26 (Y7): sessiz saatler — uygulamanın eski sürümü bu alanları bilmiyorsa satır görünmez */}
+            {typeof (s as QuietSettings).sessiz === 'boolean' && (
+              <QuietHoursRow
+                s={s as QuietSettings}
+                dim={!s.bildirim}
+                onChange={(patch, message) => update(patch as Partial<AppSettings>, message)}
+              />
+            )}
           </SettingsSection>
 
           <SettingsSection title={tt('Görünüm ve kısayollar')}>

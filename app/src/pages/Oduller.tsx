@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { api, type KoleksiyonInfo, type OdulReward, type OdulTier } from '../lib/api'
-import { CATALOG, RARITY_COLORS, RARITY_NAMES, TIERS, rollPack, tierOf, useOduller, type ItemKind } from '../lib/oduller'
+import { api, type KoleksiyonInfo, type OdulData, type OdulReward, type OdulTier } from '../lib/api'
+import { CATALOG, RARITY_COLORS, RARITY_NAMES, TIERS, rollPack, setTierFor, tierOf, useOduller, type ItemKind } from '../lib/oduller'
+import { shelfSetMembers, type KoleksiyonShelf } from '../lib/koleksiyonRaflar'
 import { useToast } from '../hooks/useToast'
 import { PackConflict } from '../lib/useProfileStore'
 import { shuffle } from '../lib/games'
@@ -10,7 +11,8 @@ import { useEscape } from '../hooks/useEscape'
 import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt } from '../lib/i18n'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
-import PackOpening from '../components/odul/PackOpening'
+import PackOpening, { HAPTIC_KEY, hapticsOn } from '../components/odul/PackOpening'
+import { MOBILE } from '../lib/mobile/ui'
 import { CardBack, ItemArt, RewardCard } from '../components/odul/RewardCard'
 import '../components/odul/odul.css'
 
@@ -186,6 +188,9 @@ export default function Oduller() {
             setBusy(true)
             try {
               await act({ action: 'start' })
+            } catch (e) {
+              // H14: bağlantı hatasında sessiz kalmasın; düğme tekrar denenebilir
+              notify(e instanceof Error && e.message ? tt('Başlatılamadı: {0} — tekrar dene.', e.message) : tt('Başlatılamadı — bağlantını kontrol edip tekrar dene.'), 'danger')
             } finally {
               setBusy(false)
             }
@@ -217,6 +222,7 @@ export default function Oduller() {
             <h2 className="text-lg font-semibold">{tt('Paketlerim')}</h2>
             <p className="text-xs text-neutral-500">{tt('Her paketten 5 kart çıkar. Elindeki bir ödül tekrar çıkarsa makaraya döner.')}</p>
           </div>
+          {MOBILE && <HapticToggle />}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-sm font-semibold text-amber-300" title={tt('Kopyalardan biriken makarayla paket alabilirsin')}>
             🎞️ {tt('{0} makara', data.makara)}
           </span>
@@ -268,9 +274,11 @@ export default function Oduller() {
         <p className="mt-2 text-[11px] text-neutral-600">{tt('10 paket üst üste epik çıkmazsa bir sonrakinde epik garanti.')}</p>
         <p className="mt-1 text-[11px] text-neutral-500">
           {tt("Seri seti: Koleksiyon'daki bir serinin (raf) bütün film kartlarını toplayınca bir kerelik paket — 3 filme kadar gümüş, daha uzun serilerde altın.")}
-          {doneSets.length > 0 && <> {tt('Tamamlanan setler: {0}', doneSets.map((s) => s.name).join(', '))}</>}
         </p>
       </section>
+
+      {/* A18: setlerin — her rafın ilerlemesi, eksik kartlar soluk */}
+      <SetStrip shelves={kolShelves} cards={data.cards} done={setStore?.sets ?? {}} doneCount={doneSets.length} />
 
       {/* film kartları */}
       <section>
@@ -372,6 +380,106 @@ export default function Oduller() {
       )}
       {zoom && <CardZoom reward={zoom.reward} no={zoom.no} backKey={data.equip.back} onClose={() => setZoom(null)} />}
     </div>
+  )
+}
+
+// A19: paket açarken titreşim (telefonda; bu cihazda hatırlanır)
+function HapticToggle() {
+  const [on, setOn] = useState(hapticsOn)
+  return (
+    <button
+      onClick={() => {
+        const v = !on
+        setOn(v)
+        try {
+          localStorage.setItem(HAPTIC_KEY, v ? '1' : '0')
+        } catch {
+          /* önemsiz */
+        }
+        if (v) navigator.vibrate?.(20)
+      }}
+      className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${on ? 'border-[#00c0fa]/50 text-[#7fd8ff]' : 'border-neutral-700 text-neutral-500'}`}
+      aria-pressed={on}
+    >
+      📳 {on ? tt('Titreşim açık') : tt('Titreşim kapalı')}
+    </button>
+  )
+}
+
+// A18: "Setlerin" şeridi. Her seri rafı: sembol, "3 / 5 kart", dolan çubuk; afişler küçük, eksik kartlar soluk.
+// Soluk afişe dokununca hangi filmin eksik olduğu ve neden (henüz çıkmadı / izlenmemiş) yazılır.
+function SetStrip({ shelves, cards, done, doneCount }: { shelves: KoleksiyonShelf[] | null; cards: OdulData['cards']; done: Record<string, { name: string }>; doneCount: number }) {
+  const [pick, setPick] = useState<{ shelf: string; rowId: string } | null>(null)
+  const sets = useMemo(() => {
+    if (!shelves) return []
+    return shelves
+      .map((sh) => {
+        const mem = shelfSetMembers(sh)
+        if (!mem.length) return null
+        const films = mem.map((id) => sh.items.find((it) => it.row.id === id)).filter((x): x is NonNullable<typeof x> => Boolean(x))
+        const have = films.filter((f) => cards[f.row.id]).length
+        return { key: sh.key, name: sh.name, symbol: sh.symbol, films, have, complete: Boolean(done[sh.key]) || have === films.length }
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x))
+      .sort((a, b) => Number(a.complete) - Number(b.complete) || b.have / b.films.length - a.have / a.films.length || a.name.localeCompare(b.name, 'tr'))
+  }, [shelves, cards, done])
+  if (!shelves) return null
+  if (!sets.length) return null
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">{tt('Setlerin')}</h2>
+          <p className="text-xs text-neutral-500">{tt('Bir serinin bütün film kartlarını topla, bir kerelik paket kazan. Soluk afişe dokun: hangi kart eksik?')}</p>
+        </div>
+        {doneCount > 0 && <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">✦ {tt('{0} set tamam', doneCount)}</span>}
+      </div>
+      <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+        {sets.map((s) => {
+          const sel = pick?.shelf === s.key ? s.films.find((f) => f.row.id === pick.rowId) : undefined
+          return (
+            <div key={s.key} className={`w-[260px] shrink-0 snap-start rounded-2xl border bg-neutral-900 p-3 ${s.complete ? 'border-amber-400/40' : 'border-neutral-800'}`}>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-950 p-1.5">
+                  {s.symbol ? <img src={s.symbol} alt="" className="max-h-full max-w-full object-contain" /> : <span className="text-lg text-neutral-600">◆</span>}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <b className="block truncate text-sm">{s.name}</b>
+                  <span className={`text-[11px] ${s.complete ? 'font-semibold text-amber-300' : 'text-neutral-400'}`}>{s.complete ? `✦ ${tt('Set tamam')}` : tt('{0} / {1} kart', s.have, s.films.length)}</span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: setTierFor(s.films.length) === 'altin' ? '#ffbf1f' : '#9aa4bf' }}>
+                  {setTierFor(s.films.length) === 'altin' ? tt('Altın') : tt('Gümüş')}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-800">
+                <div className="h-full rounded-full transition-all" style={{ width: `${(s.have / s.films.length) * 100}%`, background: s.complete ? 'linear-gradient(90deg,#c89211,#ffe48a)' : '#00c0fa' }} />
+              </div>
+              <div className="mt-2.5 flex gap-1.5 overflow-hidden">
+                {s.films.slice(0, 8).map((f) => {
+                  const got = Boolean(cards[f.row.id])
+                  return (
+                    <button
+                      key={f.row.id}
+                      onClick={() => setPick(pick?.rowId === f.row.id && pick.shelf === s.key ? null : { shelf: s.key, rowId: f.row.id })}
+                      className={`relative aspect-[2/3] w-[26px] shrink-0 overflow-hidden rounded-[4px] border transition ${got ? 'border-transparent' : 'border-dashed border-neutral-600'} ${pick?.rowId === f.row.id && pick.shelf === s.key ? 'ring-2 ring-[#00c0fa]' : ''}`}
+                      title={f.title}
+                    >
+                      <img src={f.poster} alt="" loading="lazy" className="h-full w-full object-cover" style={got ? undefined : { opacity: 0.22, filter: 'grayscale(1)' }} />
+                    </button>
+                  )
+                })}
+                {s.films.length > 8 && <span className="self-center text-[10px] text-neutral-500">+{s.films.length - 8}</span>}
+              </div>
+              {sel && (
+                <p className="mt-2 text-[11px] leading-snug text-neutral-300">
+                  {cards[sel.row.id] ? tt('{0} — kartın var.', sel.title) : tt('{0} — bu kart henüz çıkmadı. Paket açtıkça çıkabilir.', sel.title)}
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 

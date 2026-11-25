@@ -23,7 +23,12 @@ import './routes/verify.js'
 import './routes/system.js'
 import './routes/store.js'
 import './routes/orphans.js'
+import './routes/desktop.js'
+import './routes/devices.js'
+import { initCare } from './routes/care.js'
+import { initRecover } from './recover.js'
 import { resumeBulkJobs } from './jobs/bulk.js'
+import { startReminders } from './jobs/reminders.js'
 
 // Beklenmedik bir hata (ör. yukarıdaki "okunamadı, kaydedilmedi") sunucuyu kapatmasın.
 process.on('unhandledRejection', (e) => console.error('Hata:', e))
@@ -33,7 +38,7 @@ setHistoryWriter(writeJson)
 registerHistoryRoutes(app)
 initNotifications({ profilesDir: PROFILES_DIR, readJson, writeJson, makeId })
 registerNotificationRoutes(app)
-initBackup({ dataDir: DATA_DIR, medyaDir: MEDYA_DIR, root: ROOT, readJson, writeJson: rawWriteJson })
+initBackup({ dataDir: DATA_DIR, medyaDir: MEDYA_DIR, root: ROOT, readJson, writeJson: rawWriteJson, profileIds: () => readProfiles().map((p) => p.id) })
 registerBackupRoutes(app)
 initSync({ dataDir: DATA_DIR, profilesDir: PROFILES_DIR, readJson, rawWrite: rawWriteJson, makeId, appVersion: readAppVersion(), mobileDir: path.join(__dirname, '..', 'mobile') })
 registerSyncRoutes(app)
@@ -54,7 +59,12 @@ registerPlatformRoutes(app)
 if (!process.env.ARGUS_NO_WATCH) {
   setTimeout(watchlistTick, 60_000)
   setInterval(watchlistTick, 3600e3)
+  // v1.26: yeni bölüm (İzleniyor), puan hatırlatma, sabah bülteni, seans, haftalık otomatik güncelleme, eski telefon
+  startReminders()
 }
+// v1.26: bozuk dosya kurtarma önerisi (G1), disk uyarısı ve görsel çöpünün temizliği (Y8, Y9)
+initRecover()
+initCare()
 
 // Paketli arayüz (bkz. start.mjs): ARGUS_SERVE_UI varsa dist/ klasörü de bu sunucudan, 5173 portundan
 // sunuluyor — ayrı bir Vite sürecine gerek kalmıyor. index.html önbelleğe alınmıyor (güncellemeden sonra

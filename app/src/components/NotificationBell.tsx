@@ -40,6 +40,26 @@ const TYPE_ICON: Record<string, { icon: IconName; cls: string }> = {
   follow: { icon: 'person', cls: 'bg-violet-500/15 text-violet-300' },
 }
 
+// Türe göre sekmeler (v1.26, A14). Sunucu yeni türler ekledikçe sabit bir liste yerine türün adına bakılır;
+// hiçbirine uymayan (bilinmeyen) türler "Diğer"e düşer.
+type NoteTab = 'all' | 'bolum' | 'platform' | 'basarim' | 'sistem' | 'diger'
+const NOTE_TABS: { id: NoteTab; label: () => string }[] = [
+  { id: 'all', label: () => tt('Hepsi') },
+  { id: 'bolum', label: () => tt('Bölümler') },
+  { id: 'platform', label: () => tt('Platformlar') },
+  { id: 'basarim', label: () => tt('Başarımlar') },
+  { id: 'sistem', label: () => tt('Sistem') },
+  { id: 'diger', label: () => tt('Diğer') },
+]
+function noteTab(type: string | undefined): Exclude<NoteTab, 'all'> {
+  const t = (type ?? '').toLocaleLowerCase('tr')
+  if (/platform|provider|stream|kalkt|leaving/.test(t)) return 'platform'
+  if (/achiev|basarim|başarım|odul|ödül|reward|badge|rozet/.test(t)) return 'basarim'
+  if (/season|episode|announce|sezon|bolum|bölüm|airing|finale/.test(t)) return 'bolum'
+  if (/backup|yedek|update|guncel|güncel|disk|feature|system|sistem|error|hata|bulk|device|recover/.test(t)) return 'sistem'
+  return 'diger'
+}
+
 function BellIcon() {
   return (
     <Icon name="bell" className="h-5 w-5" />
@@ -52,16 +72,31 @@ export default function NotificationBell() {
   const navigate = useNavigate()
   const [items, setItems] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)
+  // Türe göre sekme (v1.26, A14) ve "artık izlenebilir" grubunun açıklığı
+  const [tab, setTab] = useState<NoteTab>('all')
+  const [groupOpen, setGroupOpen] = useState(false)
   useEscape(open, () => setOpen(false))
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const knownIds = useRef<Set<string> | null>(null)
+  // Profil değişince eski profilin bildirimleri bir an bile görünmesin; yolda kalmış eski cevap da yazılmasın (v1.26, H10)
+  const profileRef = useRef(activeProfileId)
+  const [shownFor, setShownFor] = useState(activeProfileId)
+  if (shownFor !== activeProfileId) {
+    setShownFor(activeProfileId)
+    setItems([])
+    setTab('all')
+    setGroupOpen(false)
+  }
 
   const load = useCallback(() => {
     if (!activeProfileId) return
+    profileRef.current = activeProfileId
+    const pid = activeProfileId
     Promise.resolve()
       .then(() => api.getNotifications())
       .then((r) => {
+        if (profileRef.current !== pid) return
         // Uygulama açıkken yeni gelen okunmamış bildirim kısa bir kart olarak da gösterilsin.
         // Aynı anda birden çok geldiyse (ör. Genel Güncelleme'den sonra) tek bir özet kart — yeni kullanıcı
         // denemesinde 8 kart üst üste yığılıp ekranın sağ altını kapatıyordu.
@@ -110,13 +145,20 @@ export default function NotificationBell() {
 
   const unread = items.filter((n) => !n.read).length
 
+  // Sekmeler: sadece içinde bildirim olan türler görünür, her birinde okunmamış sayısı
+  const tabs = NOTE_TABS.map((t) => {
+    const list = t.id === 'all' ? items : items.filter((n) => noteTab(n.type) === t.id)
+    return { ...t, count: list.length, unread: list.filter((n) => !n.read).length }
+  }).filter((t) => t.id === 'all' || t.count > 0)
+  const activeTab = tabs.some((t) => t.id === tab) ? tab : 'all'
+  const visible = activeTab === 'all' ? items : items.filter((n) => noteTab(n.type) === activeTab)
+
   // "Artık şurada izlenebilir" haberleri listede tek bir satırda toplanır (en yenisinin yerinde);
   // tıklayınca açılır, her biri ayrı ayrı görünür ve tıklanınca o kaydın detayı açılır.
-  const [groupOpen, setGroupOpen] = useState(false)
-  const platformItems = items.filter((n) => n.type === 'platform')
+  const platformItems = visible.filter((n) => n.type === 'platform')
   type ListEntry = { kind: 'item'; item: AppNotification } | { kind: 'group'; items: AppNotification[] }
   const listEntries: ListEntry[] = []
-  for (const n of items) {
+  for (const n of visible) {
     if (n.type !== 'platform') listEntries.push({ kind: 'item', item: n })
     else if (platformItems.length === 1) listEntries.push({ kind: 'item', item: n })
     else if (n === platformItems[0]) listEntries.push({ kind: 'group', items: platformItems })
@@ -141,7 +183,9 @@ export default function NotificationBell() {
   }
 
   async function markAll() {
-    await api.markNotificationsRead().catch(() => {})
+    // Bir sekme seçiliyse sadece o sekmedekiler okundu sayılır
+    const ids = activeTab === 'all' ? undefined : visible.filter((n) => !n.read).map((n) => n.id)
+    await api.markNotificationsRead(ids).catch(() => {})
     load()
   }
 
@@ -200,11 +244,11 @@ export default function NotificationBell() {
                   {tt('Bildirimler')}{unread > 0 && <span className="ml-1.5 text-xs font-normal text-neutral-500">{ttx('{0} okunmamış', unread)}</span>}
                 </p>
                 <div className="flex items-center gap-3 text-xs">
-                  {unread > 0 && (
+                  {(activeTab === 'all' ? unread : visible.some((n) => !n.read)) ? (
                     <button onClick={markAll} className="text-[#00c0fa] hover:underline">
                       {tt('Hepsini okundu say')}
                     </button>
-                  )}
+                  ) : null}
                   {items.length > 0 && (
                     <button onClick={clearAll} className="text-neutral-500 hover:text-rose-300">
                       {tt('Temizle')}
@@ -212,6 +256,29 @@ export default function NotificationBell() {
                   )}
                 </div>
               </div>
+              {/* Türe göre haplar (v1.26, A14): Hepsi · Bölümler · Platformlar · Başarımlar…; yanında okunmamış sayısı */}
+              {tabs.length > 2 && (
+                <div className={`no-scrollbar shrink-0 flex gap-1.5 overflow-x-auto border-b border-neutral-800 ${MOBILE ? 'px-3 py-2.5' : 'px-3 py-2'}`}>
+                  {tabs.map((t) => {
+                    const on = t.id === activeTab
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setTab(t.id)
+                          setGroupOpen(false)
+                        }}
+                        className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border transition ${MOBILE ? 'px-3.5 py-1.5 text-[13px]' : 'px-3 py-1 text-xs'} ${
+                          on ? 'border-[#00c0fa]/60 bg-[#00c0fa]/15 text-neutral-50' : 'border-neutral-700 text-neutral-400 hover:text-neutral-100 hover:border-neutral-500'
+                        }`}
+                      >
+                        {t.label()}
+                        {t.unread > 0 && <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold leading-4 text-center">{t.unread > 9 ? '9+' : t.unread}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               <div className={`overflow-y-auto ${MOBILE ? 'flex-1 pb-8' : ''}`}>
                 {items.length === 0 ? (
                   <EmptyState compact art="bildirim" title={tt('Henüz bildirim yok.')} text={tt('Bir diziyi bitirince ya da izlediğin bir diziye yeni sezon gelince burada görünür.')} />

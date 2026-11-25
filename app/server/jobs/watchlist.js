@@ -39,11 +39,15 @@ export async function checkFinishedSeries(profileId, boardId, apiKey) {
     // En son ne zaman izledin: bölüm işaretleri ya da izleme tarihi
     const seen = watched[row.id] ?? {}
     const dv = dateProp ? row.values[dateProp.id] : null
-    const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : [])
-        .map((x) => String(x).split('/').pop())
-        // "Sadece yıl" (2019) yılın sonu sayılır; "Hatırlamıyorum" (?) hesaba katılmaz.
-        .map((d) => (/^\d{4}$/.test(d) ? `${d}-12-31` : d))
-        .filter((d) => /^\d{4}-/.test(d))].filter(Boolean).sort()
+    // Bölüm işaretleri de aynı süzgeçten geçer — eskiden süzgeç sadece izleme tarihine uygulanıyordu; bir bölümde
+    // "?" olunca o en büyük tarih sayılıyor ve diziye yeni bölüm gelse de hiç İzleniyor'a alınmıyordu.
+    const dates = [...Object.values(seen).flat(), ...(Array.isArray(dv) ? dv : dv ? [dv] : [])]
+      .filter(Boolean)
+      .map((x) => String(x).split('/').pop())
+      // "Sadece yıl" (2019) yılın sonu sayılır; "Hatırlamıyorum" (?) hesaba katılmaz.
+      .map((d) => (/^\d{4}$/.test(d) ? `${d}-12-31` : d))
+      .filter((d) => /^\d{4}-/.test(d))
+      .sort()
     // Ne izleme tarihi ne bölüm işareti varsa (ör. Notion'dan "Bitti" diye aktarılmış dizi) ölçü, kaydın ARGUS'a
     // eklendiği gün — yoksa yıllar önce çıkmış son bölüm "yeni" sayılıp dizi İzleniyor'a alınıyordu (yeni kullanıcı
     // denemesinde Game of Thrones, Sherlock… hepsi böyle oldu).
@@ -147,6 +151,22 @@ export async function checkWatchlist(profileId, boardId, apiKey, force = false) 
     const today = localDay()
     const providers = bs.providers ?? {}
     const dateChanges = []
+    // Platformdan kalkınca da haber (v1.26, Y3): aboneliklerinden birinden kalkan, henüz izlenmemiş yapım için. TMDB'nin
+    // platform bilgisi bazen bir günlüğüne boş gelebiliyor — yanlış alarm olmasın diye iki tur üst üste yoksa bildirilir.
+    const leaveOn = home?.extras?.platformLeave !== false && mine.size > 0
+    let providerNames = null
+    const nameOf = async (pid, known) => {
+      if (known) return known
+      if (!providerNames) {
+        try {
+          const { platformList } = await import('../routes/tmdb.js')
+          providerNames = new Map((await platformList(apiKey)).all.map((p) => [p.id, p.name]))
+        } catch {
+          providerNames = new Map()
+        }
+      }
+      return providerNames.get(pid) ?? ''
+    }
 
     // 1 + 2: henüz izlenmemiş (İzlenecek, Yarım, İzleniyor, boş) ve TMDB'ye bağlı kayıtlar — tek istekte hem
     // içeriğin bilgisi (vizyon tarihi) hem platformları
@@ -172,7 +192,33 @@ export async function checkWatchlist(profileId, boardId, apiKey, force = false) 
           })
         }
       }
-      providers[row.id] = { ids: flat.map((p) => p.provider_id), at: Date.now() }
+      const names = { ...(before?.names ?? {}) }
+      for (const p of flat) names[p.provider_id] = p.provider_name
+      const ids = flat.map((p) => p.provider_id)
+      const gone = {}
+      if (before && leaveOn) {
+        const nowIds = new Set(ids)
+        for (const pid of before.ids) {
+          if (nowIds.has(pid) || !mine.has(pid)) continue
+          const n = (before.gone?.[pid] ?? 0) + 1
+          if (n < 2) {
+            // ilk turda yok: bir tur daha beklenir (listede kalır, geri gelirse "geldi" diye bildirilmez)
+            gone[pid] = n
+            ids.push(pid)
+            continue
+          }
+          const pname = await nameOf(pid, names[pid])
+          pushNotification(profileId, {
+            key: `leave:${row.id}:${pid}`,
+            type: 'platformLeave',
+            boardId,
+            rowId: row.id,
+            title: titleOf(row),
+            text: pname ? stt('Artık {0} platformunda yok.', pname) : stt('Aboneliklerinden birinden kalktı.'),
+          })
+        }
+      }
+      providers[row.id] = { ids, names, at: Date.now(), ...(Object.keys(gone).length ? { gone } : {}) }
       const tmdbDate = ref.mediaType === 'tv' ? d.first_air_date : d.release_date
       const cur = vizyonProp ? row.values[vizyonProp.id] : null
       const isDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)

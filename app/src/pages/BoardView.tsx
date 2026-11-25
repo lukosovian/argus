@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { searchFold } from '../lib/search'
 import RowEditorModal from '../components/RowEditorModal'
 import MobileBoardList from '../components/mobile/MobileBoardList'
+import MobileViewChips from '../components/mobile/MobileViewChips'
 import { MOBILE } from '../lib/mobile/ui'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -8,6 +10,7 @@ import { useBoard } from '../hooks/useBoard'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
 import { api, bulkJobApi, type BulkJob, type TmdbChoice } from '../lib/api'
+import { careApi } from '../lib/api'
 import TmdbChoiceModal from '../components/TmdbChoiceModal'
 import {
   emptyRow,
@@ -38,6 +41,15 @@ import { useBulkJob } from '../components/table/useBulkJob'
 import { restoreDeletedRows, runBatched } from '../components/table/batch'
 import { downloadRowsCsv } from '../components/table/exportCsv'
 import SavedViews from '../components/table/SavedViews'
+import BoardGallery from '../components/BoardGallery'
+import BoardKanban from '../components/table/BoardKanban'
+import { useCellUndo, type CellChange, type UndoStep } from '../components/table/useCellUndo'
+import { rawFromCopy, textToValue } from '../components/table/clipboard'
+import { formatValue, propName } from '../lib/history'
+import { isWatchedStatus, resolveStatusOption } from '../lib/roles'
+import { entryTouches, isFullDate, isUnknownDate, isYearOnly } from '../lib/dateRange'
+import { todayIso, type TableLayout } from '../types'
+import { withQuietRating } from '../lib/quietRating'
 import { isModalOpen, isPopoverOpen, isTypingTarget } from '../components/table/keys'
 import ToggleSwitch from '../components/ToggleSwitch'
 import Select from '../components/Select'
@@ -505,6 +517,37 @@ function DensityIcon({ roomy }: { roomy: boolean }) {
   )
 }
 
+// Tablo / Galeri / Pano seçimi (v1.26, A9/A10)
+function LayoutSwitch({ value, onChange }: { value: TableLayout; onChange: (v: TableLayout) => void }) {
+  const items: { key: TableLayout; label: string; icon: React.ReactNode }[] = [
+    { key: 'tablo', label: tt('Tablo'), icon: <path d="M4 5h16v14H4zM4 10h16M4 15h16M10 5v14" /> },
+    { key: 'galeri', label: tt('Galeri — afiş duvarı'), icon: <path d="M4 4h6v8H4zM14 4h6v8h-6zM4 15h6v5H4zM14 15h6v5h-6z" /> },
+    { key: 'pano', label: tt('Pano — kartları sürükleyerek durum değiştir'), icon: <path d="M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z" /> },
+  ]
+  return (
+    <div className="flex items-center rounded-lg border border-neutral-800 bg-neutral-900 p-0.5" role="radiogroup" aria-label={tt('Görünüm')}>
+      {items.map((it) => (
+        <button
+          key={it.key}
+          role="radio"
+          aria-checked={value === it.key}
+          onClick={() => onChange(it.key)}
+          title={it.label}
+          className={`h-8 w-8 flex items-center justify-center rounded-md transition ${value === it.key ? 'bg-neutral-700 text-[#7fdcff]' : 'text-neutral-500 hover:text-neutral-100'}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" className="h-4 w-4">
+            {it.icon}
+          </svg>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Sırala menüsündeki "Son eklenen" / "Son düzenlenen" (G7) — sütun değil, kaydın kendi zamanı
+const META_SORT_CREATED = '__eklendi__'
+const META_SORT_UPDATED = '__duzenlendi__'
+
 const SORTABLE_TYPES = new Set<PropertyType>(['text', 'longtext', 'url', 'number', 'date', 'multidate', 'select', 'multiselect', 'rating', 'checkbox'])
 
 // Farklı sütun tiplerini tek bir karşılaştırılabilir değere indirger — sıralama butonunun
@@ -661,7 +704,8 @@ function FilterPopover({
               conditions={conditions}
               onChange={onChange}
               compact
-              emptyText={tt('Bir sütunu aç; göstermek istediklerine bir kez (✓), gizlemek istediklerine iki kez (✕) tıkla.')}
+              ranges
+              emptyText={tt('Bir sütunu aç: seçimlerde göstermek istediklerine bir kez (✓), gizlemek istediklerine iki kez (✕) tıkla; puan ve tarihlerde aralık seç, her sütunda boş / dolu olanları ayır.')}
             />
           </div>
         </>
@@ -724,6 +768,24 @@ function SortPopover({
               >
                 {tt('Varsayılan (eklenme sırası)')}
               </button>
+              {/* G7: kaydın kendi zamanları — az önce eklenen / değiştirilen kaydı bulmak için (en yeni üstte) */}
+              {(
+                [
+                  [META_SORT_CREATED, tt('Son eklenen')],
+                  [META_SORT_UPDATED, tt('Son düzenlenen')],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => onChange(key, sortPropertyId === key ? sortDirection : 'desc')}
+                  className={`block w-full text-left text-xs rounded-lg px-2 py-1.5 transition ${
+                    sortPropertyId === key ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-300 hover:bg-neutral-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <div className="my-1 border-t border-neutral-800" />
               {sortableProps.map((p) => (
                 <button
                   key={p.id}
@@ -831,10 +893,15 @@ function ColumnVisibilityPopover({
   columns,
   hiddenIds,
   onToggle,
+  addedOn,
+  onToggleAdded,
 }: {
   columns: PropertyDef[]
   hiddenIds: Set<string>
   onToggle: (propertyId: string) => void
+  // Otomatik "Eklendi" sütunu (G7)
+  addedOn?: boolean
+  onToggleAdded?: () => void
 }) {
   const [open, setOpen] = useState(false)
   useEscape(open, () => setOpen(false))
@@ -860,6 +927,15 @@ function ColumnVisibilityPopover({
                 </div>
               ))}
             </div>
+            {onToggleAdded && (
+              <div className="mt-1 flex items-center justify-between gap-2 border-t border-neutral-800 px-2 pt-2 pb-1">
+                <span className="min-w-0">
+                  <span className="block text-sm text-neutral-300 truncate">{tt('Eklendi')}</span>
+                  <span className="block text-[11px] text-neutral-500">{tt('Otomatik: "3 gün önce" gibi')}</span>
+                </span>
+                <ToggleSwitch checked={Boolean(addedOn)} onChange={onToggleAdded} label={tt('Eklendi')} />
+              </div>
+            )}
           </div>
         </>
       )}
@@ -1073,6 +1149,51 @@ export default function BoardView() {
     try {
       if (next) localStorage.removeItem(FOOTER_KEY)
       else localStorage.setItem(FOOTER_KEY, '1')
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
+
+  // Görünüm türü (v1.26, A9/A10): tablo, afiş galerisi ya da durum panosu — arşiv başına bu tarayıcıda (ve kayıtlı görünümde)
+  const layoutKey = id ? `argus_table_layout_${id}` : null
+  const [layout, setLayout] = useState<TableLayout>('tablo')
+  useEffect(() => {
+    try {
+      const v = layoutKey ? localStorage.getItem(layoutKey) : null
+      setLayout(v === 'galeri' || v === 'pano' ? v : 'tablo')
+    } catch {
+      setLayout('tablo')
+    }
+  }, [layoutKey])
+  function changeLayout(next: TableLayout) {
+    setLayout(next)
+    // Tablonun seçimi galeride/panoda görünmüyor — "Seçili kayıtlar" yanlış kalmasın
+    if (next !== 'tablo') setSelectedRowIds([])
+    try {
+      if (layoutKey) {
+        if (next === 'tablo') localStorage.removeItem(layoutKey)
+        else localStorage.setItem(layoutKey, next)
+      }
+    } catch {
+      // saklanamasa da bu oturumda çalışır
+    }
+  }
+
+  // "Eklendi" sütunu (G7): 'auto' = sadece "Son eklenen / Son düzenlenen" sıralamasında görünür
+  const ADDED_COL_KEY = 'argus_table_added_col'
+  const [addedCol, setAddedCol] = useState<'auto' | 'on' | 'off'>(() => {
+    try {
+      const v = localStorage.getItem(ADDED_COL_KEY)
+      return v === 'on' || v === 'off' ? v : 'auto'
+    } catch {
+      return 'auto'
+    }
+  })
+  function saveAddedCol(next: 'auto' | 'on' | 'off') {
+    setAddedCol(next)
+    try {
+      if (next === 'auto') localStorage.removeItem(ADDED_COL_KEY)
+      else localStorage.setItem(ADDED_COL_KEY, next)
     } catch {
       // saklanamasa da bu oturumda çalışır
     }
@@ -1344,6 +1465,7 @@ export default function BoardView() {
 
   const sortableProps = useMemo(() => board?.properties.filter((p) => SORTABLE_TYPES.has(p.type)) ?? [], [board])
   const sortProperty = sortableProps.find((p) => p.id === sortPropertyId) ?? null
+  const metaSort = sortPropertyId === META_SORT_CREATED || sortPropertyId === META_SORT_UPDATED
   const watchSortPropId = board ? (resolveRole(board, 'izlemeTarihi')?.id ?? null) : null
 
   // Arama kutusu seçim/çoklu-seçim sütunlarındaki (Tür/Ülke/Oyuncular gibi) ETİKETLERİ de
@@ -1386,9 +1508,9 @@ export default function BoardView() {
     const nameProps = [board.properties.find((p) => p.id === board.titlePropertyId), resolveRole(board, 'orjinalAdi')].filter(Boolean)
     const searchRank = new Map<string, number>()
     const result = rows.filter((row) => {
-      if (!rowMatchesConditions(row, tableConditions)) return false
+      if (!rowMatchesConditions(row, tableConditions, board)) return false
       if (search.trim()) {
-        const q = search.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
+        const q = searchFold(search.trim())
         const hay = board.properties
           .map((p) => {
             const v = row.values[p.id]
@@ -1401,13 +1523,13 @@ export default function BoardView() {
             return typeof v === 'string' ? v : ''
           })
           .join(' ')
-          .toLocaleLowerCase('tr').replace(/ı/g, 'i')
-        const title = ((row.values[board.titlePropertyId] as string) ?? '').toLocaleLowerCase('tr').replace(/ı/g, 'i')
-        if (!hay.includes(q) && !title.includes(q)) return false
+        const hayF = searchFold(hay)
+        const title = searchFold((row.values[board.titlePropertyId] as string) ?? '')
+        if (!hayF.includes(q) && !title.includes(q)) return false
         let rank = 4
         for (const p of nameProps) {
           const v = row.values[p!.id]
-          const name = (typeof v === 'string' ? v : '').toLocaleLowerCase('tr').replace(/ı/g, 'i')
+          const name = searchFold(typeof v === 'string' ? v : '')
           if (!name.includes(q)) continue
           const wordStart = name.split(/[\s:(\-–.,]+/).some((w) => w.startsWith(q))
           const r = name === q ? 0 : name.startsWith(q) ? 1 : wordStart ? 2 : 3
@@ -1417,7 +1539,10 @@ export default function BoardView() {
       }
       return true
     })
-    if (sortProperty) {
+    if (sortPropertyId === META_SORT_CREATED || sortPropertyId === META_SORT_UPDATED) {
+      const key = sortPropertyId === META_SORT_CREATED ? 'createdAt' : 'updatedAt'
+      result.sort((a, b) => (sortDirection === 'asc' ? 1 : -1) * ((a[key] ?? 0) - (b[key] ?? 0)))
+    } else if (sortProperty) {
       result.sort((a, b) => {
         const watchSort = sortProperty.id === watchSortPropId
         const av = sortValue(a, sortProperty, watchSort ? lastEpisodeDates.get(a.id) : undefined)
@@ -1437,7 +1562,7 @@ export default function BoardView() {
       result.sort((a, b) => (searchRank.get(a.id) ?? 4) - (searchRank.get(b.id) ?? 4))
     }
     return result
-  }, [rows, tableConditions, search, board, sortProperty, sortDirection, searchOptionMaps, lastEpisodeDates, watchSortPropId])
+  }, [rows, tableConditions, search, board, sortProperty, sortPropertyId, sortDirection, searchOptionMaps, lastEpisodeDates, watchSortPropId])
 
   // Yeni eklenen satır listede gerçekten görününce (bkz. pendingScrollRowId'nin tanımındaki not)
   // BoardTable'a kaydırma komutunu veriyor.
@@ -1490,6 +1615,19 @@ export default function BoardView() {
   // hesaplanabiliyor, üçüncü liste (bozuk dosya bağlantıları) modalın kendisi açılınca
   // ayrıca sunucudan çekiliyor (bkz. HealthCheckModal.tsx).
   const [healthOpen, setHealthOpen] = useState(false)
+  // ?saglik=1 ile gelinince (ör. İstatistikler'deki "tarihi eksik izlemeler" notundan) Sağlık Kontrolü açık gelir (v1.26, G10)
+  useEffect(() => {
+    if (!searchParams.get('saglik')) return
+    setHealthOpen(true)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('saglik')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams])
   // Araç çubuğunun üst menüye taşınması (bkz. toolbarItems): çubuk menünün altında kalınca `docked`;
   // menüdeki bağlantılara / sağdaki düğmelere değmeden ortaya sığıyorsa `dockFits`.
   // Çubuğun kendi yeri (state: çubuk ancak arşiv yüklenince çizildiği için izleyici o zaman kurulsun)
@@ -1585,6 +1723,38 @@ export default function BoardView() {
     setSearchParams(next, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yeniParam, board, rowsLoading])
+
+  // Ctrl+Z / Ctrl+Y (v1.26, G5) — bkz. components/table/useCellUndo.ts. Geri alma değerleri en güncel kayıtlara yazılır.
+  async function applyCellValues(items: { rowId: string; propertyId: string; value: PropertyValue | null }[]) {
+    const byRow = new Map<string, Record<string, PropertyValue>>()
+    for (const it of items) byRow.set(it.rowId, { ...(byRow.get(it.rowId) ?? {}), [it.propertyId]: it.value })
+    return runBatched([...byRow], async ([rowId, vals]) => {
+      const row = rowsRef.current.find((r) => r.id === rowId)
+      if (!row) throw new Error('kayıt yok')
+      await saveRow({ values: { ...row.values, ...vals }, createdAt: row.createdAt, updatedAt: Date.now() }, rowId)
+    })
+  }
+  function describeStep(step: UndoStep, kind: 'undo' | 'redo'): string {
+    const b = boardRef.current
+    if (step.label) return step.label
+    if (!b || step.changes.length === 0) return ''
+    const props = new Set(step.changes.map((c) => c.propertyId))
+    if (step.changes.length === 1) {
+      const c = step.changes[0]
+      return `${propName(b, c.propertyId)} → ${formatValue(b, c.propertyId, (kind === 'undo' ? c.before : c.after) ?? null)}`
+    }
+    const rowCount = new Set(step.changes.map((c) => c.rowId)).size
+    return props.size === 1 ? tt('{0} kayıtta {1}', rowCount, propName(b, [...props][0])) : tt('{0} hücre', step.changes.length)
+  }
+  const cellUndo = useCellUndo({
+    resetKey: id,
+    apply: applyCellValues,
+    onDone: (step, kind, failed) => {
+      const what = describeStep(step, kind)
+      if (failed > 0) notify(tt('{0} değişiklik geri yazılamadı — ARGUS sunucusu açık mı?', failed), 'danger')
+      else notify(kind === 'undo' ? tt('Geri alındı: {0}', what) : tt('Yeniden yapıldı: {0}', what), 'info')
+    },
+  })
 
   if (boardLoading || boardsLoading) return <PageSkeleton kind="table" />
   if (!board) {
@@ -1945,6 +2115,7 @@ export default function BoardView() {
   function updateCell(rowId: string, propertyId: string, value: PropertyValue) {
     const row = rows.find((r) => r.id === rowId)
     if (!row) return
+    cellUndo.record([{ rowId, propertyId, before: row.values[propertyId], after: value }])
     // Kayıt sunucuya gidemezse (bağlantı koptu, sunucu reddetti) hücre sessizce eski haline dönmesin, söylensin.
     saveRow({ values: { ...row.values, [propertyId]: value }, createdAt: row.createdAt, updatedAt: Date.now() }, rowId).catch(() =>
       notify(tt('Değişiklik kaydedilemedi — ARGUS sunucusu açık mı?'), 'danger'),
@@ -1966,6 +2137,181 @@ export default function BoardView() {
         notify(tt('"{0}" arşivde zaten var{1} — mükerrer olabilir, Sağlık Kontrolü\'nden birleştirebilirsin.', value.trim(), t && t.toLocaleLowerCase('tr').replace(/ı/g, 'i') !== norm ? ` ("${t}")` : ''))
       }
     }
+  }
+
+  // Birkaç kaydın birkaç alanını birlikte yazar (Geri al / Ctrl+Z tek adım). Çok kayıtta puan soruları susturulur
+  // (yoksa sağ altta onlarca puan penceresi sıraya girerdi).
+  async function writeMany(writes: { rowId: string; values: Record<string, PropertyValue> }[], label: string, quietRating = writes.length > 5) {
+    const changes: CellChange[] = []
+    for (const w of writes) {
+      const row = rowsRef.current.find((r) => r.id === w.rowId)
+      if (!row) continue
+      for (const [pid, v] of Object.entries(w.values)) changes.push({ rowId: w.rowId, propertyId: pid, before: row.values[pid], after: v })
+    }
+    if (changes.length === 0) return { failed: 0, changes }
+    cellUndo.record(changes, label)
+    const work = () =>
+      runBatched(writes, async (w) => {
+        const row = rowsRef.current.find((r) => r.id === w.rowId)
+        if (!row) throw new Error('kayıt yok')
+        await saveRow({ values: { ...row.values, ...w.values }, createdAt: row.createdAt, updatedAt: Date.now() }, w.rowId)
+      })
+    const failed = await (quietRating ? withQuietRating(work) : work())
+    return { failed, changes }
+  }
+  function undoToast(changes: CellChange[]) {
+    return {
+      label: tt('Geri al'),
+      onClick: async () => {
+        const failed = await applyCellValues(changes.map((c) => ({ rowId: c.rowId, propertyId: c.propertyId, value: (c.before ?? null) as PropertyValue | null })))
+        notify(failed > 0 ? tt('{0} değişiklik geri alınamadı.', failed) : tt('Geri alındı.'), failed > 0 ? 'danger' : 'success')
+      },
+    }
+  }
+
+  // İzleme tarihi alanına bir izleme ekler (çoklu tarihte listeye, tek tarihte yerine). Aynı gün zaten yazılıysa
+  // `already`. Tam tarih eklenirken "?" ya da aynı yılın "sadece yıl" izlemesi varsa onun yerine geçer (bilet gibi, H5).
+  function addWatchEntry(type: PropertyType, cur: PropertyValue | undefined, entry: string): { value?: PropertyValue; already: boolean } {
+    if (type === 'multidate') {
+      const list = Array.isArray(cur) ? (cur as string[]).filter(Boolean) : typeof cur === 'string' && cur ? [cur] : []
+      if (isFullDate(entry)) {
+        if (list.some((d) => isFullDate(d) && entryTouches(d, entry))) return { already: true }
+        const at = list.findIndex((d) => isUnknownDate(d) || (isYearOnly(d) && d === entry.slice(0, 4)))
+        const base = at >= 0 ? list.filter((_, j) => j !== at) : list
+        return { value: [...base, entry].sort(), already: false }
+      }
+      if (list.includes(entry)) return { already: true }
+      const at = list.indexOf('?')
+      const base = at >= 0 ? list.filter((_, j) => j !== at) : list
+      return { value: [...base, entry].sort(), already: false }
+    }
+    if (type === 'date') {
+      if (!isFullDate(entry)) return { already: false }
+      return cur === entry ? { already: true } : { value: entry, already: false }
+    }
+    return { already: false }
+  }
+
+  // Seçim çubuğundaki "İzledim…" (Y20): seçili kayıtlara aynı izleme tarihi, durum İzlendi
+  async function markWatched(rowIds: string[], entry: string) {
+    if (!board) return
+    const tarihProp = resolveRole(board, 'izlemeTarihi')
+    const durumProp = resolveRole(board, 'durum')
+    const izlendi = resolveStatusOption(board, 'izlendi')
+    if (!tarihProp && !(durumProp && izlendi)) {
+      notify(tt('Bu arşivde İzleme Tarihi ya da Durum sütunu yok.'), 'danger')
+      return
+    }
+    const writes: { rowId: string; values: Record<string, PropertyValue> }[] = []
+    let already = 0
+    for (const rid of rowIds) {
+      const row = rowsRef.current.find((r) => r.id === rid)
+      if (!row) continue
+      const values: Record<string, PropertyValue> = {}
+      if (tarihProp) {
+        const r = addWatchEntry(tarihProp.type, row.values[tarihProp.id], entry)
+        if (r.already) already++
+        else if (r.value !== undefined) values[tarihProp.id] = r.value
+      }
+      if (durumProp && izlendi && !isWatchedStatus(board, row.values[durumProp.id])) values[durumProp.id] = izlendi
+      if (Object.keys(values).length) writes.push({ rowId: rid, values })
+    }
+    if (writes.length === 0) {
+      notify(tt('Seçili kayıtlarda bu tarih zaten yazılı.'))
+      return
+    }
+    const when = isFullDate(entry) ? entry.split('-').reverse().join('.') : tt('{0} yılı', entry)
+    const { failed, changes } = await writeMany(writes, tt('İzledim ({0}) — {1} kayıt', when, writes.length))
+    if (failed > 0) notify(tt('{0} kayıt kaydedilemedi — ARGUS sunucusu açık mı?', failed), 'danger')
+    const ok = writes.length - failed
+    if (ok > 0)
+      notify(
+        tt('{0} kayıt İzlendi: {1}{2}', ok, when, already > 0 ? tt(' ({0} kayıtta bu tarih zaten vardı)', already) : ''),
+        'success',
+        { action: undoToast(changes) },
+      )
+  }
+
+  // Durum panosunda kart başka sütuna bırakıldı (A9). İzlendi'ye bırakılınca bugünün tarihi eklenir; puanı boşsa
+  // sunucu puan sorar (sağ altta).
+  async function moveOnBoard(groupProp: PropertyDef, rowId: string, optionId: string | null) {
+    if (!board) return
+    const row = rowsRef.current.find((r) => r.id === rowId)
+    if (!row) return
+    const values: Record<string, PropertyValue> = { [groupProp.id]: optionId ?? '' }
+    const durumProp = resolveRole(board, 'durum')
+    const tarihProp = resolveRole(board, 'izlemeTarihi')
+    const toWatched = Boolean(optionId && durumProp?.id === groupProp.id && isWatchedStatus(board, optionId) && !isWatchedStatus(board, row.values[groupProp.id]))
+    if (toWatched && tarihProp && optionId === resolveStatusOption(board, 'izlendi')) {
+      const r = addWatchEntry(tarihProp.type, row.values[tarihProp.id], todayIso())
+      if (r.value !== undefined) values[tarihProp.id] = r.value
+    }
+    const label = groupProp.options?.find((o) => o.id === optionId)?.label ?? tt('(boş)')
+    const { failed, changes } = await writeMany([{ rowId, values }], tt('{0} → {1}', rowTitleOf(row), label), false)
+    if (failed > 0) notify(tt('Değişiklik kaydedilemedi — ARGUS sunucusu açık mı?'), 'danger')
+    else if (tarihProp && values[tarihProp.id] !== undefined) notify(tt('"{0}" İzlendi — bugünün tarihi eklendi.', rowTitleOf(row)), 'success', { action: undoToast(changes) })
+  }
+
+  // Yapıştırma (Y19): yazılar sütunların tiplerine çevrilir; seçimlerde olmayan etiketler tek seferde seçenek olarak açılır.
+  async function pasteCells(cells: { rowId: string; propertyId: string; text: string }[], overflow: number) {
+    if (!board) return
+    const props = new Map(board.properties.map((p) => [p.id, p]))
+    const newLabels = new Map<string, Set<string>>()
+    const parsed: { rowId: string; propertyId: string; value: PropertyValue }[] = []
+    let skipped = 0
+    for (const c of cells) {
+      const p = props.get(c.propertyId)
+      if (!p || !rowsRef.current.some((r) => r.id === c.rowId)) continue
+      const set = newLabels.get(p.id) ?? new Set<string>()
+      const raw = rawFromCopy(c.text, p)
+      const v = raw !== undefined ? raw : textToValue(p, c.text, set)
+      if (set.size) newLabels.set(p.id, set)
+      if (v === undefined) {
+        skipped++
+        continue
+      }
+      parsed.push({ rowId: c.rowId, propertyId: p.id, value: v })
+    }
+    if (parsed.length === 0) {
+      notify(tt('Yapıştırılan değer bu sütuna uymuyor.'), 'danger')
+      return
+    }
+    // Yeni seçenekler — hepsi tek kayıtta (tek tek açmak birbirinin üstüne yazıyordu)
+    const labelIds = new Map<string, string>()
+    if (newLabels.size > 0) {
+      const nextProps = board.properties.map((p) => {
+        const set = newLabels.get(p.id)
+        if (!set) return p
+        const options = [...(p.options ?? [])]
+        for (const label of set) {
+          const nid = makeId()
+          options.push({ id: nid, label, colorIndex: options.length % OPTION_COLORS.length })
+          labelIds.set(`${p.id}|${label}`, nid)
+        }
+        return { ...p, options }
+      })
+      try {
+        await setProperties(nextProps)
+      } catch {
+        notify(tt('Yeni seçenekler eklenemedi — ARGUS sunucusu açık mı?'), 'danger')
+        return
+      }
+    }
+    const fix = (pid: string, v: PropertyValue): PropertyValue => {
+      const one = (x: unknown) => (typeof x === 'string' && x.startsWith('label:') ? (labelIds.get(`${pid}|${x.slice(6)}`) ?? '') : x)
+      return (Array.isArray(v) ? (v as unknown[]).map(one).filter(Boolean) : one(v)) as PropertyValue
+    }
+    const byRow = new Map<string, Record<string, PropertyValue>>()
+    for (const x of parsed) byRow.set(x.rowId, { ...(byRow.get(x.rowId) ?? {}), [x.propertyId]: fix(x.propertyId, x.value) })
+    const writes = [...byRow].map(([rowId, values]) => ({ rowId, values }))
+    const { failed, changes } = await writeMany(writes, tt('Yapıştırma — {0} hücre', parsed.length))
+    if (failed > 0) notify(tt('{0} kayıt kaydedilemedi — ARGUS sunucusu açık mı?', failed), 'danger')
+    if (changes.length > 0 && failed < writes.length) {
+      const extra = [overflow > 0 ? tt('{0} hücre tabloya sığmadı', overflow) : '', skipped > 0 ? tt('{0} değer sütununa uymadı', skipped) : ''].filter(Boolean).join(', ')
+      notify(changes.length === 1 ? tt('Yapıştırıldı.') + (extra ? ` (${extra})` : '') : tt('{0} hücreye yapıştırıldı.', changes.length) + (extra ? ` (${extra})` : ''), 'success', {
+        action: undoToast(changes),
+      })
+    } else if (changes.length === 0) notify(tt('Değişen bir şey olmadı — yapıştırılan değerler zaten aynı.'))
   }
 
   // "+ Yeni Ekle" tıklanınca sadece boş bir satır eklemekle kalmıyor, kullanıcıyı da o satıra
@@ -2002,7 +2348,7 @@ export default function BoardView() {
   // bırakılan satırın altına, yukarı taşınınca üstüne yerleşir; sadece sortKey değişir.
   function moveRow(dragId: string, targetId: string) {
     if (dragId === targetId) return
-    if (sortProperty || search.trim()) {
+    if (sortProperty || metaSort || search.trim()) {
       notify(tt('Sıralama ya da arama açıkken satırlar taşınamaz — önce onları kapat.'), 'danger')
       return
     }
@@ -2294,11 +2640,13 @@ export default function BoardView() {
 
   // ---- Kayıtlı görünümler (v1.25, bkz. components/table/SavedViews.tsx) ----
   const views = board.views ?? []
-  const viewSig = (filtre: string, sortP: string | null, sortD: 'asc' | 'desc', hidden: string[], group: string | null) =>
-    JSON.stringify([filtre, sortP, sortP ? sortD : 'asc', [...hidden].sort(), group])
-  const currentSig = viewSig(encodeConditions(tableConditions), sortPropertyId, sortDirection, [...hiddenColumnIds], groupById)
+  const viewSig = (filtre: string, sortP: string | null, sortD: 'asc' | 'desc', hidden: string[], group: string | null, lay: TableLayout) =>
+    JSON.stringify([filtre, sortP, sortP ? sortD : 'asc', [...hidden].sort(), group, lay])
+  const currentSig = viewSig(encodeConditions(tableConditions), sortPropertyId, sortDirection, [...hiddenColumnIds], groupById, layout)
   const activeViewId =
-    views.find((v) => viewSig(v.filtre ?? '', v.sortPropertyId ?? null, v.sortDirection ?? 'asc', v.hiddenColumnIds ?? [], v.groupByPropertyId ?? null) === currentSig)?.id ?? null
+    views.find(
+      (v) => viewSig(v.filtre ?? '', v.sortPropertyId ?? null, v.sortDirection ?? 'asc', v.hiddenColumnIds ?? [], v.groupByPropertyId ?? null, v.layout ?? 'tablo') === currentSig,
+    )?.id ?? null
   function currentViewFields(): Omit<SavedView, 'id' | 'name'> {
     return {
       filtre: encodeConditions(tableConditions),
@@ -2306,6 +2654,7 @@ export default function BoardView() {
       sortDirection,
       hiddenColumnIds: [...hiddenColumnIds],
       groupByPropertyId: groupById,
+      layout,
     }
   }
   function applyView(v: SavedView) {
@@ -2313,6 +2662,7 @@ export default function BoardView() {
     changeSort(v.sortPropertyId ?? null, v.sortDirection ?? 'asc')
     setHiddenColumns(new Set(v.hiddenColumnIds ?? []))
     changeGroupBy(v.groupByPropertyId ?? null)
+    changeLayout(v.layout ?? 'tablo')
   }
   function saveViews(next: SavedView[]) {
     saveBoard({ views: next }).catch(() => notify(tt('Görünüm kaydedilemedi — ARGUS sunucusu açık mı?'), 'danger'))
@@ -2335,8 +2685,17 @@ export default function BoardView() {
   // "aşağı kaydırınca göremiyorum, üst tarafa ortalayıp koy; orada çok sekme varsa görünmesin" dedi). Tek bir
   // yerde çizilir (iki kopya değil), bu yüzden açık arama vb. taşınırken kaybolmaz. Menüdeki sayfa bağlantılarına
   // ya da sağdaki düğmelere değecekse gösterilmez.
+  // "Eklendi" sütunu: açıldıysa hep, 'auto'da sadece zaman sıralamasında
+  const addedColumn: 'created' | 'updated' | null =
+    addedCol === 'off' || (addedCol === 'auto' && !metaSort) ? null : sortPropertyId === META_SORT_UPDATED ? 'updated' : 'created'
+  // Panonun sütunları: gruplanan Seçim sütunu, yoksa Durum
+  const kanbanProp =
+    board.properties.find((p) => p.id === groupById && p.type === 'select') ?? (statusProp && statusProp.type === 'select' ? statusProp : undefined) ?? board.properties.find((p) => p.type === 'select')
+
   const toolbarItems = (
     <>
+      <LayoutSwitch value={layout} onChange={changeLayout} />
+      <ToolbarDivider />
       <TableSearchInput onSearch={setSearch} initial={search} focusSignal={searchFocus} />
       <FilterPopover board={board} conditions={tableConditions} onChange={setTableConditions} />
       <SortPopover
@@ -2349,6 +2708,8 @@ export default function BoardView() {
         columns={board.properties.filter((p) => p.id !== board.titlePropertyId)}
         hiddenIds={hiddenColumnIds}
         onToggle={toggleColumnHidden}
+        addedOn={Boolean(addedColumn)}
+        onToggleAdded={() => saveAddedCol(addedColumn ? 'off' : 'on')}
       />
       <ToolbarIconButton
         onClick={toggleDensity}
@@ -2506,7 +2867,20 @@ export default function BoardView() {
         )}
 
       {bulk && (
-        <BulkUpdatePanel state={bulk} onStop={stopBulk} onResume={resumeBulk} onDiscard={discardBulk} canResume={canResumeJob} />
+        <BulkUpdatePanel
+          state={bulk}
+          onStop={stopBulk}
+          onResume={resumeBulk}
+          onDiscard={discardBulk}
+          canResume={canResumeJob}
+          retryable={job && job.state !== 'running' ? (job.retryable ?? 0) : 0}
+          onRetryFailed={() =>
+            careApi
+              .retryFailedBulk()
+              .then(({ job: started }) => trackJob(started))
+              .catch((e) => notify(e instanceof Error ? e.message : tt('Genel Güncelleme başlatılamadı.'), 'danger'))
+          }
+        />
       )}
 
       {statusProp && statusSummary.length > 0 && (
@@ -2538,6 +2912,29 @@ export default function BoardView() {
         </div>
       )}
 
+      {/* Telefonda kayıtlı görünümler: yana kayan çipler (v1.26, bkz. mobile/MobileViewChips) */}
+      {MOBILE && !rowsLoading && (
+        <MobileViewChips
+          views={views}
+          activeId={activeViewId}
+          canSave={tableConditions.length > 0 || sortPropertyId !== null}
+          onApply={applyView}
+          onClear={() => {
+            setTableConditions([])
+            changeSort(null, 'asc')
+          }}
+          onSave={(name) => {
+            saveViews([...views, { id: makeId(), name, ...currentViewFields() }])
+            notify(tt('"{0}" görünümü kaydedildi.', name), 'success')
+          }}
+          onRename={(vid, name) => saveViews(views.map((v) => (v.id === vid ? { ...v, name } : v)))}
+          onOverwrite={(vid) => {
+            saveViews(views.map((v) => (v.id === vid ? { ...v, ...currentViewFields() } : v)))
+            notify(tt('Görünüm şu anki halle güncellendi.'), 'success')
+          }}
+          onDelete={(vid) => saveViews(views.filter((v) => v.id !== vid))}
+        />
+      )}
       {/* Kayıtlı görünümler ve (filtre/arama açıkken) "X kayıttan Y" + "Filtreyi temizle" — tablonun ALTINDA değil
           üstünde, 900 satırlık bir tabloda en alta inmeden görülsün (v1.25). */}
       {!rowsLoading && (!MOBILE || filteredRows.length !== rows.length) && (
@@ -2581,6 +2978,23 @@ export default function BoardView() {
         <PageSkeleton kind="rows" />
       ) : MOBILE ? (
         <MobileBoardList board={board} rows={filteredRows} onOpen={setDetailRow} />
+      ) : layout === 'galeri' ? (
+        <BoardGallery
+          board={board}
+          rows={filteredRows}
+          groupProp={board.properties.find((p) => p.id === groupById && p.type === 'select') ?? null}
+          onOpenRow={setDetailRow}
+          onAddRow={async () => {
+            const row = await saveRow(emptyRow())
+            if (row) setDetailRow(row)
+          }}
+        />
+      ) : layout === 'pano' ? (
+        kanbanProp ? (
+          <BoardKanban board={board} rows={filteredRows} groupProp={kanbanProp} onOpen={setDetailRow} onMove={(rowId, optionId) => void moveOnBoard(kanbanProp, rowId, optionId)} />
+        ) : (
+          <p className="py-16 text-center text-sm text-neutral-500">{tt('Pano için bir Seçim sütunu gerekiyor (ör. Durum).')}</p>
+        )
       ) : (
         <BoardTable
           ref={boardTableRef}
@@ -2625,6 +3039,10 @@ export default function BoardView() {
           groupByProp={board.properties.find((p) => p.id === groupById && p.type === 'select') ?? null}
           showFooter={showFooter}
           onHideFooter={toggleFooter}
+          onMarkWatched={(ids, entry) => void markWatched(ids, entry)}
+          onPasteCells={(cells, overflow) => void pasteCells(cells, overflow)}
+          addedColumn={addedColumn}
+          onHideAddedColumn={() => saveAddedCol('off')}
         />
       )}
       {!rowsLoading && !MOBILE && (
@@ -2677,7 +3095,8 @@ export default function BoardView() {
                   if (board.titlePropertyId && values[board.titlePropertyId]) fetchTmdb(saved.id)?.catch(() => {})
                 }
               } else {
-                await saveRow({ ...editRow, values, updatedAt: Date.now() }, editRow.id)
+                // Pencerenin açıldığı andaki haline göre: sadece kullanıcının değiştirdiği alanlar yazılır
+                await saveRow({ ...editRow, values, updatedAt: Date.now() }, editRow.id, editRow.values)
                 setEditRow(null)
                 notify(tt('Kaydedildi.'), 'success')
               }
@@ -2767,7 +3186,7 @@ export default function BoardView() {
             try {
               for (const c of changes) {
                 const r = rows.find((x) => x.id === c.rowId)
-                if (r) await saveRow({ values: { ...r.values, ...c.values }, createdAt: r.createdAt, updatedAt: Date.now() }, r.id)
+                if (r) await saveRow({ values: { ...r.values, ...c.values }, createdAt: r.createdAt, updatedAt: Date.now() }, r.id, r.values)
               }
               notify(changes.length === 1 ? tt('Kayıt düzeltildi.') : tt('{0} kayıt düzeltildi.', changes.length), 'success')
             } catch (e) {

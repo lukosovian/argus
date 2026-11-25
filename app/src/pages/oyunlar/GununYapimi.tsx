@@ -62,6 +62,14 @@ export default function GununYapimi() {
   const st: Day = all[day] ?? { guesses: [], done: false, won: false }
   const [q, setQ] = useState('')
   const [fin, setFin] = useState<Finish | null>(null)
+  // Profil değişince önceki profilin günü (tahminleri, serisi) görünmesin ve yeni profilin kaydının üstüne yazılmasın (v1.26, H10)
+  const [dataFor, setDataFor] = useState(activeProfileId)
+  if (dataFor !== activeProfileId) {
+    setDataFor(activeProfileId)
+    setAll(activeProfileId ? readDaily<Day>(activeProfileId, 'gunluk') : {})
+    setQ('')
+    setFin(null)
+  }
   const byId = useMemo(() => new Map(pool.map((x) => [x.id, x])), [pool])
   // Bugün için kaydedilmiş gizli yapım varsa o; yoksa (ya da arşivden kalktıysa) tarihe bağlı yeni bir seçim
   const storedId = st.secretId

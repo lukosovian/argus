@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { Profile } from '../types'
 import { tt } from '../lib/i18n'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { isMobileApp } from '../lib/mobile/native'
 
 // PIN kilidi (v1.23.4): kilitli profile geçerken 4 haneli PIN sorulur (bkz. useProfiles). Klavyeden de yazılabilir.
 export default function PinPad({ profile, onOk, onCancel }: { profile: Profile; onOk: () => void; onCancel: () => void }) {
@@ -14,6 +15,29 @@ export default function PinPad({ profile, onOk, onCancel }: { profile: Profile; 
     if (k === '⌫') return setPin((p) => p.slice(0, -1))
     setPin((p) => (p.length < 4 ? p + k : p))
   }
+  // Y24: telefonda önce parmak izi / yüz kilidi (cihazda kayıtlı değilse ya da kapatıldıysa sadece PIN)
+  const [bio, setBio] = useState(false)
+  const asking = useRef(false)
+  async function askBio() {
+    if (asking.current) return
+    asking.current = true
+    try {
+      await askBioOnce()
+    } finally {
+      asking.current = false
+    }
+  }
+  async function askBioOnce() {
+    const [{ ArgusNative }, { getPhonePrefs }] = await Promise.all([import('../lib/mobile/native'), import('../lib/mobile/nativeFeatures')])
+    if (!getPhonePrefs().biyometri || !(await ArgusNative.biometricAvailable().catch(() => ({ available: false }))).available) return
+    setBio(true)
+    const r = await ArgusNative.biometricAuth({ title: tt('{0} profilini aç', profile.username), subtitle: tt('Parmak izi ya da yüz kilidi'), cancel: tt('PIN gir') }).catch(() => ({ ok: false }))
+    if (r.ok) onOk()
+  }
+  useEffect(() => {
+    if (isMobileApp()) askBio()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => {
     if (pin.length !== 4) return
     const t = setTimeout(() => {
@@ -62,6 +86,11 @@ export default function PinPad({ profile, onOk, onCancel }: { profile: Profile; 
             ),
           )}
         </div>
+        {bio && (
+          <button onClick={askBio} className="mt-4 text-sm text-[#3fa9ff]">
+            {tt('Parmak iziyle aç')}
+          </button>
+        )}
         <button onClick={onCancel} className="mt-5 text-sm text-neutral-500 hover:text-neutral-300">
           {tt('Vazgeç')}
         </button>

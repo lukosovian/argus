@@ -67,7 +67,7 @@ final class Medya {
         HttpURLConnection c = null;
         try {
             URL url = new URL("http://" + host + ":" + PORT + "/medya/" + java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20"));
-            c = (HttpURLConnection) url.openConnection();
+            c = WifiAg.open(ctx, url);
             c.setConnectTimeout(timeoutMs);
             c.setReadTimeout(timeoutMs * 3);
             c.setRequestProperty("X-Argus-Token", token);

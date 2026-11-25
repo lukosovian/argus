@@ -11,12 +11,18 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { stt } from './lang.js'
+import { pushNotification } from './notifications.js'
+import { restartArgusSoon } from './restart.js'
 
 let DATA_DIR = ''
 let MEDYA_DIR = ''
 let ROOT = ''
 let readJson = (_f, fb) => fb
 let writeJson = (_f, _d) => {}
+let profileIds = () => []
+// Bu sunucu sürecinin kimliği — yedekten dönüşten sonra ARGUS yeniden başlayınca arayüz bunun değiştiğini görüp
+// sayfayı yeniler (bkz. BackupPanel).
+export const BOOT_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 
 export function initBackup(opts) {
   DATA_DIR = opts.dataDir
@@ -24,6 +30,7 @@ export function initBackup(opts) {
   ROOT = opts.root
   readJson = opts.readJson
   writeJson = opts.writeJson
+  if (opts.profileIds) profileIds = opts.profileIds
   // Otomatik yedek: açılıştan 2 dk sonra ve saatte bir "zamanı geldi mi" diye bakılır.
   setTimeout(autoCheck, 2 * 60 * 1000)
   setInterval(autoCheck, 60 * 60 * 1000)
@@ -148,15 +155,36 @@ async function runRestore(name) {
   job.done = 0
   job.total = countFiles(snap)
   const incoming = path.join(ROOT, `data_geri_yukleniyor_${stamp()}`)
-  await copyTree(snap, incoming)
-  const aside = path.join(ROOT, `data_geri_yukleme_oncesi_${stamp()}`)
-  // yedekleme ayarı ve silinen profiller yerinde kalsın
-  for (const keep of ['backup-settings.json', 'profiller_silinen']) {
-    const p = path.join(DATA_DIR, keep)
-    if (fs.existsSync(p)) fs.cpSync(p, path.join(incoming, keep), { recursive: true })
+  // Dönüş yarıda kalırsa (kopyalama hatası, klasör kilitli) geçici kopya veri klasörünün yanında kalmasın (H6)
+  const dropIncoming = () => {
+    try {
+      fs.rmSync(incoming, { recursive: true, force: true })
+    } catch {}
   }
-  fs.renameSync(DATA_DIR, aside)
-  fs.renameSync(incoming, DATA_DIR)
+  const aside = path.join(ROOT, `data_geri_yukleme_oncesi_${stamp()}`)
+  try {
+    await copyTree(snap, incoming)
+    // yedekleme ayarı ve silinen profiller yerinde kalsın
+    for (const keep of ['backup-settings.json', 'profiller_silinen']) {
+      const p = path.join(DATA_DIR, keep)
+      if (fs.existsSync(p)) fs.cpSync(p, path.join(incoming, keep), { recursive: true })
+    }
+    fs.renameSync(DATA_DIR, aside)
+  } catch (e) {
+    dropIncoming()
+    throw e
+  }
+  try {
+    fs.renameSync(incoming, DATA_DIR)
+  } catch (e) {
+    // Yedek yerine konamadıysa (ör. klasör o an başka programda açık) şu anki veri geri yerine konur — yoksa ARGUS
+    // veri klasörü olmadan kalıp arşivleri boş gösteriyordu.
+    try {
+      fs.renameSync(aside, DATA_DIR)
+    } catch {}
+    dropIncoming()
+    throw e
+  }
   // 2) Eksik görselleri yedekten geri koy
   job.phase = 'medya'
   const msrc = path.join(destRoot(s.target), 'medya')
@@ -175,7 +203,10 @@ async function runRestore(name) {
     job.done++
     if (job.done % 200 === 0) await tick()
   }
-  return { restoredMedia: restored, previousData: path.basename(aside) }
+  // Hafızadaki her şey (süren Genel Güncelleme, telefon eşitleme kayıtları, Evrenler, okuma önbelleği) yeni veriyle
+  // baştan kurulsun diye ARGUS kendini yeniden başlatır (bkz. restart.js); arayüz o sırada "yeniden başlatılıyor" gösterir.
+  const restarting = restartArgusSoon({ root: ROOT, appDir: path.join(ROOT, 'app') })
+  return { restoredMedia: restored, previousData: path.basename(aside), restarting }
 }
 
 function start(kind, fn) {
@@ -188,7 +219,10 @@ function start(kind, fn) {
     })
     .catch((e) => {
       job.error = e?.message ?? String(e)
-      if (kind === 'backup') saveSettings({ lastError: job.error, lastErrorAt: Date.now() })
+      if (kind === 'backup') {
+        saveSettings({ lastError: job.error, lastErrorAt: Date.now() })
+        notifyBackupProblem(stt('Yedek alınamadı: {0}', friendlyError(job.error)))
+      }
     })
     .finally(() => {
       job.running = false
@@ -202,8 +236,45 @@ function autoCheck() {
     if (s.auto === 'off' || !s.target || job?.running) return
     const every = s.auto === 'daily' ? 24 * 3600e3 : 7 * 24 * 3600e3
     if (s.lastAt && Date.now() - s.lastAt < every) return
-    if (!fs.existsSync(s.target)) return
+    if (!fs.existsSync(s.target)) {
+      // Eskiden sessizce atlanıyordu: bulut klasörü koptuysa haftalarca yedeksiz kalınabiliyordu (Y1)
+      notifyBackupProblem(stt('Yedek alınamadı: yedek klasörü bulunamadı ({0}).', s.target))
+      return
+    }
     start('backup', runBackup)
+  } catch {}
+  checkStale()
+}
+
+// ---- Yedek aksarsa haber (v1.26, Y1) ----------------------------------------------------------------
+// Başarısız yedek ya da son başarılı yedeğin ayarlanan sürenin iki katından eski olması zile (ve oradan Windows
+// bildirimine) düşer; tıklayınca Ayarlar › Veritabanı › Yedekleme açılır. Aynı gün aynı türden en çok bir bildirim.
+const BACKUP_LINK = '/arsivlerim?sekme=veritabani&alt=yedek'
+function friendlyError(msg) {
+  const m = String(msg ?? '')
+  if (/ENOSPC/i.test(m)) return stt('diskte yer kalmadı')
+  if (/ENOENT|bulunamadı/i.test(m)) return stt('klasör bulunamadı')
+  if (/EACCES|EPERM/i.test(m)) return stt('klasöre yazma izni yok')
+  if (/EBUSY/i.test(m)) return stt('bir dosya başka bir programda açık')
+  return m.slice(0, 140)
+}
+function notifyBackupProblem(text, kind = 'hata') {
+  const day = new Date()
+  const key = `yedek-${kind}:${day.getFullYear()}-${day.getMonth() + 1}-${day.getDate()}`
+  for (const id of profileIds()) {
+    try {
+      pushNotification(id, { key, type: 'backup', title: stt('Yedekleme aksadı'), text: text + ' ' + stt('Düzeltmek için tıkla.'), link: BACKUP_LINK })
+    } catch {}
+  }
+}
+function checkStale() {
+  try {
+    const s = settings()
+    if (s.auto === 'off' || !s.target || job?.running || !s.lastAt) return
+    const every = s.auto === 'daily' ? 24 * 3600e3 : 7 * 24 * 3600e3
+    if (Date.now() - s.lastAt < 2 * every) return
+    const days = Math.floor((Date.now() - s.lastAt) / 864e5)
+    notifyBackupProblem(stt('Son başarılı yedek {0} gün önce alındı.', days), 'eski')
   } catch {}
 }
 
@@ -231,7 +302,7 @@ export function registerBackupRoutes(app) {
     const s = settings()
     let snapshots = []
     if (s.target) snapshots = listSnapshots(s.target)
-    res.json({ settings: s, snapshots, job, suggestions: suggestions(), targetExists: Boolean(s.target && fs.existsSync(s.target)) })
+    res.json({ settings: s, snapshots, job, suggestions: suggestions(), targetExists: Boolean(s.target && fs.existsSync(s.target)), bootId: BOOT_ID })
   })
   app.post('/api/backup/settings', (req, res) => {
     const b = req.body ?? {}

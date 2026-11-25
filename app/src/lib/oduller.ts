@@ -205,6 +205,11 @@ export function useOduller(enabled = true) {
   const [data, setData] = useState<OdulData | null>(null)
   const [watched, setWatched] = useState<WatchedMap | null>(null)
   const { data: setStore } = useStore<OdulSetStore>(SET_STORE, on)
+  // Profil değişince eski profilin verisiyle sayım yapılmasın (yanlış "yeni paket" bildirimi)
+  useEffect(() => {
+    setData(null)
+    setWatched(null)
+  }, [activeProfileId])
   const load = useCallback(() => {
     if (!on) return
     api.getOduller().then(setData).catch(() => {})

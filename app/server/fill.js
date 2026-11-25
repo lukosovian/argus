@@ -350,6 +350,7 @@ async function fillRowFromTmdbNow(profileId, boardId, rowId, { exclude: excludeL
     ) {
       const genres = details.genres ?? []
       if (genres.length) {
+        if (!Array.isArray(turProp.options)) turProp.options = [] // seçeneksiz kurulmuş sütunda çökmesin
         const turByName = new Map(turProp.options.map((o) => [normalizeText(o.label), o.id]))
         const ids = []
         for (const g of genres) {
@@ -374,6 +375,7 @@ async function fillRowFromTmdbNow(profileId, boardId, rowId, { exclude: excludeL
     ) {
       const countries = details.production_countries ?? []
       if (countries.length) {
+        if (!Array.isArray(ulkeProp.options)) ulkeProp.options = []
         const ulkeByName = new Map(ulkeProp.options.map((o) => [normalizeText(stripFlagEmoji(o.label)), o.id]))
         const ids = []
         for (const c of countries) {
@@ -465,12 +467,21 @@ async function fillRowFromTmdbNow(profileId, boardId, rowId, { exclude: excludeL
           })
         }
         if (eps.length) seasonsOut.push({ seasonNumber: s.season_number, name: s.name || `Sezon ${s.season_number}`, episodes: eps })
+        else {
+          // TMDB sezonu bölümsüz gönderdiyse (nadiren, geçici) eldeki bölümler — ve onlara bağlı izleme tikleri — silinmesin.
+          const old = prevSeasons.find((p) => p.seasonNumber === s.season_number)
+          if (old?.episodes?.length) seasonsOut.push(old)
+        }
       }
+      // Sezon listesi hiç gelmediyse ya da boş geldiyse (TMDB'nin geçici hatası) bölüm listesi olduğu gibi kalır;
+      // eskiden boş liste yazılıp dizinin bütün bölümleri siliniyordu.
+      if (!seasonsOut.length && prevSeasons.length) seasonsOut = null
     }
 
     let newActors = 0
     let freshCast = null
     if (oyuncularProp && !exclude.has('kadro')) {
+      if (!Array.isArray(oyuncularProp.options)) oyuncularProp.options = []
       const actorByName = new Map(oyuncularProp.options.map((o) => [normalizeText(o.label), o.id]))
       const rawCast =
         mediaType === 'tv'

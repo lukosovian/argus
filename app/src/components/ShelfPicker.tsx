@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
+import { searchFold } from '../lib/search'
 import { createPortal } from 'react-dom'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { useEscape } from '../hooks/useEscape'
@@ -44,8 +45,8 @@ export default function ShelfPicker({
 
   // İşaretliler üstte, sonra aramaya uyanlar (adı aramayla başlayanlar önce)
   const shown = useMemo(() => {
-    const t = q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
-    const list = items.filter((i) => !t || i.title.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(t))
+    const t = searchFold(q.trim())
+    const list = items.filter((i) => !t || searchFold(i.title).includes(t))
     const rank = (i: PickerItem) => (i.inShelf ? 0 : t && i.title.toLocaleLowerCase('tr').replace(/ı/g, 'i').startsWith(t) ? 1 : 2)
     return [...list].sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title, 'tr')).slice(0, 200)
   }, [items, q])

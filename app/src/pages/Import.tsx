@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import Papa from 'papaparse'
 import { useBoards } from '../hooks/useBoards'
 import { useRows } from '../hooks/useRows'
 import { useHomeSettings } from '../hooks/useHomeSettings'
+import { useToast } from '../hooks/useToast'
 import { makeId, mediaTemplateProperties, titleText, PROPERTY_TYPE_LABELS, type PropertyDef, type PropertyType, type PropertyValue, type Row } from '../types'
 import { buildProperty, detectDateOrder, inferColumnType, isFiveScale, mergeOptionsFromValues, parseCellValue } from '../lib/csvImport'
 import { api } from '../lib/api'
@@ -16,6 +17,11 @@ import Select from '../components/Select'
 import { tt, ttx } from '../lib/i18n'
 import { COLUMN_NAMES, STATUS_NAMES, isName, nameOf } from '../lib/names'
 import Icon from '../components/Icon'
+import NetflixImportPanel, { looksLikeNetflix } from '../components/import/NetflixImportPanel'
+import { mergeMovieDates, normTitle } from '../lib/netflix'
+import { resolveRole } from '../lib/roles'
+import { runBatched } from '../components/table/batch'
+import { notifyDataChanged } from '../lib/dataEvents'
 
 function normalizeMatchText(s: string): string {
   return s
@@ -46,6 +52,7 @@ function ExistingBoardImagesPanel() {
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<{ matched: number; unmatched: string[] } | null>(null)
+  const { notify } = useToast()
 
   const imageProps = board?.properties.filter((p) => p.type === 'image') ?? []
 
@@ -67,27 +74,36 @@ function ExistingBoardImagesPanel() {
     const usedKeys = new Set<string>()
     let matched = 0
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-      setProgress(i + 1)
-      const current = row.values[propertyId]
-      if (!overwrite && current) continue
-      const title = titleText(titleProp, row.values[titleProp.id])
-      if (!title) continue
-      const key = normalizeMatchText(title)
-      const file = filesByNormName.get(key)
-      if (!file) continue
-      const uploaded = await api.uploadMedya(file).catch(() => null)
-      if (!uploaded) continue
-      await saveRow({ values: { ...row.values, [propertyId]: `/medya/${uploaded.filename}` }, createdAt: row.createdAt, updatedAt: Date.now() }, row.id)
-      usedKeys.add(key)
-      matched++
+    // Kayıt sırasında hata olursa (sunucu kapandı vb.) düğme sonsuza dek "eşleştiriliyor"da kalmasın; o ana kadar
+    // eşleşenler yine gösterilir.
+    let failed = false
+    try {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i]
+        setProgress(i + 1)
+        const current = row.values[propertyId]
+        if (!overwrite && current) continue
+        const title = titleText(titleProp, row.values[titleProp.id])
+        if (!title) continue
+        const key = normalizeMatchText(title)
+        const file = filesByNormName.get(key)
+        if (!file) continue
+        const uploaded = await api.uploadMedya(file).catch(() => null)
+        if (!uploaded) continue
+        // Sadece görsel sütunu yazılır (base: döngü başındaki kopya), arada değişen diğer alanlar ezilmez
+        await saveRow({ values: { ...row.values, [propertyId]: `/medya/${uploaded.filename}` }, createdAt: row.createdAt, updatedAt: Date.now() }, row.id, row.values)
+        usedKeys.add(key)
+        matched++
+      }
+    } catch {
+      failed = true
     }
 
     const unmatched = [...filesByNormName.keys()].filter((k) => !usedKeys.has(k))
     setResult({ matched, unmatched })
     setImporting(false)
-    await reload()
+    if (failed) notify(tt('Değişiklik kaydedilemedi — ARGUS sunucusu açık mı?'), 'danger')
+    await reload().catch(() => {})
   }
 
   return (
@@ -292,11 +308,406 @@ function cleanBoardName(name: string) {
     .trim()
 }
 
+// CSV'yi VAR OLAN bir arşive ekleme (v1.26, Y18) + aynı kayıtları birleştirme (G6). Kullanıcı "bir listeyi mevcut
+// arşive katmak için ayrı arşiv açıp elle taşımak gerekiyor" dedi. Sütunlar arşivin kendi sütunlarına eşlenir; arşivde
+// aynı adla (ya da orijinal adla) duran yapımlar için ne yapılacağı seçilir: mevcut kayda ekle (boş alanlar dolar,
+// izleme tarihleri eklenir, puan boşsa yazılır), atla ya da yine de ayrı kayıt olarak ekle.
+type DupAction = 'merge' | 'skip' | 'add'
+
+function isEmptyVal(v: PropertyValue | undefined) {
+  return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && !Array.isArray(v) && !Object.values(v).some((x) => typeof x === 'number'))
+}
+
+function AppendCsvPanel({ onNetflix }: { onNetflix: (file: File) => void }) {
+  const { boards } = useBoards()
+  const { notify } = useToast()
+  const [boardId, setBoardId] = useState('')
+  const board = boards.find((b) => b.id === boardId) ?? null
+  const { rows, reload } = useRows(boardId || undefined)
+  const [rawRows, setRawRows] = useState<Record<string, string>[]>([])
+  const [plans, setPlans] = useState<ColumnPlan[]>([])
+  const [statusMap, setStatusMap] = useState<Record<string, string>>({})
+  const [dupDefault, setDupDefault] = useState<DupAction>('merge')
+  const [dupOverride, setDupOverride] = useState<Record<number, DupAction>>({})
+  const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [result, setResult] = useState<{ added: number; merged: number; skipped: number; failed: number } | null>(null)
+  const [error, setError] = useState('')
+
+  const titleProp = board?.properties.find((p) => p.id === board.titlePropertyId)
+  const otherProps = board?.properties.filter((p) => p.id !== board.titlePropertyId) ?? []
+  const asTemplate = (): TemplateBase | null => (titleProp ? ({ title: titleProp, rest: otherProps, coverPropertyId: '', titleImagePropertyId: '' } as TemplateBase) : null)
+
+  function guessPlans(hs: string[], data: Record<string, string>[]) {
+    const t = asTemplate()
+    return dedupePlans(
+      hs.map((h) => {
+        const vals = data.map((r) => r[h] ?? '')
+        const mapTo = t ? guessMapTo(h, vals, t) : ''
+        return { header: h, include: mapTo !== '', type: inferColumnType(h, vals), mapTo }
+      }),
+    )
+  }
+
+  function handleCsv(file: File) {
+    setError('')
+    setResult(null)
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const hs = res.meta.fields ?? []
+        // Netflix izleme geçmişi dosyasıysa kendi ekranına
+        if (looksLikeNetflix(hs)) {
+          onNetflix(file)
+          return
+        }
+        setRawRows(res.data)
+        setPlans(guessPlans(hs, res.data))
+        setStatusMap({})
+        setDupOverride({})
+      },
+      error: () => setError(tt('Dosya okunamadı.')),
+    })
+  }
+
+  // Arşiv sonradan değişirse eşleştirme yeniden tahmin edilir
+  function changeBoard(v: string) {
+    setBoardId(v)
+    setResult(null)
+    setDupOverride({})
+    if (rawRows.length) {
+      const b = boards.find((x) => x.id === v)
+      const tp = b?.properties.find((p) => p.id === b.titlePropertyId)
+      if (b && tp) {
+        const t = { title: tp, rest: b.properties.filter((p) => p.id !== b.titlePropertyId), coverPropertyId: '', titleImagePropertyId: '' } as TemplateBase
+        const hs = plans.map((p) => p.header)
+        setPlans(
+          dedupePlans(
+            hs.map((h) => {
+              const vals = rawRows.map((r) => r[h] ?? '')
+              const mapTo = guessMapTo(h, vals, t)
+              return { header: h, include: mapTo !== '', type: inferColumnType(h, vals), mapTo }
+            }),
+          ),
+        )
+      }
+    }
+  }
+
+  const titlePlan = board ? plans.find((p) => p.include && p.mapTo === board.titlePropertyId) : undefined
+  const origProp = board ? resolveRole(board, 'orjinalAdi') : undefined
+  const origPlan = origProp ? plans.find((p) => p.include && p.mapTo === origProp.id) : undefined
+  const durumProp = board ? resolveRole(board, 'durum') : undefined
+  const durumPlan = durumProp ? plans.find((p) => p.include && p.mapTo === durumProp.id) : undefined
+  const durumLabels = (durumProp?.options ?? []).map((o) => o.label)
+  const statusValues = durumPlan
+    ? [...new Set(rawRows.map((r) => (r[durumPlan.header] ?? '').trim()).filter(Boolean))].map((v) => ({
+        value: v,
+        target: statusMap[v] ?? (durumLabels.includes(v) ? v : (() => {
+          const g = guessStatus(v)
+          return g !== '__keep__' && durumLabels.includes(g) ? g : '__keep__'
+        })()),
+      }))
+    : []
+
+  // Arşivde zaten olanlar: CSV satırı → arşiv kaydı (adı ya da orijinal adı aynı)
+  const dupes = useMemo(() => {
+    const out = new Map<number, Row>()
+    if (!board || !titlePlan) return out
+    const index = new Map<string, Row>()
+    for (const r of rows)
+      for (const pid of [board.titlePropertyId, origProp?.id]) {
+        const v = pid ? r.values[pid] : undefined
+        if (typeof v === 'string' && v.trim()) {
+          const k = normTitle(v)
+          if (k && !index.has(k)) index.set(k, r)
+        }
+      }
+    rawRows.forEach((raw, i) => {
+      for (const h of [titlePlan.header, origPlan?.header]) {
+        const k = h ? normTitle(raw[h] ?? '') : ''
+        const hit = k ? index.get(k) : undefined
+        if (hit) {
+          out.set(i, hit)
+          break
+        }
+      }
+    })
+    return out
+  }, [board, rows, rawRows, titlePlan, origPlan, origProp])
+
+  const actionOf = (i: number): DupAction => dupOverride[i] ?? dupDefault
+  const options = board
+    ? [
+        { value: '', label: tt('— Aktarma —') },
+        { value: '__new__', label: tt('+ Yeni sütun olarak ekle') },
+        ...board.properties.map((p) => ({ value: p.id, label: `${p.name} (${PROPERTY_TYPE_LABELS[p.type]})` })),
+      ]
+    : []
+
+  async function handleImport() {
+    if (!board || !titlePlan) return
+    setImporting(true)
+    setError('')
+    setResult(null)
+    try {
+      const included = plans.filter((p) => p.include && p.mapTo)
+      const columnValues = (header: string) => rawRows.map((r) => r[header] ?? '')
+      const rename = new Map(statusValues.filter((s) => s.target !== '__keep__' && s.target !== s.value).map((s) => [s.value, s.target]))
+      // Sütunlar: eşlenen Seçim sütunlarına yeni seçenekler, "yeni sütun" denenler eklenir — tek kayıtta
+      const propsById = new Map(board.properties.map((p) => [p.id, p]))
+      const columnFor = new Map<string, string>()
+      const added: PropertyDef[] = []
+      for (const p of included) {
+        if (p.mapTo === '__new__') {
+          const prop = buildProperty(p.header, p.type, columnValues(p.header))
+          added.push(prop)
+          columnFor.set(prop.id, p.header)
+          continue
+        }
+        const prop = propsById.get(p.mapTo)
+        if (!prop) continue
+        columnFor.set(prop.id, p.header)
+        propsById.set(prop.id, mergeOptionsFromValues(prop, columnValues(p.header), prop.id === durumProp?.id ? rename : undefined))
+      }
+      const nextProps = [...board.properties.map((p) => propsById.get(p.id) ?? p), ...added]
+      if (JSON.stringify(nextProps) !== JSON.stringify(board.properties)) await api.patchBoard(board.id, { properties: nextProps })
+      const vizyon = resolveRole(board, 'vizyon')
+      const tarih = resolveRole(board, 'izlemeTarihi')
+      const ctxFor = (prop: PropertyDef, header: string): Parameters<typeof parseCellValue>[2] => ({
+        rename: prop.id === durumProp?.id ? rename : undefined,
+        fiveScale: prop.type === 'rating' ? isFiveScale(columnValues(header)) : false,
+        yearOnly: prop.id === vizyon?.id,
+        dateOrder: prop.type === 'date' || prop.type === 'multidate' ? detectDateOrder(columnValues(header)) : undefined,
+      })
+      const finalProps = nextProps.filter((p) => columnFor.has(p.id))
+      const ctxs = new Map(finalProps.map((p) => [p.id, ctxFor(p, columnFor.get(p.id)!)]))
+      const valuesOf = (raw: Record<string, string>) => {
+        const values: Record<string, PropertyValue> = {}
+        for (const prop of finalProps) {
+          const cell = (raw[columnFor.get(prop.id)!] ?? '').trim()
+          if (prop.type === 'image') {
+            // Var olan arşive eklerken görsel dosyası yüklenmiyor; bağlantı yazılmışsa o kullanılır
+            if (/^https?:\/\//i.test(cell)) values[prop.id] = cell
+            continue
+          }
+          if (prop.id === board.titlePropertyId) {
+            values[prop.id] = cell
+            continue
+          }
+          values[prop.id] = parseCellValue(prop, cell, ctxs.get(prop.id))
+        }
+        return values
+      }
+      const toAdd: Omit<Row, 'id'>[] = []
+      const toMerge: { row: Row; patch: Record<string, PropertyValue> }[] = []
+      let skipped = 0
+      rawRows.forEach((raw, i) => {
+        const values = valuesOf(raw)
+        if (!String(values[board.titlePropertyId] ?? '').trim()) {
+          skipped++
+          return
+        }
+        const dup = dupes.get(i)
+        const action = dup ? actionOf(i) : 'add'
+        if (action === 'skip') {
+          skipped++
+          return
+        }
+        if (action === 'add' || !dup) {
+          toAdd.push({ values, createdAt: Date.now() + i, updatedAt: Date.now() })
+          return
+        }
+        // Birleştir: boş alanlar dolar, izleme tarihleri eklenir (aynı gün tekrar yazılmaz), dolu alanlara dokunulmaz
+        const patch: Record<string, PropertyValue> = {}
+        for (const [pid, v] of Object.entries(values)) {
+          if (isEmptyVal(v)) continue
+          const cur = dup.values[pid]
+          if (tarih && pid === tarih.id && tarih.type === 'multidate' && Array.isArray(v)) {
+            const r = mergeMovieDates(cur, (v as string[]).filter((d) => d !== '?'))
+            if (r.value) patch[pid] = r.value
+            continue
+          }
+          if (isEmptyVal(cur)) patch[pid] = v
+        }
+        if (Object.keys(patch).length) toMerge.push({ row: dup, patch })
+        else skipped++
+      })
+      const total = toAdd.length + toMerge.length
+      setProgress({ done: 0, total })
+      if (toAdd.length) await api.bulkAddRows(board.id, toAdd)
+      setProgress({ done: toAdd.length, total })
+      const failed = await runBatched(
+        toMerge,
+        ({ row, patch }) => api.updateRow(board.id, row.id, { values: { ...row.values, ...patch }, createdAt: row.createdAt, updatedAt: Date.now() }, Object.keys(patch)),
+        { onProgress: (d) => setProgress({ done: toAdd.length + d, total }) },
+      )
+      notifyDataChanged(board.id)
+      await reload().catch(() => {})
+      setResult({ added: toAdd.length, merged: toMerge.length - failed, skipped, failed })
+      notify(tt('{0} kayıt eklendi, {1} kayıt birleştirildi.', toAdd.length, toMerge.length - failed), 'success')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tt('İçe aktarım sırasında bir hata oluştu.'))
+    } finally {
+      setImporting(false)
+      setProgress(null)
+    }
+  }
+
+  const dupList = [...dupes.entries()]
+  return (
+    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
+      <p className="text-sm text-neutral-400">
+        {tt('Bir CSV listesini (arkadaşının önerileri, eski bir Excel…) var olan bir arşive katar. Sütunlar arşivin sütunlarıyla eşleşir; arşivde zaten olan yapımlar için ne yapılacağını sen seçersin.')}
+      </p>
+      <div>
+        <label className="block text-xs text-neutral-400 mb-1">{tt('Hangi arşive eklensin')}</label>
+        <Select value={boardId} onChange={changeBoard} options={[{ value: '', label: tt('Seçilmedi') }, ...boards.map((b) => ({ value: b.id, label: b.name }))]} />
+      </div>
+      {board && rawRows.length === 0 && (
+        <FileDrop accept=".csv" title={tt('CSV dosyasını seç ya da buraya sürükle')} hint={tt('Netflix izleme geçmişini bırakırsan Netflix ekranı açılır')} onFiles={(files) => files[0] && handleCsv(files[0])} />
+      )}
+      {error && <p className="text-sm text-rose-400">{error}</p>}
+      {board && rawRows.length > 0 && !result && (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-neutral-400">{ttx('{0} satır — sütunları arşivin sütunlarıyla eşle.', rawRows.length)}</p>
+            <button
+              onClick={() => {
+                setRawRows([])
+                setPlans([])
+              }}
+              className="text-sm text-neutral-500 hover:text-neutral-300 underline"
+            >
+              {tt('Vazgeç, farklı dosya seç')}
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+            {plans.map((p) => {
+              const sample = rawRows.map((r) => (r[p.header] ?? '').trim()).filter(Boolean).slice(0, 2).join(' · ')
+              return (
+                <div key={p.header} className="flex items-center gap-2 bg-neutral-800/60 rounded-lg px-2 py-1.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm text-neutral-200 truncate">{p.header}</span>
+                    {sample && <span className="block text-[11px] text-neutral-500 truncate">{ttx('ör. {0}', sample)}</span>}
+                  </span>
+                  <Select value={p.include ? p.mapTo : ''} onChange={(v) => setPlans((prev) => dedupePlans(prev.map((x) => (x.header === p.header ? { ...x, mapTo: v, include: v !== '' } : x))))} className="w-[50%] shrink-0" options={options} />
+                </div>
+              )
+            })}
+          </div>
+          {!titlePlan && <p className="text-xs text-amber-400">{tt('Bir CSV sütununu "{0}" (kaydın adı) sütununa eşlemelisin.', titleProp?.name ?? '')}</p>}
+          {statusValues.length > 0 && (
+            <div className="rounded-lg border border-neutral-800 p-3 space-y-1.5">
+              <p className="text-sm text-neutral-200">{ttx('"{0}" değerleri arşivde ne olsun?', durumPlan?.header)}</p>
+              {statusValues.map((sv) => (
+                <div key={sv.value} className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 truncate text-sm text-neutral-300">{sv.value}</span>
+                  <span className="text-neutral-600 text-xs">→</span>
+                  <Select
+                    value={sv.target}
+                    onChange={(v) => setStatusMap((m) => ({ ...m, [sv.value]: v }))}
+                    className="w-[48%] shrink-0"
+                    options={[...durumLabels.map((l) => ({ value: l, label: l })), { value: '__keep__', label: tt('Yeni seçenek: "{0}"', sv.value) }]}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {titlePlan && dupList.length > 0 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-amber-200">{tt('Bu {0} yapım arşivde zaten var', dupList.length)}</p>
+                <Select
+                  value={dupDefault}
+                  onChange={(v) => {
+                    setDupDefault(v as DupAction)
+                    setDupOverride({})
+                  }}
+                  className="w-56"
+                  options={[
+                    { value: 'merge', label: tt('Hepsi: mevcut kayda ekle') },
+                    { value: 'skip', label: tt('Hepsi: atla') },
+                    { value: 'add', label: tt('Hepsi: yine de ayrı ekle') },
+                  ]}
+                />
+              </div>
+              <p className="text-[11px] text-neutral-500">{tt('"Mevcut kayda ekle": boş alanları dolar, izleme tarihleri eklenir (aynı gün tekrar yazılmaz), puan boşsa yazılır; dolu alanlara dokunulmaz.')}</p>
+              <div className="max-h-56 overflow-y-auto divide-y divide-neutral-800/70 pr-1">
+                {dupList.map(([i, row]) => (
+                  <div key={i} className="flex items-center gap-2 py-1.5">
+                    <span className="min-w-0 flex-1 truncate text-sm text-neutral-200">
+                      {rawRows[i][titlePlan.header]}
+                      {titleProp && titleText(titleProp, row.values[titleProp.id]) !== rawRows[i][titlePlan.header]?.trim() && (
+                        <span className="text-xs text-neutral-500">{' '}→ {titleText(titleProp, row.values[titleProp.id])}</span>
+                      )}
+                    </span>
+                    <Select
+                      value={actionOf(i)}
+                      onChange={(v) => setDupOverride((m) => ({ ...m, [i]: v as DupAction }))}
+                      className="w-44 shrink-0"
+                      options={[
+                        { value: 'merge', label: tt('Mevcut kayda ekle') },
+                        { value: 'skip', label: tt('Atla') },
+                        { value: 'add', label: tt('Ayrı ekle') },
+                      ]}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {importing ? (
+            <p className="text-sm text-neutral-400">{progress ? ttx('İşleniyor... {0}/{1}', progress.done, progress.total) : tt('İşleniyor...')}</p>
+          ) : (
+            <button onClick={handleImport} disabled={!titlePlan} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
+              {tt('"{0}" arşivine aktar', board.name)}
+            </button>
+          )}
+        </>
+      )}
+      {result && board && (
+        <div className="rounded-lg border border-emerald-600/30 bg-emerald-600/10 p-4 space-y-2">
+          <p className="text-sm text-emerald-300">{tt('{0} yeni kayıt eklendi · {1} kayıt birleştirildi · {2} satır atlandı', result.added, result.merged, result.skipped)}</p>
+          {result.failed > 0 && <p className="text-sm text-amber-400">{tt('{0} kayıt yazılamadı.', result.failed)}</p>}
+          <div className="flex gap-2">
+            <Link to={`/board/${board.id}`} style={primaryButtonStyle} className={`text-sm px-4 py-2 rounded-lg ${PRIMARY_BUTTON}`}>
+              {tt('Arşivi Aç')}
+            </Link>
+            <button
+              onClick={() => {
+                setResult(null)
+                setRawRows([])
+                setPlans([])
+              }}
+              className="text-sm px-4 py-2 rounded-lg border border-neutral-700 text-neutral-300 hover:text-neutral-50"
+            >
+              {tt('Başka dosya')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Import() {
   const { createBoard, deleteBoard } = useBoards()
   const { selectBoardIfNone } = useHomeSettings()
 
-  const [mode, setMode] = useState<'yeni' | 'gorsel'>('yeni')
+  // ?tur=netflix / mevcut / gorsel ile doğrudan o sekme açılır (Ayarlar araması)
+  const [searchParams] = useSearchParams()
+  const [mode, setMode] = useState<'yeni' | 'mevcut' | 'netflix' | 'gorsel'>(() => {
+    const t = searchParams.get('tur')
+    return t === 'netflix' || t === 'mevcut' || t === 'gorsel' ? t : 'yeni'
+  })
+  // "Yeni Arşiv" ya da "Var olan arşive" sekmesine Netflix dosyası bırakılırsa Netflix ekranına geçilir
+  const [netflixFile, setNetflixFile] = useState<File | null>(null)
+  function openNetflix(file: File) {
+    setNetflixFile(file)
+    setMode('netflix')
+  }
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([])
   const [plans, setPlans] = useState<ColumnPlan[]>([])
   const [titleHeader, setTitleHeader] = useState('')
@@ -338,6 +749,10 @@ export default function Import() {
       skipEmptyLines: true,
       complete: (result) => {
         const hs = result.meta.fields ?? []
+        if (looksLikeNetflix(hs)) {
+          openNetflix(file)
+          return
+        }
         const data = result.data
         setRawRows(data)
         const t = useTemplate ? ensureTemplate() : templateBase
@@ -583,7 +998,7 @@ export default function Import() {
         </HelpHint>
       </h1>
       <p className="text-sm text-neutral-500 mb-6">
-        {tt('Bir CSV dosyasından (Notion\'dan ya da başka bir yerden) yeni bir arşiv oluştur, ya da var olan bir arşive sonradan toplu görsel ekle.')}
+        {tt('Bir CSV dosyasından (Notion\'dan ya da başka bir yerden) yeni bir arşiv oluştur ya da var olan arşivine ekle; Netflix izleme geçmişini arşivine işle, sonradan toplu görsel ekle.')}
       </p>
 
       <SettingsTabs
@@ -592,13 +1007,19 @@ export default function Import() {
         tabs={
           [
             ['yeni', tt('Yeni Arşiv')],
-            ['gorsel', tt('Var Olan Arşive Görsel Ekle')],
+            ['mevcut', tt('Var Olan Arşive Ekle')],
+            ['netflix', tt('Netflix Geçmişi')],
+            ['gorsel', tt('Görsel Ekle')],
           ] as const
         }
       />
 
       {mode === 'gorsel' ? (
         <ExistingBoardImagesPanel />
+      ) : mode === 'mevcut' ? (
+        <AppendCsvPanel onNetflix={openNetflix} />
+      ) : mode === 'netflix' ? (
+        <NetflixImportPanel initialFile={netflixFile} />
       ) : (
         <>
       <div className="flex items-center justify-between gap-2.5 bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6">

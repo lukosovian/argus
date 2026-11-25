@@ -450,7 +450,7 @@ function VisualCard({ children }: { children: ReactNode }) {
   )
 }
 
-type Group = 'telefon' | 'baslarken' | 'ana-sayfa' | 'arsiv' | 'kesfet' | 'diger'
+type Group = 'telefon' | 'baslarken' | 'ana-sayfa' | 'arsiv' | 'kesfet' | 'koleksiyon' | 'diger'
 
 // ---- Telefondaki ARGUS (sadece Android uygulamasında görünür) ---------------------------------------
 // Kullanıcı "yardım merkezi mobil için uyumlu mu, wireframeler de mobil için uyumlu mu" dedi: telefonda en başta
@@ -573,6 +573,7 @@ const PHONE_TOPICS = (): Topic[] => [
     group: 'telefon',
     icon: <SearchIcon />,
     title: tt('Takvim'),
+    pages: ['takvim'],
     where: tt('Alttaki menü › Takvim'),
     text: tt('Üstteki ay takviminde izlediğin günlerde beyaz, yaklaşanlarda mavi nokta var. Bir güne dokununca listede o güne gidersin; altında her gün görselleriyle sıralanır.'),
     tips: [tt('"+ Bugün izlediğini ekle" ile (ya da boş bir güne dokunarak) o gün izlediğin film ya da bölümü eklersin.')],
@@ -580,13 +581,136 @@ const PHONE_TOPICS = (): Topic[] => [
   },
 ]
 
+// v1.26 (G12): eksik sayfaların taslak çizimleri — aynı 300×160 dili
+function AklimdaWireframe() {
+  return (
+    <WireframeCard>
+      {[20, 92, 164].map((x, i) => (
+        <g key={x}>
+          <rect x={x} y={20} width={60} height={88} rx={8} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
+          <path d={`M${x + 44} 20v18l6-5 6 5V20`} fill={i === 0 ? BRAND_TEXT : WF_STROKE} />
+          <rect x={x} y={116} width={46} height={6} rx={3} fill={WF_LINE} />
+        </g>
+      ))}
+      <rect x={236} y={20} width={50} height={22} rx={11} fill="none" stroke={BRAND_TEXT} strokeWidth={2} />
+      <rect x={236} y={50} width={50} height={22} rx={11} fill="none" stroke={WF_STROKE} strokeWidth={2} />
+    </WireframeCard>
+  )
+}
+function EvrenWireframe() {
+  return (
+    <WireframeCard>
+      <path d="M20 80h260" stroke={WF_STROKE} strokeWidth={3} strokeLinecap="round" />
+      <path d="M20 80h120" stroke={BRAND_TEXT} strokeWidth={3} strokeLinecap="round" />
+      {[30, 75, 120, 165, 210, 255].map((x, i) => (
+        <g key={x}>
+          <rect x={x - 16} y={i % 2 ? 92 : 22} width={32} height={46} rx={5} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+          <circle cx={x} cy={80} r={6} fill={i < 3 ? BRAND_TEXT : 'var(--color-neutral-900)'} stroke={i < 3 ? BRAND_TEXT : WF_STROKE} strokeWidth={2} />
+        </g>
+      ))}
+    </WireframeCard>
+  )
+}
+function AbonelikWireframe() {
+  const bars = [210, 160, 110, 70]
+  return (
+    <WireframeCard>
+      {bars.map((w, i) => (
+        <g key={i}>
+          <rect x={20} y={22 + i * 32} width={34} height={20} rx={5} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+          <rect x={64} y={27 + i * 32} width={w} height={10} rx={5} fill={i === 0 ? BRAND_TEXT : WF_LINE} />
+        </g>
+      ))}
+    </WireframeCard>
+  )
+}
+function BirlikteWireframe() {
+  return (
+    <WireframeCard>
+      <circle cx={115} cy={78} r={50} fill="none" stroke={WF_STROKE} strokeWidth={2} />
+      <circle cx={185} cy={78} r={50} fill="none" stroke={BRAND_TEXT} strokeWidth={2} />
+      <rect x={136} y={58} width={28} height={40} rx={4} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={1.5} />
+      <rect x={82} y={70} width={30} height={7} rx={3.5} fill={WF_LINE} />
+      <rect x={190} y={70} width={30} height={7} rx={3.5} fill={WF_LINE} />
+    </WireframeCard>
+  )
+}
+function BiletWireframe() {
+  return (
+    <WireframeCard>
+      <rect x={30} y={34} width={240} height={92} rx={10} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
+      <path d="M200 34v92" stroke={WF_STROKE} strokeWidth={2} strokeDasharray="4 5" />
+      <rect x={46} y={52} width={110} height={10} rx={5} fill={WF_EMPHASIS} />
+      <rect x={46} y={72} width={80} height={6} rx={3} fill={WF_LINE} />
+      <rect x={46} y={86} width={60} height={6} rx={3} fill={WF_LINE} />
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <rect key={i} x={214 + i * 6} y={56} width={i % 3 ? 2 : 4} height={48} fill={WF_STROKE} />
+      ))}
+      <rect x={46} y={104} width={52} height={12} rx={6} fill={BRAND_TEXT} />
+    </WireframeCard>
+  )
+}
+function PaketWireframe() {
+  return (
+    <WireframeCard>
+      <rect x={30} y={22} width={62} height={104} rx={6} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
+      <path d="M30 42h62" stroke={BRAND_TEXT} strokeWidth={2} strokeDasharray="4 4" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x={118 + i * 34} y={40 - Math.abs(i - 2) * -6} width={28} height={42} rx={4} fill={i === 4 ? 'none' : WF_FILL} stroke={i === 4 ? BRAND_TEXT : WF_STROKE} strokeWidth={2} transform={`rotate(${(i - 2) * 5} ${132 + i * 34} 60)`} />
+      ))}
+      <rect x={118} y={112} width={160} height={8} rx={4} fill={WF_LINE} />
+      <rect x={118} y={112} width={96} height={8} rx={4} fill={BRAND_TEXT} />
+    </WireframeCard>
+  )
+}
+function MadalyaWireframe() {
+  return (
+    <WireframeCard>
+      {[60, 150, 240].map((x, i) => (
+        <g key={x}>
+          <path d={`M${x - 12} 22l12 26 12-26`} fill="none" stroke={WF_STROKE} strokeWidth={3} />
+          <circle cx={x} cy={74} r={28} fill={WF_FILL} stroke={i === 0 ? BRAND_TEXT : WF_STROKE} strokeWidth={2.5} />
+          <circle cx={x} cy={74} r={14} fill="none" stroke={i === 0 ? BRAND_TEXT : WF_LINE} strokeWidth={2} />
+          <rect x={x - 26} y={116} width={52} height={6} rx={3} fill={WF_LINE} />
+        </g>
+      ))}
+    </WireframeCard>
+  )
+}
+function OyunWireframe() {
+  return (
+    <WireframeCard>
+      <rect x={40} y={20} width={80} height={118} rx={10} fill={WF_FILL} stroke={BRAND_TEXT} strokeWidth={2} />
+      <rect x={180} y={20} width={80} height={118} rx={10} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
+      <circle cx={150} cy={79} r={16} fill="var(--color-neutral-900)" stroke={WF_STROKE} strokeWidth={2} />
+      <text x={150} y={84} textAnchor="middle" fontSize={11} fontWeight={800} fill={WF_EMPHASIS}>
+        VS
+      </text>
+    </WireframeCard>
+  )
+}
+function FlashbackWireframe() {
+  return (
+    <WireframeCard>
+      <rect x={105} y={10} width={90} height={140} rx={12} fill={WF_FILL} stroke={WF_STROKE} strokeWidth={2} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x={113 + i * 15.5} y={18} width={12} height={3} rx={1.5} fill={i < 2 ? BRAND_TEXT : WF_LINE} />
+      ))}
+      <rect x={122} y={62} width={56} height={14} rx={4} fill={WF_EMPHASIS} />
+      <rect x={130} y={84} width={40} height={6} rx={3} fill={WF_LINE} />
+      <path d="M40 70l30-14v28zM260 70l-30-14v28z" fill={WF_STROKE} />
+    </WireframeCard>
+  )
+}
+
 const GROUPS: { id: Group; label: string; hint: string }[] = [
   ...(MOBILE ? [{ id: 'telefon' as Group, label: tt('Telefonda'), hint: tt('Alt menü, eşitleme, kayıt düzenleme') }] : []),
   { id: 'baslarken', label: tt('Başlarken'), hint: tt('Profiller ve ana sayfaya ilk bakış') },
   { id: 'ana-sayfa', label: tt('Ana Sayfa'), hint: tt('Vitrin, satırlar ve mod satırı') },
   { id: 'arsiv', label: tt('Arşiv'), hint: tt('Veritabanı, tablo, TMDB, Keşfet, Sağlık Kontrolü') },
-  { id: 'kesfet', label: tt('Keşfet ve İzle'), hint: tt('Arama, Ne İzlesem ve kayıt detayı') },
-  { id: 'diger', label: tt('Diğer'), hint: tt('İstatistikler, tema ve güncellemeler') },
+  { id: 'kesfet', label: tt('Keşfet ve İzle'), hint: tt('Arama, Ne İzlesem, kayıt detayı, Aklımda, Evrenler, Abonelik') },
+  { id: 'koleksiyon', label: tt('Koleksiyon ve eğlence'), hint: tt('Koleksiyon, Biletlerim, Ödüller, Başarımlar, Oyun salonu, Flashback') },
+  { id: 'diger', label: tt('Diğer'), hint: tt('İstatistikler, takvim, ayarlar ve güncellemeler') },
 ]
 
 interface Topic {
@@ -598,6 +722,8 @@ interface Topic {
   text: string
   tips?: string[]
   visual: ReactNode
+  // G12: sayfadaki "?" düğmesinin anahtarı (/yardim?sayfa=<anahtar>) — o konu açılır
+  pages?: string[]
 }
 
 // İçerik 26 Eylül 2026'da (v1.8.1) uygulamanın o anki haline göre baştan gözden geçirildi. Yeni bir
@@ -620,6 +746,7 @@ const TOPICS: Topic[] = [
     group: 'baslarken',
     icon: <HomeIcon />,
     title: tt('Ana Sayfa'),
+    pages: ['anasayfa'],
     where: tt('Üst menü › Ana Sayfa'),
     text: tt('En üstte öne çıkan bir vitrin, altında "Tümü" ve eklediğin diğer satırlar sırayla dizilir. Bir kartın üzerine gelince kısa bir önizleme ve bilgileri çıkar; tıklayınca o kaydın detay penceresi açılır.'),
     tips: [
@@ -691,6 +818,7 @@ const TOPICS: Topic[] = [
     group: 'arsiv',
     icon: <DatabaseIcon />,
     title: tt('Arşiv tablosu'),
+    pages: ['arsiv'],
     where: tt('Ayarlar › Veritabanı › bir arşive tıkla'),
     text: tt('Kayıtlarını bir tablo olarak düzenlediğin yer. Sağ üstteki araçlarla arayabilir, filtreleyebilir (birden fazla sütun; bir tık ✓ gelsin, iki tık ✕ gelmesin), sıralayabilir ve istemediğin sütunları gizleyebilirsin. Tablonun sağ üstündeki "i" düğmesi her şeyi çizimlerle anlatan kısa bir rehber açar.'),
     tips: [
@@ -702,6 +830,9 @@ const TOPICS: Topic[] = [
       tt('Araç çubuğundaki "Geçmiş" (saat) düğmesi arşivdeki her eklemeyi, değişikliği ve silmeyi gün gün gösterir; yanlışlıkla sildiğini "Geri getir"le, bir değişikliği "Geri al"la geri alırsın, istersen bütün arşivi bir günün başındaki haline döndürürsün. Geçmiş için 5 GB yer ayrılır, dolunca sana sorulur; sınırı pencerenin "Alan ayarları" bölümünden değiştirirsin.'),
       tt('Sütun başlığını sürükleyip yerini değiştirebilirsin; başlığa tıklayınca adını, tipini, görevini değiştirebilir, sütunu temizleyebilir ya da silebilirsin.'),
       tt('Satırların başındaki kutucuklarla birden fazla kaydı seçip toplu silebilirsin.'),
+      tt('Bir değişiklik ya da silme yapınca altta çıkan bildirimdeki "Geri al" ile hemen geri dönersin.'),
+      tt('Araç çubuğundaki "…" menüsünden tabloyu CSV olarak indirir, bir Seçim sütununa (ör. Durum) göre gruplar ya da en alta özet satırı eklersin.'),
+      tt('Tablonun üstündeki "+ Görünüm kaydet" şu anki filtreyi, sıralamayı, gizli sütunları ve gruplamayı bir adla saklar; sonra tek tıkla o görünüme dönersin.'),
       tt('Sütunların bir "görevi" vardır (Poster, Durum, Tür…): adını istediğin gibi değiştirsen de poster, istatistikler ya da TMDB doldurma bozulmaz.'),
     ],
     visual: (
@@ -757,6 +888,7 @@ const TOPICS: Topic[] = [
       tt('Üstteki düğmelerle "Video yok", "Yönetmen yok" gibi tek bir soruna göre süzebilirsin.'),
       tt('Gerçekten olmayan bir şey için (ör. hiç fragmanı olmayan bir film) × ile "bu kayıtta bir daha sorma" diyebilirsin.'),
       tt('Fikrini değiştirirsen "Sorulmayanlar" listesinden ↺ ile o alan yine sorulur.'),
+      tt('Aynı yapımın iki kez eklendiği mükerrer kayıtları birleştirir; durumu "İzlendi" olup tarihi olmayanları (ya da tersini), tarihsiz bölümleri ve silinmiş kayıtlardan kalan artık verileri de burada görürsün.'),
     ],
     visual: (
       <VisualCard>
@@ -782,15 +914,18 @@ const TOPICS: Topic[] = [
     ),
   },
   {
-    group: 'diger',
+    group: 'koleksiyon',
     icon: <PlayCircleIcon />,
     title: tt('Koleksiyon'),
+    pages: ['koleksiyon'],
     where: tt('Profil menüsü › Koleksiyon'),
     text: tt('İzlediğin (izlemekte olduğun, yarım bıraktığın) her yapımın sergilendiği sayfa. Aynı seriden olanlar kendi rafında durur; her yapımın sembolü yoksa logosu görünür.'),
     tips: [
       tt('Bir yapıma tıklayınca sembolünü değiştirirsin: görseli sürükle-bırak, Ctrl+V ile yapıştır ya da internetteki görselin adresini gir ("Resim adresini kopyala"). Düz arka planlı görsellerde "Arka planı temizle" kendiliğinden açık gelir.'),
       tt('Rafın büyük sembolüne tıklayınca rafın sembolünü ve adını değiştirirsin. Bir yapımın penceresindeki "Hangi rafta?" ile onu başka rafa taşır ya da yeni bir raf açarsın.'),
       tt('Film serileri ilk açılışta TMDB\'den öğrenilir; raflar bir iki dakika içinde tamamlanır.'),
+      tt('Üstteki "Biletlerim" sekmesinde sinema biletlerini toplarsın. Arşivindeki bir yapıma bilet eklersen o gün izleme tarihlerine yazılır.'),
+      tt('"Ödüller" sekmesi Ayarlar\'daki ekstralardan açılır: izledikçe kart paketi kazanır, paketleri açarsın.'),
     ],
     visual: (
       <VisualCard>
@@ -802,6 +937,7 @@ const TOPICS: Topic[] = [
     group: 'kesfet',
     icon: <SearchIcon />,
     title: tt('Arama ve Ne İzlesem?'),
+    pages: ['ne-izlesem'],
     where: tt('Sağ üstteki büyüteç ve yanındaki kart simgesi'),
     text: tt('Büyüteç her yerden ulaşabileceğin genel arama: başlık, oyuncu, tür ya da ülke adına göre sonuç getirir, başlığa tam uyanlar en üstte çıkar. Yanındaki kart simgesi "Ne İzlesem?": kararsız kaldığında rastgele bir şey seçer.'),
     tips: [
@@ -833,6 +969,7 @@ const TOPICS: Topic[] = [
     group: 'diger',
     icon: <HomeIcon />,
     title: tt('İstatistikler'),
+    pages: ['istatistik'],
     where: tt('Profil menüsü › İstatistikler'),
     text: tt('Arşivinin özeti: toplam kayıt, izlenen ve izlenecek sayısı, bu yıl izlediklerin, toplam izleme süresi ve ortalama puan; son 12 ayda aylara göre izlediklerin, kategori ve durum dağılımı, en çok geçen türler ve ülkeler, vizyon yılına ve verdiğin puanlara göre dağılım ve en çok karşına çıkan oyuncular. Grafiklerin üzerine gelince tam sayılar görünür.'),
     visual: <IstatistikWireframe />,
@@ -855,6 +992,7 @@ const TOPICS: Topic[] = [
     group: 'diger',
     icon: <HomeIcon />,
     title: tt('Takvim'),
+    pages: ['takvim'],
     where: tt('Profil menüsü › Takvim'),
     visual: <TakvimWireframe />,
     text: tt('Hangi gün ne izlediğin, ay ay takvimde: posterleriyle, bir günde ne kadar çok şey varsa o gün o kadar uzar. Dizilerde işaretlediğin bölümler de görünür; izlediğin dizilerin çıkacak bölümleri ve izleneceklerinin vizyon tarihleri de kesik çizgiyle ileriki günlerde yer alır.'),
@@ -881,12 +1019,147 @@ const TOPICS: Topic[] = [
     ],
     visual: <MenuWireframe />,
   },
+  // v1.26 (G12): her sayfanın "?" düğmesi kendi konusunu açar; eksik sayfaların konuları
+  {
+    group: 'diger',
+    icon: <GearIcon />,
+    title: tt('Ayarlar'),
+    pages: ['ayarlar'],
+    where: tt('Profil menüsü › Ayarlar'),
+    text: tt('ARGUS\'un bütün ayarları sekmeler halinde: profil, ana sayfa, veritabanı (arşivler, içe aktarma, TMDB anahtarı, yedekleme), telefon, açılış ve ekstralar. Ödüller, Oyunlar, Birlikte gibi isteğe bağlı sayfaları Ekstralar\'dan açıp kapatırsın.'),
+    tips: [
+      tt('Üstteki arama kutusuna bir ayarın adını yazınca (ör. "fragman", "yedek") doğrudan o ayara gidersin.'),
+      tt('Ayarlar profil başınadır: bir profilde değiştirdiğin ana sayfa ayarı diğerlerini etkilemez.'),
+    ],
+    visual: <AyarlarWireframe />,
+  },
+  {
+    group: 'kesfet',
+    icon: <PlayCircleIcon />,
+    title: tt('Aklımda'),
+    pages: ['aklimda'],
+    where: tt('Profil menüsü › Aklımda · detay penceresindeki "Aklımda tut"'),
+    text: tt('"Bunu izlesem mi?" dediğin ama karar vermediğin yapımlar için bir köşe. Bir yapımın detay penceresinde (ya da TMDB önizlemesinde) "Aklımda tut"a basınca buraya düşer; not tutmana gerek kalmaz.'),
+    tips: [
+      tt('Üstteki düğmelerle arşivdeki durumuna göre süzersin; arşivinde olmayanı tek tıkla İzlenecek\'e alırsın.'),
+      tt('Uzun süredir bekleyenler "unutulmak üzere" diye işaretlenir; sıralamayı (eklenme, süre…) seçebilirsin, seçimin hatırlanır.'),
+      tt('Ana sayfadaki "Aklımda" satırı da buradan beslenir; istemezsen Ana Sayfa Ayarları\'ndan kapatırsın.'),
+    ],
+    visual: <AklimdaWireframe />,
+  },
+  {
+    group: 'kesfet',
+    icon: <SearchIcon />,
+    title: tt('Evrenler'),
+    pages: ['evrenler'],
+    where: tt('Profil menüsü › Evrenler'),
+    text: tt('Marvel, DC, Star Wars, Orta Dünya, Büyücülük Dünyası gibi evrenlerin bütün filmleri ve dizileri çıkış ya da hikâye sırasıyla. İzlediklerin kendi sırasında tarihiyle durur; arşivinde olmayanları tek tıkla İzlenecek olarak eklersin.'),
+    tips: [
+      tt('"İzleme turu" başlatınca o günden sonraki izlemelerin sayılır: ne kadar izledin, ne kadar kaldı, sıradaki hangisi hep görünür.'),
+      tt('Filmleri buradan işaretlersin; dizilerin bölümlerini detay penceresinden gerçek tarihleriyle işaretlersin.'),
+      tt('Ana akışa bağlı olmayan yan yapımlar ayrı gruplarda durur; "atlanabilir" işaretlileri istersen geçebilirsin.'),
+      tt('Kendi evrenini de kurabilirsin: yapım ekle, sürükleyip sırala ya da "tarihe göre sırala". Hazır evrenler TMDB\'ye yeni yapım eklendikçe haftada bir kendiliğinden güncellenir.'),
+    ],
+    visual: <EvrenWireframe />,
+  },
+  {
+    group: 'kesfet',
+    icon: <HomeIcon />,
+    title: tt('Hangi aboneliği almalıyım?'),
+    pages: ['abonelik'],
+    where: tt('Profil menüsü › Abonelik'),
+    text: tt('İzlenecekler listendeki (ya da bir evrende henüz izlemediğin) yapımların Türkiye\'de hangi platformda olduğunu toplar: en çok izleme süresini karşılayan platform en üstte, en iyi ikili ayrıca yazılır.'),
+    tips: [
+      tt('"Abone olduğum platformlar"ı işaretlersen öneri, onlarda olmayanlar için en iyi EK platformu gösterir.'),
+    ],
+    visual: <AbonelikWireframe />,
+  },
+  {
+    group: 'kesfet',
+    icon: <ProfileIcon />,
+    title: tt('Birlikte izle'),
+    pages: ['birlikte'],
+    where: tt('Profil menüsü › Birlikte (Ayarlar › Ekstralar\'dan açılır)'),
+    text: tt('İki profilin arşivlerini karşılaştırır: ikinizin de izlemek istedikleri, birinizin sevip diğerinin henüz izlemedikleri ve puanlarınızın ne kadar uyuştuğu. "Bunu ona öner" ile diğer profile öneri bırakırsın.'),
+    tips: [
+      tt('"Birlikte izledik" bölümü, detay penceresindeki "Kiminle izledin?" etiketlerinden seçili profille izlediklerini gösterir.'),
+    ],
+    visual: <BirlikteWireframe />,
+  },
+  {
+    group: 'koleksiyon',
+    icon: <PlayCircleIcon />,
+    title: tt('Biletlerim'),
+    pages: ['biletler'],
+    where: tt('Koleksiyon › Biletlerim · detay penceresindeki "Sinemada izledim"'),
+    text: tt('Sinemada izlediklerinin koleksiyonluk biletleri, yıl yıl. Bir bilete tıklayınca büyür, çevirip arkasına bakarsın. Arşivindeki bir yapıma bilet eklersen o gün izleme tarihlerine yazılır.'),
+    tips: [
+      tt('"Biletin mesajını yapıştır": sinemadan gelen SMS ya da e-posta metnini yapıştırınca film, tarih, saat, sinema, salon, koltuk ve fiyat kendiliğinden dolar; sen sadece kontrol edersin.'),
+      tt('Bileti filme gitmeden önce eklersen "Yaklaşan seans" olur: üstte geri sayımla durur, seans günü hatırlatılır, seans bitince izlendi işaretlenip puanı sorulur.'),
+      tt('"Sinema yılın" kartı o yılın özetini çıkarır: kaç seans, toplam harcama, bilet başı ortalama, en sevdiğin format, en çok gittiğin gün ve sinemalar.'),
+      tt('Telefonda biletler cüzdan gibi üst üste dizilir; bilete dokununca büyür, sağa-sola kaydırınca sıradakine geçersin. "Çek" ile biletin fotoğrafını kamerayla çekersin, PC\'ye bağlanınca oraya da gider.'),
+    ],
+    visual: <BiletWireframe />,
+  },
+  {
+    group: 'koleksiyon',
+    icon: <MoodFaceIcon />,
+    title: tt('Ödüller ve kart paketleri'),
+    pages: ['oduller'],
+    where: tt('Koleksiyon › Ödüller (Ayarlar › Ekstralar\'dan açılır)'),
+    text: tt('İzledikçe kart paketi kazanırsın: her 4 bölümde bronz, her bitirdiğin filmde gümüş, sinemaya gidince ve her 10 filmde altın paket. Paketi yırtıp açarsın; içinden izlediğin yapımların kartları, avatar çerçeveleri, kart arkaları ve bilet tasarımı çıkar.'),
+    tips: [
+      tt('Kartın nadirliği o yapıma verdiğin puandan gelir (7+ nadir, 8.5+ epik, 9.5+ efsanevi); bazıları parlak çıkar.'),
+      tt('Elindeki bir ödül tekrar çıkarsa makaraya döner; makarayla paket alırsın.'),
+      tt('"Setlerin": bir serinin bütün film kartlarını topladıkça "3 / 5 kart" ilerler; set tamamlanınca bir kerelik paket kazanırsın. Soluk afişe dokununca hangi kartın eksik olduğunu görürsün.'),
+      tt('Telefonda paket açarken titreşim olur; Ödüller\'in üstündeki "Titreşim" düğmesiyle kapatırsın.'),
+    ],
+    visual: <PaketWireframe />,
+  },
+  {
+    group: 'koleksiyon',
+    icon: <ProfileIcon />,
+    title: tt('Başarımlar'),
+    pages: ['basarimlar'],
+    where: tt('Profil menüsü › Başarımlar'),
+    text: tt('İzleme alışkanlıklarına göre kazandığın madalyalar, gruplar halinde ve seviyeli. Her kartta ne için verildiği yazar; tıklayınca seviyeleri ve o rozete sayılan yapımların afişleri açılır.'),
+    visual: <MadalyaWireframe />,
+  },
+  {
+    group: 'koleksiyon',
+    icon: <PlayCircleIcon />,
+    title: tt('Oyun salonu'),
+    pages: ['oyunlar'],
+    where: tt('Üst menü › Oyunlar (Ayarlar › Ekstralar\'dan açılır)'),
+    text: tt('Kendi arşivinle oynanan oyunlar: Sahneden bil, Günün yapımı, Hangisi daha yüksek?, Sinopsisten bil, Zaman çizelgesi, Oyuncuyu bil ve Oyuncu zinciri. Her oyunun rekoru ve geçmişi ayrı tutulur.'),
+    tips: [
+      tt('Sahneden bil\'in zorluğunu, süresini ve jokerlerini kendin ayarlarsın.'),
+      tt('Ödüller açıksa oyun bitirdikçe ve rekor kırdıkça paket kazanırsın.'),
+      tt('Ses varsayılan olarak kapalıdır; oyunun köşesindeki hoparlörle açarsın.'),
+      tt('Telefonda "Hangisi daha yüksek?" afişleri üst ve alt yarıyı kaplar; seçtiğini ortaya doğru kaydırırsın.'),
+    ],
+    visual: <OyunWireframe />,
+  },
+  {
+    group: 'koleksiyon',
+    icon: <SearchIcon />,
+    title: tt('Flashback'),
+    pages: ['flashback'],
+    where: tt('Profil menüsü › Flashback'),
+    text: tt('Yılının özeti: kaç yapım ve ne kadar süre izlediğin, en sevdiğin türler, en iyi puanların, maratonların, unvanın ve daha fazlası. Her yıl 9 Aralık\'ta herkese kendiliğinden açılır; hikâye kartlarıyla izleyip paylaşabilirsin.'),
+    tips: [
+      tt('Hikâyede ekrana dokununca ileri/geri gidersin, basılı tutunca durur.'),
+      tt('Yılın unvan kartı Koleksiyon\'a düşer; yıllar yan yana birikir. Gelecek yılın izleme hedefini de buradan koyarsın.'),
+      tt('1–15 Temmuz arası ana sayfada "Yılın yarısı" kartı çıkar: ilk 6 ayın kısa bir özeti.'),
+    ],
+    visual: <FlashbackWireframe />,
+  },
 ]
 
 const FAQ: { q: string; a: string }[] = [
   {
     q: tt('Verilerim nerede saklanıyor?'),
-    a: tt('Hepsi kendi bilgisayarında, ARGUS klasörünün içinde: kayıtlar ve ayarlar "data", görseller "medya" klasöründe. Hiçbir buluta ya da sunucuya gönderilmez; internete sadece TMDB\'den bilgi çekerken çıkılır.'),
+    a: tt('Hepsi kendi bilgisayarında, ARGUS klasörünün içinde: kayıtlar ve ayarlar "data", görseller "medya" klasöründe. Hiçbir sunucuya gönderilmez; internete TMDB\'den bilgi çekerken çıkılır. Telefondaki ARGUS sadece evdeki Wi-Fi üzerinden bu bilgisayarla eşitlenir; yedekleri OneDrive gibi bir klasöre almayı seçersen yedekler oraya da gider.'),
   },
   {
     q: tt('TMDB API anahtarını nasıl alırım?'),
@@ -898,7 +1171,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: tt('Yanlışlıkla sildiğim bir şeyi geri getirebilir miyim?'),
-    a: tt('Silme kalıcıdır, geri alınamaz. Bu yüzden her silmede tıkladığın yerin hemen yanında "emin misin?" diye sorulur.'),
+    a: tt('Evet. Sildikten hemen sonra çıkan bildirimdeki "Geri al"a basabilirsin. Daha sonra fark edersen arşiv tablosundaki "Geçmiş" (saat) düğmesinden silinen kaydı bulup "Geri getir"e basarsın.'),
   },
   {
     q: tt('Başka bir yerden (Notion, Excel, bir liste) kayıt aktarabilir miyim?'),
@@ -934,9 +1207,12 @@ function CheckIcon() {
   )
 }
 
-function TopicCard({ topic, flip }: { topic: Topic; flip: boolean }) {
+function TopicCard({ topic, flip, highlight }: { topic: Topic; flip: boolean; highlight?: boolean }) {
   return (
-    <article className="rounded-3xl border border-neutral-800 bg-neutral-900/40 p-5 md:p-7">
+    <article
+      id={topic.pages?.length ? `yardim-konu-${topic.pages[0]}` : undefined}
+      className={`scroll-mt-32 rounded-3xl border bg-neutral-900/40 p-5 md:p-7 transition-[border-color,box-shadow] duration-700 ${highlight ? 'border-[#00c0fa] shadow-[0_0_0_3px_rgba(0,192,250,0.25)]' : 'border-neutral-800'}`}
+    >
       <div className={`flex flex-col gap-6 md:gap-8 md:items-center ${flip ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
         <div className="w-full md:w-[46%] shrink-0">{topic.visual}</div>
         <div className="flex-1 min-w-0">
@@ -981,6 +1257,23 @@ export default function YardimMerkezi() {
   const navigate = useNavigate()
   const { notify } = useToast()
   const isFirstVisit = searchParams.get('ilk') === '1'
+  // G12: sayfalardaki "?" düğmesi /yardim?sayfa=<anahtar> ile gelir — o sayfanın konusu açılır ve bir an parlar
+  const sayfa = searchParams.get('sayfa')
+  const target = sayfa ? TOPICS.find((t) => t.pages?.includes(sayfa)) : undefined
+  const [glow, setGlow] = useState<string | null>(null)
+  useEffect(() => {
+    if (!target?.pages) return
+    const key = target.pages[0]
+    const t1 = window.setTimeout(() => {
+      document.getElementById(`yardim-konu-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setGlow(key)
+    }, 120)
+    const t2 = window.setTimeout(() => setGlow(null), 2600)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+    }
+  }, [target])
   const [query, setQuery] = useState('')
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   // Solda yapışkan içindekiler: okuduğun bölüm işaretli (v1.23.3, öneri H1)
@@ -1100,7 +1393,7 @@ export default function YardimMerkezi() {
               {topics
                 .filter((t) => t.group === g.id)
                 .map((t) => (
-                  <TopicCard key={t.title} topic={t} flip={topicIndex++ % 2 === 1} />
+                  <TopicCard key={t.title} topic={t} flip={topicIndex++ % 2 === 1} highlight={Boolean(glow && t.pages?.includes(glow))} />
                 ))}
             </div>
           </section>

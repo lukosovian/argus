@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 import { useToast } from '../../hooks/useToast'
 import { useEscape } from '../../hooks/useEscape'
 import { useDialogFocus } from '../../hooks/useDialogFocus'
-import { dropFailed, dropPending, getFailed, retryFailed, type FailedOp } from '../../lib/mobile/connection'
-import { describeOp, failReason, type OpInfo } from '../../lib/mobile/describeOp'
+import { ackSkipped, applySkippedFromPhone, dropFailed, dropPending, getFailed, getSkipped, keepSkippedOnPc, retryFailed, type FailedOp, type SkippedOp } from '../../lib/mobile/connection'
+import { describeOp, describeSkippedFields, failReason, type OpInfo, type SkippedField } from '../../lib/mobile/describeOp'
 import { queueAll, type QueuedOp } from '../../lib/mobile/store'
 import { useMobileState } from './MobileStatusBar'
 import { locale, tt } from '../../lib/i18n'
@@ -15,17 +15,24 @@ import { locale, tt } from '../../lib/i18n'
 
 type PendingItem = { key: IDBValidKey; op: QueuedOp; info: OpInfo }
 type FailedItem = { f: FailedOp; info: OpInfo }
+type SkippedItem = { s: SkippedOp; info: OpInfo; fields: SkippedField[] }
 
 function fmtTime(ms: number): string {
   return new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 }
 
-async function fetchLists(): Promise<{ p: PendingItem[]; f: FailedItem[] }> {
-  const [q, f] = await Promise.all([queueAll().catch(() => []), getFailed().catch(() => [])])
+async function fetchLists(): Promise<{ p: PendingItem[]; f: FailedItem[]; k: SkippedItem[] }> {
+  const [q, f, k] = await Promise.all([queueAll().catch(() => []), getFailed().catch(() => []), getSkipped().catch(() => [])])
   return {
     p: await Promise.all(q.map(async ({ key, op }) => ({ key, op, info: await describeOp(op) }))),
     // En yenisi üstte
     f: await Promise.all(f.slice().reverse().map(async (x) => ({ f: x, info: await describeOp(x.op) }))),
+    k: await Promise.all(
+      k
+        .slice()
+        .reverse()
+        .map(async (x) => ({ s: x, info: await describeOp(x.op), fields: x.fields?.length ? await describeSkippedFields(x.op, x.fields).catch(() => []) : [] })),
+    ),
   }
 }
 
@@ -34,25 +41,30 @@ export default function PendingChanges({ onClose }: { onClose: () => void }) {
   const s = useMobileState()
   const [pending, setPending] = useState<PendingItem[] | null>(null)
   const [failed, setFailed] = useState<FailedItem[] | null>(null)
+  const [skipped, setSkipped] = useState<SkippedItem[] | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(() => {
-    void fetchLists().then(({ p, f }) => {
+    void fetchLists().then(({ p, f, k }) => {
       setPending(p)
       setFailed(f)
+      setSkipped(k)
     })
   }, [])
   useEffect(() => {
     let alive = true
-    fetchLists().then(({ p, f }) => {
+    fetchLists().then(({ p, f, k }) => {
       if (!alive) return
       setPending(p)
       setFailed(f)
+      setSkipped(k)
     })
     return () => {
       alive = false
     }
-  }, [s.pending, s.failed, s.lastSync])
+  }, [s.pending, s.failed, s.skipped, s.lastSync])
+  // Ekran açıldı: eşitleme sonrası "uygulanmadı" kartı görülmüş sayılır
+  useEffect(() => ackSkipped(), [])
 
   // Android geri tuşu / Esc
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -82,6 +94,24 @@ export default function PendingChanges({ onClose }: { onClose: () => void }) {
     if (!(await confirm({ message: tt('Bu değişiklik PC\'ye gönderilmeden silinsin mi? Telefonda da PC\'deki hâline döner.'), confirmLabel: tt('Sil'), tone: 'danger' }))) return
     await dropPending(it.key, it.op).catch(() => {})
     load()
+  }
+
+  async function resolveSkipped(it: SkippedItem, usePhone: boolean) {
+    setBusy(true)
+    try {
+      if (usePhone) {
+        await applySkippedFromPhone(it.s)
+        notify(s.status === 'offline' ? tt("Telefondaki hâli sıraya kondu; PC'ye bağlanınca uygulanacak.") : tt("Telefondaki hâli PC'ye uygulandı."), 'success')
+      } else {
+        await keepSkippedOnPc(it.s)
+        notify(tt("PC'deki hâli kaldı."), 'success')
+      }
+    } catch {
+      notify(tt('Yapılamadı.'), 'danger')
+    } finally {
+      setBusy(false)
+      load()
+    }
   }
 
   const row = 'rounded-xl border border-neutral-800 bg-neutral-900/70 px-3.5 py-3'
@@ -120,6 +150,44 @@ export default function PendingChanges({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </section>
+
+        {skipped && skipped.length > 0 && (
+          <section className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{tt("PC'de daha yeni olduğu için uygulanmayanlar")}</p>
+            <p className="text-xs text-neutral-500">{tt("Bunları telefonda yaptıktan sonra aynı yer PC'de de değişti. Hangisi kalsın?")}</p>
+            {skipped.map((it) => (
+              <div key={`${it.s.op.id}-${it.s.t}`} className={row}>
+                {title(it.info)}
+                <p className="text-xs text-neutral-500">{tt('Telefonda yapıldığı an: {0}', fmtTime(it.s.op.at))}</p>
+                {it.s.deleted ? (
+                  <p className="mt-1 text-xs text-amber-300">{tt("Bu kayıt PC'de silinmiş.")}</p>
+                ) : (
+                  <div className="mt-2 space-y-1.5">
+                    {it.fields.map((fl, i) => (
+                      <div key={i} className="rounded-lg bg-neutral-950/60 px-2.5 py-2 text-xs">
+                        <p className="font-medium text-neutral-200">{fl.name}</p>
+                        <p className="mt-0.5 text-neutral-400">
+                          <span className="text-neutral-500">{tt("PC'de:")}</span> <span className="text-[#bdeeff]">{fl.pc}</span>
+                        </p>
+                        <p className="text-neutral-400">
+                          <span className="text-neutral-500">{tt('Telefonda:')}</span> <span className="text-amber-200">{fl.phone}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button onClick={() => void resolveSkipped(it, false)} disabled={busy} className={btn}>
+                    {tt("PC'deki kalsın")}
+                  </button>
+                  <button onClick={() => void resolveSkipped(it, true)} disabled={busy} className={`${btn} !border-[#00c0fa]/50 !text-[#bdeeff]`}>
+                    {it.s.deleted ? tt('Telefondakiyle geri getir') : tt('Telefondakini kullan')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
 
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-3">

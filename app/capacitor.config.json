@@ -15,6 +15,10 @@
       "insetsHandling": "css",
       "initialViewportFitValueHint": "cover",
       "style": "DARK"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_argus",
+      "iconColor": "#00c0fa"
     }
   },
   "loggingBehavior": "none"

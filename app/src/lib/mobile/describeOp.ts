@@ -1,7 +1,7 @@
 // Bekleyen / gönderilemeyen bir değişikliği kullanıcının anlayacağı dille anlatır: ne tür bir değişiklik ve
 // (telefondaki kopyadan bulunabiliyorsa) hangi yapım. Bkz. components/mobile/PendingChanges.tsx
 import { cacheGet, cacheKeys, type QueuedOp } from './store'
-import { titleText, type Board, type Row } from '../../types'
+import { ratingAverage, titleText, type Board, type PropertyDef, type PropertyValue, type Row } from '../../types'
 import { tt } from '../i18n'
 
 export interface OpInfo {
@@ -88,4 +88,43 @@ export function failReason(status: number, error: string | null): string {
   if (status === 409) return tt('PC\'deki hâliyle çakıştı.')
   if (status >= 500) return tt('PC\'de bir hata oldu.')
   return tt('PC bu değişikliği kabul etmedi ({0}).', status)
+}
+
+// ---- PC'nin uygulamadığı sütunlar (v1.26, bkz. connection › SkippedOp) ----
+export interface SkippedField {
+  name: string
+  pc: string
+  phone: string
+}
+
+function shortValue(prop: PropertyDef | undefined, v: unknown): string {
+  if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) return tt('(boş)')
+  if (v && typeof v === 'object' && (v as { _uzun?: boolean })._uzun) return tt('(uzun metin)')
+  if (prop?.type === 'rating') {
+    const avg = ratingAverage(v as PropertyValue, prop)
+    return avg === null ? tt('(boş)') : avg.toFixed(1)
+  }
+  if (prop?.type === 'checkbox') return v ? tt('Evet') : tt('Hayır')
+  const label = (id: unknown) => prop?.options?.find((o) => o.id === id)?.label ?? String(id)
+  if (prop?.type === 'select') return label(v)
+  if (Array.isArray(v)) return v.map((x) => (prop?.type === 'multiselect' ? label(x) : String(x))).join(', ')
+  if (prop?.type === 'image') return tt('(görsel)')
+  if (typeof v === 'object') return tt('(değişti)')
+  const s = String(v)
+  return s.length > 80 ? s.slice(0, 79) + '…' : s
+}
+
+// Hangi sütun, PC'deki değer, telefondaki değer — sade yazıyla
+export async function describeSkippedFields(op: QueuedOp, fields: { id: string; pc?: unknown }[]): Promise<SkippedField[]> {
+  const m = /^\/api\/profiles\/([^/]+)\/boards\/([^/]+)\/rows\/([^/?]+)$/.exec(op.path)
+  if (!m) return []
+  const [, p, b, rowId] = m
+  const board = ((await cacheGet<Board[]>(`/api/profiles/${p}/boards`)) ?? []).find((x) => x.id === b)
+  const cachedRow = ((await cacheGet<Row[]>(`/api/profiles/${p}/boards/${b}/rows`)) ?? []).find((r) => r.id === rowId)
+  const values = (parse(op.body).values ?? {}) as Record<string, unknown>
+  return fields.map((f) => {
+    const prop = board?.properties.find((x) => x.id === f.id)
+    const pc = 'pc' in f ? f.pc : cachedRow?.values?.[f.id]
+    return { name: prop?.name ?? tt('Bir sütun'), pc: shortValue(prop, pc), phone: shortValue(prop, values[f.id]) }
+  })
 }

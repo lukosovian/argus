@@ -122,6 +122,22 @@ export default function Flashback() {
   const [people, setPeople] = useState<'oyuncu' | 'yonetmen'>('oyuncu')
   const [story, setStory] = useState<StoryData | null>(null)
   const [intro, setIntro] = useState<boolean | null>(null)
+  // Profil değişince önceki profilin bölüm işaretleri, ek bilgileri ve hikâyesi bir an bile görünmesin (v1.26, H10):
+  // hepsi sıfırlanır; yeni profilin bölüm işaretleri gelene kadar sayfa yükleniyor görünür.
+  const [watchedFor, setWatchedFor] = useState<string | null>(null)
+  const [shownFor, setShownFor] = useState(activeProfileId)
+  const profileRef = useRef(activeProfileId)
+  profileRef.current = activeProfileId
+  if (shownFor !== activeProfileId) {
+    setShownFor(activeProfileId)
+    setWatched({})
+    setWatchedFor(null)
+    setExtra(null)
+    setKol(null)
+    setStory(null)
+    setDetail(null)
+    setIntro(null)
+  }
 
   useEffect(() => {
     markWrappedSeen()
@@ -129,11 +145,17 @@ export default function Flashback() {
 
   useEffect(() => {
     if (!activeProfileId) return
+    const pid = activeProfileId
     api
       .getWatched()
-      .then(setWatched)
-      .catch(() => {})
+      .then((w) => {
+        if (profileRef.current !== pid) return
+        setWatched(w)
+        setWatchedFor(pid)
+      })
+      .catch(() => profileRef.current === pid && setWatchedFor(pid))
   }, [activeProfileId])
+  const watchedReady = watchedFor === activeProfileId
 
   // Verisi olan yıllar — yılda en az 3 izleme (0001 gibi hatalı ya da tek tük eski tarihler kalabalık etmesin)
   const years = useMemo(() => {
@@ -157,13 +179,14 @@ export default function Flashback() {
   // Bölüm süreleri ve seri bilgileri arka planda öğreniliyorsa bitene kadar arada bir yenile
   const loadExtra = useCallback(() => {
     if (!board) return
+    const pid = profileRef.current
     api
       .getFlashback(board.id, year)
-      .then(setExtra)
+      .then((x) => profileRef.current === pid && setExtra(x))
       .catch(() => {})
     api
       .getKoleksiyon(board.id)
-      .then(setKol)
+      .then((k) => profileRef.current === pid && setKol(k))
       .catch(() => {})
   }, [board, year])
   useEffect(() => {
@@ -201,13 +224,13 @@ export default function Flashback() {
   // F1: her yılın Flashback'i ilk açılışta bir kez geri sarılır
   useEffect(() => {
     // Kayıtlar ve bölüm işaretleri yüklenip yılın yapımları belli olunca karar verilir
-    if (!stats || loading || intro !== null || stats.order.length === 0) return
+    if (!stats || loading || !watchedReady || intro !== null || stats.order.length === 0) return
     try {
       setIntro(!localStorage.getItem(introKey(year)))
     } catch {
       setIntro(false)
     }
-  }, [stats, year, intro, loading])
+  }, [stats, year, intro, loading, watchedReady])
   const endIntro = () => {
     try {
       localStorage.setItem(introKey(year), '1')
@@ -219,7 +242,7 @@ export default function Flashback() {
 
   // F6: yılın unvan kartı Koleksiyon'a düşer — yıl bittiyse ya da Flashback açılış gününden (9 Aralık) sonra
   useEffect(() => {
-    if (!stats || !stats.order.length) return
+    if (!stats || !stats.order.length || loading || !watchedReady) return
     const now = new Date()
     const Y = Number(year)
     const ready = Y < now.getFullYear() || (Y === now.getFullYear() && now.getMonth() === 11 && now.getDate() >= 9)
@@ -237,12 +260,12 @@ export default function Flashback() {
         titles: stats.order.length,
       })
       .catch(() => {})
-  }, [stats, year])
+  }, [stats, year, loading, watchedReady])
 
   if (features && !canSeeWrapped(features)) {
     return <p className="text-neutral-500 text-sm p-10 text-center">{tt('Flashback henüz açık değil.')}</p>
   }
-  if (!board || loading || !stats) return <PageSkeleton />
+  if (!board || loading || !stats || !watchedReady) return <PageSkeleton />
 
   const total = stats.filmMinutes + stats.seriesMinutes
   const busiestMonth = stats.months.indexOf(Math.max(...stats.months))
@@ -781,11 +804,13 @@ export default function Flashback() {
           <Credits year={year} stats={stats} song={topSong} />
         </Reveal>
 
-        {/* F18: gelecek yıl için hedef */}
-        <Reveal className={CARD}>
-          <FbTitle>{tt('{0} için hedefin', Number(year) + 1)}</FbTitle>
-          <NextGoal year={year} done={finished} />
-        </Reveal>
+        {/* F18: gelecek yıl için hedef — eski bir yılın Flashback'inde geçmiş bir yıla hedef konup bu yılınkinin üstüne yazılmasın */}
+        {Number(year) + 1 >= new Date().getFullYear() && (
+          <Reveal className={CARD}>
+            <FbTitle>{tt('{0} için hedefin', Number(year) + 1)}</FbTitle>
+            <NextGoal year={year} done={finished} />
+          </Reveal>
+        )}
 
         <p className="text-center text-sm text-neutral-500">
           {tt('Gün gün ne izlediğini')}{' '}

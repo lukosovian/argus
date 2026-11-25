@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { searchFold } from '../../lib/search'
 import { createPortal } from 'react-dom'
 import { api, type BiletGorsel } from '../../lib/api'
-import { biletFromRow, newBiletId, saveBilet, type Bilet } from '../../lib/bilet'
+import { biletFromRow, markBiletWatched, newBiletId, saveBilet, type Bilet } from '../../lib/bilet'
 import { useEscape } from '../../hooks/useEscape'
 import { useDialogFocus } from '../../hooks/useDialogFocus'
 import { useToast } from '../../hooks/useToast'
@@ -10,6 +11,8 @@ import { todayIso, type Board, type Row } from '../../types'
 import { useExtras } from '../../lib/extras'
 import { MOBILE } from '../../lib/mobile/ui'
 import { useOdulData } from '../../lib/oduller'
+import { parseEBilet } from './eBilet'
+import { isUpcoming, photoToDataUrl } from './seans'
 import { artOf, styleOf, TicketBack, TicketFront, TICKET_RATIO, TICKET_STYLES, type BiletItem } from './Ticket'
 
 // Bilet ekleme / düzenleme penceresi. Solda canlı önizleme (ön / arka), sağda bilgiler. Arşivden açıldıysa yapım hazır
@@ -51,6 +54,8 @@ export default function TicketForm({
   const [uploading, setUploading] = useState<'front' | 'back' | null>(null)
   const frontRef = useRef<HTMLInputElement>(null)
   const backRef = useRef<HTMLInputElement>(null)
+  const camFrontRef = useRef<HTMLInputElement>(null)
+  const camBackRef = useRef<HTMLInputElement>(null)
   // v1.23.12: TMDB'den bilet görseli seçme ve görseli sürükleyerek konumlama
   const [imgs, setImgs] = useState<BiletGorsel[] | null>(null)
   const [imgTab, setImgTab] = useState<'sahne' | 'afis'>('sahne')
@@ -66,10 +71,10 @@ export default function TicketForm({
   const titleProp = board?.properties.find((p) => p.id === board.titlePropertyId)
   const matches = useMemo(() => {
     if (!board || !rows || !titleProp || q.trim().length < 2) return []
-    const n = q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
+    const n = searchFold(q.trim())
     const out: Row[] = []
     for (const r of rows) {
-      const t = String(r.values[titleProp.id] ?? '').toLocaleLowerCase('tr').replace(/ı/g, 'i')
+      const t = searchFold(String(r.values[titleProp.id] ?? ''))
       if (t.includes(n)) out.push(r)
       if (out.length >= 6) break
     }
@@ -112,10 +117,45 @@ export default function TicketForm({
     set({ artPos: `${c(d.pos[0] - ((e.clientX - d.x) / d.w) * k)} ${c(d.pos[1] - ((e.clientY - d.y) / d.h) * k)}` })
   }
 
+  // Y27: e-bilet / SMS metninden alanları doldur
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+  const [pasteInfo, setPasteInfo] = useState<string | null>(null)
+  function applyPaste(text: string) {
+    const f = parseEBilet(text)
+    const names: string[] = []
+    const patch: Partial<Bilet> = {}
+    if (f.date) (patch.date = f.date), names.push(tt('tarih'))
+    if (f.time) (patch.time = f.time), names.push(tt('saat'))
+    if (f.cinema) (patch.cinema = f.cinema), names.push(tt('sinema'))
+    if (f.hall) (patch.hall = f.hall), names.push(tt('salon'))
+    if (f.seat) (patch.seat = f.seat), names.push(tt('koltuk'))
+    if (f.format) (patch.format = f.format), names.push(tt('format'))
+    if (f.price) (patch.price = f.price), names.push(tt('fiyat'))
+    // Film adı: yapım henüz seçilmediyse arşivde aranır; tek ve net bir eşleşme varsa ona bağlanır
+    if (f.title && !b.rowId && !editing && !initial?.rowId) {
+      const norm = (s: string) => searchFold(s).replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+      const want = norm(f.title)
+      const hits = board && rows && titleProp ? rows.filter((r) => norm(String(r.values[titleProp.id] ?? '')) === want) : []
+      if (hits.length === 1 && board) Object.assign(patch, biletFromRow(board, hits[0]))
+      else patch.title = f.title
+      setQ('')
+      names.unshift(hits.length === 1 ? tt('film (arşivinden)') : tt('film adı'))
+    }
+    set(patch)
+    setPasteInfo(names.length ? tt('Doldurulanlar: {0}. Kontrol edip eksikleri tamamla.', names.join(', ')) : tt('Bu metinden bir bilgi çıkaramadım; alanları elle doldurabilirsin.'))
+  }
+
+  // Y14: telefonda fotoğraf küçültülüp metin olarak bilete yazılır (PC'ye gidince dosyaya çevrilir)
   async function upload(which: 'front' | 'back', file: File | undefined) {
     if (!file) return
     setUploading(which)
     try {
+      if (MOBILE) {
+        set({ [which]: await photoToDataUrl(file) })
+        setSide(which)
+        return
+      }
       const { filename } = await api.uploadMedya(file)
       set({ [which]: `/medya/${filename}` })
       setSide(which)
@@ -149,8 +189,15 @@ export default function TicketForm({
     }
     try {
       await saveBilet(key, out)
-      notify(editing ? tt('Bilet güncellendi.') : tt('Bilet koleksiyonuna eklendi.'), 'success')
+      notify(isUpcoming(full) ? tt('Yaklaşan seans kaydedildi. Seans günü hatırlatacağım.') : editing ? tt('Bilet güncellendi.') : tt('Bilet koleksiyonuna eklendi.'), 'success')
       if (noArt) notify(tt('Seçtiğin görsel indirilemedi, bilet görselsiz kaydedildi. İnternete bağlıyken yeniden seçebilirsin.'))
+      // Arşivdeki yapıma bağlı bilet: o gün izleme tarihlerine yazılsın (zaten yazılıysa dokunulmaz)
+      try {
+        const w = await markBiletWatched(full)
+        if (w) notify(w === 'tekrar' ? tt('Bilet tarihi izleme tarihlerine eklendi.') : tt('İzlendi olarak işaretlendi.'), 'success')
+      } catch {
+        notify(tt('Bilet kaydedildi ama izleme tarihi eklenemedi.'), 'danger')
+      }
       onSaved?.(key)
       onClose()
     } catch (e) {
@@ -208,6 +255,37 @@ export default function TicketForm({
           <div>
             <h3 className="text-lg font-semibold text-neutral-50">{editing ? tt('Bileti düzenle') : tt('Sinema bileti ekle')}</h3>
             <p className="text-xs text-neutral-500">{tt('Boş bıraktıkların bilette görünmez.')}</p>
+          </div>
+
+          {/* Y27: e-bilet SMS / e-posta metnini yapıştır */}
+          <div className="rounded-xl border border-dashed border-neutral-700 bg-neutral-900/50">
+            <button onClick={() => setPasteOpen((o) => !o)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-neutral-200 hover:text-white">
+              <span aria-hidden>📋</span>
+              <span className="flex-1">{tt('Biletin mesajını yapıştır')}</span>
+              <span className="text-[11px] text-neutral-500">{pasteOpen ? '▴' : tt('SMS ya da e-postadan doldur ▾')}</span>
+            </button>
+            {pasteOpen && (
+              <div className="space-y-2 px-3 pb-3">
+                <textarea
+                  value={pasteText}
+                  autoFocus
+                  onChange={(e) => setPasteText(e.target.value)}
+                  onPaste={(e) => {
+                    const t = e.clipboardData.getData('text')
+                    if (t.trim()) window.setTimeout(() => applyPaste(t), 0)
+                  }}
+                  rows={4}
+                  placeholder={tt('Sinemadan gelen SMS ya da e-posta metnini buraya yapıştır. Film, tarih, saat, sinema, salon, koltuk ve fiyat kendiliğinden dolar.')}
+                  className={`${field} resize-none text-xs`}
+                />
+                <div className="flex items-center gap-2">
+                  <button disabled={!pasteText.trim()} onClick={() => applyPaste(pasteText)} className="rounded-lg border border-[#00c0fa]/60 px-3 py-1.5 text-xs text-[#7fdcff] transition hover:bg-[#00c0fa]/10 disabled:opacity-40">
+                    {tt('Doldur')}
+                  </button>
+                  {pasteInfo && <span className="text-[11px] leading-snug text-neutral-400">{pasteInfo}</span>}
+                </div>
+              </div>
+            )}
           </div>
 
           {!initial?.rowId && !editing && (
@@ -321,6 +399,13 @@ export default function TicketForm({
               <input type="time" value={b.time ?? ''} onChange={(e) => set({ time: e.target.value })} className={field} style={{ colorScheme: 'dark' }} />
             </label>
           </div>
+          {/* Y26: ileri tarihli bilet "Yaklaşan seans" olur */}
+          {isUpcoming(b) && (
+            <p className="-mt-1 flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-snug text-amber-200">
+              <span aria-hidden>⏳</span>
+              {tt('Yaklaşan seans olarak kaydedilecek: seans günü hatırlatılır, seans bitince izlendi işaretlenip puanı sorulur.')}
+            </p>
+          )}
           <label className="block">
             <span className={lbl}>{tt('Sinema')}</span>
             <input list="bilet-sinemalar" value={b.cinema ?? ''} onChange={(e) => set({ cinema: e.target.value })} placeholder={tt('ör. Cinemaximum Akasya')} className={field} />
@@ -371,12 +456,29 @@ export default function TicketForm({
           </label>
           <div>
             <span className={lbl}>{tt('Gerçek biletin fotoğrafı (isteğe bağlı)')}</span>
-            {/* Telefon uygulaması dosya yüklemeyi desteklemiyor: fotoğraf sadece bilgisayardan eklenir */}
+            {/* Y14: telefonda kamerayla çek ya da galeriden seç; fotoğraf telefonda saklanır, PC'ye bağlanınca oraya da gider */}
             {MOBILE ? (
-              <p className="mt-1.5 rounded-lg border border-dashed border-neutral-800 px-3 py-2 text-xs text-neutral-500">
-                {b.front || b.back ? tt('Bu biletin fotoğrafı var. ') : ''}
-                {tt("Biletin fotoğrafını bilgisayardaki ARGUS'tan ekleyebilirsin; telefonda fotoğraf yüklenemiyor.")}
-              </p>
+              <div className="mt-1.5 space-y-2">
+                {(['front', 'back'] as const).map((w) => (
+                  <div key={w} className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-800 p-2">
+                    {b[w] ? <img src={b[w]} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-lg text-neutral-600">🎫</span>}
+                    <span className="min-w-0 flex-1 truncate text-xs text-neutral-300">{uploading === w ? tt('Hazırlanıyor…') : w === 'front' ? tt('Ön yüz') : tt('Arka yüz')}</span>
+                    <button onClick={() => (w === 'front' ? camFrontRef : camBackRef).current?.click()} className="rounded-lg bg-[#00c0fa] px-3 py-2 text-xs font-semibold text-black">
+                      📷 {tt('Çek')}
+                    </button>
+                    <button onClick={() => (w === 'front' ? frontRef : backRef).current?.click()} className="rounded-lg border border-neutral-700 px-3 py-2 text-xs text-neutral-200">
+                      {tt('Galeri')}
+                    </button>
+                    {b[w] && (
+                      <button onClick={() => set({ [w]: undefined })} className="px-1 text-base text-neutral-500" aria-label={tt('Kaldır')}>
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <input ref={camFrontRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => void upload('front', e.target.files?.[0])} />
+                <input ref={camBackRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => void upload('back', e.target.files?.[0])} />
+              </div>
             ) : (
             <div className="mt-1.5 grid grid-cols-2 gap-2">
               {(['front', 'back'] as const).map((w) => (

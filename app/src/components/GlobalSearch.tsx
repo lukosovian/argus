@@ -10,6 +10,9 @@ import { HomeCard } from '../pages/AnaSayfa'
 import { tt, ttx } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import Icon from './Icon'
+import { useEscape } from '../hooks/useEscape'
+import { searchFold } from '../lib/search'
+import { RECENT_OPENED_EVENT, clearOpened, forgetOpened, recentOpened } from '../lib/recentOpened'
 
 const MAX_RESULTS = 30
 
@@ -24,7 +27,8 @@ function buildOptionMaps(board: Board): OptionMaps {
   for (const p of board.properties) {
     if (p.type !== 'select' && p.type !== 'multiselect') continue
     const m = new Map<string, string>()
-    for (const o of p.options ?? []) m.set(o.id, o.label)
+    // Etiketler aramaya hazır (Türkçe harf toleranslı) biçimde tutuluyor — her tuşta yeniden indirgenmesin
+    for (const o of p.options ?? []) m.set(o.id, searchFold(o.label))
     maps.set(p.id, m)
   }
   return maps
@@ -41,7 +45,7 @@ function matchScore(
   titleProp: PropertyDef | undefined,
   optionMaps: OptionMaps,
 ): number | null {
-  const title = titleProp ? titleText(titleProp, row.values[titleProp.id]).toLocaleLowerCase('tr').replace(/ı/g, 'i') : ''
+  const title = titleProp ? searchFold(titleText(titleProp, row.values[titleProp.id])) : ''
   if (title) {
     if (title.startsWith(query)) return 0
     if (title.includes(query)) return 1
@@ -52,12 +56,12 @@ function matchScore(
     if (v === undefined || v === null || v === '') continue
     if (p.type === 'select') {
       const label = optionMaps.get(p.id)?.get(v as string)
-      if (label && label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query)) return 2
+      if (label && label.includes(query)) return 2
     } else if (p.type === 'multiselect' && Array.isArray(v)) {
       const map = optionMaps.get(p.id)
-      if (map && v.some((id) => map.get(id)?.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query))) return 2
+      if (map && v.some((id) => map.get(id)?.includes(query))) return 2
     } else if (typeof v === 'string' && (p.type === 'text' || p.type === 'longtext' || p.type === 'url')) {
-      if (v.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query)) return 2
+      if (searchFold(v).includes(query)) return 2
     }
   }
   return null
@@ -77,7 +81,7 @@ export default function GlobalSearch() {
   if (open && !everOpened) setEverOpened(true)
   const { rows } = useRows(everOpened ? (settings.boardId ?? undefined) : undefined)
 
-  const query = q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
+  const query = searchFold(q.trim())
   const titleProp = useMemo(
     () => (board ? board.properties.find((p) => p.id === board.titlePropertyId) : undefined),
     [board],
@@ -94,6 +98,17 @@ export default function GlobalSearch() {
     scored.sort((a, b) => a.score - b.score)
     return scored.slice(0, MAX_RESULTS)
   }, [query, board, rows, titleProp, optionMaps])
+  // Son açtıkların (v1.26, Y21): detay penceresi açılan son kayıtlar, bu arşivde olanlar, en çok 8
+  const [openedIds, setOpenedIds] = useState<string[]>(recentOpened)
+  useEffect(() => {
+    const on = () => setOpenedIds(recentOpened())
+    window.addEventListener(RECENT_OPENED_EVENT, on)
+    return () => window.removeEventListener(RECENT_OPENED_EVENT, on)
+  }, [])
+  const opened = useMemo(() => {
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    return openedIds.map((id) => byId.get(id)).filter((r): r is Row => Boolean(r)).slice(0, 8)
+  }, [openedIds, rows])
   const titleResults = results.filter((r) => r.score <= 1).map((r) => r.row)
   const otherResults = results.filter((r) => r.score > 1).map((r) => r.row)
 
@@ -101,7 +116,7 @@ export default function GlobalSearch() {
   // satırda göster — tıklayınca o değerin listesi açılır (detay penceresindeki oyuncu tıklamasıyla aynı).
   // Kullanıcı adı yazınca ("Tom") oyuncunun kendisine gidebilsin diye.
   const tagMatches = useMemo(() => {
-    if (!query || !board) return [] as { prop: PropertyDef; opt: SelectOption; count: number }[]
+    if (!query || !board) return [] as { prop: PropertyDef; opt: SelectOption; count: number; starts: boolean }[]
     const counts = new Map<string, number>()
     for (const r of rows) {
       for (const p of board.properties) {
@@ -113,24 +128,24 @@ export default function GlobalSearch() {
         }
       }
     }
-    const out: { prop: PropertyDef; opt: SelectOption; count: number }[] = []
+    const out: { prop: PropertyDef; opt: SelectOption; count: number; starts: boolean }[] = []
     for (const p of board.properties) {
       if (p.type !== 'select' && p.type !== 'multiselect') continue
       for (const o of p.options ?? []) {
-        const label = o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i')
+        const label = optionMaps.get(p.id)?.get(o.id) ?? searchFold(o.label)
         const count = counts.get(p.id + ':' + o.id) ?? 0
-        if (count > 0 && label.includes(query)) out.push({ prop: p, opt: o, count })
+        if (count > 0 && label.includes(query)) out.push({ prop: p, opt: o, count, starts: label.startsWith(query) })
       }
     }
     // Adı arananla başlayanlar ve fotoğraflılar önce, sonra kayıt sayısı.
     out.sort(
       (a, b) =>
-        Number(b.opt.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').startsWith(query)) - Number(a.opt.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').startsWith(query)) ||
+        Number(b.starts) - Number(a.starts) ||
         Number(Boolean(b.opt.image)) - Number(Boolean(a.opt.image)) ||
         b.count - a.count,
     )
     return out.slice(0, 12)
-  }, [query, board, rows])
+  }, [query, board, rows, optionMaps])
 
   // Ana sayfa hangi kart şeklini kullanıyorsa (dikey afiş ya da geniş "yatay" küçük resim)
   // sonuçlar da aynı şekli kullansın istendi — burada sabit bir şekil seçmek yerine aynı
@@ -218,6 +233,8 @@ export default function GlobalSearch() {
     setOpen(false)
     setQ('')
   }
+  // Telefonda geri tuşu tam ekran aramayı kapatsın
+  useEscape(MOBILE && open, close)
 
   // Telefonda: arama tam ekran ayrı bir sayfada açılır (kullanıcı "arama kısmı yeni ekrana açılabilir" dedi)
   if (MOBILE) {
@@ -256,6 +273,37 @@ export default function GlobalSearch() {
               <div className="flex-1 overflow-y-auto px-4 pb-10">
                 {!query ? (
                   <>
+                    {opened.length > 0 && (
+                      <>
+                        <div className="flex items-baseline justify-between mt-2 mb-3">
+                          <h2 className="text-[17px] font-bold text-neutral-50">{tt('Son açtıkların')}</h2>
+                          <button onClick={clearOpened} className="text-[13px] text-neutral-500 active:text-neutral-200">
+                            {tt('Temizle')}
+                          </button>
+                        </div>
+                        <div className="space-y-2 mb-6">
+                          {opened.map((r) => (
+                            <div key={r.id} className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  close()
+                                  openResult(r.id)
+                                }}
+                                className="flex-1 min-w-0 flex items-center gap-3 text-left active:bg-neutral-900 rounded-md"
+                              >
+                                <span className="w-36 shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-800">
+                                  {cover && r.values[cover.id] ? <img src={r.values[cover.id] as string} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+                                </span>
+                                <span className="flex-1 min-w-0 text-[15px] text-neutral-100 line-clamp-2">{titleP ? titleText(titleP, r.values[titleP.id]) : ''}</span>
+                              </button>
+                              <button onClick={() => forgetOpened(r.id)} aria-label={tt('Listeden çıkar')} className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full text-neutral-500 text-xl active:bg-neutral-800">
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                     <h2 className="text-[17px] font-bold text-neutral-50 mt-2 mb-3">{tt('Son eklenenler')}</h2>
                     <div className="space-y-2">
                       {recent.map((r) => (
@@ -351,6 +399,10 @@ export default function GlobalSearch() {
           )}
         </div>
       )}
+      {open && !query && board && opened.length > 0 && <DesktopRecent board={board} rows={opened} onOpen={(id) => {
+        close()
+        openResult(id)
+      }} />}
       <button
         onClick={() => setOpen((v) => !v)}
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition relative z-40"
@@ -434,6 +486,38 @@ export default function GlobalSearch() {
           </div>,
           document.body,
         )}
+    </div>
+  )
+}
+
+// Bilgisayarda arama kutusu açık ama boşken altında açılan küçük liste: son açtıkların (v1.26, Y21)
+function DesktopRecent({ board, rows, onOpen }: { board: Board; rows: Row[]; onOpen: (rowId: string) => void }) {
+  const titleP = board.properties.find((p) => p.id === board.titlePropertyId)
+  const poster = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+  return (
+    <div className="absolute right-11 top-12 z-40 w-72 sm:w-80 rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl shadow-black/50 overflow-hidden" style={{ animation: 'argus-toast-in .15s ease-out' }}>
+      <div className="flex items-center justify-between px-3.5 pt-3 pb-1.5">
+        <p className="text-[11px] uppercase tracking-wide text-neutral-500">{tt('Son açtıkların')}</p>
+        <button onClick={clearOpened} className="text-[11px] text-neutral-500 hover:text-neutral-200 transition">
+          {tt('Temizle')}
+        </button>
+      </div>
+      <div className="pb-1.5 max-h-[60vh] overflow-y-auto">
+        {rows.map((r) => {
+          const img = poster ? (r.values[poster.id] as string) : ''
+          return (
+            <div key={r.id} className="group flex items-center gap-1 mx-1.5 rounded-lg hover:bg-neutral-800 transition">
+              <button onClick={() => onOpen(r.id)} className="flex-1 min-w-0 flex items-center gap-2.5 px-2 py-1.5 text-left">
+                <span className="h-9 w-16 shrink-0 rounded-md overflow-hidden bg-neutral-800">{img ? <img src={img} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}</span>
+                <span className="truncate text-sm text-neutral-200 group-hover:text-neutral-50">{titleP ? titleText(titleP, r.values[titleP.id]) : ''}</span>
+              </button>
+              <button onClick={() => forgetOpened(r.id)} title={tt('Listeden çıkar')} className="h-7 w-7 mr-1 shrink-0 flex items-center justify-center rounded-full text-neutral-500 opacity-0 group-hover:opacity-100 hover:text-neutral-50 hover:bg-neutral-700 transition">
+                ×
+              </button>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

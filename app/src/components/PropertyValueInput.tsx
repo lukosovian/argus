@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { searchFold } from '../lib/search'
 import type { PropertyDef, PropertyValue } from '../types'
 import { ratingAverage } from '../types'
 import OptionBadge from './OptionBadge'
@@ -201,7 +202,7 @@ export default function PropertyValueInput({
     // üstünde, kullanıcı bir şey yazana kadar liste boş kalır (BoardView'ın filtre
     // seçicisindeki aynı yaklaşım).
     const matches = query
-      ? options.filter((o) => o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(query))
+      ? options.filter((o) => searchFold(o.label).includes(searchFold(query)))
       : options.length > 100
         ? []
         : options

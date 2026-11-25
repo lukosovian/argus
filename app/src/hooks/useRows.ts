@@ -76,12 +76,16 @@ export function useRows(boardId: string | undefined) {
     [boardId, activeProfileId],
   )
 
-  async function saveRow(row: Omit<Row, 'id'>, id?: string) {
+  // `base`: düzenleme penceresi gibi kaydın açıldığı andaki kopyasıyla çalışan yerler onu verir; değişenler o kopyaya
+  // göre bulunur. Eskiden hep güncel listeye göre bakılıyordu: pencere açıkken Genel Güncelleme o kayda afiş/oyuncu
+  // doldurduysa, kaydet'e basınca pencerenin eski (boş) değerleri "değişmiş" sayılıp yeni gelenleri siliyordu.
+  async function saveRow(row: Omit<Row, 'id'>, id?: string, base?: Row['values']) {
     if (!boardId) return undefined
     // Elimizdeki kopyaya göre sadece değişen sütunlar gönderiliyor; arada sunucuda (ör. Genel Güncelleme)
     // dolan diğer alanlar ezilmesin.
     const prev = id ? rowsRef.current.find((r) => r.id === id) : undefined
-    const changed = prev ? changedKeys(prev.values, row.values) : undefined
+    const ref = id ? (base ?? prev?.values) : undefined
+    const changed = ref ? changedKeys(ref, row.values) : undefined
     const saved = id ? await api.updateRow(boardId, id, row, changed) : await api.createRow(boardId, row)
     setRows((prev) => {
       const next = id ? prev.map((r) => (r.id === id ? saved : r)) : [saved, ...prev]

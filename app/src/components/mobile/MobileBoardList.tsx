@@ -10,7 +10,7 @@ import { IconText } from '../Icon'
 // ARGUS Android › Arşiv: kullanıcı "arşiv arşiv gibi değil, Netflix uygulamasındaki gibi olsun" dedi —
 // masaüstü tablosu yerine 3 sütunlu afiş ızgarası (Netflix'teki "Listem" gibi); sonra "liste görünümüne
 // geçme de gelebilir" dedi: sağ üstteki düğmeyle afiş + ad + bilgi + durum satırlarına geçilir (tercih hatırlanır).
-// Dokununca detay penceresi. Uzun arşivde kaydırdıkça yüklenir.
+// Dokununca detay penceresi; basılı tutunca hızlı menü (bkz. MobileGestures). Uzun arşivde kaydırdıkça yüklenir.
 const PAGE = 48
 const VIEW_KEY = 'argus_mobil_arsiv_gorunum'
 
@@ -93,7 +93,7 @@ export default function MobileBoardList({ board, rows, onOpen }: { board: Board;
             const status = statusProp?.options?.find((o) => o.id === row.values[statusProp.id])
             const dot = status && status.colorIndex >= 0 ? OPTION_COLORS[status.colorIndex % OPTION_COLORS.length] : null
             return (
-              <button key={row.id} onClick={() => onOpen(row)} className="relative aspect-[2/3] rounded-md overflow-hidden bg-neutral-800 active:opacity-80">
+              <button key={row.id} onClick={() => onOpen(row)} data-argus-row={row.id} data-argus-board={board.id} className="relative aspect-[2/3] rounded-md overflow-hidden bg-neutral-800 active:opacity-80">
                 {poster ? (
                   <img src={poster} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
@@ -123,7 +123,7 @@ export default function MobileBoardList({ board, rows, onOpen }: { board: Board;
             const meta = showcaseMeta(board, row).slice(0, 3).join(' · ')
             return (
               <li key={row.id}>
-                <button onClick={() => onOpen(row)} className="w-full flex items-center gap-3 py-2.5 text-left active:bg-neutral-900/80 rounded-lg">
+                <button onClick={() => onOpen(row)} data-argus-row={row.id} data-argus-board={board.id} className="w-full flex items-center gap-3 py-2.5 text-left active:bg-neutral-900/80 rounded-lg">
                   <span className={`shrink-0 rounded-md overflow-hidden bg-neutral-800 ${poster ? 'h-[72px] w-12' : 'h-12 w-20'}`}>
                     {(poster || cover) && <img src={poster || cover} alt="" loading="lazy" className="h-full w-full object-cover" />}
                   </span>

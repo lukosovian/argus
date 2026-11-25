@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 // "Şimdi Güncelle"den sonra ARGUS'u yeniden başlatma: eski ARGUS'un tüm süreç ağacını
 // (cmd → npm → concurrently → vite + bu sunucu) kapatıp YERİNE yeni bir ARGUS.bat başlatır.
@@ -43,4 +45,32 @@ export function launchDetachedRestart(script, cwd) {
     stdio: 'ignore',
     windowsHide: true,
   }).unref()
+}
+
+// ---- Kendini yeniden başlatma (v1.26, H6) ------------------------------------------------------------
+// Yedekten dönüş gibi bütün veri klasörü değişince hafızadaki bilgiler (süren Genel Güncelleme, telefon eşitleme
+// kayıtları, Evrenler, okuma önbelleği…) eski kalıyordu; kullanıcı ARGUS'u kapatıp açmak zorundaydı. Artık ARGUS
+// kendini yeniden başlatıyor:
+//   - Masaüstü uygulamasında (Electron, ARGUS_ELECTRON) sunucu RESTART_EXIT_CODE ile kapanır; uygulama bunu "bilerek
+//     yeniden başlatma" sayıp sunucuyu yeniden açar ve pencereyi yeniler (bkz. desktop/main.cjs).
+//   - Tarayıcıda açılmışsa "Şimdi Güncelle"deki gibi eski ARGUS kapatılıp yenisi başlatılır.
+export const RESTART_EXIT_CODE = 75
+export function restartArgusSoon({ ms = 2500, root, appDir } = {}) {
+  if (process.env.ARGUS_NO_RESTART) return false
+  setTimeout(() => {
+    if (process.env.ARGUS_ELECTRON) process.exit(RESTART_EXIT_CODE)
+    let oldPid = null
+    try {
+      oldPid = readFileSync(join(appDir, 'argus-pid.txt'), 'utf-8').trim()
+    } catch {}
+    try {
+      launchDetachedRestart(
+        buildRestartScript({ oldPid, batPath: join(root, 'ARGUS.bat'), root, launcherPath: join(root, 'app', 'launcher', 'baslat.ps1'), exePath: join(root, 'ARGUS.exe') }),
+        root,
+      )
+    } catch (e) {
+      console.error('yeniden başlatılamadı:', e)
+    }
+  }, ms)
+  return true
 }

@@ -38,6 +38,9 @@ export default function ApiPanel() {
       await api.saveApiKey(key.trim())
       setSaved(key.trim())
       notify(key.trim() ? tt('API anahtarı kaydedildi.') : tt('API anahtarı kaldırıldı.'), 'success')
+    } catch (e) {
+      // Kaydedilemezse sessiz kalmasın (kullanıcı kaydedildi sanıyordu)
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
     } finally {
       setBusy(false)
     }

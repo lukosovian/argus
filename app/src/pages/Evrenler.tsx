@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { searchFold } from '../lib/search'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
@@ -84,6 +85,125 @@ function orderItems(u: Evren, mode: Mode, showExtra: boolean) {
     return [...items].sort((a, b) => (pos.get(a.key) ?? 9999) - (pos.get(b.key) ?? 9999))
   }
   return [...items].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
+}
+
+// Hikâye sırasına kullanıcının seçtiği yerleri uygula (v1.26, G11): yer[k] = hangi yapımdan sonra ('^' = en başa).
+// Bağlandığı yapım listede yoksa (evrenden çıkarıldıysa) yapım eski yerinde kalır.
+function placeStory(story: string[], yer?: Record<string, string>) {
+  const moved = Object.keys(yer ?? {}).filter((k) => story.includes(k) && yer![k] !== k)
+  if (!moved.length) return story
+  const out = story.filter((k) => !moved.includes(k))
+  let pending = [...moved]
+  for (let pass = 0; pending.length && pass < 6; pass++) {
+    pending = pending.filter((k) => {
+      const at = yer![k]
+      if (at === '^') {
+        out.unshift(k)
+        return false
+      }
+      const i = out.indexOf(at)
+      if (i < 0) return true
+      out.splice(i + 1, 0, k)
+      return false
+    })
+  }
+  for (const k of pending) out.splice(Math.min(story.indexOf(k), out.length), 0, k)
+  return out
+}
+
+// Çıkış tarihine göre yeri: hikâye sırasında tarihi kendinden önce olan son yapımın arkası (yoksa en baş)
+function dateAnchor(story: string[], items: EvrenItem[], it: EvrenItem) {
+  const dateOf = new Map(items.map((i) => [i.key, i.date || '']))
+  let anchor = '^'
+  for (const k of story) {
+    if (k === it.key) continue
+    const d = dateOf.get(k)
+    if (d && it.date && d <= it.date) anchor = k
+  }
+  return anchor
+}
+
+// "Yeni · yerini seç" penceresi (v1.26, G11): kendiliğinden eklenen yapımın hikâye sırasındaki yerini seç
+function PlaceModal({
+  item,
+  list,
+  color,
+  current,
+  onPlace,
+  onKeep,
+  onReset,
+  onClose,
+}: {
+  item: EvrenItem
+  list: EvrenItem[]
+  color: string
+  current: string | undefined
+  onPlace: (anchor: string) => void
+  onKeep: () => void
+  onReset?: () => void
+  onClose: () => void
+}) {
+  const [q, setQ] = useState('')
+  useEscape(true, onClose)
+  const others = list.filter((i) => i.key !== item.key)
+  const shown = q.trim() ? others.filter((i) => searchFold(i.archiveTitle || i.title).includes(searchFold(q.trim()))) : others
+  const row = 'w-full flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-neutral-800 transition'
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/70 flex items-end sm:items-center justify-center sm:p-6" onClick={onClose}>
+      <div className="w-full sm:max-w-md max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-neutral-800 bg-neutral-950" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="p-4 pb-3 border-b border-neutral-800 space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="h-16 w-11 shrink-0 rounded-md overflow-hidden bg-neutral-800">{item.poster ? <img src={item.poster} alt="" className="h-full w-full object-cover" /> : null}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color }}>{tt('Yerini seç')}</p>
+              <p className="text-sm font-semibold text-neutral-50 truncate">{item.archiveTitle || item.title}</p>
+              <p className="text-[11px] text-neutral-500">
+                {kindLabel(item)} · {item.date ? fmtRelease(item.date) : tt('tarih yok')}
+              </p>
+            </div>
+            <button onClick={onClose} aria-label={tt('Kapat')} className="h-9 w-9 shrink-0 rounded-full text-neutral-400 hover:text-neutral-50 hover:bg-neutral-800 text-xl">
+              ×
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => onPlace('date')} className={`${ACCENT_BTN} text-xs rounded-lg px-3 py-2`} style={accentBtn(color)}>
+              {tt('Çıkış tarihine göre yerleştir')}
+            </button>
+            <button onClick={onKeep} className="text-xs rounded-lg px-3 py-2 border border-neutral-700 text-neutral-200 hover:border-neutral-500">
+              {tt('Şu anki yerinde kalsın')}
+            </button>
+          </div>
+          {onReset && (
+            <button onClick={onReset} className="text-[11px] text-neutral-500 hover:text-neutral-200">
+              {tt('Seçtiğim yeri unut, varsayılan sıraya dön')}
+            </button>
+          )}
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt('Ya da hangi yapımdan sonra gelsin? Ara…')} className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500" />
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {!q.trim() && (
+            <button onClick={() => onPlace('^')} className={`${row} ${current === '^' ? 'bg-neutral-800/70' : ''}`}>
+              <span className="w-9 text-center text-[11px] text-neutral-500">↑</span>
+              <span className="text-sm text-neutral-200">{tt('En başa koy')}</span>
+            </button>
+          )}
+          {shown.map((i) => (
+            <button key={i.key} onClick={() => onPlace(i.key)} className={`${row} ${current === i.key ? 'bg-neutral-800/70' : ''}`} title={tt('Bundan sonra gelsin')}>
+              <span className="h-12 w-9 shrink-0 rounded overflow-hidden bg-neutral-800">{i.poster ? <img src={i.poster} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm text-neutral-200 truncate">{i.archiveTitle || i.title}</span>
+                <span className="block text-[11px] text-neutral-500">
+                  {kindLabel(i)} · {i.date ? i.date.slice(0, 4) : '—'}
+                </span>
+              </span>
+              <span className="shrink-0 text-[11px] text-neutral-500">{tt('sonrası')}</span>
+            </button>
+          ))}
+          {shown.length === 0 && <p className="text-center text-sm text-neutral-500 py-8">{tt('Bu aramaya uyan yapım yok.')}</p>}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function Evrenler() {
@@ -430,12 +550,14 @@ function UniverseView({
   const [searchParams] = useSearchParams()
   const focus = searchParams.get('yapim')
   const [glow, setGlow] = useState<string | null>(null)
+  // Kullanıcının seçtiği yerler (v1.26, G11) uygulanmış hikâye sırası
+  const placedU = useMemo(() => ({ ...u, story: placeStory(u.story, prefs.yer) }), [u, prefs.yer])
   const ordered = useMemo(() => {
-    const list = orderItems(u, mode, true)
+    const list = orderItems(placedU, mode, true)
     return subset && !showAll
       ? list.filter((i) => subset.includes(i.key) || i.key === focus)
       : list.filter((i) => showExtra || !i.extra || subset?.includes(i.key) || i.key === focus)
-  }, [u, mode, showExtra, subset, showAll, focus])
+  }, [placedU, mode, showExtra, subset, showAll, focus])
   useEffect(() => {
     if (!focus) return
     const t = setTimeout(() => {
@@ -476,6 +598,31 @@ function UniverseView({
   }
   const [busy, setBusy] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ item: EvrenItem; el: HTMLElement } | null>(null)
+  // Hikâye sırasında "Yeni · yerini seç" (v1.26, G11): haftalık güncellemeyle kendiliğinden eklenen (ya da sırada hiç
+  // yeri olmayan) yapımlar, yeri seçilene ya da "yerinde kalsın" denene kadar rozetli görünür.
+  const [placing, setPlacing] = useState<EvrenItem | null>(null)
+  const storySet = useMemo(() => new Set(u.story), [u.story])
+  const isNewItem = (it: EvrenItem) => (it.auto || !storySet.has(it.key)) && !(prefs.yeniTamam ?? []).includes(it.key) && !prefs.yer?.[it.key]
+  function settle(it: EvrenItem, anchor: string | null) {
+    const yer = { ...(prefs.yer ?? {}) }
+    if (anchor === null) delete yer[it.key]
+    else yer[it.key] = anchor === 'date' ? dateAnchor(placedU.story.filter((k) => k !== it.key), u.items, it) : anchor
+    const done = new Set(prefs.yeniTamam ?? [])
+    done.add(it.key)
+    onPrefs({ yer, yeniTamam: [...done] })
+    setPlacing(null)
+    if (anchor !== null) {
+      const after = yer[it.key] === '^' ? null : u.items.find((i) => i.key === yer[it.key])
+      notify(after ? tt('"{0}", "{1}" sonrasına yerleşti.', it.archiveTitle || it.title, after.archiveTitle || after.title) : tt('"{0}" en başa yerleşti.', it.archiveTitle || it.title))
+      setTimeout(() => document.getElementById(`evren-kart-${it.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
+    }
+  }
+  function keep(it: EvrenItem) {
+    const done = new Set(prefs.yeniTamam ?? [])
+    done.add(it.key)
+    onPrefs({ yeniTamam: [...done] })
+    setPlacing(null)
+  }
   const [detail, setDetail] = useState<{ row: Row; episodes: boolean } | null>(null)
   // Arşive yeni eklenen dizinin kaydı satırlar yenilenince açılır
   const [openAfterAdd, setOpenAfterAdd] = useState<string | null>(null)
@@ -931,6 +1078,9 @@ function UniverseView({
                 onMovie={(el) => (isDone(it, tur) ? setMenu({ item: it, el }) : mark(it, todayIso()))}
                 onMenu={(el) => setMenu({ item: it, el })}
                 onAdd={() => addToArchive(it, it.type === 'tv')}
+                isNew={mode === 'hikaye' && isNewItem(it)}
+                customPlaced={mode === 'hikaye' && Boolean(prefs.yer?.[it.key])}
+                onPlace={mode === 'hikaye' ? () => setPlacing(it) : undefined}
               />
             ))}
           </div>
@@ -982,6 +1132,18 @@ function UniverseView({
             setDetail(null)
             onChanged()
           }}
+        />
+      )}
+      {placing && (
+        <PlaceModal
+          item={placing}
+          list={orderItems(placedU, 'hikaye', true)}
+          color={u.color}
+          current={prefs.yer?.[placing.key]}
+          onPlace={(anchor) => settle(placing, anchor)}
+          onKeep={() => keep(placing)}
+          onReset={prefs.yer?.[placing.key] ? () => settle(placing, null) : undefined}
+          onClose={() => setPlacing(null)}
         />
       )}
       {preview && <TmdbPreviewModal boardId={boardId} card={preview} onClose={() => setPreview(null)} onAdded={onChanged} />}
@@ -1076,8 +1238,14 @@ function Card({
   skipped,
   onUnskip,
   glow = false,
+  isNew = false,
+  customPlaced = false,
+  onPlace,
 }: {
   it: EvrenItem
+  isNew?: boolean
+  customPlaced?: boolean
+  onPlace?: () => void
   n: number
   color: string
   tur?: string
@@ -1136,7 +1304,21 @@ function Card({
           <div className="h-full rounded-full" style={{ width: `${((epPart.seen ?? 0) / (epPart.total ?? 1)) * 100}%`, background: color }} />
         </div>
       )}
+      {onPlace && isNew && (
+        <button
+          onClick={onPlace}
+          title={tt('Haftalık güncellemeyle eklendi — hikâye sırasındaki yerini sen seç')}
+          className="mt-1.5 self-start rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-200 hover:bg-amber-400/25 transition"
+        >
+          {tt('Yeni · yerini seç')}
+        </button>
+      )}
       <p className="text-xs text-neutral-200 mt-1.5 line-clamp-2 leading-tight">{it.archiveTitle || it.title}</p>
+      {onPlace && !isNew && customPlaced && (
+        <button onClick={onPlace} className="self-start text-[10px] text-neutral-500 hover:text-neutral-200 transition">
+          {tt('Yerini sen seçtin · değiştir')}
+        </button>
+      )}
       <p className="text-[11px] text-neutral-500">
         {kindLabel(it)} · {it.released ? it.date.slice(0, 4) : it.date ? fmtRelease(it.date) : tt('tarih yok')}
       </p>
@@ -1337,7 +1519,7 @@ function PrereqModal({
   const pos = new Map(u.story.map((k, i) => [k, i]))
   const storySort = (a: string, b: string) => (pos.get(a) ?? 9999) - (pos.get(b) ?? 9999)
   const targets = orderItems(u, 'hikaye', true).filter((i) => (u.deps[i.key]?.need ?? []).length > 0)
-  const shown = q.trim() ? targets.filter((i) => (i.archiveTitle || i.title).toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(q.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i'))) : targets
+  const shown = q.trim() ? targets.filter((i) => searchFold(i.archiveTitle || i.title).includes(searchFold(q.trim()))) : targets
 
   const layers = target ? prereqLayers(u, target) : null
   const groups = layers

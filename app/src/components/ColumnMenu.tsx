@@ -1,4 +1,5 @@
 import { useState, type RefObject } from 'react'
+import { searchFold } from '../lib/search'
 import Select from './Select'
 import { OPTION_COLORS, type PropertyDef, type PropertyType, type RatingCriterion, type SelectOption } from '../types'
 import AnchoredMenu from './AnchoredMenu'
@@ -198,8 +199,8 @@ export default function ColumnMenu({
   const [optQuery, setOptQuery] = useState('')
   const OPT_LIMIT = 80
   const allOptions = property.options ?? []
-  const optQ = optQuery.trim().toLocaleLowerCase('tr').replace(/ı/g, 'i')
-  const matchedOptions = optQ ? allOptions.filter((o) => o.label.toLocaleLowerCase('tr').replace(/ı/g, 'i').includes(optQ)) : allOptions
+  const optQ = searchFold(optQuery.trim())
+  const matchedOptions = optQ ? allOptions.filter((o) => searchFold(o.label).includes(optQ)) : allOptions
   const shownOptions = matchedOptions.slice(0, OPT_LIMIT)
 
   // Tek bir seçeneği silmek de onay istiyor — yanlışlıkla "İzlendi"ye basınca yüzlerce kaydın durumu

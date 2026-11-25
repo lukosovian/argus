@@ -1,5 +1,5 @@
 import { makeId, RATING_OVERALL, type PropertyDef, type PropertyType, type PropertyValue, type SelectOption } from '../types'
-import { makeEntry } from './dateRange'
+import { makeEntry, UNKNOWN_DATE } from './dateRange'
 
 const IMAGE_HINTS = ['banner', 'görsel', 'gorsel', 'kapak', 'cover', 'image', 'foto', 'poster']
 
@@ -69,12 +69,22 @@ function hasRangeSeparator(raw: string) {
 
 // Birden çok tarih/aralık: ";" ile, ya da arkasından yıl gelmeyen virgülle ayrılmış ("March 12, 2023" içindeki
 // virgül bölmesin). Her parça tek tarih ya da "başlangıç → bitiş".
-export function parseDateEntries(raw: string, order: DateOrder = 'dmy'): string[] {
+// Virgül, önünde "March 12" gibi ay adı + gün varsa bölmez. Eskiden arkasından yıl gelen her virgül korunuyordu:
+// "2023-03-12, 2023-03-15" ya da "12.08.2024, 2019 yılında" tek parça kalıp ikinci tarih kayboluyordu.
+// `approx`: ARGUS'un kendi CSV'sindeki yaklaşık tarihler de okunur — sadece yıl ("2019", "2019 yılında", "in 2019") ve
+// bilinmeyen ("?", "Tarih bilinmiyor", "Date unknown"). Sütun tipi tahmininde kapalı (yıl sütunları tarih sanılmasın).
+export function parseDateEntries(raw: string, order: DateOrder = 'dmy', approx = false): string[] {
   const value = (raw ?? '').trim()
   if (!value) return []
   return value
-    .split(/;|,(?!\s*\d{4}\b)/)
+    .split(/;|(?<![A-Za-zÇĞİÖŞÜçğıöşü]\.?\s+\d{1,2}),/)
     .map((part) => {
+      if (approx) {
+        const t = part.trim()
+        if (/^(\?|tarih bilinmiyor|date unknown)$/i.test(t)) return UNKNOWN_DATE
+        const y = /^(?:in\s+)?(\d{4})(?:\s+yılında)?$/i.exec(t)
+        if (y && +y[1] > 1800 && +y[1] < 2200) return y[1]
+      }
       const [a, b] = part.split(/→|->/).map((x) => parseDateLoose(x, false, order))
       return a ? makeEntry(a, b || null) : ''
     })
@@ -218,7 +228,7 @@ export function parseCellValue(property: PropertyDef, raw: string, ctx: ParseCon
     // Birden fazla tarih; Notion'un "12/03/2023 → 20/03/2023" ya da "March 12, 2023 → March 20, 2023" aralıkları
     // başlangıç/bitiş olarak.
     case 'multidate':
-      return parseDateEntries(value, ctx.dateOrder)
+      return parseDateEntries(value, ctx.dateOrder, true)
     case 'number': {
       const n = Number(value.replace(',', '.'))
       return Number.isFinite(n) ? n : ''

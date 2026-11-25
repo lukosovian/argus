@@ -13,7 +13,7 @@ import { canSeeWrapped, useFeatures, wrappedIsNew } from '../hooks/useFeatures'
 import FbMenuLink from './flashback/FbMenuLink'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
-import { PROFILE_SWITCH_EVENT } from './ProfilePicker'
+import { switchProfile } from './ProfilePicker'
 import Icon, { type IconName } from './Icon'
 import { useNavigate } from 'react-router-dom'
 import ProfileMenuV2, { EVREN_SEEN_KEY, YAMA_SEEN_KEY } from './ProfileMenuV2'
@@ -21,7 +21,12 @@ import { frameFor, useProfileStats } from '../lib/profileStats'
 import { api } from '../lib/api'
 import AchievementWatcher from './AchievementWatcher'
 import OdulWatcher from './odul/OdulWatcher'
+import SeansWatcher from './bilet/SeansWatcher'
 import { catalogItem, frameStyle, useOdulData } from '../lib/oduller'
+import { useEscape } from '../hooks/useEscape'
+import { lazy, Suspense } from 'react'
+// Telefona özel dokunma hareketleri (bkz. mobile/MobileGestures) — PC'de hiç yüklenmez
+const MobileGestures = MOBILE ? lazy(() => import('./mobile/MobileGestures')) : null
 
 // Profil menüsündeki satırların ikonları — ARGUS'un dolgulu ikonları (bkz. Icon.tsx); kullanıcı dış çizgili
 // yerine dolgulu istedi.
@@ -55,6 +60,43 @@ function MenuLink({ to, icon, label, extra, onClick, compact }: { to: string; ic
 const TABBAR_OFFSET = 'calc(5.25rem + env(safe-area-inset-bottom))'
 const inSheet = (n: React.ReactNode) => (MOBILE ? createPortal(n, document.body) : n)
 
+// Her sayfada "?" (v1.26, G12): o sayfanın yardım konusunu Yardım Merkezi'nde doğrudan açar (/yardim?sayfa=<anahtar>)
+function helpKey(pathname: string, search: URLSearchParams): string | null {
+  if (pathname === '/') return 'anasayfa'
+  if (pathname.startsWith('/koleksiyon')) {
+    const s = search.get('sekme')
+    return s === 'biletler' ? 'biletler' : s === 'oduller' ? 'oduller' : s === 'flashback' ? 'flashback' : 'koleksiyon'
+  }
+  const map: [string, string][] = [
+    ['/board/', 'arsiv'],
+    ['/takvim', 'takvim'],
+    ['/istatistikler', 'istatistik'],
+    ['/evrenler', 'evrenler'],
+    ['/aklimda', 'aklimda'],
+    ['/abonelik', 'abonelik'],
+    ['/birlikte', 'birlikte'],
+    ['/basarimlar', 'basarimlar'],
+    ['/oyunlar', 'oyunlar'],
+    ['/sahneden-bil', 'oyunlar'],
+    ['/flashback', 'flashback'],
+    ['/arsivlerim', 'ayarlar'],
+  ]
+  return map.find(([p]) => pathname.startsWith(p))?.[1] ?? null
+}
+function PageHelpButton({ helpFor }: { helpFor: string | null }) {
+  if (!helpFor) return null
+  return (
+    <Link
+      to={`/yardim?sayfa=${helpFor}`}
+      title={tt('Bu sayfanın yardımı')}
+      aria-label={tt('Bu sayfanın yardımı')}
+      className={`shrink-0 flex items-center justify-center rounded-full border border-neutral-700 text-neutral-400 hover:text-[#00c0fa] hover:border-[#00c0fa]/60 transition ${MOBILE ? 'h-6 w-6 text-[13px] active:bg-neutral-800' : 'h-6 w-6 text-xs'}`}
+    >
+      ?
+    </Link>
+  )
+}
+
 // Telefonun alt menüsündeki ikonlar — profil menüsüyle aynı dolgulu ARGUS ikonları
 function TabIcon({ name }: { name: IconName }) {
   return <Icon name={name} className="h-[22px] w-[22px]" />
@@ -68,7 +110,7 @@ function MobileTabBar({ boardId, menuOpen, onMenu, onNavigate }: { boardId: stri
   const tab = (active: boolean) =>
     `flex flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-medium transition ${active ? 'bg-neutral-50/[0.09] text-neutral-50' : 'text-neutral-400'}`
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 px-3 pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
+    <nav data-mobile-chrome="bottom" className="fixed inset-x-0 bottom-0 z-30 px-3 pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
       <div className="pointer-events-auto grid grid-cols-5 gap-1 h-[4.25rem] p-1.5 rounded-full border border-white/10 bg-neutral-900/90 backdrop-blur-md shadow-2xl shadow-black/70">
         <Link to="/" onClick={onNavigate} className={tab(p === '/' && !menuOpen)}>
           <TabIcon name="home" />
@@ -136,8 +178,11 @@ export default function Navbar() {
     : location.pathname === '/'
       ? ((activeSection && (settings.sections ?? []).find((s) => s.id === activeSection)?.name) || tt('Ana Sayfa'))
       : (currentPage ?? '')
+  const helpFor = helpKey(location.pathname, searchParams)
   const pinnedSections = sortByOrder((settings.sections ?? []).filter((s) => s.pinnedToNav), settings.navOrder ?? [])
   const [menuOpen, setMenuOpen] = useState(false)
+  // Telefonda geri tuşu "Daha fazla" menüsünü kapatsın
+  useEscape(MOBILE && menuOpen, () => setMenuOpen(false))
   // Ekstralar (v1.23.4): yeni menü, duygu avatarı, çerçeve, yeni sayfaların bağlantıları, kısayollar
   const ext = settings.extras ?? {}
   const stats = useProfileStats(!MOBILE || Boolean(ext.moodAvatar || ext.avatarFrames))
@@ -203,8 +248,7 @@ export default function Navbar() {
         const p = profiles.filter((x) => x.id !== activeProfileId)[Number(e.key) - 1]
         if (p) {
           e.preventDefault()
-          window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
-          setActiveProfileId(p.id)
+          switchProfile(profiles, p.id, activeProfileId, setActiveProfileId)
         }
         return
       }
@@ -266,6 +310,7 @@ export default function Navbar() {
   return (
     <>
       <header
+        data-mobile-chrome={MOBILE ? 'top' : undefined}
         className={`sticky top-0 z-20 transition-colors duration-300 ${
           scrolled ? 'bg-neutral-950/75 backdrop-blur-xl backdrop-saturate-150 shadow-[0_1px_0_rgba(255,255,255,0.05)]' : 'bg-transparent'
         }`}
@@ -288,7 +333,10 @@ export default function Navbar() {
           {/* Telefonda sayfa bağlantıları alttaki sekme çubuğunda; üstte sadece bulunulan sayfanın adı */}
           {MOBILE ? (
             // Telefonda (Netflix'teki gibi) logonun yanında büyük sayfa adı
-            <span className="flex-1 min-w-0 truncate pl-2.5 text-[22px] font-bold tracking-tight text-neutral-50">{mobileTitle}</span>
+            <span className="flex-1 min-w-0 flex items-center gap-2 pl-2.5">
+              <span className="min-w-0 truncate text-[22px] font-bold tracking-tight text-neutral-50">{mobileTitle}</span>
+              <PageHelpButton helpFor={helpFor} />
+            </span>
           ) : (
           <nav ref={navRef} data-navbar-links className="relative flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar">
             {[{ id: null as string | null, name: tt('Ana Sayfa'), to: '/' }, ...pinnedSections.map((s) => ({ id: s.id as string | null, name: s.name, to: `/?bolum=${s.id}` }))].map((l) => {
@@ -313,6 +361,7 @@ export default function Navbar() {
                 {currentPage === 'Flashback' ? <span className="fb-wordmark tracking-[0.06em]">FLASHBACK</span> : currentPage}
               </span>
             )}
+            <PageHelpButton helpFor={helpFor} />
             {bar && (
               <span
                 aria-hidden
@@ -328,6 +377,7 @@ export default function Navbar() {
           <NotificationBell />
           {ext.achievements && activeProfileId && <AchievementWatcher profileId={activeProfileId} />}
           {ext.rewards && activeProfileId && <OdulWatcher key={activeProfileId} />}
+          {activeProfileId && <SeansWatcher key={`seans-${activeProfileId}`} />}
 
           <div className="relative shrink-0">
             <span className={`block rounded-full ${frame ? 'p-[2.5px]' : ''}`} style={frame?.style} title={frame?.label}>
@@ -376,8 +426,7 @@ export default function Navbar() {
                       }
                       onClose={() => setMenuOpen(false)}
                       onSwitch={(id) => {
-                        window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
-                        setActiveProfileId(id)
+                        switchProfile(profiles, id, activeProfileId, setActiveProfileId)
                         setMenuOpen(false)
                       }}
                       themeSwitch={
@@ -420,8 +469,7 @@ export default function Navbar() {
                         <button
                           key={p.id}
                           onClick={() => {
-                            window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
-                            setActiveProfileId(p.id)
+                            switchProfile(profiles, p.id, activeProfileId, setActiveProfileId)
                             setMenuOpen(false)
                           }}
                           className="w-[calc(100%-0.75rem)] mx-1.5 flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-sm text-neutral-300 hover:text-neutral-50 hover:bg-neutral-800 transition"
@@ -519,6 +567,12 @@ export default function Navbar() {
           />,
           document.body,
         )}
+      {/* Telefon hareketleri: basılı tutunca hızlı menü, aşağı çekince eşitle, kaydırınca saklanan çubuklar (v1.26) */}
+      {MobileGestures && (
+        <Suspense fallback={null}>
+          <MobileGestures />
+        </Suspense>
+      )}
     </>
   )
 }

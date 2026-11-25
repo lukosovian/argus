@@ -2,6 +2,7 @@
 // data/profiles/<profil>/notifications.json: en yenisi başta, en fazla 200 tane. `key` verilen
 // bildirim aynı anahtarla bir daha eklenmez (ör. aynı sezon duyurusu her kontrolde tekrar gelmesin).
 import path from 'path'
+import { isHiddenRow } from './kid.js'
 
 let PROFILES_DIR = ''
 let readJson = (_f, fb) => fb
@@ -18,6 +19,12 @@ export function initNotifications(opts) {
 const fileOf = (profileId) => path.join(PROFILES_DIR, profileId, 'notifications.json')
 
 export function pushNotification(profileId, n) {
+  // Çocuk profilinde gizli bir yapımın haberi (yeni bölüm, platform…) hiç düşmez (bkz. kid.js)
+  try {
+    if (n.rowId && isHiddenRow(profileId, n.rowId)) return null
+  } catch {
+    /* süzgeç okunamadıysa bildirim yine düşsün */
+  }
   const list = readJson(fileOf(profileId), [])
   if (n.key && list.some((x) => x.key === n.key)) return null
   // Listeden (200) taşan eski bildirimlerin anahtarları ayrıca saklanıyor — yoksa aynı duyuru

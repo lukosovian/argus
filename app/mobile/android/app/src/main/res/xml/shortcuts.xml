@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Y15: ARGUS simgesine basılı tutunca çıkan kısayollar. Uygulama argus:// adresini alır (bkz. src/lib/mobile/nativeFeatures.ts). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="ne-izlesem" android:enabled="true" android:icon="@drawable/kisayol_kart" android:shortcutShortLabel="@string/kisayol_ne_izlesem">
+        <intent android:action="android.intent.action.VIEW" android:data="argus://ne-izlesem" android:targetPackage="com.argus.mobil" android:targetClass="com.argus.mobil.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="ekle" android:enabled="true" android:icon="@drawable/kisayol_ekle" android:shortcutShortLabel="@string/kisayol_ekle" android:shortcutLongLabel="@string/kisayol_ekle_uzun">
+        <intent android:action="android.intent.action.VIEW" android:data="argus://ekle" android:targetPackage="com.argus.mobil" android:targetClass="com.argus.mobil.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="takvim" android:enabled="true" android:icon="@drawable/kisayol_takvim" android:shortcutShortLabel="@string/kisayol_takvim">
+        <intent android:action="android.intent.action.VIEW" android:data="argus://git?yol=%2Ftakvim" android:targetPackage="com.argus.mobil" android:targetClass="com.argus.mobil.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="ara" android:enabled="true" android:icon="@drawable/kisayol_ara" android:shortcutShortLabel="@string/kisayol_ara">
+        <intent android:action="android.intent.action.VIEW" android:data="argus://ara" android:targetPackage="com.argus.mobil" android:targetClass="com.argus.mobil.MainActivity" />
+    </shortcut>
+</shortcuts>

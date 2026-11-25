@@ -91,7 +91,9 @@ function readJsonRaw(file, fallback) {
 
 export function assertWritable(file) {
   if (unreadableFiles.has(file)) {
-    throw new Error(stt('{0} okunamadığı için kaydedilmedi — verin korunuyor. ARGUS\'u yeniden başlatıp tekrar dene.', path.basename(file)))
+    // v1.26 (G1): dosya birkaç dakika içinde de okunamazsa ARGUS sağlam bir kopyasını bulup Ayarlar › Veritabanı ›
+    // Yedekleme'de (ve zilde) "geri getireyim mi?" diye sorar (bkz. recover.js).
+    throw new Error(stt('{0} okunamadığı için kaydedilmedi — verin korunuyor. Birkaç dakika içinde düzelmezse ARGUS sağlam bir kopyasını bulup zilde haber verecek.', path.basename(file)))
   }
 }
 
@@ -139,6 +141,15 @@ export function rawWriteJson(file, data) {
   const tmp = `${file}.${process.pid}.tmp`
   try {
     fs.writeFileSync(tmp, text, 'utf-8')
+  } catch (e) {
+    // Geçici dosya bile yazılamadıysa (ör. disk dolu) asıl dosyaya doğrudan yazmaya kalkma: yazma yarıda
+    // kalırsa sağlam dosya da bozulurdu. Eski hali olduğu gibi kalır, hata arayüze gider.
+    try {
+      fs.unlinkSync(tmp)
+    } catch {}
+    throw e
+  }
+  try {
     fs.renameSync(tmp, file)
   } catch {
     // Windows'ta dosya o an başka bir programda açıksa yer değiştirme reddedilebilir — eski yol.

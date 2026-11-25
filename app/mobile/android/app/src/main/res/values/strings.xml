@@ -4,4 +4,12 @@
     <string name="title_activity_main">ARGUS</string>
     <string name="package_name">com.argus.mobil</string>
     <string name="custom_url_scheme">com.argus.mobil</string>
+    <string name="widget_baslik">Sıradaki bölüm</string>
+    <string name="widget_aciklama">İzlemekte olduğun dizilerin sıradaki bölümü</string>
+    <string name="kisayol_ne_izlesem">Ne izlesem?</string>
+    <string name="kisayol_ekle">Ekle</string>
+    <string name="kisayol_ekle_uzun">Bugün izlediğimi ekle</string>
+    <string name="kisayol_takvim">Takvim</string>
+    <string name="kisayol_ara">Ara</string>
+    <string name="paylas_etiket">ARGUS\'a ekle</string>
 </resources>

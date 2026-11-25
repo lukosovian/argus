@@ -141,13 +141,43 @@ export function ProfileExtras() {
   )
 }
 
+// v1.26 bildirimleri varsayılan AÇIK (kullanıcı istedi); kapatılınca extras.<anahtar> = false olur, sunucu da buna bakar
+// (bkz. server/jobs/reminders.js extraOn, jobs/watchlist.js platformLeave).
+type DefaultOnExtra = 'newEpisodes' | 'platformLeave' | 'rateRemind' | 'morning' | 'seans' | 'autoBulk'
+function useDefaultOnToggle() {
+  const { settings, saveSettings } = useExtras()
+  return (k: DefaultOnExtra, title: string, hint: string) => {
+    const on = settings.extras?.[k] !== false
+    return (
+      <XRow key={k} title={title} hint={hint}>
+        <ToggleSwitch checked={on} onChange={(v) => saveSettings({ ...settings, extras: { ...(settings.extras ?? {}), [k]: v } })} label={title} />
+      </XRow>
+    )
+  }
+}
+
 // Uygulama Ayarları › Zil bildirimleri (bu profil)
 export function NotifyExtras() {
   const P = useProfileToggle()
+  const D = useDefaultOnToggle()
   return (
-    <SettingsSection title={tt('Zil bildirimleri')} description={tt('Bu profil için. Sağ üstteki zile düşer.')}>
-      {P('follow', tt('Oyuncu ve yönetmen takibi'), tt('Oyuncu sayfasında "Takip et"; yeni filmi duyurulunca bildirim.'))}
-      {P('weekly', tt('Haftalık özet'), tt('Her Pazar akşamı haftanın özeti bildirim olarak gelir.'))}
-    </SettingsSection>
+    <>
+      <SettingsSection title={tt('Zil bildirimleri')} description={tt('Bu profil için. Sağ üstteki zile düşer; ARGUS uygulamasında Windows bildirimi olarak da çıkar.')}>
+        {D('newEpisodes', tt('İzlediğin dizinin yeni bölümü'), tt('İzleniyor durumundaki bir dizinin yeni bölümü yayınlandığı gün haber verir ("S2B4 bugün çıktı"). Her bölüm bir kez.'))}
+        {D('platformLeave', tt('Platformdan kalkınca'), tt('İzleyeceğin bir yapım aboneliklerinden birinden kalkarsa haber verir (aboneliklerini Abonelik sayfasında seçersin).'))}
+        {D('rateRemind', tt('Unutulan puanlar'), tt('Bu hafta izleyip puan vermediğin yapımlar için akşam tek bir hatırlatma; tıklayınca afişleriyle hızlıca puanlarsın.'))}
+        {D('morning', tt('Sabah bülteni'), tt('Her sabah, bugün çıkan bölümler ve vizyona giren filmler tek bir bildirimde. Bugün bir şey yoksa gelmez.'))}
+        {D('seans', tt('Sinema seansı hatırlatması'), tt("Biletlerim'e önceden eklediğin biletin seans günü sabah ve seanstan 2 saat önce haber verir."))}
+        {P('follow', tt('Oyuncu ve yönetmen takibi'), tt('Oyuncu sayfasında "Takip et"; yeni filmi duyurulunca bildirim.'))}
+        {P('weekly', tt('Haftalık özet'), tt('Her Pazar akşamı haftanın özeti bildirim olarak gelir.'))}
+      </SettingsSection>
+      <SettingsSection title={tt('Otomatik bakım')} description={tt('Bu profilin ana sayfa arşivi için.')}>
+        {D(
+          'autoBulk',
+          tt('Haftada bir kendiliğinden güncelle'),
+          tt('ARGUS açıkken (tepside de olur) haftada bir gece sessizce Genel Güncelleme yapar: sadece boş alanlar doldurulur, yazdıkların değişmez, dizilerin yeni bölümleri gelir. Sonucu sabah zilde görürsün.'),
+        )}
+      </SettingsSection>
+    </>
   )
 }

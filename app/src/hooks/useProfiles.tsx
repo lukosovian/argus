@@ -136,6 +136,8 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
               /* önemsiz */
             }
             setPinAsk(null)
+            // Geçiş perdesi PIN doğru girilince oynar (vazgeçilince hiç oynamaz — bkz. ProfilePicker.needsPin)
+            window.dispatchEvent(new Event('argus-profil-gecis'))
             applyActive(asked.id)
           }}
         />

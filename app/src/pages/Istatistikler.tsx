@@ -5,12 +5,12 @@ import { useBoards } from '../hooks/useBoards'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useThemeMode } from '../hooks/useThemeMode'
-import { ratingAverage, type Board, type PropertyDef, type PropertyType, type Row, type StatMapping } from '../types'
+import { ratingAverage, titleText, type Board, type PropertyDef, type PropertyType, type Row, type StatMapping } from '../types'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import HelpHint from '../components/HelpHint'
 import { ROLE_DEFS, resolveRole, resolveStatusOption, type RoleKey, watchedStatusIds } from '../lib/roles'
 import Select from '../components/Select'
-import { entryEnd } from '../lib/dateRange'
+import { entryEnd, isFullDate, isUnknownDate, isYearOnly, toEntries } from '../lib/dateRange'
 import { dayIso, entryInWindow, episodeDatesInWindow, isSeriesRow, minutesInWindow, rowEntriesInWindow, type DateWindow } from '../lib/watchWindow'
 import { withLocative } from '../lib/turkce'
 import { tt, ttx, monthNames, getLang } from '../lib/i18n'
@@ -20,6 +20,7 @@ import PageSkeleton from '../components/Skeleton'
 import GoalRow from '../components/GoalRow'
 import { api } from '../lib/api'
 import type { WatchedMap } from '../types'
+import { useProfiles } from '../hooks/useProfiles'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -242,6 +243,55 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
     windowSummary = { films, episodes, minutes, activeDays: days.size }
   }
 
+  // Günü bilinmeyen izlemeler (v1.26, G10): sadece yılı bilinenler ("2019") ve hiç bilinmeyenler ("?") aylık grafiğe ve
+  // ısı haritasına giremiyor — kaç tanesinin dışarıda kaldığı grafiğin altında yazsın ki boşluklar doğru okunsun.
+  const shownYears = new Set<string>([...months.map((m) => String(m.year)), String(heatYear)])
+  const yearOnlyByYear = new Map<string, number>()
+  let unknownCount = 0
+  let undatedEpisodes = 0
+  if (tarihProp)
+    for (const r of rows)
+      for (const e of toEntries(r.values[tarihProp.id])) {
+        if (isUnknownDate(e)) unknownCount++
+        else if (isYearOnly(e) && shownYears.has(e)) yearOnlyByYear.set(e, (yearOnlyByYear.get(e) ?? 0) + 1)
+      }
+  const rowIds = new Set(rows.map((r) => r.id))
+  for (const [rowId, eps] of Object.entries(watched)) {
+    if (!rowIds.has(rowId)) continue
+    for (const list of Object.values(eps)) for (const d of list ?? []) if (d && !isFullDate(d) && (isUnknownDate(d) || shownYears.has(d.slice(0, 4)))) undatedEpisodes++
+  }
+  const undated = {
+    yearOnly: [...yearOnlyByYear.values()].reduce((x, y) => x + y, 0),
+    unknown: unknownCount,
+    episodes: undatedEpisodes,
+    // Takvim'de "günü bilinmeyenler" rafı açılacak yıl: en çok yıllık izleme olan
+    topYear: [...yearOnlyByYear.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null,
+  }
+
+  // En çok tekrar izlenen filmler (v1.26, Y22): İzleme Tarihi'ndeki her öğe bir izleme; aralık seçiliyse sadece aralıktakiler.
+  // Dizilerde birden fazla tarih genelde başladım/bitirdim ya da sezonlar olduğu için sayılmıyor (bkz. Takvim).
+  const rewatched: { id: string; title: string; poster: string; count: number; last: string }[] = []
+  if (tarihProp) {
+    const posterP = resolveRole(board, 'poster')
+    const coverP = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+    const titleP = board.properties.find((p) => p.id === board.titlePropertyId)
+    for (const r of rows) {
+      if (isSeriesRow(board, r)) continue
+      const es = toEntries(r.values[tarihProp.id])
+      const inWin = win ? es.filter((e) => entryInWindow(e, win)) : es
+      if (inWin.length < 2) continue
+      rewatched.push({
+        id: r.id,
+        title: titleP ? titleText(titleP, r.values[titleP.id]) : '',
+        poster: (posterP && (r.values[posterP.id] as string)) || (coverP && (r.values[coverP.id] as string)) || '',
+        count: inWin.length,
+        last: inWin.map(entryEnd).filter(isFullDate).sort().pop() ?? '',
+      })
+    }
+    rewatched.sort((x, y) => y.count - x.count || y.last.localeCompare(x.last))
+    rewatched.splice(5)
+  }
+
   return {
     total: scope.length,
     izlendiCount: izlendiRows.length,
@@ -266,6 +316,8 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
     countryBreakdown: multiBreakdown(ulkeProp, scope, 8),
     actorBreakdown: multiBreakdown(oyuncularProp, scope, 10),
     decadeBreakdown,
+    undated,
+    rewatched,
   }
 }
 type Stats = ReturnType<typeof computeStats>
@@ -1090,6 +1142,62 @@ function YearCompare({ board, rows, watched, years, a, b, setA, setB, palette }:
   )
 }
 
+// Grafiğin altındaki "günü bilinmeyen izlemeler" notu (v1.26, G10). "Tarih ver" Takvim'in yıl görünümündeki
+// "günü bilinmeyenler" rafını açar; tarihsiz bölüm işaretleri için Sağlık Kontrolü'ne gidilir.
+function UndatedNote({ stats, boardId }: { stats: Stats; boardId: string }) {
+  const navigate = useNavigate()
+  const u = stats.undated
+  const views = u.yearOnly + u.unknown
+  if (!views && !u.episodes) return null
+  const calYear = u.topYear ?? String(stats.heatYear)
+  return (
+    <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-200/90">
+      <Icon name="calendar" className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+      <span>
+        {views > 0 && tt('{0} izlemenin günü bilinmiyor', views)}
+        {views > 0 && u.episodes > 0 && ', '}
+        {u.episodes > 0 && tt('{0} bölüm işaretinin tarihi yok', u.episodes)}
+        {tt(' — bu grafiklerde sayılmıyor.')}
+      </span>
+      {views > 0 && (
+        <button onClick={() => navigate(`/takvim?gorunum=yil&ay=${calYear}-01#gunu-bilinmeyenler`)} className="font-semibold text-amber-100 hover:underline">
+          {tt('Tarih ver ›')}
+        </button>
+      )}
+      {u.episodes > 0 && (
+        <button onClick={() => navigate(`/board/${boardId}?saglik=1`)} className="font-semibold text-amber-100 hover:underline">
+          {tt('Sağlık Kontrolü ›')}
+        </button>
+      )}
+    </p>
+  )
+}
+
+// En çok tekrar izlediklerin (v1.26, Y22): afiş + "4 kez" rozeti, tıklayınca kaydın detayı
+function RewatchGrid({ items, onOpen }: { items: Stats['rewatched']; onOpen: (rowId: string) => void }) {
+  return (
+    <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
+      {items.map((it, i) => (
+        <button key={it.id} onClick={() => onOpen(it.id)} title={it.title} className="group w-[112px] sm:w-[136px] shrink-0 text-left">
+          <span className="relative block aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800 shadow-lg shadow-black/40">
+            {it.poster ? (
+              <img src={it.poster} alt={it.title} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+            ) : (
+              <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-neutral-400">{it.title}</span>
+            )}
+            <span className="absolute top-1.5 left-1.5 h-6 w-6 rounded-full bg-black/75 text-[11px] font-bold text-neutral-100 flex items-center justify-center">{i + 1}</span>
+            <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-full bg-[#00c0fa] px-2 py-0.5 text-[11px] font-bold text-neutral-950 shadow">
+              <Icon name="repeat" className="h-3 w-3" />
+              {tt('{0} kez', it.count)}
+            </span>
+          </span>
+          <span className="block mt-1.5 text-xs text-neutral-200 truncate">{it.title}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function Istatistikler() {
   const { settings, loading: settingsLoading } = useHomeSettings()
   const { boards, loading: boardsLoading } = useBoards()
@@ -1131,13 +1239,21 @@ export default function Istatistikler() {
   // Isı haritası takvimle aynı şeyi göstersin: İzleme Tarihi'ne ek olarak bölüm tikleri de (kullanıcı "takvimde eylül
   // neredeyse dolu, ısı haritasında niye dolu değil" dedi — dizi bölümleri sadece bitirdiğin gün sayılıyordu).
   const [watched, setWatched] = useState<WatchedMap>({})
+  const { activeProfileId } = useProfiles()
   useEffect(() => {
+    let alive = true
     try {
-      api.getWatched().then(setWatched).catch(() => {})
+      api
+        .getWatched()
+        .then((w) => alive && setWatched(w))
+        .catch(() => {})
     } catch {
       /* profil yoksa boş */
     }
-  }, [selectedBoardId])
+    return () => {
+      alive = false
+    }
+  }, [selectedBoardId, activeProfileId])
   const stats = useStats(board, rows, watched, range.mode === 'kiyas' ? null : win)
   const heatYear = stats?.heatYear ?? new Date().getFullYear()
   const episodesDaily = useMemo(() => {
@@ -1146,7 +1262,8 @@ export default function Istatistikler() {
     const y = String(heatYear)
     for (const [rowId, eps] of Object.entries(watched)) {
       if (!ids.has(rowId)) continue
-      for (const list of Object.values(eps)) for (const d of list) if (d.startsWith(y)) m.set(d.slice(0, 10), (m.get(d.slice(0, 10)) ?? 0) + 1)
+      // Sadece günü belli tikler — "2026" gibi yılı bilinen toplu tikler haritada sahte bir "gün" olup ölçeği bozuyordu
+      for (const list of Object.values(eps)) for (const d of list) if (d.startsWith(y) && isFullDate(d)) m.set(d.slice(0, 10), (m.get(d.slice(0, 10)) ?? 0) + 1)
     }
     return m
   }, [watched, rows, heatYear])
@@ -1322,12 +1439,23 @@ export default function Istatistikler() {
               count: m.count,
             }))}
           />
+          <UndatedNote stats={stats} boardId={board.id} />
         </Card>
       )}
 
       {(stats.hasDates || episodesDaily.size > 0) && (
         <Card title={tt('{0} yılında izlediğin günler', heatYear)} subtitle={tt('Her kare bir gün; ne kadar çok izlediysen o kadar parlak · bir güne tıklayınca Takvim\'de açılır')}>
           <YearHeatmap daily={stats.daily} eps={episodesDaily} year={heatYear} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}`)} />
+          {!stats.hasDates && <UndatedNote stats={stats} boardId={board.id} />}
+        </Card>
+      )}
+
+      {stats.rewatched.length > 0 && (
+        <Card
+          title={tt('En çok tekrar izlediklerin')}
+          subtitle={ws ? tt('Seçili aralıkta birden fazla izlediğin filmler') : tt('İzleme tarihlerine göre, dönüp dönüp izlediğin filmler')}
+        >
+          <RewatchGrid items={stats.rewatched} onOpen={(id) => navigate(`/?detay=${id}`)} />
         </Card>
       )}
 

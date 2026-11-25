@@ -260,6 +260,8 @@ async function doRun() {
   }
 
   st.lastRun = Date.now()
+  // Tarama sürerken (dakikalar sürebiliyor) kullanıcının "Evrenden çıkar" dediği yapımlar kaybolmasın: gizlenenler güncel dosyadan
+  st.hidden = readState().hidden
   writeState(st)
   for (const { uid, name, it } of newOnes) {
     const label = it.type === 'tv' ? d.stt('{0} — {1}. Sezon', it.title, it.season) : it.title

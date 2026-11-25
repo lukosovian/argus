@@ -37,7 +37,8 @@ export default function Basarimlar() {
   useEffect(() => {
     api.getWatched().then(setWatched).catch(() => {})
     if (settings.boardId) api.getEvrenler(settings.boardId).then((d) => setUniversesDone(countDone(d.universes))).catch(() => {})
-  }, [settings.boardId])
+    // profil değişince de yenilensin (bölüm işaretleri profile özel)
+  }, [settings.boardId, activeProfileId])
   const list = useMemo(() => (board ? computeAchievements(board, rows, watched, { universesDone }) : []), [board, rows, watched, universesDone])
   const dates = useMemo<Record<string, string>>(() => {
     try {

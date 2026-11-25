@@ -718,4 +718,8 @@ export interface SavedView {
   sortDirection?: 'asc' | 'desc'
   hiddenColumnIds?: string[]
   groupByPropertyId?: string | null
+  // Görünüm türü (v1.26): tablo, afiş galerisi ya da durum panosu. Yoksa tablo.
+  layout?: TableLayout
 }
+
+export type TableLayout = 'tablo' | 'galeri' | 'pano'

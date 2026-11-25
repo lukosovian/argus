@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MobileHero from '../components/mobile/MobileHero'
+import MobileHomeTop from '../components/mobile/MobileHomeTop'
+import { useMobileKindRows } from '../lib/mobile/kindFilter'
 import { MOBILE } from '../lib/mobile/ui'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useBoard } from '../hooks/useBoard'
@@ -24,6 +26,7 @@ import OnThisDayRow from '../components/OnThisDayRow'
 import ForgottenRow from '../components/ForgottenRow'
 import AklimdaRow from '../components/AklimdaRow'
 import ContinueRow from '../components/ContinueRow'
+import YariYilCard from '../components/flashback/YariYil'
 import { useAklimda } from '../hooks/useAklimda'
 import { useToast } from '../hooks/useToast'
 import { stripFlags } from '../components/OptionDetailModal'
@@ -213,6 +216,9 @@ export function HomeCard({
       <button
         ref={buttonRef}
         onClick={() => onOpenDetail(row)}
+        // Telefonda basılı tutunca hızlı menü (bkz. mobile/MobileGestures)
+        data-argus-row={MOBILE ? row.id : undefined}
+        data-argus-board={MOBILE ? board.id : undefined}
         onMouseEnter={MOBILE ? undefined : handleMouseEnter}
         onMouseLeave={MOBILE ? undefined : handleMouseLeave}
         style={{
@@ -780,7 +786,9 @@ export default function AnaSayfa() {
   // Kapak görseli olmayan kayıtlar, ayardan açılınca ana sayfanın (vitrin dahil) hiçbir
   // yerinde gösterilmiyor — ama başka bir yerden (ör. arama, detay linki) doğrudan açılabilsin
   // diye `rows`'un kendisinden değil, sadece burada türetilen listelerden çıkarılıyor.
-  const visibleRows = settings.hideWithoutCover && coverProp ? rows.filter((r) => Boolean(r.values[coverProp.id])) : rows
+  // Telefonda üstteki "Diziler / Filmler" hapı seçiliyse vitrin ve bütün satırlar o türe göre (bkz. lib/mobile/kindFilter)
+  const kindRows = useMobileKindRows(board, rows)
+  const visibleRows = settings.hideWithoutCover && coverProp ? kindRows.filter((r) => Boolean(r.values[coverProp.id])) : kindRows
 
   // "Bunları da İzle" (mod) satırının havuzu: Durum'u "İzlenecek" olan tüm kayıtlar — aktif
   // bölüm/filtreden bağımsız, her zaman arşivin tamamına bakar (bkz. kullanıcı isteği
@@ -1083,14 +1091,14 @@ export default function AnaSayfa() {
   const rowNodes = new Map<string, React.ReactNode>()
   if (showAllSection) rowNodes.set('all', mainContentNode)
   bodySections.forEach((s, i) => rowNodes.set(`section:${s.id}`, bodyRowNodes[i]))
-  rowNodes.set('new-episodes', <NewEpisodesRow key="new-episodes" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
-  rowNodes.set('on-this-day', <OnThisDayRow key="on-this-day" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+  rowNodes.set('new-episodes', <NewEpisodesRow key="new-episodes" board={board} rows={kindRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+  rowNodes.set('on-this-day', <OnThisDayRow key="on-this-day" board={board} rows={kindRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.aklimdaRow?.enabled ?? true)
-    rowNodes.set('aklimda', <AklimdaRow key="aklimda" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+    rowNodes.set('aklimda', <AklimdaRow key="aklimda" board={board} rows={kindRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.continueRow?.enabled)
-    rowNodes.set('continue', <ContinueRow key="continue" board={board} rows={rows} episodes={episodes} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+    rowNodes.set('continue', <ContinueRow key="continue" board={board} rows={kindRows} episodes={episodes} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.forgotten?.enabled ?? true)
-    rowNodes.set('forgotten', <ForgottenRow key="forgotten" board={board} rows={rows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+    rowNodes.set('forgotten', <ForgottenRow key="forgotten" board={board} rows={kindRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.topRated?.enabled)
     rowNodes.set('top-rated', <TopRatedRow key="top-rated" board={board} rows={visibleRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (moodEnabled && settings.moodRow)
@@ -1109,6 +1117,9 @@ export default function AnaSayfa() {
   let defaultViewRows: React.ReactNode[] = homeRowOrder(settings)
     .map((e) => rowNodes.get(e.key))
     .filter((n): n is React.ReactNode => n !== undefined)
+
+  // Y30: 1–15 Temmuz "Yılın yarısı" mini Flashback kartı en üstte (kendi görünürlüğüne kendisi karar verir)
+  defaultViewRows = [<YariYilCard key="yari-yil" board={board} rows={rows} />, ...defaultViewRows]
 
   // "En altta rastgele satırlarla doldur" — her zaman en sonda, mod satırından da sonra, ve
   // bölümlerle aynı sebeple hep yatay kaydırmalı (bkz. bodyRowNodes'daki not).
@@ -1133,6 +1144,8 @@ export default function AnaSayfa() {
 
   return (
     <div className={MOBILE ? 'px-4 pt-1 pb-6 space-y-7' : `px-4 py-6 ${cinematic ? 'space-y-10' : 'space-y-8'}`}>
+      {/* Telefonda en üstte: "PC ile X gündür eşitlenmedi" kartı ve "Diziler / Filmler" hapları (v1.26) */}
+      {MOBILE && <MobileHomeTop board={board} showPills={!activeSection && !adHocRequested} />}
       {featured && !adHocRequested && MOBILE && (
         // Telefonda vitrin: ortada büyük kart (bkz. MobileHero)
         <MobileHero

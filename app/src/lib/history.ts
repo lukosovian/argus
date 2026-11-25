@@ -1,4 +1,4 @@
-import type { Board, PropertyValue } from '../types'
+import { ratingAverage, type Board, type PropertyValue } from '../types'
 import { tt, fmtDate } from './i18n'
 
 // Arşiv geçmişi (bkz. server/history.js) — değişiklik kayıtlarını okunur hale getiren yardımcılar.
@@ -55,8 +55,9 @@ export function formatValue(board: Board, propId: string, v: PropertyValue | nul
   if (p.type === 'image') return tt('görsel')
   if (p.type === 'checkbox') return v ? tt('Evet') : tt('Hayır')
   if (p.type === 'rating' && typeof v === 'object' && !Array.isArray(v)) {
-    const nums = Object.values(v as Record<string, number>).filter((n) => typeof n === 'number')
-    return nums.length ? `★ ${(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1)}` : '—'
+    // Tablodaki puanla aynı hesap: kriterlerin ortalaması, kriter yoksa genel puan (silinmiş kriterler sayılmaz)
+    const avg = ratingAverage(v, p)
+    return avg === null ? '—' : `★ ${avg.toFixed(1)}`
   }
   if (Array.isArray(v)) return (v as unknown[]).map((x) => String(x).replace('/', ' → ')).join(', ')
   const s = String(v)

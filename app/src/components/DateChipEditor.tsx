@@ -173,7 +173,10 @@ export default function DateChipEditor({
   const [yearOpen, setYearOpen] = useState(false)
   const [yearText, setYearText] = useState('')
 
-  const sorted = [...dates].sort()
+  // Aynı tarihler tek kutucukta "×2" olarak gösterilir
+  const counts = new Map<string, number>()
+  for (const d of dates) counts.set(d, (counts.get(d) ?? 0) + 1)
+  const sorted = [...counts.keys()].sort()
   const editingYear = editing && !isFullDate(editing) && !isUnknownDate(editing) ? `${editing}-01-01` : null
   // Yeni tarih eklerken takvim bugünün ayında açılır (kullanıcı "tarih ekle dediğim zaman bugünün tarihini
   // açsın" dedi — önceden en son girilmiş tarihin ayında, ör. yıllar öncesinde açılıyordu). Var olan bir
@@ -189,9 +192,15 @@ export default function DateChipEditor({
     setYearOpen(false)
   }
 
+  // Aynı gün (ya da aynı "2019") iki kez eklenebilir — aynı gün iki kez izlemek mümkün (H4). Eskiden aynı
+  // değer listeden silinip yeniden ekleniyordu, ikinci giriş birincinin yerine geçiyordu. Düzenlemede de
+  // sadece düzenlenen TEK öğe değişir (aynısından iki tane varsa diğeri kalır).
   function save(entry: string) {
-    const rest = dates.filter((x) => x !== editing && x !== entry)
-    onChange([...rest, entry].sort())
+    const at = editing !== null ? dates.indexOf(editing) : -1
+    const rest = at >= 0 ? dates.filter((_, j) => j !== at) : [...dates]
+    // "?" (hatırlamıyorum) tek olur; iki tane bilinmeyen izleme anlamsız
+    const next = entry === UNKNOWN_DATE && rest.includes(UNKNOWN_DATE) ? rest : [...rest, entry]
+    onChange(next.sort())
     setEditing(null)
     setPendingStart(null)
   }
@@ -254,6 +263,11 @@ export default function DateChipEditor({
                         </>
                       )}
                     </>
+                  )}
+                  {(counts.get(d) ?? 1) > 1 && (
+                    <span className="ml-1 rounded-full bg-[#00c0fa]/20 px-1.5 text-[10px] font-semibold text-[#7fdcff]" title={tt('Bu tarihte {0} kez izlendi', counts.get(d) ?? 1)}>
+                      ×{counts.get(d)}
+                    </span>
                   )}
                 </button>
                 <button

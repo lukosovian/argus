@@ -7,6 +7,8 @@ import { useDialogFocus } from '../../hooks/useDialogFocus'
 import { prefersReducedMotion } from '../../lib/reducedMotion'
 import { tt } from '../../lib/i18n'
 import { RewardCard } from './RewardCard'
+import { MOBILE } from '../../lib/mobile/ui'
+import { SystemBars } from '@capacitor/core'
 import './odul.css'
 
 // Paket açılışı (v1.24) — kullanıcının sunumda seçtiği "kart paketi" stili. Paketin üst kenarı soldan sağa sürüklenerek
@@ -15,6 +17,27 @@ import './odul.css'
 // Ödüller açılıştan ÖNCE kaydedilir (pencere yarıda kapansa da kaybolmaz).
 
 const DPR = Math.min(window.devicePixelRatio || 1, 2)
+
+// A19: telefonda dokunsal his — yırtarken tık tık, kart çevrilince nadirliğe göre kısa/uzun, efsanevide çift titreşim.
+// Ödüller sayfasındaki "Titreşim" düğmesiyle kapatılır (bu cihazda hatırlanır).
+export const HAPTIC_KEY = 'argus_odul_titresim'
+export function hapticsOn() {
+  if (!MOBILE) return false
+  try {
+    return localStorage.getItem(HAPTIC_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+const buzz = (p: number | number[]) => {
+  if (!hapticsOn()) return
+  try {
+    navigator.vibrate?.(p)
+  } catch {
+    /* desteklenmiyor */
+  }
+}
+const FLIP_BUZZ: (number | number[])[] = [12, 28, 55, [70, 90, 140]]
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 type P = { x: number; y: number; vx: number; vy: number; l: number; d: number; g: number; s: number; c: string; k: 'dot' | 'sq'; r: number; dr: number; f: number }
@@ -153,7 +176,10 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
     window.addEventListener('resize', onResize)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    // A19: telefonda tam ekran (durum ve gezinme çubukları gizlenir)
+    if (MOBILE) SystemBars.hide().catch(() => {})
     return () => {
+      if (MOBILE) SystemBars.show().catch(() => {})
       alive.current = false
       fx.current?.stop()
       window.removeEventListener('resize', onResize)
@@ -182,6 +208,10 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
     const now = performance.now()
     if (now - S.current.last > 30) {
       S.current.last = now
+      if (Math.round(p * 20) !== Math.round((S.current as { bz?: number }).bz ?? -1)) {
+        ;(S.current as { bz?: number }).bz = Math.round(p * 20)
+        buzz(5)
+      }
       fx.current?.burst(pr.left - s.left + p * pr.width, pr.top - s.top + 41, '#bfefff', 4, { v: 3, s: 1.4, decay: 0.03, white: 0.6 })
     }
   }
@@ -207,6 +237,7 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
     pk.classList.remove('tearing')
     pk.classList.add('torn')
     pk.style.transform = ''
+    buzz(22)
     const pr = wrap.current!.getBoundingClientRect()
     const s = stage.current!.getBoundingClientRect()
     fx.current?.burst(pr.right - s.left - 10, pr.top - s.top + 40, '#9fe8ff', 40, { v: 6, s: 1.8 })
@@ -250,6 +281,7 @@ export default function PackOpening({ tier, rewards, badges, backKey, posters, o
     }
     if (!alive.current) return
     setFlipped((f) => f.map((x, j) => (j === i ? true : x)))
+    buzz(FLIP_BUZZ[r] ?? 12)
     await wait(220)
     if (!w || !alive.current) return
     const { x, y } = local(w.getBoundingClientRect())

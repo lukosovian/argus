@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { resolveRole } from '../lib/roles'
@@ -7,6 +8,7 @@ import { titleText, type Board, type PropertyValue, type Row } from '../types'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import PropertyValueInput from './PropertyValueInput'
 import { tt, ttx } from '../lib/i18n'
+import { isRatingQuiet } from '../lib/quietRating'
 
 // Puan hatırlatması — kullanıcı "izledikten sonra puan sorsun" dedi. Bir kayıt hangi yoldan olursa olsun
 // (tablo, takvim, Ne İzlesem, dizinin bütün bölümleri bitince) İzlendi olup puanı boşsa sunucu haber
@@ -14,7 +16,7 @@ import { tt, ttx } from '../lib/i18n'
 const MUTE_KEY = 'argus_rate_prompt_off'
 
 export default function RatePrompt() {
-  const [queue, setQueue] = useState<{ boardId: string; rowId: string; force?: boolean }[]>([])
+  const [queue, setQueue] = useState<{ boardId: string; rowId: string; force?: boolean; skipRated?: boolean }[]>([])
   const [ctx, setCtx] = useState<{ board: Board; row: Row } | null>(null)
   const [scores, setScores] = useState<PropertyValue>({})
   const [busy, setBusy] = useState(false)
@@ -29,11 +31,39 @@ export default function RatePrompt() {
         // yoksa sorulur
       }
       if (!d?.boardId || !d?.rowId) return
+      // Toplu iş sürerken (Netflix aktarımı, çok kayda "İzledim…") sorulmaz — bkz. lib/quietRating.ts
+      if (!d.force && isRatingQuiet()) return
       setQueue((q) => (q.some((x) => x.rowId === d.rowId) ? q : [...q, d]))
     }
     window.addEventListener('argus-ask-rating', onAsk)
     return () => window.removeEventListener('argus-ask-rating', onAsk)
   }, [])
+
+  // "Puan vermeyi unuttukların" bildirimi (v1.26, Y4): ?puanla=<arşiv>:<kayıt1>,<kayıt2>… — o kayıtlar afişleriyle sırayla
+  // sorulur (bu arada puanlanmış olanlar atlanır). Adres temizlenir ki sayfa yenilenince yeniden açılmasın.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const puanla = searchParams.get('puanla')
+  useEffect(() => {
+    if (!puanla) return
+    const [boardId, ids] = puanla.split(':')
+    if (boardId && ids)
+      setQueue((q) => {
+        const have = new Set(q.map((x) => x.rowId))
+        const add = ids
+          .split(',')
+          .filter((id) => id && !have.has(id))
+          .map((rowId) => ({ boardId, rowId, force: true, skipRated: true }))
+        return [...q, ...add]
+      })
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev)
+        n.delete('puanla')
+        return n
+      },
+      { replace: true },
+    )
+  }, [puanla, setSearchParams])
 
   // Sıradaki kaydı yükle
   useEffect(() => {
@@ -52,6 +82,10 @@ export default function RatePrompt() {
         }
         // Önceden verilmiş puan varsa onunla açılsın (yeniden puanlama)
         const cur = row.values[puan.id]
+        if (next.skipRated && cur && typeof cur === 'object' && !Array.isArray(cur) && Object.keys(cur).length > 0) {
+          setQueue((q) => q.slice(1))
+          return
+        }
         setScores(cur && typeof cur === 'object' && !Array.isArray(cur) ? cur : {})
         setCtx({ board, row })
       })

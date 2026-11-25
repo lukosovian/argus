@@ -14,6 +14,9 @@ import { useEscape } from '../hooks/useEscape'
 import { useDialogFocus } from '../hooks/useDialogFocus'
 import { tt, ttx } from '../lib/i18n'
 import { useProfiles } from '../hooks/useProfiles'
+import HealthFixDeck, { HealthRing, type FixIssue } from './HealthFixDeck'
+import { MediaCleanupRow } from './settings/StorageCare'
+import { MOBILE } from '../lib/mobile/ui'
 
 const MAX_SHOWN = 40
 const collator = new Intl.Collator('tr', { sensitivity: 'base', numeric: true })
@@ -152,11 +155,21 @@ export default function HealthCheckModal({
   // olmayanlar "TMDB'de olmayan bilgiler"e geçer. Kullanıcı "eksik bilgisi olanları toplu yok sayma yok" dedi.
   const [recheck, setRecheck] = useState<{ done: number; total: number } | null>(null)
   const stopRecheck = useRef(false)
+  // H13: pencere kapanınca tarama arkada sürmesin — sıradaki kayda geçmeden durur
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      stopRecheck.current = true
+    }
+  }, [])
   async function recheckAll(list: Row[]) {
     stopRecheck.current = false
     setRecheck({ done: 0, total: list.length })
     let filled = 0
     let skipped = 0
+    let done = 0
     for (let i = 0; i < list.length; i++) {
       if (stopRecheck.current) break
       try {
@@ -166,10 +179,16 @@ export default function HealthCheckModal({
       } catch {
         /* tek kayıt hatası diğerlerini durdurmasın */
       }
-      setRecheck({ done: i + 1, total: list.length })
+      done = i + 1
+      if (mounted.current) setRecheck({ done, total: list.length })
+    }
+    notifyDataChanged(board.id)
+    if (!mounted.current) {
+      // Pencere kapatıldı: tarama durdu, ne kadarının bittiği söylensin
+      if (done < list.length) notify(tt('Sağlık Kontrolü kapatıldı, TMDB taraması durdu ({0}/{1}). {2} kayıt tamamlandı.', done, list.length, filled), 'success')
+      return
     }
     setRecheck(null)
-    notifyDataChanged(board.id)
     load(true)
     const parts = [filled ? tt('{0} kayıt TMDB\'den tamamlandı.', filled) : tt('TMDB\'de yeni bilgi çıkmadı.')]
     if (skipped) parts.push(tt('{0} kayıt hiç TMDB ile eşleşmemiş; onları kaydı açıp Güncelle ile eşleştirebilirsin.', skipped))
@@ -305,6 +324,155 @@ export default function HealthCheckModal({
     else ignoredByRow.set(x.row.id, { row: x.row, props: [x.prop] })
   }
 
+  // A21: "Tek tek düzelt" — bütün sorunlar tek tek kart olarak (bkz. HealthFixDeck)
+  const [deck, setDeck] = useState(false)
+  const posterProp = resolveRole(board, 'poster')
+  const posterOf = (r: Row) => {
+    const v = posterProp ? r.values[posterProp.id] : null
+    return typeof v === 'string' && v ? v : null
+  }
+  const guard = async (fn: () => Promise<unknown> | unknown) => {
+    try {
+      await fn()
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi'), 'danger')
+      throw e
+    }
+  }
+  const tmdbAgain = (row: Row) =>
+    guard(async () => {
+      const r = await api.fetchTmdb(board.id, row.id, [], false, { recheck: true })
+      if ((r as { skipped?: boolean }).skipped) notify(tt('Bu kayıt TMDB ile eşleşmemiş; kaydı açıp Güncelle ile eşleştirebilirsin.'))
+      else if (!r.filled?.length) notify(tt('TMDB\'de yeni bilgi çıkmadı.'))
+      notifyDataChanged(board.id)
+      load(true)
+    })
+  const todayYmd = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  const dateValue = (v: string) => (dateProp!.type === 'multidate' ? [v] : v)
+  const fixIssues: FixIssue[] = []
+  for (const g of dupGroups)
+    fixIssues.push({
+      key: `dup:${g.map((r) => r.id).join('|')}`,
+      row: g[0],
+      label: rowTitle(g[0]),
+      group: tt('Mükerrer kayıt'),
+      question: tt('Bu yapım {0} kez eklenmiş. Birleştirilsin mi?', g.length),
+      detail: g.map(rowSummary).join('  ·  vs  ·  '),
+      actions: [
+        { label: tt('Birleştir'), kind: 'primary', run: () => guard(() => merge(g[0], g)) },
+        {
+          label: tt('Bunlar farklı'),
+          run: () => {
+            onIgnoreDuplicate(g.map((r) => r.id))
+            setDuplicates((prev) => prev.filter((ids) => !ids.includes(g[0].id)))
+          },
+        },
+      ],
+    })
+  if (durumProp && dateProp) {
+    for (const row of [...watchedNoDate].sort((a, b) => collate(rowTitle(a), rowTitle(b))))
+      fixIssues.push({
+        key: `nodate:${row.id}`,
+        row,
+        label: rowTitle(row),
+        group: tt('Tarih yok'),
+        question: tt('Bu {0}, {1} ama ne zaman izlediğin yazmıyor.', kindOf(row).toLocaleLowerCase('tr') || tt('kayıt'), izlendiLabel),
+        actions: [
+          { label: tt('Bugün'), kind: 'primary', run: () => guard(() => onSetValues([{ rowId: row.id, values: { [dateProp.id]: dateValue(todayYmd()) } }])) },
+          { label: tt('Sadece yıl'), input: 'year', run: (y) => guard(() => onSetValues([{ rowId: row.id, values: { [dateProp.id]: dateValue(String(y)) } }])) },
+          { label: tt('Hatırlamıyorum'), kind: 'dashed', run: () => guard(() => onSetValues([unknownDate(row)])) },
+        ],
+      })
+    for (const row of [...todoWithDate].sort((a, b) => collate(rowTitle(a), rowTitle(b))))
+      fixIssues.push({
+        key: `todo:${row.id}`,
+        row,
+        label: rowTitle(row),
+        group: tt('Durum uyuşmuyor'),
+        question: tt('Durumu {0} ama izleme tarihi girilmiş: {1}', izlenecekLabel, datesOf(row).map((d) => formatEntry(d, fmtDay)).join(', ')),
+        actions: [{ label: tt('{0} yap', izlendiLabel), kind: 'primary', run: () => guard(() => onSetValues([markWatched(row)])) }],
+      })
+  }
+  for (const u of undated) {
+    const row = rowById(u.rowId)
+    if (!row) continue
+    const eps = u.seasons.reduce((n, s) => n + s.undated, 0)
+    const dates = datesOf(row)
+    const apply = (date: string) =>
+      guard(async () => {
+        const r = await api.dateEpisodes(board.id, [{ rowId: row.id }], date)
+        notify(tt('{0} bölüme tarih yazıldı', r.episodes), 'success')
+        notifyDataChanged(board.id)
+        load(true)
+      })
+    fixIssues.push({
+      key: `undated:${row.id}`,
+      row,
+      label: rowTitle(row),
+      group: tt('Tarihsiz bölümler'),
+      question: tt('Bu dizinin {0} bölümünün izleme tarihi yok.', eps),
+      detail: dates.length ? tt('Dizinin izleme tarihi: {0}', dates.map((d) => formatEntry(d, fmtDay)).join(', ')) : undefined,
+      actions: [
+        ...(dates.length ? [{ label: tt('Dizinin tarihinden'), kind: 'primary' as const, title: tt('Bölümler dizinin izleme tarihlerine yayılır'), run: () => apply('kayit') }] : []),
+        { label: tt('Sadece yıl'), input: 'year' as const, run: (y?: string) => apply(String(y)) },
+        { label: tt('Hatırlamıyorum'), kind: 'dashed' as const, run: () => apply('?') },
+      ],
+    })
+  }
+  for (const x of toFinale) {
+    const row = rowById(x.rowId)
+    if (!row) continue
+    fixIssues.push({
+      key: `finale:${row.id}`,
+      row,
+      label: rowTitle(row),
+      group: tt('Dizi durumu'),
+      question: x.to === 'final' ? tt('Dizi bitmiş: Final olarak işaretlensin mi?') : tt('Dizi sürüyor: Sezon Finali olarak işaretlensin mi?'),
+      actions: [
+        {
+          label: tt('Geçir'),
+          kind: 'primary',
+          run: () =>
+            guard(async () => {
+              await api.seriesToFinale(board.id, [row.id])
+              notifyDataChanged(board.id)
+              load(true)
+            }),
+        },
+      ],
+    })
+  }
+  for (const row of [...incompleteRows].sort((a, b) => collate(rowTitle(a), rowTitle(b)))) {
+    const miss = missingFields(row)
+    fixIssues.push({
+      key: `eksik:${row.id}`,
+      row,
+      label: rowTitle(row),
+      group: tt('Eksik bilgi'),
+      question: tt('Eksik: {0}', miss.map((p) => p.name).join(', ')),
+      actions: [
+        { label: tt('TMDB\'de bak'), kind: 'primary', run: () => tmdbAgain(row) },
+        { label: tt('Kaydı aç'), stay: true, run: () => onOpenRow(row) },
+        { label: tt('Bir daha sorma'), kind: 'dashed', run: () => onIgnoreMany(miss.map((p) => ({ rowId: row.id, propertyId: p.id }))) },
+      ],
+    })
+  }
+  for (const row of [...missingImageRows].sort((a, b) => collate(rowTitle(a), rowTitle(b))))
+    fixIssues.push({
+      key: `gorsel:${row.id}`,
+      row,
+      label: rowTitle(row),
+      group: tt('Görsel yok'),
+      question: tt('Bu kaydın hiç görseli yok.'),
+      actions: [
+        { label: tt('TMDB\'den getir'), kind: 'primary', run: () => tmdbAgain(row) },
+        { label: tt('Kaydı aç'), stay: true, run: () => onOpenRow(row) },
+      ],
+    })
+
   return (
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={tt('Sağlık Kontrolü')} className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-sm flex items-start justify-center px-4 py-10 overflow-y-auto" onClick={onClose}>
       <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -333,20 +501,26 @@ export default function HealthCheckModal({
           ).size
           const healthy = rows.length ? Math.round(((rows.length - problem) / rows.length) * 100) : 100
           return (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 mb-5">
-              <div className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="text-neutral-400">
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 mb-5 flex items-center gap-4">
+              <HealthRing pct={healthy} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-neutral-100">{ttx('Arşivin %{0} sağlıklı', healthy)}</p>
+                <p className="text-xs text-neutral-400 mt-0.5">
                   {ttx('{0} kayıt ·', rows.length)}{' '}{problem > 0 ? <span className="text-amber-400">{ttx('{0} tanesinde sorun var', problem)}</span> : <span className="text-emerald-400">{tt('sorun yok')}</span>}
-                </span>
-                <span className="text-neutral-100 font-semibold tabular-nums">{ttx('%{0} sağlıklı', healthy)}</span>
+                </p>
               </div>
-              <div className="h-1.5 rounded-full bg-neutral-800 mt-2.5 overflow-hidden">
-                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${healthy}%` }} />
-              </div>
+              {!deck && fixIssues.length > 0 && (
+                <button onClick={() => setDeck(true)} className="shrink-0 rounded-lg bg-[#00c0fa] px-3.5 py-2 text-sm font-semibold text-black hover:bg-[#33ccfb] transition" title={tt('Sorunlar tek tek kart olarak sorulur')}>
+                  {tt('Düzeltmeye başla')}
+                </button>
+              )}
             </div>
           )
         })()}
 
+        {deck ? (
+          <HealthFixDeck issues={fixIssues} poster={posterOf} onOpenRow={onOpenRow} onExit={() => setDeck(false)} />
+        ) : (
         <div className="space-y-3">
           <DuplicateSection
             groups={dupGroups}
@@ -670,7 +844,16 @@ export default function HealthCheckModal({
             onOpenRow={onOpenRow}
           />
           <OrphanSection />
+          {/* v1.26 (Y9): medya klasöründeki sahipsiz görseller — sadece PC'de (telefondan temizlenemez) */}
+          {!MOBILE && (
+            <div className="border border-neutral-800 rounded-xl px-4 py-3">
+              <h3 className="text-sm font-semibold text-neutral-50">{tt('Kullanılmayan görseller')}</h3>
+              <p className="text-xs text-neutral-500 mt-0.5 mb-2">{tt('Silinen kayıtlardan ya da değişen afişlerden kalan görseller. Temizlenenler 30 gün çöp klasöründe bekler.')}</p>
+              <MediaCleanupRow compact />
+            </div>
+          )}
         </div>
+        )}
       </div>
     </div>
   )

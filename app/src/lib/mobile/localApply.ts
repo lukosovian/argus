@@ -192,6 +192,8 @@ export async function applyOffline(op: QueuedOp): Promise<OfflineResult | null> 
           if (!(k in v)) continue
           const val = (v as Record<string, unknown>)[k]
           if (val === null || val === '') delete merged[k]
+          // Y14: telefonda çekilen bilet fotoğrafı (data:image/...) kesilmesin; PC'ye gidince dosyaya çevrilir
+          else if ((k === 'front' || k === 'back') && typeof val === 'string' && val.startsWith('data:image/')) merged[k] = val
           else merged[k] = String(val).slice(0, k === 'note' ? 600 : 400)
         }
         if (!merged.createdAt) merged.createdAt = Date.now()

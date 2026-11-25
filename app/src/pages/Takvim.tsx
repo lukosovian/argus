@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { searchFold } from '../lib/search'
 import MobileMonth from '../components/mobile/MobileMonth'
 import { MOBILE } from '../lib/mobile/ui'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -13,7 +14,7 @@ import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { resolveRole, resolveStatusOption, isWatchedStatus } from '../lib/roles'
 import { rowMatchesConditions, type FilterCondition } from '../lib/filters'
 import { episodeKey, titleText, type Board, type EpisodesMap, type Row, type WatchedMap } from '../types'
-import { entryEnd, entryTouches, isFullDate, makeEntry, parseEntry, toEntries } from '../lib/dateRange'
+import { entryEnd, entryTouches, isFullDate, isUnknownDate, isYearOnly, makeEntry, parseEntry, toEntries } from '../lib/dateRange'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import Select from '../components/Select'
 import MultiFilterEditor from '../components/MultiFilterEditor'
@@ -103,11 +104,14 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
     if (dateProp) {
       const v = row.values[dateProp.id]
       // Günü bilinmeyenler ("2019", "?") takvimde gösterilmez (bkz. lib/dateRange.ts).
-      const dates = (Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []).filter(isFullDate).slice().sort()
+      const allDates = Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []
+      const dates = allDates.filter(isFullDate).slice().sort()
+      // İlk izlemesi sadece yılı bilinen ("2019") bir filmin sonraki tam tarihli izlemesi de tekrar izlemedir
+      const yearOnlyBefore = (d: string) => allDates.some((x) => /^\d{4}$/.test(x) && x < d.slice(0, 4))
       // Dizilerde birden fazla tarih genelde başlama/bitirme ya da sezonlar — tekrar izleme sayılmıyor.
       const series = (episodes[row.id]?.length ?? 0) > 0 || /dizi/i.test(kategoriProp?.options?.find((o) => o.id === row.values[kategoriProp.id])?.label ?? '')
       dates.forEach((entry, i) => {
-        const rewatch = i > 0 && !series
+        const rewatch = (i > 0 || yearOnlyBefore(entry)) && !series
         const { start, end } = parseEntry(entry)
         // Aralık (başladım → bitirdim): başladığın gün "Başladın", bitirdiğin gün "Bitirdin".
         const parts: { d: string; part: 'single' | 'start' | 'end'; sub: string }[] = end
@@ -133,7 +137,8 @@ function buildEvents(board: Board, rows: Row[], watched: WatchedMap, episodes: E
       for (const [k, ds] of Object.entries(seen)) {
         const [s, e] = k.split('-').map(Number)
         for (const d of ds ?? []) {
-          if (!d) continue
+          // Günü bilinmeyen bölüm tikleri ("?", "2019") takvimde bir güne konmaz
+          if (!d || !isFullDate(d)) continue
           const list = perDay.get(d) ?? []
           list.push([s, e])
           perDay.set(d, list)
@@ -524,6 +529,40 @@ export default function Takvim() {
           year={year}
           today={today}
           byDay={byDay}
+          shelf={
+            <UndatedShelf
+              board={board}
+              rows={filteredRows}
+              year={year}
+              today={today}
+              onOpenRow={setDetailRow}
+              onSave={async (row, entry, day) => {
+                const dateProp = resolveRole(board, 'izlemeTarihi')
+                if (!dateProp) return false
+                try {
+                  // En güncel hali: arada başka bir yerde değiştiyse ezilmesin
+                  const fresh = (await api.getRows(board.id)).find((r) => r.id === row.id) ?? row
+                  const list = toEntries(fresh.values[dateProp.id])
+                  const i = list.indexOf(entry)
+                  if (i < 0) {
+                    notify(tt('Bu izleme bu arada değişmiş; sayfayı yenileyip tekrar dene.'), 'danger')
+                    return false
+                  }
+                  const next = [...list]
+                  next[i] = day
+                  const values = { ...fresh.values, [dateProp.id]: dateProp.type === 'multidate' ? next.sort() : day }
+                  await saveRow({ values, createdAt: fresh.createdAt, updatedAt: Date.now() }, fresh.id, fresh.values)
+                  notifyDataChanged(board.id)
+                  const tp = board.properties.find((p) => p.id === board.titlePropertyId)
+                  notify(tt('"{0}" {1} tarihine yerleşti.', tp ? titleText(tp, row.values[tp.id]) : tt('Kayıt'), dateOnly(day)), 'success')
+                  return true
+                } catch (e) {
+                  notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
+                  return false
+                }
+              }}
+            />
+          }
           onYear={(y) => go({ ay: `${y}-${String(month + 1).padStart(2, '0')}` })}
           onToday={() => go({ ay: today.slice(0, 7) })}
           onPickDay={(d) => {
@@ -1199,10 +1238,13 @@ function YearView({
   onYear,
   onPickDay,
   onToday,
+  shelf,
 }: {
   year: number
   today: string
   byDay: Map<string, CalEvent[]>
+  // Ayların altında "günü bilinmeyenler" rafı (v1.26, A13)
+  shelf?: React.ReactNode
   onYear: (y: number) => void
   onPickDay: (d: string) => void
   // Bu yıla (bugünün ayına) dön — ay görünümündeki "Bugün" gibi (kullanıcı "yıl görünümünde yok" dedi)
@@ -1317,7 +1359,152 @@ function YearView({
         ))}
         {tt('Çok · Bir güne tıklayınca o ayın takviminde açılır.')}
       </div>
+      {shelf}
     </div>
+  )
+}
+
+// ---- Günü bilinmeyenler rafı (v1.26, A13) ------------------------------------------------------
+// İzleme tarihi sadece yıl ("2019") ya da hiç bilinmiyor ("?") diye girilenler takvimde bir güne konamıyor; o yıl ne
+// izlediğinin bir kısmı kayıp gibi duruyordu. Yıl görünümünün altında küçük afişlerle listelenir; birine tıklayınca
+// gün verilebilir (o izleme o güne taşınır) ya da kaydın detayı açılır. "?" olanlar ayrı bir düğmeyle açılır.
+type UndatedItem = { row: Row; entry: string; n: number }
+function UndatedShelf({
+  board,
+  rows,
+  year,
+  today,
+  onOpenRow,
+  onSave,
+}: {
+  board: Board
+  rows: Row[]
+  year: number
+  today: string
+  onOpenRow: (row: Row) => void
+  onSave: (row: Row, entry: string, day: string) => Promise<boolean>
+}) {
+  const [showUnknown, setShowUnknown] = useState(false)
+  const [picked, setPicked] = useState<UndatedItem | null>(null)
+  const [day, setDay] = useState('')
+  const [busy, setBusy] = useState(false)
+  const dateProp = resolveRole(board, 'izlemeTarihi')
+  const posterProp = resolveRole(board, 'poster')
+  const coverProp = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+  const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const { inYear, unknown } = useMemo(() => {
+    const inYear: UndatedItem[] = []
+    const unknown: UndatedItem[] = []
+    if (!dateProp) return { inYear, unknown }
+    const y = String(year)
+    for (const row of rows) {
+      toEntries(row.values[dateProp.id]).forEach((e, n) => {
+        if (isYearOnly(e) && e === y) inYear.push({ row, entry: e, n })
+        else if (isUnknownDate(e)) unknown.push({ row, entry: e, n })
+      })
+    }
+    return { inYear, unknown }
+  }, [rows, dateProp, year])
+  // Yıl değişince açık seçim kapansın; ?gun=… gibi #gunu-bilinmeyenler ile gelinince rafa kaydır
+  useEffect(() => {
+    setPicked(null)
+    setShowUnknown(false)
+  }, [year])
+  useEffect(() => {
+    if (window.location.hash !== '#gunu-bilinmeyenler') return
+    // Bu yılda yıllık izleme yoksa ama tarihi hiç bilinmeyenler varsa doğrudan onlar açılsın
+    if (inYear.length === 0 && unknown.length > 0) setShowUnknown(true)
+    const t = setTimeout(() => document.getElementById('gunu-bilinmeyenler')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (!dateProp || (inYear.length === 0 && unknown.length === 0)) return null
+  const list = showUnknown ? unknown : inYear
+  const name = (r: Row) => (titleProp ? titleText(titleProp, r.values[titleProp.id]) : '')
+  const img = (r: Row) => (posterProp && (r.values[posterProp.id] as string)) || (coverProp && (r.values[coverProp.id] as string)) || ''
+  const yearStart = `${year}-01-01`
+  const yearEnd = `${year}-12-31` < today ? `${year}-12-31` : today
+  function pick(it: UndatedItem) {
+    if (picked && picked.row.id === it.row.id && picked.n === it.n) return setPicked(null)
+    setPicked(it)
+    setDay('')
+  }
+  async function save() {
+    if (!picked || !day || busy) return
+    setBusy(true)
+    const ok = await onSave(picked.row, picked.entry, day)
+    setBusy(false)
+    if (ok) setPicked(null)
+  }
+
+  return (
+    <section id="gunu-bilinmeyenler" className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 scroll-mt-24">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <h3 className="text-sm font-semibold text-neutral-100">
+          {showUnknown
+            ? tt('Tarihi hiç bilinmeyen {0} izleme', unknown.length)
+            : inYear.length
+              ? tt('{0} yılında, günü bilinmeyen {1} izleme', year, inYear.length)
+              : tt('{0} yılında günü bilinmeyen izleme yok', year)}
+        </h3>
+        {list.length > 0 && <span className="text-xs text-neutral-500">{tt('Birine tıkla, hatırlıyorsan gününü ver — takvime yerleşsin.')}</span>}
+        <span className="flex-1" />
+        {unknown.length > 0 && (
+          <button
+            onClick={() => {
+              setShowUnknown((v) => !v)
+              setPicked(null)
+            }}
+            className={`text-xs rounded-full border px-3 py-1 transition ${showUnknown ? 'border-[#00c0fa]/60 bg-[#00c0fa]/15 text-neutral-50' : 'border-neutral-700 text-neutral-400 hover:text-neutral-100'}`}
+          >
+            {showUnknown ? tt('{0} yılına dön', year) : tt('Yılı da bilinmeyenler ({0})', unknown.length)}
+          </button>
+        )}
+      </div>
+      {list.length > 0 && (
+        <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1">
+          {list.map((it) => {
+            const on = picked?.row.id === it.row.id && picked.n === it.n
+            const src = img(it.row)
+            return (
+              <button
+                key={`${it.row.id}:${it.n}`}
+                onClick={() => pick(it)}
+                title={name(it.row)}
+                className={`relative w-[72px] shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 transition ${on ? 'ring-2 ring-[#00c0fa] ring-offset-2 ring-offset-neutral-900' : 'hover:brightness-110'}`}
+              >
+                {src ? (
+                  <img src={src} alt={name(it.row)} loading="lazy" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center p-1 text-center text-[10px] text-neutral-400">{name(it.row)}</span>
+                )}
+                <span className="absolute bottom-1 left-1 text-[9px] font-semibold bg-black/75 text-neutral-200 rounded px-1">{it.entry}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {picked && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-950/60 p-2.5">
+          <span className="min-w-0 flex-1 basis-40 text-sm text-neutral-100 truncate">{name(picked.row)}</span>
+          <input
+            type="date"
+            value={day}
+            min={picked.entry === '?' ? undefined : yearStart}
+            max={picked.entry === '?' ? today : yearEnd}
+            onChange={(e) => setDay(e.target.value)}
+            aria-label={tt('İzlediğin gün')}
+            className="rounded-lg bg-neutral-900 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]"
+          />
+          <button onClick={save} disabled={!day || busy} style={primaryButtonStyle} className={`text-sm px-3.5 py-1.5 rounded-lg disabled:opacity-50 ${PRIMARY_BUTTON}`}>
+            {busy ? tt('Kaydediliyor…') : tt('Bu güne yerleştir')}
+          </button>
+          <button onClick={() => onOpenRow(picked.row)} className="text-sm px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-300 hover:border-neutral-500 transition">
+            {tt('Detayı aç')}
+          </button>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -1385,8 +1572,7 @@ function DayPanel({
   const dateProp = resolveRole(board, 'izlemeTarihi')
   const hasDurum = Boolean(resolveRole(board, 'durum') && resolveStatusOption(board, 'izlendi'))
   const canAdd = date <= today
-  const norm = (s: string) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i')
-  const results = q.trim() ? rows.filter((r) => norm(look.title(r)).includes(norm(q.trim()))).slice(0, 8) : []
+  const results = q.trim() ? rows.filter((r) => searchFold(look.title(r)).includes(searchFold(q.trim()))).slice(0, 8) : []
   const seasonsOf = (r: Row) => (episodes[r.id] ?? []).filter((s) => s.seasonNumber > 0 && s.episodes.length > 0)
 
   useEscape(true, () => {

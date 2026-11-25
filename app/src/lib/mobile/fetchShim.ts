@@ -5,7 +5,7 @@
 //     (bkz. localApply.ts); diğerleri "PC'ye bağlıyken yapılabilir" diye reddedilir.
 import { cacheGet, cacheSet, queueAdd, shouldCache, withLock, type QueuedOp } from './store'
 import { applyOffline } from './localApply'
-import { NetworkError, getConfig, getState, markOffline, pcRequest, refreshPending, sendOp, storeFromPc, syncNow } from './connection'
+import { NetworkError, getConfig, getState, markOffline, noteSkipped, pcRequest, readViaDelta, refreshPending, sendOp, storeFromPc, syncNow } from './connection'
 import { tt } from '../i18n'
 
 function jsonResponse(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -47,7 +47,14 @@ const EMPTY_DEFAULTS: [RegExp, unknown][] = [
 async function handleGet(path: string): Promise<Response> {
   if (getState().status === 'online') {
     try {
+      const viaDelta = await readViaDelta(path)
+      if (viaDelta !== undefined) return jsonResponse(viaDelta)
       const r = await pcRequest(path)
+      // PC dosyayı o an okuyamadı (503, bkz. server/sync.js guardUnreadable): telefondaki kopya gösterilir
+      if (r.status >= 500) {
+        const kept = await cacheGet(path)
+        if (kept !== undefined) return jsonResponse(kept)
+      }
       if (r.status === 200 && r.data !== undefined && shouldCache(path)) {
         // PC'ye henüz gitmemiş değişiklik varsa PC'nin kopyası onların üstüne yazılmasın (bkz. storeFromPc)
         if (getState().pending > 0) return jsonResponse(await storeFromPc(path, r.data), r.status, pickHeaders(r.headers))
@@ -81,6 +88,8 @@ async function handleWrite(method: string, path: string, body: BodyInit | null |
   const direct = async (): Promise<Response | null> => {
     try {
       const r = await sendOp(op)
+      // PC'de daha yeni hali olduğu için uygulanmayan kısım varsa Bekleyen değişiklikler'e yazılır
+      if (r.status < 400) await noteSkipped(op, r).catch(() => {})
       return jsonResponse(r.data, r.status, pickHeaders(r.headers))
     } catch (e) {
       if (!(e instanceof NetworkError)) throw e

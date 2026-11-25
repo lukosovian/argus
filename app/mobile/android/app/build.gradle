@@ -47,6 +47,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // G4 arka plan eşitlemesi, Y24 parmak izi, A8 kare kod okuyucu (Google Play Hizmetleri)
+    implementation 'androidx.work:work-runtime:2.10.1'
+    implementation 'androidx.biometric:biometric:1.1.0'
+    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

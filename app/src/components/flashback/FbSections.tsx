@@ -709,7 +709,9 @@ export function NextGoal({ year, done }: { year: string; done: number }) {
   const saved = settings.yearGoalNext?.year === next ? settings.yearGoalNext.n : null
   const [n, setN] = useState(saved ?? Math.max(10, Math.ceil((done * 1.1) / 5) * 5))
   // Bu yıl için geçen yıldan konmuş bir hedef varsa: tuttu mu?
-  const mine = settings.yearGoalNext?.year === year ? settings.yearGoalNext.n : null
+  // Bu yılın hedefi İstatistikler'deki halkaya (yearGoal) taşındıysa da görünsün
+  const curYear = String(new Date().getFullYear())
+  const mine = settings.yearGoalNext?.year === year ? settings.yearGoalNext.n : year === curYear && settings.yearGoal ? settings.yearGoal : null
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
       {mine !== null ? (
@@ -740,7 +742,10 @@ export function NextGoal({ year, done }: { year: string; done: number }) {
         <p className="text-xs text-neutral-500 mb-3">{tt('Ayda yaklaşık {0}', (n / 12).toFixed(1).replace('.', ','))}</p>
         <button
           onClick={() => {
-            saveSettings({ ...settings, yearGoalNext: { year: next, n } })
+            // Tek bir 'gelecek yıl' yuvası var: içindeki hedef bu yılınsa (halkada hâlâ kullanılıyor) önce halkaya taşınır,
+            // yoksa seneye hedef konunca bu yılın hedefi kayboluyordu
+            const keep = settings.yearGoalNext?.year === curYear ? { yearGoal: settings.yearGoalNext.n } : {}
+            saveSettings({ ...settings, ...keep, yearGoalNext: { year: next, n } })
             notify(tt('{0} hedefin kaydedildi: {1} yapım.', next, n), 'success')
           }}
           className="rounded-full px-5 py-2 text-sm font-bold text-white"

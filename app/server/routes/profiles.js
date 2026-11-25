@@ -27,6 +27,9 @@ app.put('/api/profiles/:id', (req, res) => {
 })
 
 app.delete('/api/profiles/:id', (req, res) => {
+  // Profil silme (bütün arşivleriyle) sadece PC'deki ARGUS'tan (H2) — telefonun isteği eşleştirme anahtarıyla gelir
+  // (bkz. sync.js checkRemote, req.argusDevice).
+  if (req.argusDevice) return res.status(403).json({ error: stt('Bu işlem sadece PC\'deki ARGUS\'tan yapılabilir.') })
   const profiles = readProfiles().filter((p) => p.id !== req.params.id)
   writeJson(PROFILE_FILE, profiles)
   const dir = path.join(PROFILES_DIR, req.params.id)

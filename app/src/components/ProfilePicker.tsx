@@ -82,6 +82,25 @@ function morphFrom(el: HTMLElement | null, photo: string, name: string, done: ()
 export const PROFILE_SWITCH_EVENT = 'argus-profil-gecis'
 const LEAVE_MS = 450
 
+// Bu profile geçmeden önce PIN sorulacak mı? (bkz. useProfiles: bu oturumda bir kez açılan bir daha sorulmaz)
+// Sorulacaksa geçiş perdesi/animasyonu şimdi oynatılmaz — PIN'den vazgeçilince hiçbir şey olmamalı (v1.26, H12).
+// PIN doğru girilince perdeyi useProfiles kendisi oynatır.
+export function needsPin(profiles: Profile[], id: string, activeId: string | null): boolean {
+  const p = profiles.find((x) => x.id === id)
+  if (!p?.pin || id === activeId) return false
+  try {
+    return sessionStorage.getItem('argus_pin_ok_' + id) !== '1'
+  } catch {
+    return true
+  }
+}
+
+// Profil değiştir: PIN gerekmiyorsa perde + geçiş, gerekiyorsa sadece PIN ekranı
+export function switchProfile(profiles: Profile[], id: string, activeId: string | null, setActive: (id: string) => void) {
+  if (!needsPin(profiles, id, activeId)) window.dispatchEvent(new Event(PROFILE_SWITCH_EVENT))
+  setActive(id)
+}
+
 function PencilIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
@@ -104,8 +123,27 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
   // Seçilen profil: kutusu hafifçe büyür, ekran kararır, sonra uygulama karanlıktan belirir (bkz. App.tsx ProfileCurtain)
   const [leaving, setLeaving] = useState<string | null>(null)
 
+  // Kilitli profil seçildi, PIN bekleniyor: doğru girilince (aktif profil o olunca) ekran kapanır; vazgeçilirse
+  // hiçbir şey olmaz — perde inmez, ekran kapanmaz, "son seçilen profil" de değişmez (v1.26, H12)
+  const [pinFor, setPinFor] = useState<string | null>(null)
+  useEffect(() => {
+    if (!pinFor || activeProfileId !== pinFor) return
+    setPinFor(null)
+    try {
+      localStorage.setItem(LAST_PROFILE_KEY, pinFor)
+    } catch {
+      /* önemli değil */
+    }
+    onClose?.()
+  }, [activeProfileId, pinFor, onClose])
+
   function pick(id: string) {
     if (managing || leaving) return
+    if (needsPin(profiles, id, activeProfileId)) {
+      setPinFor(id)
+      setActiveProfileId(id)
+      return
+    }
     try {
       localStorage.setItem(LAST_PROFILE_KEY, id)
     } catch {
@@ -240,7 +278,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
           profile={editing === 'new' ? undefined : editing}
           onSave={handleSave}
           onCancel={() => setEditing(null)}
-          onDelete={editing !== 'new' && profiles.length > 1 ? handleDelete : undefined}
+          onDelete={!MOBILE && editing !== 'new' && profiles.length > 1 ? handleDelete : undefined}
         />
       )}
     </>
@@ -263,7 +301,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
             profile={editing === 'new' ? undefined : editing}
             onSave={handleSave}
             onCancel={() => setEditing(null)}
-            onDelete={editing !== 'new' && profiles.length > 1 ? handleDelete : undefined}
+            onDelete={!MOBILE && editing !== 'new' && profiles.length > 1 ? handleDelete : undefined}
           />
         )}
       </MobilePicker>
@@ -292,7 +330,7 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
           profile={editing === 'new' ? undefined : editing}
           onSave={handleSave}
           onCancel={() => setEditing(null)}
-          onDelete={editing !== 'new' && profiles.length > 1 ? handleDelete : undefined}
+          onDelete={!MOBILE && editing !== 'new' && profiles.length > 1 ? handleDelete : undefined}
         />
       )}
     </DesktopPicker>

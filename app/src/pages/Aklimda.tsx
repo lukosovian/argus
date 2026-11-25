@@ -91,7 +91,8 @@ export default function Aklimda() {
       const v = sure && e.row ? e.row.values[sure.id] : undefined
       return typeof v === 'number' && v > 0 ? v : Infinity
     }
-    return [...base].sort((a, b) => min(a) - min(b))
+    // İkisinin de süresi bilinmiyorsa (Infinity - Infinity = NaN) sıra bozulmasın, eklenme sırası kalsın
+    return [...base].sort((a, b) => (min(a) === min(b) ? 0 : min(a) - min(b)))
   }, [all, filter, sort, board])
 
   async function remove(e: AklimdaEntry) {

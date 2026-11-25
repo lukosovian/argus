@@ -15,8 +15,18 @@ async function bootMobile(): Promise<'pair' | 'app' | null> {
   installFetchShim()
   import('./lib/mobile/backButton').then((m) => m.installBackButton())
   import('./lib/mobile/systemBars').then((m) => m.installSystemBars())
-  if (!getConfig()) return 'pair'
+  // Telefonun kendi özellikleri: ana ekran kutusu, telefon bildirimleri, paylaş menüsü, kısayollar, arka plan eşitlemesi
+  const nf = await import('./lib/mobile/nativeFeatures')
+  // H18: Android 17+ ev ağı izni — PC aranmadan önce
+  await nf.ensureLocalNetwork()
+  if (!getConfig()) {
+    nf.initNativeFeatures('pair')
+    return 'pair'
+  }
+  // Arka plan işi PC'yi yeni bir adreste bulduysa eski adreste beklenmesin (G4)
+  await nf.adoptBackgroundHost()
   startConnection()
+  nf.initNativeFeatures('app')
   return 'app'
 }
 

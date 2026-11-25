@@ -204,7 +204,8 @@ function safeReaddir(dir) {
 }
 
 // En eskiden başlayarak (günlük haller, sonra eski ay log'ları) sınırın %90'ının altına inene kadar sil.
-function trimOldest(limit) {
+// Disk dolmak üzereyken (v1.26, Y8) "eski geçmişi sil" de bunu kullanıyor (bkz. routes/care.js).
+export function trimOldest(limit) {
   const target = limit * 0.9
   const items = []
   for (const prof of safeReaddir(PROFILES_DIR)) {
@@ -338,6 +339,8 @@ export function registerHistoryRoutes(app) {
   app.post('/api/profiles/:profileId/history/:boardId/restore-day', (req, res) => {
     const { profileId, boardId } = req.params
     const day = String(req.body?.day ?? '')
+    // Gün adı klasör yoluna giriyor ("2026-11-20" ya da "2026-11-20_donus-oncesi-1430") — "../" ile başka yere çıkılamasın
+    if (!/^\d{4}-\d{2}-\d{2}[\w-]*$/.test(day)) return res.status(400).json({ error: stt('O günün kaydı yok') })
     const dir = path.join(histDir(profileId, boardId), 'snap', day)
     const rows = readJson(path.join(dir, 'rows.json'), null)
     if (!rows) return res.status(404).json({ error: stt('O günün kaydı yok') })

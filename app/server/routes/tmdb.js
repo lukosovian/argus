@@ -9,6 +9,7 @@ import { TMDB_IMG_BASE, archiveLookup, buildArchiveIndex, downloadTmdbImage, ens
 import { profileWatchTimesFile } from '../watchLogic.js'
 import { addRowFromTmdb, fillRowFromTmdb } from '../fill.js'
 import { checkFinishedSeries, profileWatchStateFile } from '../jobs/watchlist.js'
+import { adultTmdbKeys, isKid, omitHiddenKeys } from '../kid.js'
 
 app.post('/api/profiles/:profileId/fetch-tmdb/:boardId/:rowId', async (req, res) => {
   const { profileId, boardId, rowId } = req.params
@@ -133,7 +134,12 @@ app.get('/api/profiles/:profileId/tmdb-releases/:boardId', async (req, res) => {
     }
     const loaded = loadBoardAndRows(profileId, boardId)
     const look = loaded ? archiveLookup(profileId, loaded.board, loaded.rows) : (c) => c
-    res.json({ items: cached.items.map((c) => ({ ...look(c), releaseDate: c.releaseDate })) })
+    let items = cached.items
+    if (isKid(profileId)) {
+      const adult = await adultTmdbKeys(items.map((c) => ({ mediaType: 'movie', id: c.tmdbId })), apiKey, { strict: true })
+      items = items.filter((c) => !adult.has(`movie:${c.tmdbId}`))
+    }
+    res.json({ items: items.map((c) => ({ ...look(c), releaseDate: c.releaseDate })) })
   } catch (e) {
     console.error('vizyon hata:', e)
     res.json({ items: [] })
@@ -502,13 +508,22 @@ app.post('/api/profiles/:profileId/tmdb-discover/:boardId', async (req, res) => 
       const total = Math.max(1, Math.min(sort === 'any' ? 150 : sort === 'popular' ? 50 : 40, first?.total_pages ?? 1))
       pages = Array.from({ length: total }, (_, i) => i + 1).sort(() => Math.random() - 0.5)
     }
+    // Çocuk profili: yaş sınırı 13+ olanlar (ve yaş sınırı bilinmeyenler) Keşfet'te / Ne İzlesem'de de gelmez (bkz. kid.js);
+    // filmlerde TMDB'ye de baştan "en çok PG" denir ki sayfalar boşa gitmesin
+    const kid = isKid(profileId)
+    if (kid && type === 'movie') {
+      params.certification_country = 'US'
+      params['certification.lte'] = 'PG'
+    }
     for (const page of pages) {
       if (out.length >= count) break
       const data = await tmdbGet(`/discover/${type}`, { ...params, page }, apiKey)
       const results = data?.results ?? []
+      const adult = kid ? await adultTmdbKeys(results.map((r) => ({ mediaType: type, id: r.id })), apiKey, { strict: true }) : null
       for (const r of results) {
         const card = toCard(r, type)
         const key = tmdbKey(card.mediaType, card.tmdbId)
+        if (adult?.has(`${type}:${r.id}`)) continue
         if (seen.has(key) || dismissed.has(key) || skip.has(key) || index.has(card)) continue
         seen.add(key)
         out.push(card)
@@ -727,7 +742,7 @@ app.get('/api/profiles/:profileId/show-status', (req, res) => {
   const refs = readJson(profileTmdbFile(req.params.profileId), {})
   const out = {}
   for (const [rowId, r] of Object.entries(refs)) if (r?.show) out[rowId] = r.show
-  res.json(out)
+  res.json(omitHiddenKeys(req.params.profileId, out))
 })
 
 app.get('/api/profiles/:profileId/new-episodes/:boardId', async (req, res) => {

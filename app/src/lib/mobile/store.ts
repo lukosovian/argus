@@ -11,6 +11,9 @@ export interface QueuedOp {
   method: string
   path: string
   body?: string
+  // "Telefondakini kullan" (bkz. connection › applySkippedFromPhone): yapıldığı an gönderilmez, PC'deki daha yeni
+  // değer olsa da uygulanır
+  force?: boolean
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null

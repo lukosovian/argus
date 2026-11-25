@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type Bilet, type BiletData } from './api'
-import { resolveRole } from './roles'
-import { titleText, type Board, type Row } from '../types'
+import { isWatchedStatus, resolveRole, resolveStatusOption } from './roles'
+import { entryEnd, isFullDate, isUnknownDate, isYearOnly } from './dateRange'
+import { notifyDataChanged } from './dataEvents'
+import { titleText, todayIso, type Board, type PropertyValue, type Row } from '../types'
 import { useProfiles } from '../hooks/useProfiles'
 import { locale } from './i18n'
 
@@ -61,6 +63,38 @@ export async function saveBilet(id: string, b: Partial<Record<keyof Bilet, strin
   const d = await api.saveBiletler({ [id]: b })
   window.dispatchEvent(new Event(BILET_EVENT))
   return d
+}
+
+// Kullanıcı "bugün tarihli bilet girdim, izlendi yazması, puan sorması gerekmez mi; o tarihte zaten izlenmişse yazmasın"
+// dedi: bilet arşivdeki bir yapıma bağlıysa ve tarihi geçmişte/bugünse, o gün izleme tarihlerine eklenir ve durum
+// İzlendi olur. Puan sorusu sunucudan gelir (İzlendi'ye geçip puanı boşsa). O gün zaten yazılıysa hiçbir şey yapılmaz.
+export async function markBiletWatched(b: Bilet): Promise<'eklendi' | 'tekrar' | null> {
+  const date = b.date?.slice(0, 10)
+  if (!b.rowId || !b.boardId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayIso()) return null
+  const [boards, rows] = await Promise.all([api.getBoards(), api.getRows(b.boardId)])
+  const board = boards.find((x) => x.id === b.boardId)
+  const row = rows.find((x) => x.id === b.rowId)
+  const tarihProp = board && resolveRole(board, 'izlemeTarihi')
+  if (!board || !row || !tarihProp) return null
+  const cur = row.values[tarihProp.id]
+  const list = Array.isArray(cur) ? (cur as string[]) : typeof cur === 'string' && cur ? [cur] : []
+  if (list.some((d) => d.slice(0, 10) === date || entryEnd(d) === date)) return null
+  // Tek tarihli sütunda en son izleme kalır; '?' ya da sadece yıl yazılıysa biletin tam tarihi onun yerine geçer.
+  // (Eskiden tarih kontrolündeki yazım hatası yüzünden bu fonksiyon hiçbir bilette çalışmıyordu.)
+  // Çoklu tarihte de (H5): "?" (hatırlamıyorum) ya da biletin yılıyla aynı "sadece yıl" izleme büyük ihtimalle bu
+  // izlemedir — yanına ikinci bir izleme eklemek yerine onun yerine biletin günü yazılır (izleme sayısı şişmesin).
+  const approxAt = list.findIndex((d) => isUnknownDate(d) || (isYearOnly(d) && d === date.slice(0, 4)))
+  const base = approxAt >= 0 ? list.filter((_, j) => j !== approxAt) : list
+  const patch: Record<string, PropertyValue> = {
+    [tarihProp.id]: tarihProp.type === 'multidate' ? [...base, date].sort() :
+      list.length && isFullDate(list[0]) && entryEnd(list[0]) > date ? list[0] : date,
+  }
+  const durumProp = resolveRole(board, 'durum')
+  const izlendi = resolveStatusOption(board, 'izlendi')
+  if (durumProp && izlendi && !isWatchedStatus(board, row.values[durumProp.id])) patch[durumProp.id] = izlendi
+  await api.updateRow(board.id, row.id, { values: { ...row.values, ...patch }, createdAt: row.createdAt, updatedAt: Date.now() }, Object.keys(patch))
+  notifyDataChanged(board.id)
+  return (tarihProp.type === 'multidate' ? base.length : list.length) ? 'tekrar' : 'eklendi'
 }
 
 // Biletler eskiden yeniye sıralı (seri numarası bu sıraya göre)

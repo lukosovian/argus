@@ -17,9 +17,32 @@ import { entryEnd, formatEntry } from '../lib/dateRange'
 import { isoDate, tt } from '../lib/i18n'
 import Icon from './Icon'
 import { isModalOpen, isPopoverOpen, isTypingTarget } from './table/keys'
+import { cellToText, parseClipboardGrid, rememberCopy } from './table/clipboard'
+import WatchedButton from './table/WatchedButton'
 
 const TITLE_DEFAULT_WIDTH = 220
 const ACTIONS_COLUMN_WIDTH = 44
+// "Eklendi" / "Düzenlendi" sütunu (G7)
+const ADDED_COLUMN_WIDTH = 124
+
+// "3 gün önce" — kaydın eklenme / değişme zamanı
+function relativeAgo(ms: number): string {
+  const now = new Date()
+  const d = new Date(ms)
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((day(now) - day(d)) / 86400000)
+  if (days <= 0) {
+    const mins = Math.max(0, Math.round((now.getTime() - ms) / 60000))
+    if (mins < 1) return tt('az önce')
+    if (mins < 60) return tt('{0} dk önce', mins)
+    return tt('bugün')
+  }
+  if (days === 1) return tt('dün')
+  if (days < 7) return tt('{0} gün önce', days)
+  if (days < 30) return tt('{0} hafta önce', Math.floor(days / 7))
+  if (days < 365) return tt('{0} ay önce', Math.max(1, Math.floor(days / 30)))
+  return tt('{0} yıl önce', Math.floor(days / 365))
+}
 // Artık çoklu-seçim kutucuğu + altı-noktalı menü tutamacı + "Detayı Gör" göz ikonunu bir arada
 // barındırıyor (bkz. aşağıdaki RowMenu ve seçim çubuğu notları) — önceden sadece tutamaç vardı,
 // 40px yetiyordu, sonra kutucuk eklenince 64'e çıktı, göz ikonu için bir tık daha genişletildi.
@@ -508,7 +531,10 @@ function Cell({
   if (property.type === 'multidate') {
     // En yeni tarih önce — sığmazsa eskiler "+N"e girer. Aralıklar "09.08.24 → 12.08.24" (bkz. lib/dateRange.ts).
     const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort((a, b) => (entryEnd(a) < entryEnd(b) ? 1 : -1))
-    const formatted = dates.map((d) => formatEntry(d, (x) => formatDateShort(x) ?? x)).filter((d): d is string => Boolean(d))
+    // Aynı gün iki kez izlendiyse (v1.26, H4) tek tarih "×2" diye yazılır
+    const counted = new Map<string, number>()
+    for (const d of dates.map((x) => formatEntry(x, (y) => formatDateShort(y) ?? y)).filter(Boolean)) counted.set(d, (counted.get(d) ?? 0) + 1)
+    const formatted = [...counted].map(([d, n]) => (n > 1 ? `${d} ×${n}` : d))
     if (formatted.length === 0) return null
     if (roomy)
       return (
@@ -769,6 +795,13 @@ const BoardTable = forwardRef<
     // Alt özet satırı (kayıt sayısı, ortalamalar, boşlar) görünsün mü
     showFooter?: boolean
     onHideFooter?: () => void
+    // Seçim çubuğundaki "İzledim…" (Y20): seçili kayıtlara bu tarih eklenir, İzlendi olur
+    onMarkWatched?: (rowIds: string[], entry: string) => void
+    // Yapıştırma (Y19): etkin hücreden başlayarak hücrelere gelen yazılar; `overflow`: tabloya sığmayan hücre sayısı
+    onPasteCells?: (cells: { rowId: string; propertyId: string; text: string }[], overflow: number) => void
+    // "Eklendi" / "Düzenlendi" sütunu (G7): kaydın eklenme ya da son değişme zamanı ("3 gün önce")
+    addedColumn?: 'created' | 'updated' | null
+    onHideAddedColumn?: () => void
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -818,6 +851,10 @@ const BoardTable = forwardRef<
     groupByProp = null,
     showFooter = false,
     onHideFooter,
+    onMarkWatched,
+    onPasteCells,
+    addedColumn = null,
+    onHideAddedColumn,
   },
   ref,
 ) {
@@ -1229,6 +1266,24 @@ const BoardTable = forwardRef<
   const navRef = useRef<(e: KeyboardEvent) => void>(() => {})
   navRef.current = (e: KeyboardEvent) => {
     if (!activeCell || editingCell || menuFor || showAddCol) return
+    // Ctrl+C (Y19): etkin hücrenin değeri panoya (Excel'e de yapıştırılabilen düz yazı). Sayfada seçili bir yazı varsa
+    // tarayıcının kendi kopyalaması çalışır.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'c') {
+      if (e.defaultPrevented || isTypingTarget(e.target) || isModalOpen()) return
+      if (window.getSelection()?.toString()) return
+      const row = navRows.find((x) => x.id === activeCell.rowId)
+      const p = navCols.find((x) => x.id === activeCell.propertyId)
+      if (!row || !p) return
+      e.preventDefault()
+      const text = cellToText(p, row.values[p.id])
+      rememberCopy(text, p, row.values[p.id])
+      const short = text.length > 40 ? text.slice(0, 40) + '…' : text
+      navigator.clipboard
+        ?.writeText(text)
+        .then(() => notify(text ? tt('Kopyalandı: {0}', short) : tt('Boş hücre kopyalandı.')))
+        .catch(() => notify(tt('Panoya kopyalanamadı.'), 'danger'))
+      return
+    }
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
     if (isTypingTarget(e.target) || isPopoverOpen() || isModalOpen()) return
     const r = navRows.findIndex((x) => x.id === activeCell.rowId)
@@ -1281,6 +1336,42 @@ const BoardTable = forwardRef<
     const on = (e: KeyboardEvent) => navRef.current(e)
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
+  }, [])
+  // Ctrl+V (Y19): etkin hücreden başlayarak yapıştırır. Excel'den birkaç satır/sütun gelirse alt alta / yan yana hücrelere
+  // dağılır; tek bir değer yapıştırılırken etkin hücre seçili kayıtlardan biriyse seçili hepsine yazılır.
+  const pasteRef = useRef<(e: ClipboardEvent) => void>(() => {})
+  pasteRef.current = (e: ClipboardEvent) => {
+    if (!onPasteCells || !activeCell || editingCell || menuFor || showAddCol) return
+    if (isTypingTarget(e.target) || isModalOpen() || isPopoverOpen()) return
+    const text = e.clipboardData?.getData('text/plain') ?? ''
+    if (!text) return
+    e.preventDefault()
+    const grid = parseClipboardGrid(text)
+    // Excel kopyaladığı bloğun sonuna boş bir satır ekler
+    while (grid.length > 1 && grid[grid.length - 1].every((c) => c === '')) grid.pop()
+    const r0 = navRows.findIndex((x) => x.id === activeCell.rowId)
+    const c0 = navCols.findIndex((x) => x.id === activeCell.propertyId)
+    if (r0 < 0 || c0 < 0 || grid.length === 0) return
+    const cells: { rowId: string; propertyId: string; text: string }[] = []
+    let overflow = 0
+    if (grid.length === 1 && grid[0].length === 1 && selectedRowIds.size > 1 && selectedRowIds.has(activeCell.rowId)) {
+      for (const r of navRows) if (selectedRowIds.has(r.id)) cells.push({ rowId: r.id, propertyId: navCols[c0].id, text: grid[0][0] })
+    } else {
+      grid.forEach((line, i) =>
+        line.forEach((cellText, j) => {
+          const r = navRows[r0 + i]
+          const p = navCols[c0 + j]
+          if (r && p) cells.push({ rowId: r.id, propertyId: p.id, text: cellText })
+          else overflow++
+        }),
+      )
+    }
+    if (cells.length) onPasteCells(cells, overflow)
+  }
+  useEffect(() => {
+    const on = (e: ClipboardEvent) => pasteRef.current(e)
+    window.addEventListener('paste', on)
+    return () => window.removeEventListener('paste', on)
   }, [])
   // Klavyeyle gidilen hücre ekranda görünsün: önce dikey (sanal liste o satırı çizsin), sonra yatay.
   useEffect(() => {
@@ -1364,6 +1455,7 @@ const BoardTable = forwardRef<
     HANDLE_COLUMN_WIDTH +
     (titleProp ? colWidth(titleProp, TITLE_DEFAULT_WIDTH) : 0) +
     otherProps.reduce((sum, p) => sum + colWidth(p, DEFAULT_COLUMN_WIDTH), 0) +
+    (addedColumn ? ADDED_COLUMN_WIDTH : 0) +
     ACTIONS_COLUMN_WIDTH
 
   function handleDrop(targetId: string) {
@@ -1438,6 +1530,7 @@ const BoardTable = forwardRef<
         {otherProps.map((p) => (
           <col key={p.id} style={{ width: colWidth(p, DEFAULT_COLUMN_WIDTH) }} />
         ))}
+        {addedColumn && <col style={{ width: ADDED_COLUMN_WIDTH }} />}
         <col style={{ width: ACTIONS_COLUMN_WIDTH }} />
       </colgroup>
     )
@@ -1520,7 +1613,7 @@ const BoardTable = forwardRef<
     )
   }
 
-  const totalColumns = 1 + (titleProp ? 1 : 0) + otherProps.length + 1
+  const totalColumns = 1 + (titleProp ? 1 : 0) + otherProps.length + (addedColumn ? 1 : 0) + 1
   // Sabit sütunların dolu arka planı — satırın kendi hover/seçili rengine uyar.
   function stickyBg(selected: boolean) {
     return selected ? 'bg-neutral-900' : 'bg-neutral-950 group-hover:bg-neutral-900'
@@ -1553,6 +1646,7 @@ const BoardTable = forwardRef<
           >
             {tt('Seçimi Temizle')}
           </button>
+          {onMarkWatched && <WatchedButton count={selectedRowIds.size} onPick={(entry) => onMarkWatched([...selectedRowIds], entry)} />}
           {onBulkUpdateRows && (
             <>
               <button
@@ -1606,6 +1700,24 @@ const BoardTable = forwardRef<
               </th>
               {titleProp && headerCell(titleProp, TITLE_DEFAULT_WIDTH, false, true)}
               {otherProps.map((p) => headerCell(p, DEFAULT_COLUMN_WIDTH, true))}
+              {addedColumn && (
+                <th className="bg-neutral-900 px-3 py-2">
+                  <span className="flex items-center gap-1">
+                    <span className="truncate" title={tt('Otomatik: kaydın {0} zamanı', addedColumn === 'created' ? tt('eklenme') : tt('son değişme'))}>
+                      {addedColumn === 'created' ? tt('Eklendi') : tt('Düzenlendi')}
+                    </span>
+                    {onHideAddedColumn && (
+                      <button
+                        onClick={onHideAddedColumn}
+                        title={tt('Bu sütunu gizle (Sütunlar menüsünden yine açabilirsin)')}
+                        className="ml-auto h-5 w-5 shrink-0 flex items-center justify-center rounded text-neutral-600 hover:text-neutral-200 hover:bg-neutral-800 normal-case"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                </th>
+              )}
               <th className="bg-neutral-900 px-2 py-2 text-right">
                 <button
                   ref={addColRef}
@@ -1787,6 +1899,18 @@ const BoardTable = forwardRef<
                   )
                 })()}
               {otherProps.map((p) => dataCell(row, p))}
+              {addedColumn && (
+                <td className="px-3 border-r border-neutral-800 text-xs text-neutral-400 whitespace-nowrap overflow-hidden">
+                  {(() => {
+                    const ms = addedColumn === 'created' ? row.createdAt : row.updatedAt
+                    return ms ? (
+                      <span title={formatStamp(ms)} className={`${cellH} flex items-center`}>
+                        {relativeAgo(ms)}
+                      </span>
+                    ) : null
+                  })()}
+                </td>
+              )}
               <td />
             </tr>
             )
@@ -1797,7 +1921,7 @@ const BoardTable = forwardRef<
             </tr>
           )}
           <tr className="border-t border-neutral-800 hover:bg-neutral-900/60 cursor-pointer" onClick={onCreateRow}>
-            <td colSpan={otherProps.length + 3} className="px-3" style={{ paddingLeft: HANDLE_PAD_LEFT + 6 }}>
+            <td colSpan={otherProps.length + 3 + (addedColumn ? 1 : 0)} className="px-3" style={{ paddingLeft: HANDLE_PAD_LEFT + 6 }}>
               <div className="h-9 flex items-center text-neutral-500">{tt('+ Yeni Ekle')}</div>
             </td>
           </tr>
@@ -1855,6 +1979,7 @@ const BoardTable = forwardRef<
                     </td>
                   )
                 })}
+                {addedColumn && <td className="border-r border-neutral-800" />}
                 <td />
               </tr>
             </tbody>

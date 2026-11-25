@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { snoozedIds } from '../lib/pickSnooze'
+import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import type { Board, Row } from '../types'
-import { todayIso } from '../types'
+import { todayIso, titleText } from '../types'
 import { resolveRole } from '../lib/roles'
 import { rowsForFilter, shuffle } from '../lib/rowMeta'
 import { hasActiveFilter } from '../lib/filters'
@@ -227,7 +229,10 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
           const base = filterByYears(b, f && hasActiveFilter(f) ? rowsForFilter(f, released) : released, cur.randomPickerYears)
           const pref = cur.randomPickerImageShape === 'dikey' || cur.randomPickerImageShape === 'yatay' ? cur.randomPickerImageShape : null
           const columns = await classifyImageColumns(b, allRows)
-          setWizard({ board: b, rows: base.filter((r) => pickImage(r, columns, pref)), columns, pref })
+          // "Bu hafta önerme" denenler 7 gün havuza girmez (hepsi ertelendiyse yine de hepsi)
+          const snoozed = snoozedIds()
+          const awake = base.filter((r) => !snoozed.has(r.id))
+          setWizard({ board: b, rows: (awake.length ? awake : base).filter((r) => pickImage(r, columns, pref)), columns, pref })
           setPhase('wizard')
         }
       } catch (e) {
@@ -343,6 +348,10 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
           notify(tt('Bu filtreye uyan, seçili görseli olan bir içerik bulunamadı.'), 'danger')
           return
         }
+        // "Bu hafta önerme" (v1.26, Y23): ertelenenler 7 gün havuza girmez; hepsi ertelendiyse havuz boş kalmasın
+        const snoozed = snoozedIds()
+        const awake = pool.filter((e) => !e.row || !snoozed.has(e.row.id))
+        if (awake.length) pool = awake
       }
 
       const recent = new Set(recentPicks())
@@ -352,7 +361,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
       rememberPick(winner.key)
       let swap: SeriesSwap | null = null
       const start = await seriesStart(b.id, winner)
-      if (start) {
+      if (start && !(start.part.rowId && snoozedIds().has(start.part.rowId))) {
         const row = start.part.rowId ? allRows.find((r) => r.id === start.part.rowId) : undefined
         const img = row ? pickImage(row, await classifyImageColumns(b, allRows), pref) : null
         const cover = img?.url || start.part.poster || ''
@@ -360,7 +369,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
           swap = { pickedTitle: winner.tmdb?.title ?? '', pickedNumber: start.pickedIndex + 1, number: start.index + 1 }
           if (winner.row) {
             const tp = b.properties.find((p) => p.id === b.titlePropertyId)
-            swap.pickedTitle = tp ? String(winner.row.values[tp.id] ?? '') : ''
+            swap.pickedTitle = tp ? titleText(tp, winner.row.values[tp.id]) : ''
           }
           winner = row
             ? { key: row.id, row, cover, landscape: Boolean(img?.landscape) }
@@ -612,6 +621,18 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
               {/* Sağ üst: sonuç ekranında "Tekrar getir" (mavi çerçeve, üstüne gelince mavi dolu) ve
                   "Kapat" (kırmızı çerçeve, üstüne gelince kırmızı dolu, yazı siyah) — kullanıcı böyle istedi. */}
               <div className="safe-shift absolute top-6 right-6 z-40 flex items-center gap-2">
+                {/* Ne İzlesem'in yardımı (v1.26, G12) */}
+                {phase === 'result' && (
+                  <Link
+                    to="/yardim?sayfa=ne-izlesem"
+                    onClick={cancelPick}
+                    title={tt('Ne İzlesem nasıl çalışır?')}
+                    aria-label={tt('Ne İzlesem nasıl çalışır?')}
+                    className="h-9 w-9 flex items-center justify-center rounded-full border border-neutral-600 text-neutral-300 bg-neutral-900/80 hover:border-[#00c0fa] hover:text-[#00c0fa] text-sm font-semibold transition"
+                  >
+                    ?
+                  </Link>
+                )}
                 {phase === 'result' && (
                   <button
                     onClick={() => setFiltersOpen((o) => !o)}

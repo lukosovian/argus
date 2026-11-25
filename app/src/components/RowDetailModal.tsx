@@ -7,6 +7,7 @@ import { biletFromRow, saveBilet, sortedBiletler, useBiletler } from '../lib/bil
 import type { BiletItem } from './bilet/Ticket'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { MOBILE } from '../lib/mobile/ui'
+import { useSwipeDownClose } from '../lib/mobile/swipeClose'
 import { createPortal } from 'react-dom'
 import { api } from '../lib/api'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -45,6 +46,7 @@ import { isoDate, locale, tt, ttx } from '../lib/i18n'
 import { universesOfRow, type RowUniverse } from '../lib/evrenLookup'
 import Icon from './Icon'
 import AklimdaButton from './AklimdaButton'
+import { rememberOpened } from '../lib/recentOpened'
 import { surfaceHex } from '../lib/theme'
 
 const CAST_PREVIEW = 12
@@ -165,10 +167,14 @@ export default function RowDetailModal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useDialogFocus(dialogRef)
+  // Telefonda en üstteyken aşağı sürükleyince kapanır (v1.26, bkz. lib/mobile/swipeClose)
+  useSwipeDownClose(dialogRef, onClose)
   useEscape(true, onClose)
   const navigate = useNavigate()
   // Bu yapım bir evrende geçiyorsa (MCU, Star Wars…) Evrenler'deki kartına giden düğme
   const [universes, setUniverses] = useState<RowUniverse[]>([])
+  // Aramadaki "Son açtıkların" listesi (v1.26, Y21)
+  useEffect(() => rememberOpened(row.id), [row.id])
   useEffect(() => {
     let alive = true
     universesOfRow(board.id, row.id).then((list) => alive && setUniverses(list))

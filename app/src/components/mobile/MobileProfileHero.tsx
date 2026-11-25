@@ -71,7 +71,9 @@ export function useHeroSlides(profileIds: string[], rotateMs = ROTATE_MS) {
       const str = (r: Row, id?: string) => (id && typeof r.values[id] === 'string' ? (r.values[id] as string) : '')
       // Logosu ve yazısız görseli olanlar (Netflix'teki gibi görsel + logo)
       const usable = rows.filter((r) => str(r, coverProp?.id) && str(r, logoProp?.id))
-      const today = new Date().toISOString().slice(0, 10)
+      // Telefonun kendi saatine göre bugün (toISOString dünya saati: gece 00:00–03:00 arası bir gün geriden bakıyordu)
+      const n = new Date()
+      const today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
       const avg = (r: Row) => {
         const v = puan ? r.values[puan.id] : null
         const nums = v && typeof v === 'object' && !Array.isArray(v) ? Object.values(v as Record<string, number>) : []

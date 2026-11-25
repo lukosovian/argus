@@ -92,6 +92,10 @@ export interface EvrenPrefs {
   turHedefKey?: string
   atla?: string[]
   gecmis?: { bas: string; bit: string; done: number; total: number; ad?: string }[]
+  // Hikâye sırasında kullanıcının yerini seçtiği yapımlar (v1.26, G11): yapım → hangi yapımdan sonra ('^' = en başa)
+  yer?: Record<string, string>
+  // "Yeni · yerini seç" rozeti kapatılan (yerinde kalsın denen) kendiliğinden eklenmiş yapımlar
+  yeniTamam?: string[]
 }
 export interface EvrenSaveItem {
   key: string
@@ -257,6 +261,8 @@ export interface BackupInfo {
   job: { kind: 'backup' | 'restore'; running: boolean; phase: string; done: number; total: number; error: string | null; result: unknown } | null
   suggestions: { label: string; path: string }[]
   targetExists: boolean
+  // Sunucu sürecinin kimliği — yedekten dönüşten sonra ARGUS yeniden başlayınca değişir (v1.26)
+  bootId?: string
 }
 
 // Telefon bağlama (bkz. server/sync.js, components/settings/PhonePanel.tsx)
@@ -389,6 +395,11 @@ let activeProfileId: string | null = null
 
 export function setApiProfileId(id: string | null) {
   activeProfileId = id
+}
+
+// Telefon katmanı (ana ekran kutusu, telefon bildirimleri, paylaş menüsü) profil seçilmiş mi diye bakar
+export function getApiProfileId(): string | null {
+  return activeProfileId
 }
 
 function profilePath(suffix: string): string {
@@ -705,10 +716,48 @@ export interface BulkJob {
   finishedAt?: number
   // En yeni en başta
   log: BulkJobLogEntry[]
+  // v1.26: hata veren kayıt sayısı ("Hata verenleri tekrar dene") ve haftalık otomatik tur mu
+  retryable?: number
+  auto?: boolean
 }
 export const bulkJobApi = {
   start: (boardId: string, body: { rowIds: string[]; exclude: string[]; overwrite: boolean; label?: string }) =>
     request<{ job: BulkJob }>(profilePath(`/boards/${boardId}/bulk-job`), { method: 'POST', ...json(body) }),
   get: () => request<{ job: BulkJob | null }>(profilePath('/bulk-job')),
   cancel: () => request<{ job?: BulkJob | null }>(profilePath('/bulk-job'), { method: 'DELETE' }),
+}
+
+// ---- v1.26 bakım uç noktaları (bkz. server/routes/care.js, recover.js, devices.js, jobs/bulk.js) ----
+export interface MediaCleanupInfo {
+  count: number
+  bytes: number
+  total: number
+  totalBytes: number
+  scannedAt: number
+  trash: { count: number; bytes: number; days: number; last: { id: string; at: number; count: number; bytes: number } | null }
+}
+export interface DiskInfo {
+  free: number | null
+  total: number | null
+  low: boolean
+  lowBytes: number
+  history: { bytes: number; limitBytes: number }
+}
+export interface RecoveryItem {
+  file: string
+  what: string
+  since: number
+  candidate: { source: 'gecmis' | 'yedek'; at: number } | null
+}
+export const careApi = {
+  mediaCleanup: (refresh = false) => request<MediaCleanupInfo>(`/api/medya-temizlik${refresh ? '?yenile=1' : ''}`),
+  cleanMedia: () => request<MediaCleanupInfo & { moved: number; freed: number; batch?: string }>('/api/medya-temizlik/temizle', { method: 'POST', ...json({}) }),
+  undoMediaClean: (batch?: string) => request<MediaCleanupInfo & { restored: number }>('/api/medya-temizlik/geri-al', { method: 'POST', ...json({ batch }) }),
+  disk: () => request<DiskInfo>('/api/disk'),
+  trimHistoryHalf: () => request<{ ok: true; freed: number }>('/api/disk/gecmis', { method: 'POST', ...json({}) }),
+  recoveries: () => request<{ items: RecoveryItem[] }>('/api/kurtarma'),
+  recover: (file: string) => request<{ ok: true; at: number; source: string; aside: string }>('/api/kurtarma', { method: 'POST', ...json({ file }) }),
+  removeAllSyncDevices: () => request<{ ok: true; removed: number }>('/api/sync/devices', { method: 'DELETE' }),
+  pairQrUrl: (host: string, code: string) => `/api/sync/pair-code/qr?host=${encodeURIComponent(host)}&code=${encodeURIComponent(code)}`,
+  retryFailedBulk: () => request<{ job: BulkJob }>(profilePath('/bulk-job/retry'), { method: 'POST', ...json({}) }),
 }

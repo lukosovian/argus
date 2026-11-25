@@ -4,7 +4,7 @@ import path from 'node:path'
 import { ensureStatusOption, resolveRole, resolveStatusOption, showEnded, watchedStatusIds } from '../roles.js'
 import { findBoard as findBoardCached } from '../history.js'
 import { stt } from '../lang.js'
-import { opAt } from '../sync.js'
+import { opAt, reportSkipped } from '../sync.js'
 import { PROFILES_DIR, ROOT, loadBoardAndRows, localToday, makeId, profileBoardsFile, profileCastFile, profileEpisodesFile, profileRowsFile, profileTemplatesFile, profileTmdbFile, profileWatchedFile, readJson, readJsonShared, readProfiles, writeJson } from '../storage.js'
 import { app } from '../app.js'
 import { normalizeText, tmdbKey } from '../tmdb.js'
@@ -44,16 +44,10 @@ app.delete('/api/profiles/:profileId/boards/:id', (req, res) => {
   res.json({ ok: true })
 })
 
-// Çocuk profili (v1.23.4, profil düzenleme penceresi): yaş sınırı 13+ ve üstü olan yapımlar bu profilde hiç gönderilmez
-export const ADULT_AGE = /(^|\D)(1[3-8])\s*\+|\b(R|NC-17|TV-MA|TV-14|PG-13|18|16|13)\b/i
-export function hideForKid(profileId, boardId, rows) {
-  const profile = readProfiles().find((p) => p.id === profileId)
-  if (!profile?.kid) return rows
-  const board = readJsonShared(profileBoardsFile(profileId), []).find((b) => b.id === boardId)
-  const yas = board ? resolveRole(board, 'yas') : null
-  if (!yas) return rows
-  return rows.filter((r) => !ADULT_AGE.test(String(r.values?.[yas.id] ?? '')))
-}
+// Çocuk profili (v1.23.4, profil düzenleme penceresi): yaş sınırı 13+ ve üstü olan yapımlar bu profilde hiç gönderilmez.
+// Kural v1.26'dan beri kid.js'te — Keşfet, Evrenler, bölüm listeleri ve bildirimler de aynısını kullanıyor.
+import { ADULT_AGE, hideForKid } from '../kid.js'
+export { ADULT_AGE, hideForKid }
 
 app.get('/api/profiles/:profileId/boards/:id/rows', (req, res) => {
   res.json(hideForKid(req.params.profileId, req.params.id, readJsonShared(profileRowsFile(req.params.profileId, req.params.id), [])))
@@ -416,7 +410,11 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
   // bulunur; PC'de o andan SONRA değişmiş bir sütun ezilmez ("son yapılan kazanır", fieldAt: history.js).
   const at = opAt(req)
   // Kayıt bu arada PC'de silindiyse silme kazanır (geçmişten geri getirilebilir), yeniden oluşturulmaz.
-  if (!before && at) return res.json({ id: req.params.rowId, skipped: true })
+  // Telefon uygulanamayanları "Bekleyen değişiklikler"de gösterir (X-Argus-Skipped, bkz. sync.js reportSkipped)
+  if (!before && at) {
+    reportSkipped(res, { deleted: true })
+    return res.json({ id: req.params.rowId, skipped: true })
+  }
   let changed = Array.isArray(req.body?._changed) ? req.body._changed : null
   if (before && at) {
     if (!changed) {
@@ -424,7 +422,12 @@ app.put('/api/profiles/:profileId/boards/:id/rows/:rowId', (req, res) => {
       const keys = new Set([...Object.keys(before.values ?? {}), ...Object.keys(incoming)])
       changed = [...keys].filter((k) => JSON.stringify(before.values?.[k] ?? null) !== JSON.stringify(incoming[k] ?? null))
     }
-    changed = changed.filter((k) => !((before.fieldAt?.[k] ?? 0) > at))
+    const kept = changed.filter((k) => !((before.fieldAt?.[k] ?? 0) > at))
+    // PC'deki değer zaten telefondakiyle aynıysa "uygulanmadı" denmez
+    const sameAsPc = (k) => JSON.stringify(before.values?.[k] ?? null) === JSON.stringify(req.body?.values?.[k] ?? null)
+    const dropped = changed.filter((k) => !kept.includes(k) && !sameAsPc(k))
+    if (dropped.length) reportSkipped(res, { fields: dropped.map((k) => ({ id: k, pc: before.values?.[k] ?? null, pcAt: before.fieldAt?.[k] ?? null })) })
+    changed = kept
   }
   if (before && changed) {
     // Arayüz sadece değiştirdiği sütunları bildiriyor (_changed): onları dosyadaki EN GÜNCEL halin üstüne

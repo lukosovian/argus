@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Board, Row, WatchedMap } from '../types'
 import { titleText } from '../types'
 import { api } from '../lib/api'
+import { onDataChanged } from '../lib/dataEvents'
 import { resolveRole } from '../lib/roles'
 import { tt } from '../lib/i18n'
 
@@ -22,12 +23,23 @@ export default function OnThisDayRow({
 }) {
   const navigate = useNavigate()
   const [watched, setWatched] = useState<WatchedMap>({})
+  // Bir bölüm işaretlenince ya da izleme tarihi girilince satır sayfa yenilenmeden güncellensin (v1.26, H11)
   useEffect(() => {
-    Promise.resolve()
-      .then(() => api.getWatched())
-      .then(setWatched)
-      .catch(() => {})
-  }, [])
+    let alive = true
+    const load = () =>
+      Promise.resolve()
+        .then(() => api.getWatched())
+        .then((w) => alive && setWatched(w))
+        .catch(() => {})
+    load()
+    const off = onDataChanged((_b, kind) => {
+      if (kind === 'watched' || kind === 'all') load()
+    })
+    return () => {
+      alive = false
+      off()
+    }
+  }, [board.id])
 
   const now = new Date()
   const md = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`

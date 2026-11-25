@@ -19,6 +19,10 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['Esc'], label: 'Tablodan çık' },
   { keys: ['/'], label: 'Arşiv sayfasında tabloda ara' },
   { keys: ['N'], label: 'Arşiv sayfasında yeni kayıt ekle' },
+  { keys: ['Ctrl', 'Z'], label: 'Tabloda son değişikliği geri al' },
+  { keys: ['Ctrl', 'Y'], label: 'Tabloda geri alınanı yeniden yap' },
+  { keys: ['Ctrl', 'C'], label: 'Tabloda seçili hücreyi kopyala' },
+  { keys: ['Ctrl', 'V'], label: 'Tabloya yapıştır (Excel\'den birkaç satır da olur)' },
   { keys: ['←', '→'], label: 'Takvimde önceki / sonraki ay' },
   { keys: ['?'], label: 'Bu listeyi aç / kapat' },
 ]
