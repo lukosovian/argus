@@ -5221,5 +5221,8 @@
   "iyi: Bilet eklerken tarihi elle yazabiliyorsun (ileri tarih de olur).": "iyi: Type the date when adding a ticket (future dates are fine).",
   "1 ‹ › önceki / sonraki kayıt · 2 seçili bölümlere tek seferde tarih · 3 Buraya kadar izledim": "1 ‹ › previous / next entry · 2 one date for the selected episodes · 3 Watched up to here",
   "1 seçenek sayıları ve sürükleyerek sıralama · 2 birleştir · 3 kullanılmayanları temizle": "1 option counts and drag to reorder · 2 merge · 3 clean up unused",
-  "1 yedeğin içeriği · 2 Silinmesin kilidi · 3 kademeli saklama": "1 backup contents · 2 Keep forever lock · 3 tiered retention"
+  "1 yedeğin içeriği · 2 Silinmesin kilidi · 3 kademeli saklama": "1 backup contents · 2 Keep forever lock · 3 tiered retention",
+  "duz: \"Sezonu izlendi işaretle\" ve \"izlenmedi yap\" artık Geri al ile geri alınabiliyor; dizinin durumu ve izleme tarihi de eski haline dönüyor.": "duz: \"Mark season watched\" and \"mark unwatched\" can now be undone with Undo; the series' status and watch date go back too.",
+  "Sezon işaretlemede Geri al": "Undo for season marking",
+  "Sezonun izlenme tarihleri kaldırıldı.": "The season's watch dates were removed."
 }

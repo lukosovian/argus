@@ -477,8 +477,36 @@ export default function RowDetailModal({
       notify(tt('İşaretlenecek yayınlanmış bölüm yok.'), 'info')
       return
     }
-    saveRowWatched(row.id, next)
-    if (upTo !== undefined) notify(tt('{0} bölüm izlendi olarak işaretlendi.', count), 'success')
+    void saveSeasonWithUndo(next, tt('{0} bölüm izlendi olarak işaretlendi.', count))
+  }
+
+  // Sezon/toplu işaretlemeler geri alınabilsin: kullanıcı "Sezonu izlendi işaretle"ye basıp bölümlerin bugünle
+  // dolduğunu gördü, geri alacak yer bulamadı. Sunucu bölüm kaydı değişince dizinin Durum'unu ve İzleme Tarihi'ni
+  // kendiliğinden değiştirebiliyor (ör. İzleniyor yapıp tarihe "… → bugün" yazıyor); Geri al bölüm haritasıyla
+  // birlikte bu iki sütunu da önceki haline döndürür.
+  async function saveSeasonWithUndo(next: Record<string, string[]>, message: string) {
+    const beforeMap = rowWatched
+    const keys = [resolveRole(board, 'durum')?.id, resolveRole(board, 'izlemeTarihi')?.id].filter((k): k is string => Boolean(k))
+    const beforeVals = row.values
+    await saveRowWatched(row.id, next)
+    notify(message, 'success', {
+      action: {
+        label: tt('Geri al'),
+        onClick: async () => {
+          try {
+            await saveRowWatched(row.id, beforeMap)
+            if (keys.length) {
+              const values: Record<string, PropertyValue> = {}
+              for (const k of keys) if (beforeVals[k] !== undefined) values[k] = beforeVals[k]
+              await api.updateRow(board.id, row.id, { values: { ...row.values, ...values }, createdAt: row.createdAt, updatedAt: Date.now() }, keys)
+            }
+            notifyDataChanged(board.id)
+          } catch {
+            notify(tt('Geri alınamadı'), 'danger')
+          }
+        },
+      },
+    })
   }
 
   // Tersi — sezondaki TÜM bölümlerin izlenme (ve varsa tekrar izleme) tarihlerini siler.
@@ -491,7 +519,7 @@ export default function RowDetailModal({
     for (const ep of targetSeason.episodes) {
       delete next[episodeKey(seasonNumber, ep.episodeNumber)]
     }
-    saveRowWatched(row.id, next)
+    void saveSeasonWithUndo(next, tt('Sezonun izlenme tarihleri kaldırıldı.'))
   }
 
   // ---- 26 Eylül 2026 yenilemesi: üstte etiketler, puan ve izleme kartları, bölüm başlıkları, hızlı geçiş ----

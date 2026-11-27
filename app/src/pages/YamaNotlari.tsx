@@ -154,6 +154,14 @@ interface PatchEntry {
 
 const ENTRIES: PatchEntry[] = [
   {
+    version: 'v1.27.1',
+    date: tt('28 Kasım 2026'),
+    title: tt('Sezon işaretlemede Geri al'),
+    items: [
+      tt("duz: \"Sezonu izlendi işaretle\" ve \"izlenmedi yap\" artık Geri al ile geri alınabiliyor; dizinin durumu ve izleme tarihi de eski haline dönüyor."),
+    ],
+  },
+  {
     version: 'v1.27',
     date: tt('28 Kasım 2026'),
     title: tt('Büyük güncelleme: tarihleri elle yazma, çoklu bölüm seçimi, detayda önceki/sonraki, seçenek araçları, yedek kilidi, telefonda sesle arama'),
