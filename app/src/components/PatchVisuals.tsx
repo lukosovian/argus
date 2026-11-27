@@ -5036,3 +5036,32 @@ export function BiletSeansVisual() {
     </Frame>
   )
 }
+
+// v1.27: tarih seçicide takvimin üstünde hep açık yazma kutusu (1) — GG.AA.YYYY yazıp Ekle (2)
+export function ElleTarihVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <Label x={70} y={24} size={7.5}>
+        {tt('İzleme Tarihi')}
+      </Label>
+      <Box x={60} y={30} w={200} h={136} r={6} />
+      <rect x={70} y={40} width={130} height={18} rx={4} className="fill-neutral-900" stroke="#00c0fa" />
+      <Label x={76} y={52} size={7.5}>
+        12.03.2024
+      </Label>
+      <Pin x={66} y={38} n={1} />
+      <rect x={208} y={40} width={42} height={18} rx={4} fill="#00c0fa" />
+      <Label x={218} y={52} size={7}>
+        {tt('Ekle')}
+      </Label>
+      <Pin x={252} y={38} n={2} />
+      {Array.from({ length: 28 }, (_, i) => (
+        <rect key={i} x={72 + (i % 7) * 26} y={68 + Math.floor(i / 7) * 18} width={18} height={11} rx={2} className="fill-neutral-800" />
+      ))}
+      <Label x={70} y={156} size={6.5} muted>
+        {tt('takvimde gezinmeden yaz')}
+      </Label>
+    </Frame>
+  )
+}

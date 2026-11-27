@@ -5005,5 +5005,11 @@
   "1 Pano: kartı sürükle, durum değişsin · 2 afiş galerisi": "1 Board: drag a card, change its status · 2 poster gallery",
   "1 Netflix geçmişi dosyasını bırak · 2 önce önizleme, sonra aktar": "1 drop your Netflix history file · 2 preview first, then import",
   "1 telefon ana ekranında Sıradaki bölüm · 2 afişe basılı tutunca hızlı menü": "1 Next episode on the phone's home screen · 2 quick menu when you press and hold a poster",
-  "1 yaklaşan seans geri sayımı · 2 Sinema yılın özeti": "1 upcoming showtime countdown · 2 Your cinema year summary"
+  "1 yaklaşan seans geri sayımı · 2 Sinema yılın özeti": "1 upcoming showtime countdown · 2 Your cinema year summary",
+  "28 Kasım 2026": "November 28, 2026",
+  "Tarihi elle yazma": "Typing dates by hand",
+  "takvimde gezinmeden yaz": "type without paging the calendar",
+  "yeni: Tarih seçicide takvimin üstünde bir yazma kutusu: takvimde ay ay gezmeden tarihi direkt yaz (ör. 12.03.2024), Enter ya da Ekle. Noktaları kendisi koyuyor; Bitiş tarihi açıksa başlangıç ve bitiş için iki kutu çıkıyor. Bölüm tiklerindeki tarih seçicide de var.": "new: A typing box above the calendar in the date picker: type the date directly instead of paging through months (e.g. 12.03.2024), then Enter or Add. Dots are added for you; with End date on, there are two boxes for start and end. Also in the episode tick date picker.",
+  "1 takvimin üstündeki yazma kutusu · 2 yazıp Ekle": "1 typing box above the calendar · 2 type it and Add",
+  "Tarih yaz: GG.AA.YYYY": "Type a date: DD.MM.YYYY"
 }

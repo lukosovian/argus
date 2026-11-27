@@ -17,12 +17,15 @@ export default function PropertyValueInput({
   onChange,
   onAddOption,
   onAddCriterion,
+  autoFocus,
 }: {
   property: PropertyDef
   value: PropertyValue
   onChange: (v: PropertyValue) => void
   onAddOption?: (label: string) => string
   onAddCriterion?: (name: string) => string
+  // Açılır hücre düzenleyicide (CellEditor) tarih yazma kutusuna hemen odaklanılsın
+  autoFocus?: boolean
 }) {
   const [newOption, setNewOption] = useState('')
   const [newCriterion, setNewCriterion] = useState('')
@@ -74,7 +77,7 @@ export default function PropertyValueInput({
 
   if (property.type === 'multidate') {
     const dates = Array.isArray(value) ? (value as string[]) : []
-    return <DateChipEditor dates={dates} onChange={onChange} allowRange allowApprox />
+    return <DateChipEditor dates={dates} onChange={onChange} allowRange allowApprox autoFocus={autoFocus} />
   }
 
   if (property.type === 'checkbox') {

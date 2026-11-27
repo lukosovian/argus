@@ -65,6 +65,7 @@ export default function CellEditor({
           onChange={setDraft}
           onAddOption={onAddOption}
           onAddCriterion={onAddCriterion}
+          autoFocus
         />
         {/* Kullanıcı "puan falan verdikten sonra orayı kapatmak için boş bi yere tıklamam
             gerekiyor, bi kapatma butonu ekle" dedi — dışarı tıklamakla aynı: değişiklik kaydedilir. */}

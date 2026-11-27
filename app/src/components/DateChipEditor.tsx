@@ -5,13 +5,43 @@ import { tt, monthNames, dayNames } from '../lib/i18n'
 const TR_MONTHS = monthNames()
 const TR_DAYS = dayNames('two')
 
-function fmt(iso: string): string {
+export function fmt(iso: string): string {
   const [y, m, day] = iso.split('-')
   return y && m && day ? `${day}.${m}.${y}` : iso
 }
 function iso(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
+// Elle yazılan tarihi okur: "12.03.2024", "12/3/2024", "12-03-24", "2024-03-12". Geçersizse null.
+// İki haneli yıl 20xx sayılır (bu yıldan büyükse 19xx).
+export function parseTypedDate(text: string): string | null {
+  const t = text.trim()
+  let y: number, m: number, d: number
+  const isoM = /^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/.exec(t)
+  const trM = /^(\d{1,2})[-./ ](\d{1,2})[-./ ](\d{2}|\d{4})$/.exec(t)
+  const packed = /^(\d{2})(\d{2})(\d{4})$/.exec(t)
+  if (isoM) [y, m, d] = [Number(isoM[1]), Number(isoM[2]), Number(isoM[3])]
+  else if (trM || packed) {
+    const g = (trM ?? packed)!
+    ;[d, m, y] = [Number(g[1]), Number(g[2]), Number(g[3])]
+    if (g[3].length === 2) {
+      const now = new Date().getFullYear()
+      y = 2000 + y > now ? 1900 + y : 2000 + y
+    }
+  } else return null
+  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1) return null
+  if (d > new Date(y, m, 0).getDate()) return null
+  return iso(y, m - 1, d)
+}
+// Yazarken noktaları kendisi koysun: "12032024" → "12.03.2024"
+export function autoDots(v: string): string {
+  // Sadece rakam ya da bizim koyduğumuz noktalar varsa yeniden biçimle; "1.3.2024" gibi elle
+  // noktalanmışsa dokunma
+  if (!/^\d+$|^\d{2}\.\d*$|^\d{2}\.\d{2}\.\d*$/.test(v)) return v.replace(/[^\d./\- ]/g, '').slice(0, 10)
+  const n = v.replace(/\./g, '').slice(0, 8)
+  return n.length > 4 ? `${n.slice(0, 2)}.${n.slice(2, 4)}.${n.slice(4)}` : n.length > 2 ? `${n.slice(0, 2)}.${n.slice(2)}` : n
+}
+
 function todayIso() {
   const t = new Date()
   return iso(t.getFullYear(), t.getMonth(), t.getDate())
@@ -21,7 +51,7 @@ function todayIso() {
 // bugünün gününü de seçiyor" dedi: Chrome'un seçicisinde ay/yıl değiştirmek de değeri değiştiriyordu ve
 // biz her değişikliği hemen ekliyorduk. Burada ay/yıl gezmek hiçbir şey seçmez; sadece güne tıklamak seçer.
 // Başlığa (ay adına) tıklayınca yıl → ay seçimi açılır (eski yıllara hızlı gitmek için).
-function MiniCalendar({
+export function MiniCalendar({
   selected,
   rangeStart,
   onPick,
@@ -155,6 +185,7 @@ export default function DateChipEditor({
   onChange,
   allowRange = false,
   allowApprox = false,
+  autoFocus = false,
 }: {
   dates: string[]
   onChange: (dates: string[]) => void
@@ -172,6 +203,10 @@ export default function DateChipEditor({
   // "Sadece yıl" kutusu açık mı, içindeki yıl
   const [yearOpen, setYearOpen] = useState(false)
   const [yearText, setYearText] = useState('')
+  // Takvimin üstündeki yazma kutusu (takvimde gezinmeden GG.AA.YYYY yazmak için; bitiş açıksa iki kutu).
+  // Kullanıcı "elle yaz'a basmaya gerek kalmadan direk yazma yeri olsa" dedi — hep açık.
+  const [typeStart, setTypeStart] = useState('')
+  const [typeEnd, setTypeEnd] = useState('')
 
   // Aynı tarihler tek kutucukta "×2" olarak gösterilir
   const counts = new Map<string, number>()
@@ -185,6 +220,22 @@ export default function DateChipEditor({
   const thisYear = new Date().getFullYear()
   const yearNum = Number(yearText)
   const yearValid = /^\d{4}$/.test(yearText) && yearNum >= 1900 && yearNum <= thisYear
+
+  // Açılır pencerede kutuya hemen yazılabilsin (yeni kayıt penceresinde başlıktan odak çalmasın diye sadece
+  // autoFocus verilince); dokunmatikte klavye kendiliğinden açılmasın
+  const [autoFocusType] = useState(() => autoFocus && typeof window !== 'undefined' && !window.matchMedia?.('(pointer: coarse)').matches)
+  const typedStart = parseTypedDate(typeStart)
+  const typedEnd = rangeOn && allowRange ? parseTypedDate(typeEnd) : null
+  const typeValid = Boolean(typedStart) && (!(rangeOn && allowRange) || Boolean(typedEnd))
+  function saveTyped() {
+    if (!typeValid || !typedStart) return
+    if (rangeOn && allowRange && typedEnd) {
+      const [a, b] = typedStart <= typedEnd ? [typedStart, typedEnd] : [typedEnd, typedStart]
+      save(makeEntry(a, b))
+    } else save(typedStart)
+    setTypeStart('')
+    setTypeEnd('')
+  }
 
   function saveYear() {
     if (!yearValid) return
@@ -223,11 +274,16 @@ export default function DateChipEditor({
     setPendingStart(null)
     setRangeOn(Boolean(parseEntry(d).end))
     setCalKey((k) => k + 1) // takvim o tarihin ayına gitsin
+    const e = isFullDate(d) ? parseEntry(d) : null
+    setTypeStart(e ? fmt(e.start) : '')
+    setTypeEnd(e?.end ? fmt(e.end) : '')
   }
 
   function cancel() {
     setEditing(null)
     setPendingStart(null)
+    setTypeStart('')
+    setTypeEnd('')
   }
 
   const quick = (offset: number) => {
@@ -318,6 +374,42 @@ export default function DateChipEditor({
             </button>
           </label>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {[
+          [typeStart, setTypeStart, rangeOn && allowRange ? tt('Başlangıç') : tt('Tarih yaz: GG.AA.YYYY'), true] as const,
+          ...(rangeOn && allowRange ? [[typeEnd, setTypeEnd, tt('Bitiş'), false] as const] : []),
+        ].map(([val, setVal, ph, first], i) => (
+          <span key={i} className="contents">
+            {i === 1 && <span className="text-neutral-500 text-xs">→</span>}
+            <input
+              autoFocus={first && autoFocusType}
+              inputMode="numeric"
+              value={val}
+              onChange={(e) => setVal(autoDots(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  saveTyped()
+                }
+              }}
+              placeholder={ph}
+              aria-label={ph}
+              className={`${rangeOn && allowRange ? 'w-28' : 'w-40'} rounded-md border bg-neutral-900 px-2 py-1 text-xs text-neutral-100 tabular-nums outline-none focus:border-[#00c0fa] ${
+                val && !parseTypedDate(val) ? 'border-red-500/70' : 'border-neutral-700'
+              }`}
+            />
+          </span>
+        ))}
+        <button
+          type="button"
+          disabled={!typeValid}
+          onClick={saveTyped}
+          className="text-[11px] rounded-lg bg-[#00c0fa] px-2.5 py-1 font-medium text-neutral-950 disabled:opacity-40 transition"
+        >
+          {editing ? tt('Kaydet') : tt('Ekle')}
+        </button>
       </div>
 
       <MiniCalendar

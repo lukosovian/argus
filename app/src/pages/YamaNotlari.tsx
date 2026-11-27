@@ -115,6 +115,7 @@ import {
   NetflixAktarVisual,
   TelefonYeniVisual,
   BiletSeansVisual,
+  ElleTarihVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
@@ -147,6 +148,15 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.27',
+    date: tt('28 Kasım 2026'),
+    title: tt('Tarihi elle yazma'),
+    items: [
+      tt("yeni: Tarih seçicide takvimin üstünde bir yazma kutusu: takvimde ay ay gezmeden tarihi direkt yaz (ör. 12.03.2024), Enter ya da Ekle. Noktaları kendisi koyuyor; Bitiş tarihi açıksa başlangıç ve bitiş için iki kutu çıkıyor. Bölüm tiklerindeki tarih seçicide de var."),
+    ],
+    visuals: [{ caption: tt('1 takvimin üstündeki yazma kutusu · 2 yazıp Ekle'), Visual: ElleTarihVisual }],
+  },
   {
     version: 'v1.26',
     date: tt('26 Kasım 2026'),
