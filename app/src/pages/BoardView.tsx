@@ -29,6 +29,7 @@ import { decodeConditions, encodeConditions, rowMatchesConditions, type FilterCo
 import { hasAnyImage } from '../lib/rowMeta'
 import { ROLE_DEFS, assignRole, lockRolesForProperty, resolveRole, type RoleKey, type StatusKey } from '../lib/roles'
 import BoardTable, { type BoardTableHandle } from '../components/BoardTable'
+import { makeOptionTools } from '../components/table/optionTools'
 import RowDetailModal from '../components/RowDetailModal'
 import HealthCheckModal from '../components/HealthCheckModal'
 import TableGuideModal from '../components/TableGuideModal'
@@ -1157,6 +1158,8 @@ export default function BoardView() {
   // Görünüm türü (v1.26, A9/A10): tablo, afiş galerisi ya da durum panosu — arşiv başına bu tarayıcıda (ve kayıtlı görünümde)
   const layoutKey = id ? `argus_table_layout_${id}` : null
   const [layout, setLayout] = useState<TableLayout>('tablo')
+  // Galerinin "yeni kaydın adı" kutusu açık mı (araç çubuğundaki "+ Yeni Ekle" ve N tuşu da açar)
+  const [galleryAdd, setGalleryAdd] = useState(false)
   useEffect(() => {
     try {
       const v = layoutKey ? localStorage.getItem(layoutKey) : null
@@ -2067,6 +2070,9 @@ export default function BoardView() {
     )
   }
 
+  // A6 (v1.27): sütun menüsünde seçenekleri sürükleyerek sıralama ve birleştirme (bkz. components/table/optionTools.ts)
+  const optionTools = makeOptionTools({ boardRef, rowsRef, saveBoard, putValues, notify })
+
   // Bir sütunun değerini TÜM satırlarda boşaltır — herhangi bir tip için, sadece Seçim/Çoklu
   // Seçim'e özel değil (kullanıcı: "amaç bi sütunun altındaki satırlardakileri komple
   // silebilmek mesela banner eklenmiş ama ben o bannerları silicem api den çektiricem").
@@ -2318,10 +2324,44 @@ export default function BoardView() {
   // götürüyor — butonun asıl amacı bu, aksi halde (yeni satır genelde listenin sonuna düştüğü
   // için) kullanıcı elle en alta inmek zorunda kalıyordu.
   async function createRow() {
+    // Galeride adsız boş kayıt açılmasın: önce galerinin ad kutusu açılır (bkz. BoardGallery › NewTile)
+    if ((layout === 'galeri' || layout === 'pano') && !MOBILE) {
+      setGalleryAdd(true)
+      return
+    }
     const row = await saveRow(emptyRow())
     if (row) setPendingScrollRowId(row.id)
   }
   createRowRef.current = createRow
+
+  // Detay penceresindeki ‹ › (ve ← →): o an arşivde görünen sıra — filtre, arama ve sıralama uygulanmış liste;
+  // gruplanmışsa (tablo/galeri gruplaması, pano sütunları) ekrandaki gibi önce grup sırası, boşlar en sonda.
+  function detailNeighbors(rowId: string) {
+    const gp =
+      layout === 'pano'
+        ? kanbanProp
+        : board?.properties.find((p) => p.id === groupById && p.type === 'select')
+    let list = filteredRows
+    if (gp && gp.type === 'select') {
+      const order = new Map((gp.options ?? []).map((o, i) => [o.id, i]))
+      const rank = (r: Row) => {
+        const v = r.values[gp.id]
+        return typeof v === 'string' && order.has(v) ? order.get(v)! : Number.MAX_SAFE_INTEGER
+      }
+      list = filteredRows.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map((x) => x.r)
+    }
+    const i = list.findIndex((r) => r.id === rowId)
+    if (i < 0) return {}
+    const name = (r: Row) => (board?.titlePropertyId ? String(r.values[board.titlePropertyId] ?? '') : '')
+    const prev = list[i - 1]
+    const next = list[i + 1]
+    return {
+      onPrev: prev ? () => setDetailRow(prev) : undefined,
+      onNext: next ? () => setDetailRow(next) : undefined,
+      prevTitle: prev ? name(prev) : undefined,
+      nextTitle: next ? name(next) : undefined,
+    }
+  }
 
   // Satır menüsündeki "Altına Satır Ekle" (ve "Çoğalt") — listenin sonuna değil, tıklanan
   // satırın HEMEN ALTINA düşsün diye yeni satırın `createdAt`'ı o satırla bir sonraki satır
@@ -2984,14 +3024,40 @@ export default function BoardView() {
           rows={filteredRows}
           groupProp={board.properties.find((p) => p.id === groupById && p.type === 'select') ?? null}
           onOpenRow={setDetailRow}
-          onAddRow={async () => {
-            const row = await saveRow(emptyRow())
-            if (row) setDetailRow(row)
+          // Önce ad sorulur (adsız boş kayıt açılmasın); ad girilince kayıt oluşur ve detayı açılır — TMDB "Güncelle" orada
+          onAddRow={async (name) => {
+            try {
+              const base = emptyRow()
+              const row = await saveRow(board.titlePropertyId ? { ...base, values: { [board.titlePropertyId]: name } } : base)
+              if (row) setDetailRow(row)
+            } catch (e) {
+              notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
+            }
           }}
+          addOpen={galleryAdd}
+          onAddOpenChange={setGalleryAdd}
         />
       ) : layout === 'pano' ? (
         kanbanProp ? (
-          <BoardKanban board={board} rows={filteredRows} groupProp={kanbanProp} onOpen={setDetailRow} onMove={(rowId, optionId) => void moveOnBoard(kanbanProp, rowId, optionId)} />
+          <>
+            {/* Panoda da "+ Yeni Ekle" önce ad sorar (galerideki gibi) — adsız boş kart açılmasın */}
+            {galleryAdd && !MOBILE && (
+              <PanoNewName
+                onCancel={() => setGalleryAdd(false)}
+                onCreate={async (name) => {
+                  setGalleryAdd(false)
+                  try {
+                    const base = emptyRow()
+                    const row = await saveRow(board.titlePropertyId ? { ...base, values: { ...base.values, [board.titlePropertyId]: name } } : base)
+                    if (row) setDetailRow(row)
+                  } catch (e) {
+                    notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
+                  }
+                }}
+              />
+            )}
+            <BoardKanban board={board} rows={filteredRows} groupProp={kanbanProp} onOpen={setDetailRow} onMove={(rowId, optionId) => void moveOnBoard(kanbanProp, rowId, optionId)} />
+          </>
         ) : (
           <p className="py-16 text-center text-sm text-neutral-500">{tt('Pano için bir Seçim sütunu gerekiyor (ör. Durum).')}</p>
         )
@@ -3043,6 +3109,11 @@ export default function BoardView() {
           onPasteCells={(cells, overflow) => void pasteCells(cells, overflow)}
           addedColumn={addedColumn}
           onHideAddedColumn={() => saveAddedCol('off')}
+          optionTools={{
+            allRows: rowsLoading ? undefined : rows,
+            onReorderOptions: optionTools.reorderOptions,
+            onMergeOption: (pid, from, to) => void optionTools.mergeOption(pid, from, to),
+          }}
         />
       )}
       {!rowsLoading && !MOBILE && (
@@ -3075,6 +3146,9 @@ export default function BoardView() {
           editable
           onFetchTmdb={fetchTmdb}
           onEdit={MOBILE ? () => setEditRow(rows.find((r) => r.id === detailRow.id) ?? detailRow) : undefined}
+          {...(MOBILE ? {} : detailNeighbors(detailRow.id))}
+          // Komşu kayda geçince pencere baştan kurulur (sezon seçimi, kaydırma, açık bölümler eski kayıttan kalmasın)
+          key={detailRow.id}
         />
       )}
       {editRow && (
@@ -3228,6 +3302,41 @@ export default function BoardView() {
           onClose={() => setHealthOpen(false)}
         />
       )}
+    </div>
+  )
+}
+
+// Pano görünümünde "+ Yeni Ekle" için küçük ad kutusu (Enter: oluştur, Esc: vazgeç)
+function PanoNewName({ onCreate, onCancel }: { onCreate: (name: string) => void; onCancel: () => void }) {
+  const [name, setName] = useState('')
+  const ok = name.trim().length > 0
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#00c0fa]/60 bg-neutral-900 px-3 py-2">
+      <span className="text-xs text-neutral-400">{tt('Yeni kaydın adı')}</span>
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && ok) {
+            e.preventDefault()
+            onCreate(name.trim())
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            e.stopPropagation()
+            onCancel()
+          }
+        }}
+        placeholder={tt('ör. Inception')}
+        className="min-w-0 flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
+      />
+      <button type="button" disabled={!ok} onClick={() => onCreate(name.trim())} className="text-xs rounded-lg bg-[#00c0fa] px-3 py-1.5 font-medium text-neutral-950 disabled:opacity-40">
+        {tt('Oluştur')}
+      </button>
+      <button type="button" onClick={onCancel} className="text-xs text-neutral-400 hover:text-neutral-100">
+        {tt('Vazgeç')}
+      </button>
     </div>
   )
 }

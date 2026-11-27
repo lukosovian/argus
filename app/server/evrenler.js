@@ -412,15 +412,17 @@ export function registerPlatformRoutes(app) {
       const none = []
       for (const it of list) {
         const ids = [...new Set(it.ids ?? [])].filter((id) => names.has(id))
+        // rowId (v1.27, O9): arşivdeki yapımsa Abonelik sayfası afişe tıklayınca detayını açar; yoksa key ile TMDB önizlemesi
+        const rowId = it.rowId ?? keyToRow.get(`${it.type}:${it.tmdbId}`) ?? null
         if (!ids.length) {
-          none.push({ title: it.title, poster: it.poster })
+          none.push({ title: it.title, poster: it.poster, key: `${it.type}:${it.tmdbId}`, rowId })
           continue
         }
         for (const id of ids) {
           const p = byId.get(id) ?? { id, name: names.get(id).name, logo: names.get(id).logo, count: 0, minutes: 0, items: [] }
           p.count++
           p.minutes += it.minutes
-          p.items.push({ title: it.title, poster: it.poster, key: `${it.type}:${it.tmdbId}` })
+          p.items.push({ title: it.title, poster: it.poster, key: `${it.type}:${it.tmdbId}`, rowId })
           byId.set(id, p)
         }
       }

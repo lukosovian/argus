@@ -15,6 +15,9 @@ import PackOpening, { HAPTIC_KEY, hapticsOn } from '../components/odul/PackOpeni
 import { MOBILE } from '../lib/mobile/ui'
 import { CardBack, ItemArt, RewardCard } from '../components/odul/RewardCard'
 import '../components/odul/odul.css'
+import RowDetailModal from '../components/RowDetailModal'
+import { searchFold } from '../lib/search'
+import type { Row } from '../types'
 
 // Koleksiyon › Ödüller (v1.24): kart paketleri, film kartı albümü, avatar çerçeveleri, kart arkaları ve bilet tasarımı.
 // Kurallar ve oranlar lib/oduller.ts'te; kayıt server › oduller.
@@ -38,7 +41,8 @@ function MiniPack({ tier, size = 64 }: { tier: OdulTier; size?: number }) {
 }
 
 // Albümde büyütülen kart: fareyle eğilir, ışık kayar
-function CardZoom({ reward, backKey, no, onClose }: { reward: OdulReward; backKey?: string; no?: number; onClose: () => void }) {
+// onOpenRow (O6): kartın yapımı arşivdeyse detayı açılır
+function CardZoom({ reward, backKey, no, onClose, onOpenRow }: { reward: OdulReward; backKey?: string; no?: number; onClose: () => void; onOpenRow?: () => void }) {
   useEscape(true, onClose)
   const ref = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -84,6 +88,11 @@ function CardZoom({ reward, backKey, no, onClose }: { reward: OdulReward; backKe
           </RewardCard>
         </div>
         <p className="text-xs text-neutral-400">{tt('Çevirmek için karta tıkla')}</p>
+        {onOpenRow && (
+          <button onClick={onOpenRow} className="rounded-full border border-white/15 bg-white/[0.06] px-4 py-1.5 text-xs text-neutral-200 transition hover:bg-white/[0.12] hover:text-white">
+            {tt('Yapımı aç')}
+          </button>
+        )}
       </div>
     </div>,
     document.body,
@@ -98,6 +107,11 @@ export default function Oduller() {
   const [busy, setBusy] = useState(false)
   const [filter, setFilter] = useState<number | 'parlak' | null>(null)
   const [zoom, setZoom] = useState<{ reward: OdulReward; no: number } | null>(null)
+  const [detail, setDetail] = useState<Row | null>(null)
+  // O7 (v1.27): albümde ad araması, sıralama ve eksik kartlar
+  const [q, setQ] = useState('')
+  const [sort, setSort] = useState<'yeni' | 'ad' | 'puan' | 'nadir'>('nadir')
+  const [showMissing, setShowMissing] = useState(false)
 
   const cards = useMemo(
     () =>
@@ -131,7 +145,28 @@ export default function Oduller() {
   useSetBonuses(kolShelves, data, true)
   const doneSets = Object.values(setStore?.sets ?? {}).sort((a, b) => b.at - a.at)
 
-  const shownCards = cards.filter((c) => (filter === null ? true : filter === 'parlak' ? c.foil : c.r === filter))
+  const albumCards = useMemo(() => {
+    const n = searchFold(q.trim())
+    const list = cards.filter((c) => (filter === null ? true : filter === 'parlak' ? c.foil : c.r === filter) && (!n || searchFold(c.title).includes(n)))
+    const byName = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title, 'tr')
+    if (sort === 'yeni') list.sort((a, b) => b.at - a.at)
+    else if (sort === 'ad') list.sort(byName)
+    else if (sort === 'puan') list.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || byName(a, b))
+    return list
+  }, [cards, filter, q, sort])
+  // Eksik kartlar: kart havuzunda (izlenmiş, afişi olan yapımlar — lib/oduller › buildPool) olup henüz çıkmamış olanlar
+  const missingAll = useMemo(() => pool.filter((p) => !data?.cards[p.rowId]), [pool, data])
+  const missingCards = useMemo(() => {
+    if (!showMissing || filter === 'parlak') return []
+    const n = searchFold(q.trim())
+    const list = missingAll.filter((p) => (filter === null || p.r === filter) && (!n || searchFold(p.title).includes(n)))
+    const byName = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title, 'tr')
+    if (sort === 'puan') list.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || byName(a, b))
+    else if (sort === 'nadir') list.sort((a, b) => b.r - a.r || byName(a, b))
+    else list.sort(byName)
+    return list
+  }, [showMissing, missingAll, filter, q, sort])
+  const rowById = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows])
 
   async function open(tier: OdulTier) {
     if (!data || busy) return
@@ -300,9 +335,44 @@ export default function Oduller() {
             ))}
           </div>
         </div>
-        {shownCards.length ? (
+        {cards.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setQ('')}
+              placeholder={tt('Kartlarda ara…')}
+              aria-label={tt('Kartlarda ara')}
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-[#00c0fa] sm:w-56"
+            />
+            <div className="flex rounded-xl border border-neutral-800 bg-neutral-900 p-0.5 text-xs" role="group" aria-label={tt('Sırala')}>
+              {(
+                [
+                  ['yeni', tt('Yeni gelen')],
+                  ['ad', tt('Ada göre')],
+                  ['puan', tt('Puana göre')],
+                  ['nadir', tt('Nadirlik')],
+                ] as const
+              ).map(([k, label]) => (
+                <button key={k} onClick={() => setSort(k)} aria-pressed={sort === k} className={`rounded-lg px-2.5 py-1 transition ${sort === k ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-100'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {missingAll.length > 0 && (
+              <button
+                onClick={() => setShowMissing((v) => !v)}
+                aria-pressed={showMissing}
+                className={`rounded-xl border px-3 py-1.5 text-xs transition ${showMissing ? 'border-[#00c0fa]/60 bg-[#00c0fa]/10 text-[#7fdcff]' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
+              >
+                {showMissing ? tt('Eksikleri gizle') : tt('Eksikleri göster ({0})', missingAll.length)}
+              </button>
+            )}
+          </div>
+        )}
+        {albumCards.length || missingCards.length ? (
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(118px, 1fr))' }}>
-            {shownCards.map((c) => {
+            {albumCards.map((c) => {
               const rw: OdulReward = { kind: 'card', rowId: c.rowId, r: c.r, title: c.title, poster: c.poster, year: c.year, rating: c.rating, foil: c.foil }
               return (
                 <button key={c.rowId} className="relative text-left transition hover:-translate-y-1" onClick={() => setZoom({ reward: rw, no: numberOf.get(c.rowId) ?? 0 })}>
@@ -311,9 +381,33 @@ export default function Oduller() {
                 </button>
               )
             })}
+            {/* Eksik kartlar: soluk afiş (Setlerin şeridindeki gibi) + "henüz çıkmadı"; dokununca yapımın detayı */}
+            {missingCards.map((p) => (
+              <button
+                key={p.rowId}
+                onClick={() => {
+                  const row = rowById.get(p.rowId)
+                  if (row) setDetail(row)
+                }}
+                className="group relative overflow-hidden rounded-[10px] border border-dashed border-neutral-700 bg-neutral-950 text-left"
+                style={{ aspectRatio: '1 / 1.48' }}
+                title={p.title}
+              >
+                <img src={p.poster} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition group-hover:opacity-40" style={{ opacity: 0.22, filter: 'grayscale(1)' }} />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-2 pt-6">
+                  <b className="block truncate text-[11px] text-neutral-300">{p.title}</b>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: RARITY_COLORS[p.r] }}>
+                    {RN[p.r]}
+                  </span>
+                  <span className="block text-[10px] text-neutral-500">{tt('henüz çıkmadı')}</span>
+                </div>
+              </button>
+            ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-neutral-800 py-10 text-center text-sm text-neutral-500">{cards.length ? tt('Bu nadirlikte kartın yok.') : tt('Henüz kart yok. İlk paketini aç!')}</div>
+          <div className="rounded-2xl border border-dashed border-neutral-800 py-10 text-center text-sm text-neutral-500">
+            {!cards.length ? tt('Henüz kart yok. İlk paketini aç!') : q.trim() ? tt('Bu ada uyan kart yok.') : tt('Bu nadirlikte kartın yok.')}
+          </div>
         )}
       </section>
 
@@ -378,7 +472,24 @@ export default function Oduller() {
           againLabel={tt('Bir tane daha aç ({0})', available[opening.tier])}
         />
       )}
-      {zoom && <CardZoom reward={zoom.reward} no={zoom.no} backKey={data.equip.back} onClose={() => setZoom(null)} />}
+      {zoom && (
+        <CardZoom
+          reward={zoom.reward}
+          no={zoom.no}
+          backKey={data.equip.back}
+          onClose={() => setZoom(null)}
+          onOpenRow={
+            zoom.reward.kind === 'card' && board && rowById.has(zoom.reward.rowId)
+              ? () => {
+                  const row = zoom.reward.kind === 'card' ? rowById.get(zoom.reward.rowId) : undefined
+                  setZoom(null)
+                  if (row) setDetail(row)
+                }
+              : undefined
+          }
+        />
+      )}
+      {detail && board && <RowDetailModal board={board} row={detail} onClose={() => setDetail(null)} />}
     </div>
   )
 }

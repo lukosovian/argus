@@ -43,6 +43,8 @@ function settings() {
     target: typeof s.target === 'string' ? s.target : '',
     auto: s.auto === 'daily' || s.auto === 'weekly' ? s.auto : 'off',
     keep: Number.isInteger(s.keep) && s.keep > 0 ? s.keep : 10,
+    // Saklama: 'count' = son N yedek; 'tiered' = son 7 gün her gün, sonra 4 hafta haftada bir, sonra 12 ay ayda bir (v1.27, M5)
+    retention: s.retention === 'tiered' ? 'tiered' : 'count',
     lastAt: s.lastAt ?? null,
     lastSummary: s.lastSummary ?? null,
     lastError: s.lastError ?? null,
@@ -58,18 +60,154 @@ const stamp = (d = new Date()) =>
 
 let job = null // { kind, phase, done, total, startedAt, error }
 
+const SNAP_RE = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}$/
+// Her veri yedeğinin içine konan küçük dosyalar (v1.27). Geri yüklemede data/'ya taşınmazlar.
+//   _ozet.json — kaç profil / kaç kayıt / boyut ve etiket ("Güncelleme öncesi"); liste her açılışta 100 MB'ı taramasın diye
+//   _kilitli   — "Silinmesin" işareti: eski yedekler silinirken bu yedeğe hiç dokunulmaz
+const OZET = '_ozet.json'
+const KILIT = '_kilitli'
+const snapMetaSkip = (p, e) => e.name === OZET || e.name === KILIT
+
 function listSnapshots(target) {
   const dir = path.join(destRoot(target), 'veri')
   try {
     return fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}$/.test(e.name))
+      .filter((e) => e.isDirectory() && SNAP_RE.test(e.name))
       .map((e) => e.name)
       .sort()
       .reverse()
   } catch {
     return []
   }
+}
+
+const isLocked = (snapDir) => fs.existsSync(path.join(snapDir, KILIT))
+function setLocked(snapDir, on) {
+  const f = path.join(snapDir, KILIT)
+  if (on) fs.writeFileSync(f, 'Bu yedek ARGUS tarafından silinmez (Ayarlar > Yedekleme > Silinmesin).\n', 'utf8')
+  else fs.rmSync(f, { force: true })
+}
+
+function dirBytes(dir) {
+  let n = 0
+  try {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) n += dirBytes(p)
+      else
+        try {
+          n += fs.statSync(p).size
+        } catch {}
+    }
+  } catch {}
+  return n
+}
+const readJsonFile = (f) => {
+  try {
+    return JSON.parse(fs.readFileSync(f, 'utf8'))
+  } catch {
+    return null
+  }
+}
+// Bir veri klasörünün (data/ ya da bir yedek) özeti: profil sayısı, bütün arşivlerdeki toplam kayıt, boyut.
+function summarizeDir(dir, withBytes = true) {
+  const list = readJsonFile(path.join(dir, 'profile.json'))
+  const profiles = Array.isArray(list) ? list.length : 0
+  let records = 0
+  let ids = []
+  try {
+    ids = fs.readdirSync(path.join(dir, 'profiles'))
+  } catch {}
+  for (const id of ids) {
+    const rd = path.join(dir, 'profiles', id, 'rows')
+    let files = []
+    try {
+      files = fs.readdirSync(rd).filter((f) => f.endsWith('.json'))
+    } catch {}
+    for (const f of files) {
+      const a = readJsonFile(path.join(rd, f))
+      if (Array.isArray(a)) records += a.length
+    }
+  }
+  return { profiles, records, bytes: withBytes ? dirBytes(dir) : null }
+}
+function writeOzet(snapDir, label) {
+  try {
+    fs.writeFileSync(path.join(snapDir, OZET), JSON.stringify({ ...summarizeDir(snapDir), label: label || null, at: Date.now() }), 'utf8')
+  } catch {}
+}
+// Eski (v1.27 öncesi) yedeklerde özet yok: bir kez hesaplanıp yedeğin içine yazılır, sonraki açılışlar hızlı.
+function snapshotInfo(snapDir) {
+  let o = readJsonFile(path.join(snapDir, OZET))
+  if (!o || typeof o.records !== 'number') {
+    o = { ...summarizeDir(snapDir), label: null, at: null, later: true }
+    try {
+      fs.writeFileSync(path.join(snapDir, OZET), JSON.stringify(o), 'utf8')
+    } catch {}
+  }
+  return { profiles: o.profiles ?? null, records: o.records ?? null, bytes: o.bytes ?? null, label: o.label ?? null, locked: isLocked(snapDir) }
+}
+let currentCache = null // { at, value } — şu anki verinin özeti, liste sık yenilendiği için 20 sn saklanır
+function currentSummary() {
+  if (currentCache && Date.now() - currentCache.at < 20000) return currentCache.value
+  const value = summarizeDir(DATA_DIR, false)
+  currentCache = { at: Date.now(), value }
+  return value
+}
+
+// ---- Eski yedekleri silme (budama) ----
+const snapDate = (name) => {
+  const m = name.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})$/)
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null
+}
+const dayKey = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+// Kademeli: son 7 gün her günden bir, sonra 4 hafta her haftadan bir, sonra 12 ay her aydan bir (her dilimde o
+// dilimin en yeni yedeği) kalır; daha eskiler silinir. En yeni yedek her durumda kalır. names: en yeni önce.
+export function tieredDrop(names, now = new Date()) {
+  const seen = new Set()
+  const drop = []
+  names.forEach((name, i) => {
+    const d = snapDate(name)
+    if (!d) return
+    const age = (now - d) / 864e5
+    let key
+    if (age < 7) key = 'g' + dayKey(d)
+    else if (age < 7 + 28) {
+      const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7))
+      key = 'h' + dayKey(mon)
+    } else if (age < 7 + 28 + 366) key = 'a' + d.getFullYear() + '-' + d.getMonth()
+    else key = null
+    if (i === 0) {
+      if (key) seen.add(key)
+      return
+    }
+    if (!key || seen.has(key)) drop.push(name)
+    else seen.add(key)
+  })
+  return drop
+}
+function pruneSnapshots(s) {
+  const root = destRoot(s.target)
+  // Kilitli yedekler sayılmaz da, silinmez de
+  const free = listSnapshots(s.target).filter((n) => !isLocked(path.join(root, 'veri', n)))
+  const drop = s.retention === 'tiered' ? tieredDrop(free) : free.slice(s.keep)
+  for (const old of drop) fs.rmSync(path.join(root, 'veri', old), { recursive: true, force: true })
+}
+
+// data/'yı yeni bir yedek klasörüne kopyalar (önce geçici adla; yarım kalırsa listede görünmesin), özetini yazar.
+async function snapshotData(root, label) {
+  const snapDir = path.join(root, 'veri', stamp())
+  const tmpDir = snapDir + '.yaziliyor'
+  fs.rmSync(tmpDir, { recursive: true, force: true })
+  await copyTree(DATA_DIR, tmpDir, dataSkip)
+  writeOzet(tmpDir, label)
+  // Aynı dakikada alınan ikinci yedek öncekinin yerine geçer; o kilitliyse kilit korunur
+  const wasLocked = isLocked(snapDir)
+  fs.rmSync(snapDir, { recursive: true, force: true })
+  fs.renameSync(tmpDir, snapDir)
+  if (wasLocked) setLocked(snapDir, true)
+  return snapDir
 }
 
 // Büyük kopyalamalar olay döngüsünü kilitlemesin diye dosya dosya, arada nefes alarak.
@@ -107,15 +245,11 @@ async function runBackup() {
   if (!s.target) throw new Error(stt('Önce yedeklerin konacağı klasörü seç.'))
   if (!fs.existsSync(s.target)) throw new Error(stt('Seçilen klasör bulunamadı: ') + s.target)
   const root = destRoot(s.target)
-  const snapDir = path.join(root, 'veri', stamp())
-  const tmpDir = snapDir + '.yaziliyor'
   // 1) Veri (küçük, hızlı) — önce yarım kalırsa görünmesin diye geçici adla, bitince asıl adına
   job.phase = 'veri'
   job.done = 0
   job.total = countFiles(DATA_DIR, dataSkip)
-  await copyTree(DATA_DIR, tmpDir, dataSkip)
-  fs.rmSync(snapDir, { recursive: true, force: true })
-  fs.renameSync(tmpDir, snapDir)
+  const snapDir = await snapshotData(root, null)
   // 2) Görseller — sadece yeni/değişen
   job.phase = 'medya'
   const mdst = path.join(root, 'medya')
@@ -140,20 +274,19 @@ async function runBackup() {
     job.done++
     if (job.done % 200 === 0) await tick()
   }
-  // 3) Eski veri yedeklerini sil (en yeni `keep` tanesi kalır)
-  const snaps = listSnapshots(s.target)
-  for (const old of snaps.slice(s.keep)) fs.rmSync(path.join(root, 'veri', old), { recursive: true, force: true })
+  // 3) Eski veri yedeklerini sil (saklama ayarına göre; kilitliler hiç silinmez)
+  pruneSnapshots(s)
   return { snapshot: path.basename(snapDir), mediaCopied: copied, mediaTotal: files.length }
 }
 
 async function runRestore(name) {
   const s = settings()
   const snap = path.join(destRoot(s.target), 'veri', name)
-  if (!/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}$/.test(name) || !fs.existsSync(snap)) throw new Error(stt('Yedek bulunamadı'))
+  if (!SNAP_RE.test(name) || !fs.existsSync(snap)) throw new Error(stt('Yedek bulunamadı'))
   // 1) Yedeği önce geçici bir klasöre kopyala, sonra yer değiştir (yarım kalan geri yükleme veriyi bozmasın)
   job.phase = 'veri'
   job.done = 0
-  job.total = countFiles(snap)
+  job.total = countFiles(snap, snapMetaSkip)
   const incoming = path.join(ROOT, `data_geri_yukleniyor_${stamp()}`)
   // Dönüş yarıda kalırsa (kopyalama hatası, klasör kilitli) geçici kopya veri klasörünün yanında kalmasın (H6)
   const dropIncoming = () => {
@@ -163,9 +296,12 @@ async function runRestore(name) {
   }
   const aside = path.join(ROOT, `data_geri_yukleme_oncesi_${stamp()}`)
   try {
-    await copyTree(snap, incoming)
-    // yedekleme ayarı ve silinen profiller yerinde kalsın
-    for (const keep of ['backup-settings.json', 'profiller_silinen']) {
+    await copyTree(snap, incoming, snapMetaSkip)
+    // Bu bilgisayara ait olanlar yerinde kalsın: yedekleme ayarı, silinen profiller, bağlı telefonlar (devices.json —
+    // eski yedekle kaldırılmış bir telefon geri gelmesin, yeni eşleşen kopmasın), eşitleme kimliği (sync-id.json —
+    // telefon PC'yi bununla tanıyor) ve telefondan uygulanmış değişiklik kimlikleri (sync-applied.json — aynı
+    // değişiklik ikinci kez uygulanmasın).
+    for (const keep of ['backup-settings.json', 'profiller_silinen', 'devices.json', 'sync-id.json', 'sync-applied.json']) {
       const p = path.join(DATA_DIR, keep)
       if (fs.existsSync(p)) fs.cpSync(p, path.join(incoming, keep), { recursive: true })
     }
@@ -228,6 +364,20 @@ function start(kind, fn) {
       job.running = false
       job.finishedAt = Date.now()
     })
+}
+
+// Güncellemeden önce hızlı yedek (v1.27, M6): sadece data/ (görseller değil), etiketi "Güncelleme öncesi".
+// Yedek klasörü yoksa ya da başka bir yedek işi sürüyorsa atlanır; hata güncellemeyi durdurmaz, çağıran loglar.
+export async function quickDataBackup(label = 'guncelleme') {
+  const s = settings()
+  if (!s.target) return { skipped: 'no-target' }
+  if (!fs.existsSync(s.target)) return { skipped: 'target-missing' }
+  if (job?.running) return { skipped: 'busy' }
+  const snapDir = await snapshotData(destRoot(s.target), label)
+  try {
+    pruneSnapshots(s)
+  } catch {}
+  return { snapshot: path.basename(snapDir) }
 }
 
 function autoCheck() {
@@ -302,7 +452,32 @@ export function registerBackupRoutes(app) {
     const s = settings()
     let snapshots = []
     if (s.target) snapshots = listSnapshots(s.target)
-    res.json({ settings: s, snapshots, job, suggestions: suggestions(), targetExists: Boolean(s.target && fs.existsSync(s.target)), bootId: BOOT_ID })
+    // Her yedek için kaç profil / kayıt / boyut / etiket / kilit (v1.27, M4–M5). Geri yükleme sürerken taranmaz.
+    const details = {}
+    if (!(job?.running && job.kind === 'restore'))
+      for (const n of snapshots) {
+        try {
+          details[n] = snapshotInfo(path.join(destRoot(s.target), 'veri', n))
+        } catch {}
+      }
+    let current = null
+    try {
+      current = currentSummary()
+    } catch {}
+    res.json({ settings: s, snapshots, details, current, job, suggestions: suggestions(), targetExists: Boolean(s.target && fs.existsSync(s.target)), bootId: BOOT_ID })
+  })
+  // "Silinmesin" kilidi: kilitli yedek eski yedekler silinirken hiç silinmez
+  app.post('/api/backup/lock', (req, res) => {
+    const s = settings()
+    const name = String(req.body?.snapshot ?? '')
+    const snap = s.target ? path.join(destRoot(s.target), 'veri', name) : ''
+    if (!SNAP_RE.test(name) || !snap || !fs.existsSync(snap)) return res.status(404).json({ error: stt('Yedek bulunamadı') })
+    try {
+      setLocked(snap, Boolean(req.body?.locked))
+      res.json({ ok: true, locked: isLocked(snap) })
+    } catch (e) {
+      res.status(400).json({ error: e.message })
+    }
   })
   app.post('/api/backup/settings', (req, res) => {
     const b = req.body ?? {}
@@ -314,6 +489,7 @@ export function registerBackupRoutes(app) {
     }
     if (['off', 'daily', 'weekly'].includes(b.auto)) patch.auto = b.auto
     if (Number.isInteger(b.keep) && b.keep >= 1 && b.keep <= 100) patch.keep = b.keep
+    if (b.retention === 'count' || b.retention === 'tiered') patch.retention = b.retention
     saveSettings(patch)
     res.json({ ok: true, settings: settings() })
   })

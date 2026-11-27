@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useProfiles } from '../../hooks/useProfiles'
 import { useExtras } from '../../lib/extras'
-import { gameReward, pushHistory, readRecord, saveRecord, sfx, soundMode, setSoundMode, today, type SoundMode } from '../../lib/games'
+import { gameReward, pushHistory, readRecord, saveRecord, sfx, soundMode, setSoundMode, today, useGameData, type SoundMode } from '../../lib/games'
 import { tt, ttx } from '../../lib/i18n'
 import Icon from '../Icon'
 
@@ -10,6 +10,7 @@ import Icon from '../Icon'
 
 export function GameShell({ title, subtitle, score, game, children, right, record }: { title: string; subtitle?: string; score?: number | null; game: string; children: ReactNode; right?: ReactNode; record?: number }) {
   const { activeProfileId } = useProfiles()
+  useGameData([activeProfileId]) // rekor profil deposundan gelince yeniden çizilsin (H7)
   const rec = record ?? (activeProfileId ? readRecord(activeProfileId, game) : 0)
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">

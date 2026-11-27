@@ -157,7 +157,8 @@ export default function ProfilePicker({ onClose, embedded }: { onClose?: () => v
     }
     if (embedded) return go()
     const prof = profiles.find((p) => p.id === id)
-    if (!MOBILE && deviceOn('argus_profil_gecis') && prof?.photo && !prof.pin) {
+    // v1.27 (T1): telefonda da (telefon Ayarlar'ından açılıp kapanır; ayar her cihazda ayrı)
+    if (deviceOn('argus_profil_gecis') && prof?.photo && !prof.pin) {
       setLeaving(id)
       morphFrom(document.querySelector<HTMLElement>(`[data-profil-kutu="${id}"]`), prof.photo, prof.username, () => {
         setActiveProfileId(id)
@@ -533,7 +534,7 @@ function MobilePicker({
           <div className="grid grid-cols-3 gap-x-6 gap-y-4">
             {profiles.map((p) => (
               <button key={p.id} onClick={() => onPick(p.id)} className="flex flex-col items-center gap-2 min-w-0 active:scale-95 transition-transform">
-                <span className={`${tile} relative bg-white/10 transition-transform duration-300 ${managing ? 'ring-2 ring-white' : ''} ${leaving === p.id ? 'scale-110 ring-2 ring-white' : ''}`}>
+                <span data-profil-kutu={p.id} className={`${tile} relative bg-white/10 transition-transform duration-300 ${managing ? 'ring-2 ring-white' : ''} ${leaving === p.id ? 'scale-110 ring-2 ring-white' : ''}`}>
                   {p.photo ? <img src={p.photo} alt={p.username} className="h-full w-full object-cover" /> : <span className="text-3xl text-white/70">{p.username.slice(0, 1).toLocaleUpperCase('tr')}</span>}
                   {managing && (
                     <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white">

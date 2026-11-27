@@ -189,9 +189,57 @@ export default function NotificationBell() {
     load()
   }
 
+  // Silinenler önce kopyalanıyor ki "Geri al" sunucuya geri yazabilsin (K8). Geri gelenler "yeni" sayılıp
+  // tekrar kart olarak çıkmasın diye bilinenlere ekleniyor.
+  async function restore(list: AppNotification[]) {
+    for (const n of list) knownIds.current?.add(n.id)
+    await api.restoreNotifications(list).catch(() => notify(tt('Geri alınamadı'), 'danger'))
+    load()
+  }
+  function undoAction(list: AppNotification[]) {
+    return { action: { label: tt('Geri al'), onClick: () => restore(list) } }
+  }
+
   async function clearAll() {
+    const copy = items
+    setItems([])
     await api.clearNotifications().catch(() => {})
     load()
+    if (copy.length) notify(tt('{0} bildirim temizlendi', copy.length), 'info', undoAction(copy))
+  }
+
+  // Tek bildirimi (ya da platform grubunu) sil — ×
+  async function removeItems(list: AppNotification[]) {
+    const ids = new Set(list.map((n) => n.id))
+    setItems((cur) => cur.filter((n) => !ids.has(n.id)))
+    await Promise.all(list.map((n) => api.deleteNotification(n.id).catch(() => {})))
+    load()
+    notify(list.length === 1 ? tt('Bildirim silindi') : tt('{0} bildirim silindi', list.length), 'info', undoAction(list))
+  }
+
+  function openSettings() {
+    setOpen(false)
+    navigate('/arsivlerim?sekme=uygulama&bolum=zil')
+  }
+
+  // × düğmesi: bilgisayarda üzerine gelince, telefonda hep görünür; satırın tıklamasını (detayı açma) tetiklemez
+  function deleteBtn(list: AppNotification[]) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          removeItems(list)
+        }}
+        title={tt('Bildirimi sil')}
+        aria-label={tt('Bildirimi sil')}
+        className={`absolute top-2 right-2 h-7 w-7 rounded-full flex items-center justify-center text-neutral-500 hover:text-rose-300 hover:bg-neutral-800 transition focus-visible:opacity-100 ${
+          MOBILE ? '' : 'opacity-0 group-hover/not:opacity-100'
+        }`}
+      >
+        ×
+      </button>
+    )
   }
 
   async function openItem(n: AppNotification) {
@@ -244,6 +292,12 @@ export default function NotificationBell() {
                   {tt('Bildirimler')}{unread > 0 && <span className="ml-1.5 text-xs font-normal text-neutral-500">{ttx('{0} okunmamış', unread)}</span>}
                 </p>
                 <div className="flex items-center gap-3 text-xs">
+                  {/* Dişli: Ayarlar › Uygulama Ayarları › Zil bildirimleri (telefonda o bölüm yok) */}
+                  {!MOBILE && (
+                    <button onClick={openSettings} title={tt('Zil bildirimleri ayarları')} aria-label={tt('Zil bildirimleri ayarları')} className="text-neutral-500 hover:text-neutral-100 transition">
+                      <Icon name="gear" className="h-4 w-4" />
+                    </button>
+                  )}
                   {(activeTab === 'all' ? unread : visible.some((n) => !n.read)) ? (
                     <button onClick={markAll} className="text-[#00c0fa] hover:underline">
                       {tt('Hepsini okundu say')}
@@ -290,9 +344,10 @@ export default function NotificationBell() {
                       const look = TYPE_ICON.platform
                       return (
                         <div key="platform-group" className="border-b border-neutral-800/60">
+                          <div className="group/not relative">
                           <button
                             onClick={() => toggleGroup(g)}
-                            className={`w-full flex items-start gap-3 text-left px-4 py-3 hover:bg-neutral-800/60 transition ${gUnread ? 'bg-[#00c0fa]/[0.04]' : ''}`}
+                            className={`w-full flex items-start gap-3 text-left pl-4 pr-10 py-3 hover:bg-neutral-800/60 transition ${gUnread ? 'bg-[#00c0fa]/[0.04]' : ''}`}
                           >
                             <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}><Icon name={look.icon} className={MOBILE ? 'h-5 w-5' : 'h-4 w-4'} /></span>
                             <span className="flex-1 min-w-0">
@@ -305,18 +360,22 @@ export default function NotificationBell() {
                             </span>
                             <span className={`shrink-0 self-center text-neutral-500 transition-transform ${groupOpen ? 'rotate-90' : ''}`}>›</span>
                           </button>
+                          {deleteBtn(g)}
+                          </div>
                           {groupOpen &&
                             g.map((n) => (
-                              <button
-                                key={n.id}
-                                onClick={() => openItem(n)}
-                                className="w-full flex items-start gap-3 text-left pl-[3.75rem] pr-4 py-2 hover:bg-neutral-800/60 transition"
-                              >
-                                <span className="flex-1 min-w-0">
-                                  <span className="block text-sm text-neutral-200 truncate">{n.title}</span>
-                                  <span className="block text-xs text-neutral-500 leading-snug">{n.text}</span>
-                                </span>
-                              </button>
+                              <div key={n.id} className="group/not relative">
+                                <button
+                                  onClick={() => openItem(n)}
+                                  className="w-full flex items-start gap-3 text-left pl-[3.75rem] pr-10 py-2 hover:bg-neutral-800/60 transition"
+                                >
+                                  <span className="flex-1 min-w-0">
+                                    <span className="block text-sm text-neutral-200 truncate">{n.title}</span>
+                                    <span className="block text-xs text-neutral-500 leading-snug">{n.text}</span>
+                                  </span>
+                                </button>
+                                {deleteBtn([n])}
+                              </div>
                             ))}
                         </div>
                       )
@@ -324,10 +383,10 @@ export default function NotificationBell() {
                     const n = entry.item
                     const look = TYPE_ICON[n.type] ?? { icon: 'sparkle' as IconName, cls: 'bg-neutral-800 text-neutral-300' }
                     return (
+                      <div key={n.id} className="group/not relative">
                       <button
-                        key={n.id}
                         onClick={() => openItem(n)}
-                        className={`w-full flex items-start gap-3 text-left px-4 py-3 border-b border-neutral-800/60 hover:bg-neutral-800/60 transition ${n.read ? '' : 'bg-[#00c0fa]/[0.04]'}`}
+                        className={`w-full flex items-start gap-3 text-left pl-4 pr-10 py-3 border-b border-neutral-800/60 hover:bg-neutral-800/60 transition ${n.read ? '' : 'bg-[#00c0fa]/[0.04]'}`}
                       >
                         <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}><Icon name={look.icon} className={MOBILE ? 'h-5 w-5' : 'h-4 w-4'} /></span>
                         <span className="flex-1 min-w-0">
@@ -339,6 +398,8 @@ export default function NotificationBell() {
                           <span className="block text-[11px] text-neutral-600 mt-1">{ago(n.t)}</span>
                         </span>
                       </button>
+                      {deleteBtn([n])}
+                      </div>
                     )
                   })
                 )}

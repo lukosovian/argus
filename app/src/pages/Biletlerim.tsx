@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import { useToast } from '../hooks/useToast'
-import { saveBilet, shortDay, sortedBiletler, useBiletler } from '../lib/bilet'
+import { saveBilet, shortDay, sortedBiletler, splitPeople, useBiletler } from '../lib/bilet'
+import { searchFold } from '../lib/search'
 import { tt } from '../lib/i18n'
 import type { Row } from '../types'
 import { TicketThumb, TICKET_RATIO, type BiletItem } from '../components/bilet/Ticket'
@@ -61,15 +62,47 @@ export default function Biletlerim() {
   const past = useMemo(() => list.filter((b) => !upcoming.includes(b)), [list, upcoming])
   // duvarda yeniden eskiye
   const shown = useMemo(() => [...past].reverse(), [past])
+  // O2 (v1.27): duvarda arama (yapım adı, sinema, kişi) ve sinema / kişi / format süzgeçleri
+  const [q, setQ] = useState('')
+  const [pick, setPick] = useState<{ cinema: string | null; person: string | null; format: string | null }>({ cinema: null, person: null, format: null })
+  const wallRef = useRef<HTMLDivElement>(null)
+  const chips = useMemo(() => {
+    const count = (vals: string[]) => {
+      const m = new Map<string, number>()
+      for (const v of vals) if (v) m.set(v, (m.get(v) ?? 0) + 1)
+      return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'tr')).map(([v]) => v)
+    }
+    return {
+      cinema: count(past.map((b) => (b.cinema ?? '').trim())),
+      person: count(past.flatMap((b) => splitPeople(b.withWho))),
+      format: count(past.map((b) => (b.format ?? '').trim())),
+    }
+  }, [past])
+  const filtering = Boolean(q.trim() || pick.cinema || pick.person || pick.format)
+  const filtered = useMemo(() => {
+    if (!filtering) return shown
+    const n = searchFold(q.trim())
+    return shown.filter((b) => {
+      if (pick.cinema && (b.cinema ?? '').trim() !== pick.cinema) return false
+      if (pick.person && !splitPeople(b.withWho).some((p) => searchFold(p) === searchFold(pick.person))) return false
+      if (pick.format && (b.format ?? '').trim() !== pick.format) return false
+      return !n || [b.title, b.cinema, b.withWho].some((t) => searchFold(t).includes(n))
+    })
+  }, [shown, q, pick, filtering])
+  // Sinema yılın'daki sinema / kişi satırına tıklayınca duvar ona göre süzülür
+  function pickFrom(kind: 'cinema' | 'person', v: string) {
+    setPick((p) => ({ ...p, [kind]: p[kind] === v ? null : v }))
+    requestAnimationFrame(() => wallRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const years = useMemo(() => {
-    const m = new Map<string, typeof shown>()
-    for (const b of shown) {
+    const m = new Map<string, typeof filtered>()
+    for (const b of filtered) {
       const y = (b.date ?? '').slice(0, 4) || tt('Tarihsiz')
       if (!m.has(y)) m.set(y, [])
       m.get(y)!.push(b)
     }
     return [...m.entries()]
-  }, [shown])
+  }, [filtered])
   // üstte yelpaze gibi açılan son üç bilet
   const fan = useMemo(() => shown.slice(0, 3).reverse(), [shown])
   const thisYear = String(new Date().getFullYear())
@@ -161,7 +194,62 @@ export default function Biletlerim() {
 
       <YaklasanSeans items={upcoming} now={now} onOpen={(b, el) => setView({ index: list.indexOf(b as (typeof list)[number]), origin: el.getBoundingClientRect() })} onEdit={(b) => setForm({ id: b.id, b })} />
       {/* Y31: biletlerden yıllık özet */}
-      <SinemaYilin list={past} />
+      <SinemaYilin list={past} onPick={pickFrom} picked={pick} />
+
+      {past.length > 1 && (
+        <div ref={wallRef} className="scroll-mt-20 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-sm">
+              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && setQ('')}
+                placeholder={tt('Biletlerde ara: yapım, sinema, kişi')}
+                aria-label={tt('Biletlerde ara')}
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 py-2 pl-9 pr-3 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]/70"
+              />
+            </div>
+            {filtering && (
+              <>
+                <span className="text-xs text-neutral-500">{tt('{0} / {1} bilet', filtered.length, shown.length)}</span>
+                <button
+                  onClick={() => {
+                    setQ('')
+                    setPick({ cinema: null, person: null, format: null })
+                  }}
+                  className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-300 hover:text-white"
+                >
+                  {tt('Süzgeci temizle')}
+                </button>
+              </>
+            )}
+          </div>
+          {(['cinema', 'person', 'format'] as const).map((kind) =>
+            chips[kind].length > 1 || pick[kind] ? (
+              <div key={kind} className={`flex items-center gap-1.5 ${MOBILE ? '-mx-4 overflow-x-auto px-4 [scrollbar-width:none]' : 'flex-wrap'}`}>
+                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{kind === 'cinema' ? tt('Sinema') : kind === 'person' ? tt('Kiminle') : tt('Format')}</span>
+                {chips[kind].slice(0, 12).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setPick((p) => ({ ...p, [kind]: p[kind] === v ? null : v }))}
+                    aria-pressed={pick[kind] === v}
+                    className={`shrink-0 rounded-full border px-3 py-1 text-xs transition ${pick[kind] === v ? 'border-amber-300/70 bg-amber-300/15 text-amber-100' : 'border-neutral-800 text-neutral-400 hover:text-neutral-100'}`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            ) : null,
+          )}
+        </div>
+      )}
+      {filtering && filtered.length === 0 && (
+        <div className="rounded-3xl border border-dashed border-neutral-800 px-6 py-12 text-center">
+          <p className="text-lg font-semibold text-neutral-100">{tt('Bu aramaya uyan bilet yok')}</p>
+          <p className="mt-1 text-sm text-neutral-400">{tt('Başka bir şey yaz ya da süzgeci temizle.')}</p>
+        </div>
+      )}
 
       {data && list.length === 0 && (
         <div className="flex flex-col items-center rounded-3xl border border-dashed border-neutral-800 px-6 py-14 text-center">
@@ -179,9 +267,9 @@ export default function Biletlerim() {
       )}
 
       {/* Duvar: her yılın biletleri yanında dikey yıl etiketiyle; yıllar yan yana akar (az biletli yıllar satırı boş bırakmaz) */}
-      {MOBILE && shown.length > 0 && (
+      {MOBILE && filtered.length > 0 && (
         <BiletWallet
-          items={shown}
+          items={filtered}
           onEdit={(b) => setForm({ id: b.id, b })}
           onDelete={(b) => void remove(b)}
           onOpenRow={(b) => {

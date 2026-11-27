@@ -124,7 +124,8 @@ function sound(style: Playable) {
 export function IntroOverlay() {
   const [style, setStyle] = useState<Playable | null>(() => {
     try {
-      if (MOBILE || sessionStorage.getItem(SEEN)) return null
+      // v1.27 (T1): telefonda da oynar (telefon Ayarlar'ından seçilir; uygulama baştan açılınca bir kez)
+      if (sessionStorage.getItem(SEEN)) return null
       sessionStorage.setItem(SEEN, '1')
     } catch {
       return null
@@ -179,6 +180,7 @@ export function IntroOverlay() {
       style={{ background: '#030507', animation: `ai-out .55s cubic-bezier(.4,0,.2,1) ${(total - 550) / 1000}s forwards` }}
     >
       <style>{CSS}</style>
+      {MOBILE && <style>{MOBILE_CSS}</style>}
       {style === 'argus' && <Signature />}
       {style === 'isik' && <Light />}
       {style === 'odak' && <Focus />}
@@ -188,6 +190,9 @@ export function IntroOverlay() {
 }
 
 const d = (s: number): CSSProperties => ({ animationDelay: `${s}s` })
+// Telefon dikeyken vmin = ekran genişliği; PC ölçüleri (logo 20vmin, yazı 3.8vmin) orada küçük kalıyor
+const K = MOBILE ? 1.6 : 1
+const vm = (n: number) => `${n * K}vmin`
 
 function Word({ at, cls }: { at: number; cls: string }) {
   return (
@@ -212,7 +217,7 @@ function Signature() {
     <div className="absolute inset-0 flex items-center justify-center">
       <div className="ai-glow" style={d(0.1)} />
       <div className="ai-s-stage flex flex-col items-center" style={{ animation: 'ai-s-drift 2.9s cubic-bezier(.25,.1,.25,1) forwards' }}>
-        <Logo size="20vmin" cls="ai-s-logo" at={0.25} shineAt={1.05} />
+        <Logo size={vm(20)} cls="ai-s-logo" at={0.25} shineAt={1.05} />
         <Word at={0.75} cls="ai-s-word" />
         <div className="ai-s-line" style={d(1.15)} />
       </div>
@@ -228,7 +233,7 @@ function Light() {
       <div className="ai-l-beam" />
       <div className="ai-l-flare" />
       <div className="ai-l-reveal flex flex-col items-center">
-        <Logo size="19vmin" cls="ai-l-logo" at={1.0} shineAt={1.55} />
+        <Logo size={vm(19)} cls="ai-l-logo" at={1.0} shineAt={1.55} />
         <Word at={1.25} cls="ai-l-word" />
       </div>
       <div className="ai-vignette" />
@@ -242,11 +247,11 @@ function Focus() {
     <div className="absolute inset-0 flex items-center justify-center">
       <div className="ai-glow" style={d(0.5)} />
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="ai-f-ring" style={{ ...d(0.05 + i * 0.12), width: `${34 + i * 9}vmin`, height: `${34 + i * 9}vmin` }} />
+        <div key={i} className="ai-f-ring" style={{ ...d(0.05 + i * 0.12), width: vm(34 + i * 9), height: vm(34 + i * 9) }} />
       ))}
       <div className="ai-f-tick" />
       <div className="flex flex-col items-center">
-        <Logo size="20vmin" cls="ai-f-logo" at={0.55} shineAt={1.35} />
+        <Logo size={vm(20)} cls="ai-f-logo" at={0.55} shineAt={1.35} />
         <Word at={1.15} cls="ai-f-word" />
       </div>
       <div className="ai-vignette" />
@@ -255,6 +260,15 @@ function Focus() {
 }
 
 const WORD = `font-family: Inter, system-ui, sans-serif; font-weight: 600; color: #f4f7fa; font-size: 3.8vmin; padding-left: .62em;`
+// Telefonda yazı, çizgi ve halka ölçüleri (K ile aynı oran)
+const MOBILE_CSS = `
+.ai-s-word, .ai-l-word, .ai-f-word { font-size: 6.1vmin; }
+.ai-s-word, .ai-f-word { margin-top: 5.8vmin; }
+.ai-l-word { margin-top: 5.4vmin; }
+.ai-s-line { margin-top: 3.5vmin; width: 35vmin; }
+.ai-f-tick { width: 45vmin; height: 45vmin; }
+.ai-glow { width: 140vmin; height: 140vmin; }
+`
 const CSS = `
 @keyframes ai-out { to { opacity: 0; visibility: hidden } }
 .ai-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.65) 100%); }

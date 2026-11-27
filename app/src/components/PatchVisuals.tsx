@@ -5065,3 +5065,117 @@ export function ElleTarihVisual() {
     </Frame>
   )
 }
+
+// v1.27: detayda ‹ › ile önceki/sonraki kayıt (1); bölümlerde Seç ile çoklu seçim şeridi (2) ve "Buraya kadar izledim" (3)
+export function DetayGezinVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <Box x={40} y={18} w={240} h={146} r={8} strong />
+      {[0, 1].map((i) => (
+        <g key={i}>
+          <circle cx={i ? 296 : 24} cy={90} r={10} className="fill-neutral-800 stroke-neutral-600" />
+          <Label x={i ? 292 : 20} y={94} size={10}>
+            {i ? '›' : '‹'}
+          </Label>
+        </g>
+      ))}
+      <Pin x={24} y={70} n={1} />
+      <rect x={52} y={30} width={216} height={18} rx={4} fill="#00c0fa" fillOpacity={0.15} stroke="#00c0fa" strokeOpacity={0.5} />
+      <Label x={58} y={42} size={6.5}>
+        {tt('3 bölüm seçildi · Tarih gir · İzlenmedi yap')}
+      </Label>
+      <Pin x={268} y={28} n={2} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={56} y={58 + i * 20} width={8} height={8} rx={2} fill={i < 3 ? '#00c0fa' : 'none'} className="stroke-neutral-500" />
+          <Line x={70} y={62 + i * 20} w={110} light />
+        </g>
+      ))}
+      <rect x={190} y={136} width={72} height={14} rx={4} fill="none" stroke="#00c0fa" />
+      <Label x={195} y={146} size={6}>
+        {tt('✓ Buraya kadar izledim')}
+      </Label>
+      <Pin x={262} y={134} n={3} />
+    </Frame>
+  )
+}
+
+// v1.27: sütun menüsünde seçenek sayıları ve sürükleme (1), birleştir (2), kullanılmayanları temizle (3)
+export function SecenekAracVisual() {
+  const rows = [
+    [tt('Bilim Kurgu'), '128'],
+    [tt('Bilim-Kurgu'), '6'],
+    [tt('Komedi'), '94'],
+    [tt('Western'), '0'],
+  ]
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <Box x={70} y={18} w={180} h={150} r={8} strong />
+      <Label x={82} y={34} size={7.5}>
+        {tt('Seçenekler')}
+      </Label>
+      {rows.map(([t, n], i) => (
+        <g key={t}>
+          <Label x={82} y={56 + i * 20} size={7} muted>
+            ⋮⋮
+          </Label>
+          <Label x={96} y={56 + i * 20} size={7}>
+            {t}
+          </Label>
+          <Label x={196} y={56 + i * 20} size={6.5} muted>
+            {n}
+          </Label>
+          <Label x={222} y={56 + i * 20} size={7} muted>
+            ⇢
+          </Label>
+        </g>
+      ))}
+      <Pin x={80} y={40} n={1} />
+      <Pin x={238} y={62} n={2} />
+      <rect x={82} y={140} width={118} height={16} rx={4} fill="none" className="stroke-neutral-600" />
+      <Label x={88} y={151} size={6.5}>
+        {tt('Kullanılmayanları temizle (1)')}
+      </Label>
+      <Pin x={204} y={138} n={3} />
+    </Frame>
+  )
+}
+
+// v1.27: yedek listesinde içerik özeti (1) ve "Silinmesin" kilidi (2), kademeli saklama (3)
+export function YedekKilitVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={164} r={8} />
+      <Label x={20} y={28} size={8}>
+        {tt('Yedekten geri yükle')}
+      </Label>
+      {[
+        [tt('28 Kasım 10:00'), tt('2 profil · 1.234 kayıt · 98 MB'), true],
+        [tt('27 Kasım 10:00'), tt('şu ankinden 12 kayıt az'), false],
+        [tt('Güncelleme öncesi'), tt('2 profil · 1.230 kayıt'), false],
+      ].map(([a, b, lock], i) => (
+        <g key={i}>
+          <Box x={20} y={38 + i * 30} w={280} h={24} r={5} />
+          <Label x={28} y={53 + i * 30} size={7}>
+            {a as string}
+          </Label>
+          <Label x={110} y={53 + i * 30} size={6.5} muted>
+            {b as string}
+          </Label>
+          <rect x={244} y={43 + i * 30} width={48} height={14} rx={4} fill={lock ? '#00c0fa' : 'none'} fillOpacity={lock ? 0.2 : 0} className="stroke-neutral-600" />
+          <Label x={249} y={53 + i * 30} size={6}>
+            {tt('Silinmesin')}
+          </Label>
+        </g>
+      ))}
+      <Pin x={108} y={36} n={1} />
+      <Pin x={294} y={36} n={2} />
+      <Label x={20} y={150} size={6.5} muted>
+        {tt('Eski yedekler: Son birkaç yedek kalsın · Kademeli')}
+      </Label>
+      <Pin x={190} y={140} n={3} />
+    </Frame>
+  )
+}

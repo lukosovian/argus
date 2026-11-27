@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useArchive } from './useArchive'
 import { useProfiles } from '../../hooks/useProfiles'
-import { fold, preferWatched, readDaily, seeded, sfx, today, writeDaily, type GameItem } from '../../lib/games'
+import { fold, preferWatched, readDaily, seeded, sfx, today, useGameData, writeDaily, type GameItem } from '../../lib/games'
 import { tt, ttx } from '../../lib/i18n'
 import PageSkeleton from '../../components/Skeleton'
 import EmptyState from '../../components/EmptyState'
@@ -69,6 +69,13 @@ export default function GununYapimi() {
     setAll(activeProfileId ? readDaily<Day>(activeProfileId, 'gunluk') : {})
     setQ('')
     setFin(null)
+  }
+  // Depodan (telefon / başka cihaz) gelen günler de görünsün (H7)
+  const gameVer = useGameData([activeProfileId])
+  const [verSeen, setVerSeen] = useState(gameVer)
+  if (verSeen !== gameVer) {
+    setVerSeen(gameVer)
+    setAll(activeProfileId ? readDaily<Day>(activeProfileId, 'gunluk') : {})
   }
   const byId = useMemo(() => new Map(pool.map((x) => [x.id, x])), [pool])
   // Bugün için kaydedilmiş gizli yapım varsa o; yoksa (ya da arşivden kalktıysa) tarihe bağlı yeni bir seçim

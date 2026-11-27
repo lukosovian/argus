@@ -19,6 +19,8 @@ declare global {
       getSettings: () => Promise<AppSettings>
       setSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       reportProfile?: (id: string) => void
+      // v1.27: klasör seçme penceresi (eski ARGUS.exe'lerde olmayabilir)
+      pickFolder?: (defaultPath?: string) => Promise<string | null>
     }
   }
 }

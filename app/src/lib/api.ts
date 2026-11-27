@@ -256,8 +256,11 @@ export interface AklimdaData {
 export type AklimdaPatch = { limit?: number; items: Record<string, Partial<{ [K in keyof AklimdaItem]: AklimdaItem[K] | null }> | null> }
 
 export interface BackupInfo {
-  settings: { target: string; auto: 'off' | 'daily' | 'weekly'; keep: number; lastAt: number | null; lastError: string | null }
+  settings: { target: string; auto: 'off' | 'daily' | 'weekly'; keep: number; retention?: 'count' | 'tiered'; lastAt: number | null; lastError: string | null }
   snapshots: string[]
+  // v1.27: her yedeğin özeti (profil / kayıt / bayt, etiket ör. 'guncelleme', "Silinmesin" kilidi) ve şu anki verinin özeti
+  details?: Record<string, { profiles: number | null; records: number | null; bytes: number | null; label: string | null; locked: boolean }>
+  current?: { profiles: number; records: number } | null
   job: { kind: 'backup' | 'restore'; running: boolean; phase: string; done: number; total: number; error: string | null; result: unknown } | null
   suggestions: { label: string; path: string }[]
   targetExists: boolean
@@ -306,6 +309,8 @@ export interface TmdbCard {
   overview: string
   rating: number | null
   inArchive?: boolean
+  // Arşivdeki kaydın kimliği (Benzer İçerikler'de kendi kaydını açmak için)
+  rowId?: string | null
 }
 
 export interface WatchProvider {
@@ -509,6 +514,9 @@ export const api = {
   markNotificationsRead: (ids?: string[]) =>
     request<{ ok: true }>(profilePath('/notifications/read'), { method: 'POST', ...json(ids ? { ids } : {}) }),
   clearNotifications: () => request<{ ok: true }>(profilePath('/notifications'), { method: 'DELETE' }),
+  deleteNotification: (id: string) => request<{ ok: true }>(profilePath(`/notifications/${encodeURIComponent(id)}`), { method: 'DELETE' }),
+  // Zildeki "Geri al": silinen bildirimleri geri koyar (aynı kimlikte olanlar atlanır)
+  restoreNotifications: (items: AppNotification[]) => request<{ ok: true }>(profilePath('/notifications/restore'), { method: 'POST', ...json({ items }) }),
   getShowStatus: () => request<Record<string, ShowInfo>>(profilePath('/show-status')),
   // `ask`: kesin tek eşleşme yoksa doldurmak yerine `choose` (adaylar) döner — sadece tek satır Güncelle'de.
   // `forced`: kullanıcının listeden seçtiği yapım (arama yapılmaz).
@@ -652,10 +660,11 @@ export const api = {
     request<{ person: PersonInfo | null; inArchive: ArchiveCard[]; notInArchive: ArchiveCard[]; needsApiKey?: boolean }>(
       profilePath(`/person/${boardId}?name=${encodeURIComponent(name)}&role=${role}`),
     ),
-  saveBackupSettings: (patch: { target?: string; auto?: 'off' | 'daily' | 'weekly'; keep?: number }) =>
+  saveBackupSettings: (patch: { target?: string; auto?: 'off' | 'daily' | 'weekly'; keep?: number; retention?: 'count' | 'tiered' }) =>
     request<{ ok: true }>('/api/backup/settings', { method: 'POST', ...json(patch) }),
   runBackup: () => request<{ ok: true }>('/api/backup/run', { method: 'POST', ...json({}) }),
   restoreBackup: (snapshot: string) => request<{ ok: true }>('/api/backup/restore', { method: 'POST', ...json({ snapshot }) }),
+  lockBackup: (snapshot: string, locked: boolean) => request<{ ok: true; locked: boolean }>('/api/backup/lock', { method: 'POST', ...json({ snapshot, locked }) }),
   getHistoryStatus: () => request<{ bytes: number; limitBytes: number; over: boolean }>('/api/history/status'),
   setHistoryLimit: (limitBytes: number) => request<{ ok: true }>('/api/history/limit', { method: 'POST', ...json({ limitBytes }) }),
   trimHistory: () => request<{ ok: true; removed: number; bytes: number }>('/api/history/trim', { method: 'POST', ...json({}) }),

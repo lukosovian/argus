@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.speech.RecognizerIntent;
+import androidx.activity.result.ActivityResult;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.app.ActivityCompat;
@@ -15,6 +17,7 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
@@ -455,6 +458,81 @@ public class ArgusPlugin extends Plugin {
                 if (done.compareAndSet(false, true)) call.resolve(new JSObject().put("ok", false).put("error", String.valueOf(e.getMessage())));
             }
         });
+    }
+
+    // ---- T2 (v1.27): yazı boyutu — WebView'in yazı yakınlaştırması (%90 / %100 / %110 / %125). Düzen (genişlikler,
+    // ekran yüksekliği) bozulmasın diye sayfa değil sadece yazılar büyür. Telefonda kalıcı; açılışta MainActivity uygular.
+    static SharedPreferences ayarlar(Context ctx) {
+        return ctx.getSharedPreferences("argus_ayar", Context.MODE_PRIVATE);
+    }
+
+    static int textZoom(Context ctx) {
+        int z = ayarlar(ctx).getInt("textZoom", 100);
+        return z >= 50 && z <= 200 ? z : 100;
+    }
+
+    @PluginMethod
+    public void setTextZoom(PluginCall call) {
+        int z = call.getInt("percent", 100);
+        if (z < 50 || z > 200) z = 100;
+        ayarlar(getContext()).edit().putInt("textZoom", z).apply();
+        final int zz = z;
+        getActivity().runOnUiThread(() -> {
+            try {
+                getBridge().getWebView().getSettings().setTextZoom(zz);
+            } catch (Exception ignored) {
+            }
+            call.resolve(new JSObject().put("percent", zz));
+        });
+    }
+
+    @PluginMethod
+    public void getTextZoom(PluginCall call) {
+        call.resolve(new JSObject().put("percent", textZoom(getContext())));
+    }
+
+    // ---- T3 (v1.27): sesle arama — telefonun kendi ses tanıma penceresi (Google). Mikrofon iznini o uygulama ister,
+    // ARGUS'un RECORD_AUDIO iznine gerek yok. Ses tanıma yoksa (ör. Google uygulaması kapalı) düğme hiç görünmez.
+    private Intent voiceIntent(String lang, String prompt) {
+        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, lang);
+        i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        if (prompt != null && !prompt.isEmpty()) i.putExtra(RecognizerIntent.EXTRA_PROMPT, prompt);
+        return i;
+    }
+
+    @PluginMethod
+    public void voiceAvailable(PluginCall call) {
+        boolean ok = false;
+        try {
+            ok = !getContext().getPackageManager().queryIntentActivities(voiceIntent("tr-TR", null), 0).isEmpty();
+        } catch (Exception ignored) {
+        }
+        call.resolve(new JSObject().put("available", ok));
+    }
+
+    @PluginMethod
+    public void voiceSearch(PluginCall call) {
+        Intent i = voiceIntent(call.getString("lang", "tr-TR"), call.getString("prompt", ""));
+        try {
+            startActivityForResult(call, i, "voiceResult");
+        } catch (Exception e) {
+            call.reject("unavailable");
+        }
+    }
+
+    @ActivityCallback
+    private void voiceResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        String text = "";
+        if (result.getResultCode() == android.app.Activity.RESULT_OK && result.getData() != null) {
+            ArrayList<String> list = result.getData().getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (list != null && !list.isEmpty() && list.get(0) != null) text = list.get(0);
+        }
+        if (text.isEmpty()) call.resolve(new JSObject().put("cancelled", true));
+        else call.resolve(new JSObject().put("text", text));
     }
 
     // ---- A8: kare kod okuma (Google Play Hizmetleri'nin tarayıcısı; uygulamanın kamera izni gerekmez) ----

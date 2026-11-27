@@ -21,6 +21,8 @@ import GoalRow from '../components/GoalRow'
 import { api } from '../lib/api'
 import type { WatchedMap } from '../types'
 import { useProfiles } from '../hooks/useProfiles'
+import PersonModal from '../components/PersonModal'
+import DateField from '../components/DateField'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -498,9 +500,15 @@ function Empty() {
 
 // ---- grafikler -----------------------------------------------------------------------------
 
+// "Diğer" dilimi birden çok değerin toplamı — tek bir filtreye karşılık gelmediği için tıklanmaz
+function canPick(onPick: ((b: Bucket) => void) | undefined, b: Bucket) {
+  return Boolean(onPick) && b.id !== '__other'
+}
+
 // Parça-bütün (Durum, Kategori): tek yatay bölünmüş çubuk, dilimler arasında 2px boşluk, altında
 // renk + ad + sayı + yüzde her zaman yazılı (renk tek başına anlam taşımıyor).
-function StackedBar({ buckets, palette }: { buckets: Bucket[]; palette: Palette }) {
+// onPick verilirse dilime / açıklama satırına tıklayınca o değerin kayıtları açılır ("Diğer" hariç)
+function StackedBar({ buckets, palette, onPick }: { buckets: Bucket[]; palette: Palette; onPick?: (b: Bucket) => void }) {
   const { bind, node, active } = useTip()
   const total = buckets.reduce((s, b) => s + b.count, 0)
   if (total === 0) return <Empty />
@@ -513,14 +521,19 @@ function StackedBar({ buckets, palette }: { buckets: Bucket[]; palette: Palette 
           <div
             key={b.id}
             {...bind(b.label, tt('{0} kayıt · {1}', b.count, pct(b.count)))}
+            onClick={canPick(onPick, b) ? () => onPick!(b) : undefined}
             style={{ width: `${(b.count / total) * 100}%`, background: color(b, i), opacity: active && active !== b.label ? 0.45 : 1 }}
-            className="min-w-[3px] transition-opacity first:rounded-l-md last:rounded-r-md"
+            className={`min-w-[3px] transition-[opacity,filter] first:rounded-l-md last:rounded-r-md ${canPick(onPick, b) ? 'cursor-pointer hover:brightness-125' : ''}`}
           />
         ))}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
         {buckets.map((b, i) => (
-          <div key={b.id} className="flex items-center gap-2 text-sm min-w-0">
+          <div
+            key={b.id}
+            onClick={canPick(onPick, b) ? () => onPick!(b) : undefined}
+            className={`flex items-center gap-2 text-sm min-w-0 rounded-md ${canPick(onPick, b) ? 'cursor-pointer -mx-1.5 px-1.5 hover:bg-white/5 transition' : ''}`}
+          >
             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: color(b, i) }} />
             <span className="text-neutral-300 truncate">{b.label}</span>
             <span className="ml-auto text-neutral-500 tabular-nums shrink-0">
@@ -537,14 +550,31 @@ function StackedBar({ buckets, palette }: { buckets: Bucket[]; palette: Palette 
 // Büyüklük karşılaştırması (tür, ülke): tek tonlu yatay çubuklar, değer ucunda yazılı. Geri kalanların
 // toplamı ("Diğer") çubuk olarak çizilmiyor — onlarca değerin toplamı olduğu için en büyük çubuk olur ve
 // asıl karşılaştırmayı ezerdi; altta tek satırlık bir not olarak duruyor.
-function MagnitudeBars({ buckets, otherCount, otherLabel, palette }: { buckets: Bucket[]; otherCount: number; otherLabel: string; palette: Palette }) {
+function MagnitudeBars({
+  buckets,
+  otherCount,
+  otherLabel,
+  palette,
+  onPick,
+}: {
+  buckets: Bucket[]
+  otherCount: number
+  otherLabel: string
+  palette: Palette
+  onPick?: (b: Bucket) => void
+}) {
   const { bind, node } = useTip()
   if (buckets.length === 0) return <Empty />
   const max = Math.max(...buckets.map((b) => b.count), 1)
   return (
     <div className="space-y-2">
       {buckets.map((b, i) => (
-        <div key={b.id} className="group flex items-center gap-3" {...bind(b.label, tt('{0} kayıt', b.count))}>
+        <div
+          key={b.id}
+          className={`group flex items-center gap-3 ${onPick ? 'cursor-pointer rounded-md -mx-1.5 px-1.5 hover:bg-white/5 transition' : ''}`}
+          onClick={onPick ? () => onPick(b) : undefined}
+          {...bind(b.label, onPick ? tt('{0} kayıt · görmek için tıkla', b.count) : tt('{0} kayıt', b.count))}
+        >
           <span className="text-xs text-neutral-500 w-4 text-right tabular-nums shrink-0">{i + 1}</span>
           <span className="text-sm text-neutral-300 w-24 sm:w-32 truncate shrink-0">{b.label}</span>
           <div className="flex-1 h-6 flex items-center">
@@ -638,7 +668,7 @@ function Columns({
 }
 
 // Parça-bütün için halka (Kategori): ortada toplam, yanında renkli açıklama (v1.23.3, öneri S3)
-function Donut({ buckets, palette }: { buckets: Bucket[]; palette: Palette }) {
+function Donut({ buckets, palette, onPick }: { buckets: Bucket[]; palette: Palette; onPick?: (b: Bucket) => void }) {
   const { bind, node, active } = useTip()
   const total = buckets.reduce((s, b) => s + b.count, 0)
   if (total === 0) return <Empty />
@@ -664,7 +694,8 @@ function Donut({ buckets, palette }: { buckets: Bucket[]; palette: Palette }) {
               strokeWidth={active === b.label ? 6.2 : 5}
               strokeDasharray={`${Math.max(p - gap, 0.5)} ${100 - Math.max(p - gap, 0.5)}`}
               strokeDashoffset={-acc}
-              className="transition-[stroke-width] cursor-default"
+              className={`transition-[stroke-width] ${canPick(onPick, b) ? 'cursor-pointer' : 'cursor-default'}`}
+              onClick={canPick(onPick, b) ? () => onPick!(b) : undefined}
               {...bind(b.label, tt('{0} kayıt · {1}', b.count, pct(b.count)))}
             />
           )
@@ -682,7 +713,11 @@ function Donut({ buckets, palette }: { buckets: Bucket[]; palette: Palette }) {
       </svg>
       <div className="flex-1 min-w-[160px] space-y-2.5">
         {buckets.map((b, i) => (
-          <div key={b.id} className="flex items-center gap-2 text-sm min-w-0">
+          <div
+            key={b.id}
+            onClick={canPick(onPick, b) ? () => onPick!(b) : undefined}
+            className={`flex items-center gap-2 text-sm min-w-0 rounded-md ${canPick(onPick, b) ? 'cursor-pointer -mx-1.5 px-1.5 hover:bg-white/5 transition' : ''}`}
+          >
             <span className="h-2.5 w-2.5 rounded-[3px] shrink-0" style={{ background: color(b, i) }} />
             <span className="text-neutral-300 truncate">{b.label}</span>
             <span className="ml-auto text-neutral-500 tabular-nums shrink-0">
@@ -768,13 +803,20 @@ function YearHeatmap({ daily: titles, eps, year, onPick }: { daily: Map<string, 
 
 // En çok karşına çıkan oyuncular: fotoğraflı kartlar, sıra numarası ve kayıt sayısı; altında
 // birinciye göre ince bir çubuk.
-function ActorGrid({ buckets, palette }: { buckets: Bucket[]; palette: Palette }) {
+function ActorGrid({ buckets, palette, onPick }: { buckets: Bucket[]; palette: Palette; onPick?: (b: Bucket) => void }) {
   if (buckets.length === 0) return <Empty />
   const max = buckets[0].count
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {buckets.map((b, i) => (
-        <div key={b.id} className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 flex flex-col items-center text-center">
+        <div
+          key={b.id}
+          role={onPick ? 'button' : undefined}
+          tabIndex={onPick ? 0 : undefined}
+          onClick={onPick ? () => onPick(b) : undefined}
+          onKeyDown={onPick ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onPick(b)) : undefined}
+          className={`rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 flex flex-col items-center text-center ${onPick ? 'cursor-pointer hover:border-neutral-600 hover:bg-neutral-800/60 transition' : ''}`}
+        >
           <div className="relative">
             <span className="block h-16 w-16 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center text-lg text-neutral-500">
               {b.image ? <img src={b.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : b.label.slice(0, 1)}
@@ -1011,7 +1053,6 @@ function RangeBar({
     { value: 'ozel', label: tt('Özel aralık') },
     { value: 'kiyas', label: tt('Yıl kıyasla') },
   ]
-  const input = 'rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm text-neutral-100 focus:outline-none focus:border-[#00c0fa]'
   return (
     <div className="flex flex-wrap items-center gap-2">
       {opts.map((o) => (
@@ -1021,9 +1062,9 @@ function RangeBar({
       ))}
       {mode === 'ozel' && (
         <span className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
-          <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} className={input} aria-label={tt('Başlangıç')} />
+          <DateField value={from} max={to} allowEmpty={false} onChange={(d) => d && setFrom(d)} className="w-36" ariaLabel={tt('Başlangıç')} />
           <span>→</span>
-          <input type="date" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} className={input} aria-label={tt('Bitiş')} />
+          <DateField value={to} min={from} allowEmpty={false} onChange={(d) => d && setTo(d)} className="w-36" ariaLabel={tt('Bitiş')} />
         </span>
       )}
     </div>
@@ -1255,6 +1296,15 @@ export default function Istatistikler() {
     }
   }, [selectedBoardId, activeProfileId])
   const stats = useStats(board, rows, watched, range.mode === 'kiyas' ? null : win)
+  // Grafikten kayıtlara (K2): bir dilime tıklayınca arşiv tablosu o değerle süzülmüş açılır (?filterProp=&filterOption=,
+  // bkz. BoardView). Sütun koda gömülü değil — o grafiği besleyen görevdeki sütun kullanılıyor.
+  function openFiltered(role: RoleKey, b: Bucket) {
+    const prop = board ? resolveRole(board, role) : undefined
+    if (!board || !prop || b.id === '__other') return
+    navigate(`/board/${board.id}?filterProp=${encodeURIComponent(prop.id)}&filterOption=${encodeURIComponent(b.id)}`)
+  }
+  // Oyuncu kartı → kişi penceresi (filmografi + "içerikleri gör")
+  const [person, setPerson] = useState<Bucket | null>(null)
   const heatYear = stats?.heatYear ?? new Date().getFullYear()
   const episodesDaily = useMemo(() => {
     const m = new Map<string, number>()
@@ -1445,7 +1495,7 @@ export default function Istatistikler() {
 
       {(stats.hasDates || episodesDaily.size > 0) && (
         <Card title={tt('{0} yılında izlediğin günler', heatYear)} subtitle={tt('Her kare bir gün; ne kadar çok izlediysen o kadar parlak · bir güne tıklayınca Takvim\'de açılır')}>
-          <YearHeatmap daily={stats.daily} eps={episodesDaily} year={heatYear} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}`)} />
+          <YearHeatmap daily={stats.daily} eps={episodesDaily} year={heatYear} onPick={(d) => navigate(`/takvim?ay=${d.slice(0, 7)}&gun=${d}`)} />
           {!stats.hasDates && <UndatedNote stats={stats} boardId={board.id} />}
         </Card>
       )}
@@ -1462,12 +1512,12 @@ export default function Istatistikler() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stats.kategoriBreakdown.length > 0 && (
           <Card title={tt('Kategori dağılımı')} subtitle={tt('Arşivindeki her şey, kategorisine göre')}>
-            <Donut buckets={stats.kategoriBreakdown} palette={palette} />
+            <Donut buckets={stats.kategoriBreakdown} palette={palette} onPick={(b) => openFiltered('kategori', b)} />
           </Card>
         )}
         {stats.durumBreakdown.length > 0 && (
           <Card title={tt('Durum dağılımı')} subtitle={tt('İzlediklerin, izleyeceklerin ve yarım kalanlar')}>
-            <StackedBar buckets={stats.durumBreakdown} palette={palette} />
+            <StackedBar buckets={stats.durumBreakdown} palette={palette} onPick={(b) => openFiltered('durum', b)} />
           </Card>
         )}
       </div>
@@ -1475,12 +1525,12 @@ export default function Istatistikler() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stats.genreBreakdown.top.length > 0 && (
           <Card title={tt('En çok geçen türler')} subtitle={tt('En sık işaretlenen 8 tür')}>
-            <MagnitudeBars buckets={stats.genreBreakdown.top} otherCount={stats.genreBreakdown.otherCount} otherLabel={tt('diğer türlerde')} palette={palette} />
+            <MagnitudeBars buckets={stats.genreBreakdown.top} otherCount={stats.genreBreakdown.otherCount} otherLabel={tt('diğer türlerde')} palette={palette} onPick={(b) => openFiltered('tur', b)} />
           </Card>
         )}
         {stats.countryBreakdown.top.length > 0 && (
           <Card title={tt('En çok geçen ülkeler')} subtitle={tt('En sık işaretlenen 8 ülke')}>
-            <MagnitudeBars buckets={stats.countryBreakdown.top} otherCount={stats.countryBreakdown.otherCount} otherLabel={tt('diğer ülkelerde')} palette={palette} />
+            <MagnitudeBars buckets={stats.countryBreakdown.top} otherCount={stats.countryBreakdown.otherCount} otherLabel={tt('diğer ülkelerde')} palette={palette} onPick={(b) => openFiltered('ulke', b)} />
           </Card>
         )}
       </div>
@@ -1518,13 +1568,27 @@ export default function Istatistikler() {
 
       {stats.actorBreakdown.top.length > 0 && (
         <Card title={tt('En çok karşına çıkan oyuncular')} subtitle={tt('En çok kayıtta rol aldığı ilk 10')}>
-          <ActorGrid buckets={stats.actorBreakdown.top} palette={palette} />
+          <ActorGrid buckets={stats.actorBreakdown.top} palette={palette} onPick={(b) => setPerson(b)} />
         </Card>
       )}
       </>
       )}
 
       <MappingPanel board={board} onSave={(patch) => saveBoard(patch)} />
+      {person && (
+        <PersonModal
+          boardId={board.id}
+          name={person.label}
+          role="acting"
+          onClose={() => setPerson(null)}
+          onShowContents={() => {
+            const b = person
+            setPerson(null)
+            openFiltered('oyuncular', b)
+          }}
+          onOpenRow={(id) => navigate(`/board/${board.id}?detay=${id}`)}
+        />
+      )}
     </div>
   )
 }

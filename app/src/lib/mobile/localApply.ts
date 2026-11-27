@@ -166,6 +166,24 @@ export async function applyOffline(op: QueuedOp): Promise<OfflineResult | null> 
     return { response: { ok: true }, op }
   }
 
+  // Zil: tek bildirimi sil / "Geri al" ile geri koy (sunucudaki notifications.js ile aynı kural)
+  if (method === 'DELETE' && (m = /^\/api\/profiles\/([^/]+)\/notifications\/([^/?]+)$/.exec(path))) {
+    const key = `/api/profiles/${m[1]}/notifications`
+    const id = decodeURIComponent(m[2])
+    const cur = (await cacheGet<{ items: { id: string }[] }>(key)) ?? { items: [] }
+    await cacheSet(key, { items: cur.items.filter((x) => x.id !== id) })
+    return { response: { ok: true }, op }
+  }
+  if (method === 'POST' && (m = /^\/api\/profiles\/([^/]+)\/notifications\/restore$/.exec(path))) {
+    const key = `/api/profiles/${m[1]}/notifications`
+    const cur = (await cacheGet<{ items: { id: string; t: number }[] }>(key)) ?? { items: [] }
+    const back = (Array.isArray(body?.items) ? (body.items as { id: string; t: number }[]) : []).filter((x) => x && typeof x.id === 'string' && typeof x.t === 'number')
+    const ids = new Set(cur.items.map((x) => x.id))
+    const items = [...cur.items, ...back.filter((x) => !ids.has(x.id))].sort((a, b) => b.t - a.t).slice(0, 200)
+    await cacheSet(key, { items })
+    return { response: { ok: true }, op }
+  }
+
   if (method === 'DELETE' && (m = /^\/api\/profiles\/([^/]+)\/songs\/([^/]+)\/([^/?]+)$/.exec(path))) {
     const key = `/api/profiles/${m[1]}/songs/${m[2]}`
     const list = (await cacheGet<{ id: string }[]>(key)) ?? []
@@ -226,7 +244,7 @@ export function opCacheKey(op: QueuedOp): string | null {
   if ((m = /^(\/api\/profiles\/[^/]+\/boards\/[^/]+\/rows)(\/[^/?]+)?$/.exec(path))) return m[1]
   if ((m = /^(\/api\/profiles\/[^/]+\/watched)\/[^/?]+(\/diff)?$/.exec(path))) return m[1]
   if ((m = /^(\/api\/profiles\/[^/]+)\/koleksiyon$/.exec(path))) return `${m[1]}/koleksiyon/`
-  if ((m = /^(\/api\/profiles\/[^/]+\/notifications)(\/read)?$/.exec(path))) return m[1]
+  if ((m = /^(\/api\/profiles\/[^/]+\/notifications)(\/[^/?]+)?$/.exec(path))) return m[1]
   if ((m = /^(\/api\/profiles\/[^/]+\/songs\/[^/]+)\/[^/?]+$/.exec(path)) && method === 'DELETE') return m[1]
   if (/^\/api\/profiles\/[^/]+\/(home-settings|aklimda|biletler|store\/[^/?]+)$/.test(path)) return path
   return null

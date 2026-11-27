@@ -212,7 +212,8 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
     if (answers) answersRef.current = answers
     else if (!again) answersRef.current = null
     // "Bu akşam" soruları: önce sorular, cevaplanınca seçim (arşiv havuzunda)
-    if (!again && !answers && extras.pickerWizard && settings.randomPickerSource !== 'tmdb' && settings.boardId) {
+    // (Aklımda kaynağında sorulmaz — liste zaten elle seçilmiş)
+    if (!again && !answers && extras.pickerWizard && (settings.randomPickerSource ?? 'arsiv') === 'arsiv' && settings.boardId) {
       setLoading(true)
       try {
         const [boards, allRows, fresh] = await Promise.all([api.getBoards(), api.getRows(settings.boardId), api.getHomeSettings()])
@@ -307,6 +308,36 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
           notify(tt('Bu ayarlara uyan, arşivinde olmayan bir içerik bulunamadı.'), 'danger')
           return
         }
+      } else if (current.randomPickerSource === 'aklimda') {
+        // Aklımdakiler (K4): bu arşivdeki kayıtlar kendi görseliyle; arşivde olmayan TMDB yapımları TMDB kaynağıyla
+        // aynı sonuç kartında (tmdb adayı). Başka arşivdeki kayıtlar bu arşivin havuzuna girmez.
+        const ak = await api.getAklimda()
+        const columns = await classifyImageColumns(b, allRows)
+        const byId = new Map(allRows.map((r) => [r.id, r]))
+        const snoozed = snoozedIds()
+        const linked = new Set(Object.values(ak.tmdbOf ?? {}))
+        pool = []
+        for (const [key, it] of Object.entries(ak.items ?? {})) {
+          const row = byId.get(key)
+          if (row) {
+            if (snoozed.has(row.id)) continue
+            const img = pickImage(row, columns, pref) ?? pickImage(row, columns, null)
+            if (img) pool.push({ key: row.id, row, cover: img.url, landscape: img.landscape })
+          } else if (it.tmdb && it.tmdb.poster && !linked.has(`${it.tmdb.mediaType}:${it.tmdb.id}`)) {
+            const t = it.tmdb
+            const card: TmdbCard = { tmdbId: t.id, mediaType: t.mediaType, title: t.title, originalTitle: t.title, year: t.year, poster: t.poster, backdrop: null, overview: '', rating: null }
+            pool.push({ key: `tmdb:${t.mediaType}:${t.id}`, tmdb: card, cover: t.poster!, landscape: false })
+          }
+        }
+        if (pool.length === 0) {
+          notify(
+            Object.keys(ak.items ?? {}).length === 0
+              ? tt('Aklımda listen boş. Bir yapımın detayında "Aklımda tut"a basınca buraya gelir; kaynağı Ayarlar › Ne İzlesem? bölümünden değiştirebilirsin.')
+              : tt('Aklımda listende bu arşivden, görseli olan bir yapım yok.'),
+            'danger',
+          )
+          return
+        }
       } else {
         const filter = current.randomPickerFilter
         // Hiç filtre ayarlanmadıysa (propertyId yok) arşivin TAMAMI havuz olur — kullanıcının
@@ -320,7 +351,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
           return !(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && v.slice(0, 10) > today)
         })
         let base = filterByYears(b, filter && hasActiveFilter(filter) ? rowsForFilter(filter, released) : released, current.randomPickerYears)
-        if (ans) base = applyWizard(b, base, ans)
+        if (ans) base = applyWizard(b, base, ans, current.moodRow?.moods)
         // Süre: Süre sütunu dolu ve sınırdan uzun olanlar çıkar (dizilerde genelde boş, kalırlar)
         const maxMin = current.randomPickerMaxMinutes
         const sureProp = resolveRole(b, 'sure')
@@ -703,6 +734,7 @@ export default function RandomPickerButton({ hideButton = false }: { hideButton?
                   board={wizard.board}
                   rows={wizard.rows}
                   covers={(r) => pickImage(r, wizard.columns, wizard.pref)?.url ?? ''}
+                  moods={settings.moodRow?.moods}
                   onCancel={cancelPick}
                   onGo={(a) => {
                     setWizard(null)

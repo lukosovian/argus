@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { searchFold } from '../lib/search'
 import type { PropertyDef, PropertyValue } from '../types'
-import { ratingAverage } from '../types'
+import { ratingAverage, RATING_OVERALL } from '../types'
 import OptionBadge from './OptionBadge'
 import DateChipEditor from './DateChipEditor'
+import DateField from './DateField'
 import { api } from '../lib/api'
 import { useToast } from '../hooks/useToast'
 import { tt, ttx } from '../lib/i18n'
@@ -72,7 +73,16 @@ export default function PropertyValueInput({
   }
 
   if (property.type === 'date') {
-    return <input type="date" value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value)} className={inputClass} />
+    // Tarayıcının takvim kutusu yerine elle yazılabilen kutu (GG.AA.YYYY + küçük takvim)
+    return (
+      <DateField
+        value={typeof value === 'string' ? value : ''}
+        onChange={onChange}
+        autoFocus={autoFocus}
+        className="w-full"
+        inputClassName="py-2"
+      />
+    )
   }
 
   if (property.type === 'multidate') {
@@ -97,6 +107,11 @@ export default function PropertyValueInput({
     const criteria = property.criteria ?? []
     const scores = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, number>) : {}
     const avg = ratingAverage(value, property)
+    // H5: kriter yoksa tek bir "Genel puan" kaydırıcısı (RATING_OVERALL) — PickResult'taki gibi. Eskiden kriter
+    // eklenmeden hiç puan verilemiyordu; CSV/Keşfet'ten gelen tek puan da görünmüyordu.
+    const rows = criteria.length ? criteria.map((c) => ({ id: c.id, name: c.name })) : [{ id: RATING_OVERALL, name: tt('Genel puan') }]
+    const overall = typeof scores[RATING_OVERALL] === 'number' ? scores[RATING_OVERALL] : null
+    const anyCriterionScored = criteria.some((c) => typeof scores[c.id] === 'number')
 
     function setScore(criterionId: string, score: number) {
       onChange({ ...scores, [criterionId]: score })
@@ -119,10 +134,7 @@ export default function PropertyValueInput({
 
     return (
       <div className="space-y-3">
-        {criteria.length === 0 && (
-          <p className="text-xs text-neutral-500">{tt('Henüz kriter yok — aşağıdan ekle (ör. Senaryo, Oyunculuk).')}</p>
-        )}
-        {criteria.map((c) => (
+        {rows.map((c) => (
           <div key={c.id}>
             <div className="flex items-center justify-between mb-1 gap-2">
               <span className="text-xs text-neutral-300 truncate" title={c.name}>
@@ -153,6 +165,26 @@ export default function PropertyValueInput({
             />
           </div>
         ))}
+        {/* Kriterler varken eski tek genel puan (içe aktarım/Keşfet) sessizce yok sayılmasın: göster, temizlenebilsin */}
+        {criteria.length > 0 && overall !== null && (
+          <div className="flex items-center justify-between gap-2 rounded-md bg-neutral-800/60 px-2 py-1.5">
+            <p className="text-[11px] text-neutral-400 min-w-0">
+              {anyCriterionScored
+                ? tt('Eski genel puan: {0} — kriter puanları varken hesaba katılmaz.', overall)
+                : tt('Genel puan: {0} — kriterlere puan verince yerine onlar geçer.', overall)}
+            </p>
+            <button
+              type="button"
+              onClick={() => clearScore(RATING_OVERALL)}
+              className="text-[11px] text-neutral-500 hover:text-rose-400 transition shrink-0"
+            >
+              {tt('Temizle')}
+            </button>
+          </div>
+        )}
+        {criteria.length === 0 && onAddCriterion && (
+          <p className="text-[11px] text-neutral-500">{tt('İstersen aşağıdan kriter ekleyip ayrı ayrı puanlayabilirsin (ör. Senaryo, Oyunculuk).')}</p>
+        )}
         {onAddCriterion && (
           <div className="flex gap-1.5 pt-2 border-t border-neutral-800">
             <input

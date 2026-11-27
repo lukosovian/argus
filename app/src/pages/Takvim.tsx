@@ -12,7 +12,7 @@ import { useProfiles } from '../hooks/useProfiles'
 import { api, type ArchiveCard } from '../lib/api'
 import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { resolveRole, resolveStatusOption, isWatchedStatus } from '../lib/roles'
-import { rowMatchesConditions, type FilterCondition } from '../lib/filters'
+import { isActiveCondition, rowMatchesConditions, type FilterCondition } from '../lib/filters'
 import { episodeKey, titleText, type Board, type EpisodesMap, type Row, type WatchedMap } from '../types'
 import { entryEnd, entryTouches, isFullDate, isUnknownDate, isYearOnly, makeEntry, parseEntry, toEntries } from '../lib/dateRange'
 import { BRAND_GRADIENT, BRAND_TEXT, PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
@@ -26,7 +26,11 @@ import { tt, ttx, monthNames, dayNames, fmtDate, getLang, EP } from '../lib/i18n
 import PageSkeleton from '../components/Skeleton'
 import { drawAndDownload, drawMonthCard } from '../lib/canvasShare'
 import Icon from '../components/Icon'
+import DateField from '../components/DateField'
 import { planDays, remainingEpisodes, type Plans } from '../components/SeriesPlan'
+
+// Takvim filtresi arşiv başına: argus_takvim_filtre_<arşiv id>
+const TAKVIM_FILTER_KEY = 'argus_takvim_filtre_'
 
 // Takvim — kullanıcı "Notion'daki gibi takvim; günlerde ne izlemişsin görelim, ay ay" dedi ve şu
 // özellikleri onayladı: dizilerde bölüm bölüm kayıt, ileriye bakma (çıkacak bölümler ve vizyonlar),
@@ -350,7 +354,43 @@ export default function Takvim() {
     }
   }, [])
 
-  const [conditions, setConditions] = useState<FilterCondition[]>([])
+  // Filtre her arşiv için ayrı hatırlanıyor (H6/K7): arşiv değişince eskisinin koşulları yenisinde takılı kalıyordu
+  // (o sütunlar yenisinde yok, takvim boş görünüyordu). Koşullar hangi arşive ait olduğuyla birlikte tutuluyor;
+  // board henüz yüklenmemişse ya da başka bir arşivinse hiç uygulanmıyor.
+  const [condState, setCondState] = useState<{ boardId: string | null; list: FilterCondition[] }>({ boardId: null, list: [] })
+  useEffect(() => {
+    if (!board || condState.boardId === board.id) return
+    let list: FilterCondition[] = []
+    try {
+      const raw = JSON.parse(localStorage.getItem(TAKVIM_FILTER_KEY + board.id) || '[]')
+      if (Array.isArray(raw)) list = raw as FilterCondition[]
+    } catch {
+      /* bozuk/erişilemez — filtresiz başla */
+    }
+    // Bu arşivde artık olmayan sütunlara (ya da seçeneklere) ait koşullar atılıyor
+    const props = new Map(board.properties.map((p) => [p.id, p]))
+    list = list
+      .filter((c) => c && typeof c.propertyId === 'string' && props.has(c.propertyId))
+      .map((c) => {
+        const opts = props.get(c.propertyId)?.options
+        if (!opts) return c
+        const ok = new Set(opts.map((o) => o.id))
+        return { ...c, include: (c.include ?? []).filter((id) => ok.has(id)), exclude: (c.exclude ?? []).filter((id) => ok.has(id)) }
+      })
+      .filter(isActiveCondition)
+    setCondState({ boardId: board.id, list })
+  }, [board, condState.boardId])
+  const conditions = useMemo(() => (board && condState.boardId === board.id ? condState.list : []), [board, condState])
+  function setConditions(list: FilterCondition[]) {
+    if (!board) return
+    setCondState({ boardId: board.id, list })
+    try {
+      if (list.length) localStorage.setItem(TAKVIM_FILTER_KEY + board.id, JSON.stringify(list))
+      else localStorage.removeItem(TAKVIM_FILTER_KEY + board.id)
+    } catch {
+      /* kapalı — sadece hatırlanmaz */
+    }
+  }
   const [filterOpen, setFilterOpen] = useState(false)
   // ?gun=YYYY-MM-DD ile gelinirse o günün paneli açık gelir (ana sayfadaki "Geçmiş yıllarda bugün" → o yılın o günü)
   const [openDay, setOpenDay] = useState<string | null>(() => {
@@ -1487,14 +1527,14 @@ function UndatedShelf({
       {picked && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-950/60 p-2.5">
           <span className="min-w-0 flex-1 basis-40 text-sm text-neutral-100 truncate">{name(picked.row)}</span>
-          <input
-            type="date"
+          <DateField
             value={day}
             min={picked.entry === '?' ? undefined : yearStart}
             max={picked.entry === '?' ? today : yearEnd}
-            onChange={(e) => setDay(e.target.value)}
-            aria-label={tt('İzlediğin gün')}
-            className="rounded-lg bg-neutral-900 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]"
+            onChange={setDay}
+            onEnter={save}
+            ariaLabel={tt('İzlediğin gün')}
+            className="w-40"
           />
           <button onClick={save} disabled={!day || busy} style={primaryButtonStyle} className={`text-sm px-3.5 py-1.5 rounded-lg disabled:opacity-50 ${PRIMARY_BUTTON}`}>
             {busy ? tt('Kaydediliyor…') : tt('Bu güne yerleştir')}

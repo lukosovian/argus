@@ -8,4 +8,6 @@ contextBridge.exposeInMainWorld('argusApp', {
   setSettings: (patch) => ipcRenderer.invoke('ayarlar:yaz', patch),
   // Seçili profil — Windows bildirimleri bu profilin haberlerinden çıkar
   reportProfile: (id) => ipcRenderer.send('profil', id),
+  // Windows'un klasör seçme penceresi (Yedekleme › "Klasör seç…"); vazgeçilirse null döner
+  pickFolder: (defaultPath) => ipcRenderer.invoke('klasor:sec', { defaultPath }),
 })

@@ -12,6 +12,16 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['Esc'], label: 'Açık pencereyi kapat' },
   { keys: ['1', '2', '3', '…'], label: '"Kim izliyor?" ekranında profil seç' },
   { keys: ['←', '→'], label: 'Flashback hikâyesinde önceki / sonraki' },
+  // Sayfa geçişleri (Navbar.tsx'teki gerçek eşleme): önce G, hemen ardından harf
+  { keys: ['G', 'A'], label: 'Arşive git' },
+  { keys: ['G', 'M'], label: 'Aklımda sayfasına git' },
+  { keys: ['G', 'K'], label: 'Koleksiyon sayfasına git' },
+  { keys: ['G', 'E'], label: 'Evrenler sayfasına git' },
+  { keys: ['G', 'İ'], label: 'İstatistikler sayfasına git' },
+  { keys: ['G', 'T'], label: 'Takvime git' },
+  { keys: ['G', 'H'], label: 'Ana Sayfaya git' },
+  { keys: ['Ctrl', ','], label: 'Arşivlerim sayfasını aç' },
+  { keys: ['Alt', '1…9'], label: 'Başka bir profile geç (sıradaki profiller)' },
   // Arşiv tablosu (bir hücreye tıkladıktan sonra)
   { keys: ['←', '↑', '→', '↓'], label: 'Arşiv tablosunda hücreler arasında gez (önce bir hücreye tıkla)' },
   { keys: ['Enter'], label: 'Tabloda seçili hücreyi düzenle' },

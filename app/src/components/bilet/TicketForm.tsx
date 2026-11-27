@@ -12,6 +12,8 @@ import { useExtras } from '../../lib/extras'
 import { MOBILE } from '../../lib/mobile/ui'
 import { useOdulData } from '../../lib/oduller'
 import { parseEBilet } from './eBilet'
+import DateField from '../DateField'
+import { usePeopleSuggestions } from '../koleksiyon/KiminleIzledin'
 import { isUpcoming, photoToDataUrl } from './seans'
 import { artOf, styleOf, TicketBack, TicketFront, TICKET_RATIO, TICKET_STYLES, type BiletItem } from './Ticket'
 
@@ -67,6 +69,8 @@ export default function TicketForm({
   useEscape(true, onClose)
   const editing = Boolean(id)
   const set = (p: Partial<Bilet>) => setB((x) => ({ ...x, ...p }))
+  // "Kiminle" önerileri detaydaki "Kiminle izledin?" ile aynı liste (O1)
+  const people = usePeopleSuggestions(suggestions?.people)
 
   const titleProp = board?.properties.find((p) => p.id === board.titlePropertyId)
   const matches = useMemo(() => {
@@ -390,10 +394,11 @@ export default function TicketForm({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="block">
+            {/* A1: yazılabilen tarih kutusu; ileri tarih serbest (önceden alınmış bilet "Yaklaşan seans" olur) */}
+            <div className="block">
               <span className={lbl}>{tt('Tarih')}</span>
-              <input type="date" value={b.date ?? ''} onChange={(e) => set({ date: e.target.value })} className={field} style={{ colorScheme: 'dark' }} />
-            </label>
+              <DateField value={b.date ?? ''} onChange={(d) => set({ date: d })} ariaLabel={tt('Tarih')} className="mt-1 w-full" inputClassName="py-2 rounded-l-lg bg-neutral-900 border-neutral-800" />
+            </div>
             <label className="block">
               <span className={lbl}>{tt('Seans')}</span>
               <input type="time" value={b.time ?? ''} onChange={(e) => set({ time: e.target.value })} className={field} style={{ colorScheme: 'dark' }} />
@@ -442,7 +447,7 @@ export default function TicketForm({
               <span className={lbl}>{tt('Kiminle')}</span>
               <input list="bilet-kisiler" value={b.withWho ?? ''} onChange={(e) => set({ withWho: e.target.value })} placeholder={tt('ör. Ece, Can')} className={field} />
               <datalist id="bilet-kisiler">
-                {suggestions?.people.map((c) => <option key={c} value={c} />)}
+                {people.map((c) => <option key={c} value={c} />)}
               </datalist>
             </label>
             <label className="block">

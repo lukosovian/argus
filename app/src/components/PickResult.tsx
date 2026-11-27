@@ -8,6 +8,8 @@ import { formatRuntime, showcaseMeta } from '../lib/rowMeta'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
 import CollectionSection from './CollectionSection'
+import { WatchDateInput } from './DiscoverModal'
+import AklimdaButton from './AklimdaButton'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { tt } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
@@ -31,6 +33,7 @@ function DetailedWatchedForm({
   onCancel: () => void
 }) {
   const criteria = resolveRole(board, 'puan')?.criteria ?? []
+  const tarih = resolveRole(board, 'izlemeTarihi')
   const [date, setDate] = useState<string | null>(todayIso())
   const [scores, setScores] = useState<Record<string, number>>({})
   const keys = criteria.length ? criteria.map((c) => ({ id: c.id, name: c.name })) : [{ id: RATING_OVERALL, name: tt('Genel puan') }]
@@ -52,15 +55,9 @@ function DetailedWatchedForm({
             </button>
           )}
         </div>
-        {date !== null && (
-          <input
-            type="date"
-            value={date}
-            max={todayIso()}
-            onChange={(e) => setDate(e.target.value || null)}
-            className="mt-1 w-full rounded-lg bg-neutral-950 border border-neutral-700 px-2.5 py-1.5 text-sm text-neutral-100 outline-none focus:border-neutral-500"
-          />
-        )}
+        {/* "Sadece yıl" sadece çoklu tarihli İzleme Tarihi'nde (tek tarih sütunu yıl tutmuyor); sütun yoksa TMDB'den
+            eklerken sunucu çoklu tarih olarak açıyor */}
+        {date !== null && <WatchDateInput value={date} onChange={setDate} allowYear={!tarih || tarih.type === 'multidate'} />}
       </div>
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
@@ -496,6 +493,9 @@ export default function PickResult({
                       {tt('Bu hafta önerme')}
                     </button>
                   </div>
+                  <div className="flex justify-center md:justify-start">
+                    <AklimdaButton target={{ kind: 'row', boardId: board.id, rowId: r.id }} title={title} />
+                  </div>
                 </>
               ) : inArchive ? (
                 <p className="text-sm text-emerald-400">{tt('✓ Zaten arşivinde')}</p>
@@ -520,6 +520,14 @@ export default function PickResult({
                       </button>
                     )}
                   </div>
+                  {tmdb && (
+                    <div className="flex justify-center md:justify-start">
+                      <AklimdaButton
+                        target={{ kind: 'tmdb', tmdb: { id: tmdb.tmdbId, mediaType: tmdb.mediaType, title: (item ?? tmdb).title, poster: (item ?? tmdb).poster ?? null, year: (item ?? tmdb).year ?? '' } }}
+                        title={(item ?? tmdb).title}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </div>

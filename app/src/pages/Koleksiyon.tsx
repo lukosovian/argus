@@ -15,7 +15,8 @@ import BackgroundProgress from '../components/BackgroundProgress'
 import ShelfPicker from '../components/ShelfPicker'
 import KoleksiyonImage, { type ImageItem, type ImageShelf } from '../components/KoleksiyonImage'
 import { autoShelf } from '../lib/shelves'
-import { DEFAULT_SHELF_SYMBOLS, buildKoleksiyonItems, buildShelves, shelfSetMembers, type KoleksiyonItem } from '../lib/koleksiyonRaflar'
+import { DEFAULT_SHELF_SYMBOLS, SHELF_PREFS_STORE, arrangeShelves, buildKoleksiyonItems, buildShelves, moveShelf, shelfSetMembers, type KoleksiyonItem, type ShelfPrefs } from '../lib/koleksiyonRaflar'
+import { useStore } from '../lib/useProfileStore'
 import { useOdulData } from '../lib/oduller'
 import { useSetBonuses } from '../lib/odulSetler'
 import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
@@ -95,6 +96,25 @@ function Raflar() {
 
   // Raflar: en az 2 yapımı olanlar, elle oluşturulanlar ya da adı / sembolü değiştirilenler (bkz. lib/koleksiyonRaflar)
   const { shelves, loose } = useMemo(() => buildShelves(items, info), [items, info])
+  // O4 (v1.27): rafların sırası, sabitlenenler ve gizlenenler profil deposunda. Gizlenen rafın yapımları "Tek başına
+  // olanlar"a düşer. Seri seti / ödül hesapları gizlenenleri de sayar (shelves değişmiyor).
+  const { data: shelfPrefs, update: updateShelfPrefs } = useStore<ShelfPrefs>(SHELF_PREFS_STORE)
+  const [showHidden, setShowHidden] = useState(false)
+  const arranged = useMemo(() => arrangeShelves(shelves, shelfPrefs), [shelves, shelfPrefs])
+  const looseAll = useMemo(() => {
+    if (!arranged.hidden.length) return loose
+    const onVisible = new Set(arranged.shown.filter((s) => !s.manual).flatMap((s) => s.items.map((it) => it.row.id)))
+    const add = arranged.hidden.filter((s) => !s.manual).flatMap((s) => s.items).filter((it) => !onVisible.has(it.row.id))
+    return [...loose, ...add].sort((a, b) => b.lastWatched.localeCompare(a.lastWatched))
+  }, [loose, arranged])
+  async function setShelfPrefs(fn: (p: ShelfPrefs) => ShelfPrefs, msg?: string, undo?: (p: ShelfPrefs) => ShelfPrefs) {
+    try {
+      await updateShelfPrefs(fn)
+      if (msg) notify(msg, 'success', undo ? { action: { label: tt('Geri al'), onClick: () => setShelfPrefs(undo) } } : undefined)
+    } catch {
+      notify(tt('Kaydedilemedi.'), 'danger')
+    }
+  }
 
   // Seri seti (v1.25): Ödüller açıksa, bir rafın bütün film kartları toplanınca bir kerelik paket ve "Set tamam" rozeti
   const rewardsOn = useExtras().on('rewards')
@@ -145,10 +165,10 @@ function Raflar() {
     (!onlySymbols || Boolean(it.symbol)) &&
     (!q.trim() || searchFold(it.title).includes(searchFold(q.trim())))
   const noFilter = kind === 'hepsi' && !onlySymbols && !q.trim()
-  const filteredShelves = shelves
+  const filteredShelves = arranged.shown
     .map((s) => ({ ...s, shown: s.items.filter(match) }))
     .filter((s) => s.shown.length > 0 || (onlySymbols && s.custom && !q.trim()) || (noFilter && s.items.length === 0))
-  const filteredLoose = loose.filter(match)
+  const filteredLoose = looseAll.filter(match)
   const symbolCount = items.filter((it) => it.symbol).length
 
   // "+ Yapım ekle" penceresinde işaretlenenler bu rafa; işareti kaldırılanlar raftan çıkar (kendiliğinden
@@ -421,6 +441,33 @@ function Raflar() {
 
       {!filteredShelves.length && !filteredLoose.length && <p className="text-sm text-neutral-500 text-center py-10">{tt('Bu seçime uyan bir şey yok.')}</p>}
 
+      {/* O4: gizlenen raflar — geri getirmek için */}
+      {arranged.hidden.length > 0 && (
+        <section className="rounded-2xl border border-neutral-800/70 px-4 py-3">
+          <button onClick={() => setShowHidden((v) => !v)} aria-expanded={showHidden} className="flex w-full items-center gap-2 text-sm text-neutral-400 hover:text-neutral-100">
+            <span className={`transition ${showHidden ? 'rotate-90' : ''}`}>›</span>
+            {tt('Gizlenen raflar ({0})', arranged.hidden.length)}
+          </button>
+          {showHidden && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {arranged.hidden.map((s) => (
+                <span key={s.key} className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900 py-1 pl-3 pr-1 text-sm text-neutral-300">
+                  {s.symbol && <img src={s.symbol} alt="" className="h-5 w-5 object-contain" />}
+                  {s.name}
+                  <span className="text-xs text-neutral-500">{ttx('{0} yapım', s.items.length)}</span>
+                  <button
+                    onClick={() => void setShelfPrefs((p) => ({ ...p, hidden: (p.hidden ?? []).filter((k) => k !== s.key) }), tt('"{0}" rafı geri geldi.', s.name))}
+                    className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs text-neutral-100 hover:bg-neutral-700"
+                  >
+                    {tt('Geri getir')}
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {editing?.kind === 'item' && (
         <SymbolEditor
           heading={editing.item.title}
@@ -480,6 +527,56 @@ function Raflar() {
                 }
               : undefined
           }
+          extra={(() => {
+            // O4: rafın sayfadaki yeri — sabitle, bir basamak taşı, (kendiliğinden oluşan rafı) gizle
+            const key = editing.key
+            const pins = shelfPrefs?.pinned ?? []
+            const pinned = pins.includes(key)
+            const group = arranged.shown.filter((s) => pins.includes(s.key) === pinned)
+            const gi = group.findIndex((s) => s.key === key)
+            const isManual = Boolean(info.data.shelves[key]?.manual)
+            const b = 'text-sm rounded-lg px-3 py-1.5 border border-neutral-700 text-neutral-200 hover:border-neutral-500 hover:text-white transition disabled:opacity-40 disabled:pointer-events-none'
+            return (
+              <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950/50 p-3">
+                <p className="text-xs text-neutral-400 mb-2">{tt('Rafın yeri')}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className={b}
+                    onClick={() =>
+                      void setShelfPrefs(
+                        (p) => ({ ...p, pinned: pinned ? (p.pinned ?? []).filter((k) => k !== key) : [key, ...(p.pinned ?? []).filter((k) => k !== key)] }),
+                        pinned ? tt('Sabitleme kaldırıldı.') : tt('Raf en üste sabitlendi.'),
+                      )
+                    }
+                  >
+                    📌 {pinned ? tt('Sabitlemeyi kaldır') : tt('En üste sabitle')}
+                  </button>
+                  <button className={b} disabled={gi <= 0} onClick={() => void setShelfPrefs((p) => moveShelf(arranged.shown, p, key, -1))}>
+                    ↑ {tt('Yukarı taşı')}
+                  </button>
+                  <button className={b} disabled={gi < 0 || gi >= group.length - 1} onClick={() => void setShelfPrefs((p) => moveShelf(arranged.shown, p, key, 1))}>
+                    ↓ {tt('Aşağı taşı')}
+                  </button>
+                  {!isManual && (
+                    <button
+                      className={`${b} ml-auto`}
+                      onClick={() => {
+                        const name = editing.name
+                        setEditing(null)
+                        void setShelfPrefs(
+                          (p) => ({ ...p, hidden: [...new Set([...(p.hidden ?? []), key])] }),
+                          tt('"{0}" rafı gizlendi; yapımları tek başına olanlarda.', name),
+                          (p) => ({ ...p, hidden: (p.hidden ?? []).filter((k) => k !== key) }),
+                        )
+                      }}
+                    >
+                      {tt('Bu rafı gizle')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
           onSave={async ({ image, name }) => {
             const patch: KoleksiyonPatch = { shelves: { [editing.key]: {} } }
             if (image !== undefined) patch.shelves![editing.key]!.image = image

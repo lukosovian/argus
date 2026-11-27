@@ -9,13 +9,15 @@ import { useProfiles } from '../hooks/useProfiles'
 import { useEscape } from '../hooks/useEscape'
 import { useDialogFocus } from '../hooks/useDialogFocus'
 import { api } from '../lib/api'
-import { computeAchievements, countDone, GROUP_NAMES, TIER_COLORS, TIER_NAMES, unlockedDatesKey, type Achievement, type AchievementGroup } from '../lib/achievements'
+import { computeAchievements, countDone, GROUP_NAMES, TIER_COLORS, TIER_NAMES, type Achievement, type AchievementGroup } from '../lib/achievements'
 import { resolveRole } from '../lib/roles'
 import { fmtDate, tt } from '../lib/i18n'
 import PageSkeleton from '../components/Skeleton'
 import Icon from '../components/Icon'
 import AchievementMedal from '../components/AchievementMedal'
 import RowDetailModal from '../components/RowDetailModal'
+import { BASARIM_EVT, BASARIM_STORE, legacyBasarim, mergeBasarim, type BasarimData } from '../components/AchievementWatcher'
+import { readStore } from '../lib/profileStore'
 
 // Başarımlar sayfası (Ayarlar › Profil Ayarları › Profil menüsündeki sayfalar). v1.23.5: madalyalar ve seviyeler.
 // v1.23.6 — kullanıcı "başarımların sayısını arttır, çizimleri güzelleştir, tıklayınca ilgili içerikleri göstersin, bitmiş
@@ -40,13 +42,27 @@ export default function Basarimlar() {
     // profil değişince de yenilensin (bölüm işaretleri profile özel)
   }, [settings.boardId, activeProfileId])
   const list = useMemo(() => (board ? computeAchievements(board, rows, watched, { universesDone }) : []), [board, rows, watched, universesDone])
-  const dates = useMemo<Record<string, string>>(() => {
-    try {
-      return activeProfileId ? JSON.parse(localStorage.getItem(unlockedDatesKey(activeProfileId)) ?? '{}') : {}
-    } catch {
-      return {}
+  // Kazanılma tarihleri profil deposunda (H7); henüz taşınmamışsa bu bilgisayardaki eski kayıt da katılır
+  const [stored, setStored] = useState<BasarimData>({})
+  useEffect(() => {
+    if (!activeProfileId) return
+    const pid = activeProfileId
+    let alive = true
+    const load = () =>
+      readStore<BasarimData>(pid, BASARIM_STORE)
+        .then((d) => alive && setStored(d))
+        .catch(() => {})
+    load()
+    window.addEventListener(BASARIM_EVT, load)
+    return () => {
+      alive = false
+      window.removeEventListener(BASARIM_EVT, load)
     }
-  }, [activeProfileId, list])
+  }, [activeProfileId])
+  const dates = useMemo<Record<string, string>>(() => {
+    const legacy = activeProfileId ? legacyBasarim(activeProfileId) : null
+    return (legacy ? mergeBasarim(stored, legacy) : stored).dates ?? {}
+  }, [activeProfileId, stored, list])
   if (loading || !board) return <PageSkeleton kind="posters" />
 
   const levels = list.reduce((s, a) => s + a.level, 0)

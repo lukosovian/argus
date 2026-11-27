@@ -3,7 +3,7 @@ import { isFullDate, isUnknownDate, isYearOnly, parseEntry } from './dateRange'
 
 // Her yerdeki filtrelerin (vitrin, Ne İzlesem, sayfalar, modlar, tablo) ortak hali. Kullanıcı
 // "filtre yaptığım her yerde birden fazla filtre ve ters filtre (şunlar gelsin, şunlar gelmesin)
-// olsun" dedi. Her koşul bir sütun: include'dan en az biri OLMALI (boşsa şart yok), exclude'dan
+// olsun" dedi. Her koşul bir sütun: include'dan en az biri (includeMode 'all' ise hepsi) OLMALI (boşsa şart yok), exclude'dan
 // hiçbiri OLMAMALI. Birden fazla koşul varsa hepsi birden sağlanmalı (VE).
 export interface FilterCondition {
   propertyId: string
@@ -18,6 +18,9 @@ export interface FilterCondition {
   to?: string
   rel?: RelativeRange
   presence?: 'empty' | 'filled'
+  // A7 (v1.27): çoklu seçim sütununda ✓'lerin "en az biri" ('any', varsayılan — eski kayıtlarda alan yok)
+  // mi yoksa "hepsi birden" ('all') mi olsun. Ör. Türler: Komedi + Dram → ikisi de olan yapımlar.
+  includeMode?: 'any' | 'all'
 }
 
 export type RelativeRange = 'buYil' | 'gecenYil' | 'buAy' | 'gecenAy' | 'son30'
@@ -136,7 +139,10 @@ export function rowMatchesConditions(row: Row, conds: FilterCondition[], board?:
     }
     if (c.include.length > 0 || c.exclude.length > 0) {
       const ids = valueIds(v)
-      if (c.include.length > 0 && !ids.some((id) => c.include.includes(id))) return false
+      if (c.include.length > 0) {
+        const ok = c.includeMode === 'all' ? c.include.every((id) => ids.includes(id)) : ids.some((id) => c.include.includes(id))
+        if (!ok) return false
+      }
       if (c.exclude.length > 0 && ids.some((id) => c.exclude.includes(id))) return false
     }
     if (c.min !== undefined || c.max !== undefined) {
@@ -170,6 +176,7 @@ function extrasPart(c: FilterCondition): string {
   if (c.to) parts.push(`to=${c.to}`)
   if (c.rel) parts.push(`rel=${c.rel}`)
   if (c.presence) parts.push(`p=${c.presence === 'empty' ? 'e' : 'f'}`)
+  if (c.includeMode === 'all') parts.push('m=all')
   return parts.map((x) => '~' + x).join('')
 }
 
@@ -206,6 +213,7 @@ export function decodeConditions(s: string | null): FilterCondition[] {
       else if ((k === 'from' || k === 'to') && /^\d{4}(-\d{2}-\d{2})?$/.test(val)) c[k] = val
       else if (k === 'rel' && (RELS as string[]).includes(val)) c.rel = val as RelativeRange
       else if (k === 'p' && (val === 'e' || val === 'f')) c.presence = val === 'e' ? 'empty' : 'filled'
+      else if (k === 'm' && val === 'all') c.includeMode = 'all'
     }
     if (isActiveCondition(c)) out.push(c)
   }

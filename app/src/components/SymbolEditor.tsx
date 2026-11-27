@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../lib/api'
 import { cleanupSymbol, hasFlatBackground, loadImage } from '../lib/imageCleanup'
@@ -31,6 +31,7 @@ export default function SymbolEditor({
   onSave,
   onOpenDetail,
   onDelete,
+  extra,
   onClose,
 }: {
   heading: string
@@ -46,6 +47,8 @@ export default function SymbolEditor({
   onOpenDetail?: () => void
   // Elle oluşturulan rafı kaldırma (sol altta kırmızı düğme)
   onDelete?: { label: string; run: () => Promise<void> }
+  // Ek düğmeler (Koleksiyon raf düzeni: sabitle / taşı / gizle — O4), alttaki düğmelerin üstünde
+  extra?: ReactNode
   onClose: () => void
 }) {
   const { notify } = useToast()
@@ -314,6 +317,7 @@ export default function SymbolEditor({
           </div>
         </div>
 
+        {extra}
         <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
           {onOpenDetail ? (
             <button onClick={onOpenDetail} className="text-sm text-[#00c0fa] hover:underline">

@@ -16,6 +16,7 @@ import Icon from '../components/Icon'
 import RowDetailModal from '../components/RowDetailModal'
 import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import AnchoredMenu from '../components/AnchoredMenu'
+import DateField from '../components/DateField'
 import { fmtDate, tt, ttx } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
 import PageSkeleton from '../components/Skeleton'
@@ -929,17 +930,17 @@ function UniverseView({
               {!tur && <p className="text-sm text-neutral-300">{tt('Sayaç sıfırdan başlar: o günden sonra izlediklerin sayılır. Daha önce izlediklerin tarihleriyle görünmeye devam eder.')}</p>}
               <label className="block space-y-1">
                 <span className="text-xs text-neutral-500">{tt('Başlangıç')}</span>
-                <input type="date" value={formStart} max={today} onChange={(e) => setFormStart(e.target.value)} className="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark]" />
+                <DateField value={formStart} max={today} onChange={setFormStart} className="w-full" ariaLabel={tt('Başlangıç')} />
               </label>
               <label className="block space-y-1">
                 <span className="text-xs text-neutral-500">{tt('Hedef bitiş (isteğe bağlı)')}</span>
-                <input
-                  type="date"
+                <DateField
                   value={formTarget}
                   min={formStart || today}
-                  onChange={(e) => setFormTarget(e.target.value)}
-                  aria-invalid={targetBeforeStart}
-                  className={`w-full rounded-lg bg-neutral-950 border px-2 py-1.5 text-sm text-neutral-100 [color-scheme:dark] ${targetBeforeStart ? 'border-rose-500' : 'border-neutral-700'}`}
+                  onChange={setFormTarget}
+                  className="w-full"
+                  inputClassName={targetBeforeStart ? '!border-rose-500' : ''}
+                  ariaLabel={tt('Hedef bitiş (isteğe bağlı)')}
                 />
                 {targetBeforeStart && <span className="block text-xs text-rose-400">{tt('Hedef bitiş, başlangıçtan önce olamaz.')}</span>}
               </label>
@@ -1438,7 +1439,7 @@ function MarkMenu({
             <button className={opt} onClick={() => onMark(today)}>{tt('Bugün')}</button>
             <button className={opt} onClick={() => onMark(yesterday)}>{tt('Dün')}</button>
             <div className="flex gap-1.5 px-3 py-1">
-              <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100 [color-scheme:dark]" />
+              <DateField value={day} max={today} onChange={setDay} onEnter={() => day && onMark(day)} className="min-w-0 flex-1" ariaLabel={tt('İzlediğin gün')} />
               <button disabled={!day} onClick={() => onMark(day)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
             </div>
           </>

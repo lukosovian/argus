@@ -494,7 +494,8 @@ export interface HomeSettings {
   rowTitleSize?: RowTitleSize
   // "Ne İzlesem?" nereden seçsin: 'arsiv' (varsayılan, arşivdeki kayıtlardan) ya da 'tmdb'
   // (TMDB'de olup arşivde OLMAYAN içeriklerden — randomPickerTmdb ayarlarıyla).
-  randomPickerSource?: 'arsiv' | 'tmdb'
+  // 'aklimda' (v1.27, K4): sadece Aklımda listesindekilerden (arşivdekiler + arşivde olmayan TMDB yapımları)
+  randomPickerSource?: 'arsiv' | 'tmdb' | 'aklimda'
   randomPickerTmdb?: RandomPickerTmdbSettings
   randomPickerYears?: YearRange
   // Ne İzlesem: en fazla kaç dakika ("bu akşam 2 saatim var"); boşsa sınır yok

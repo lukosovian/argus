@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { SettingsSection } from './SettingsUi'
 import ToggleSwitch from '../ToggleSwitch'
 import Select from '../Select'
@@ -160,8 +161,22 @@ function useDefaultOnToggle() {
 export function NotifyExtras() {
   const P = useProfileToggle()
   const D = useDefaultOnToggle()
+  // Zildeki dişliden gelinince (?bolum=zil) bu bölüme kaydır ve kısa bir parlama ile göster
+  const [params] = useSearchParams()
+  const ref = useRef<HTMLDivElement>(null)
+  const bolum = params.get('bolum')
+  useEffect(() => {
+    if (bolum !== 'zil' || !ref.current) return
+    const el = ref.current
+    const t = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      el.animate?.([{ boxShadow: '0 0 0 2px rgba(0,192,250,.7)' }, { boxShadow: '0 0 0 2px rgba(0,192,250,0)' }], { duration: 1600, easing: 'ease-out' })
+    }, 150)
+    return () => clearTimeout(t)
+  }, [bolum])
   return (
     <>
+      <div ref={ref} id="ayar-zil" className="scroll-mt-24 rounded-2xl">
       <SettingsSection title={tt('Zil bildirimleri')} description={tt('Bu profil için. Sağ üstteki zile düşer; ARGUS uygulamasında Windows bildirimi olarak da çıkar.')}>
         {D('newEpisodes', tt('İzlediğin dizinin yeni bölümü'), tt('İzleniyor durumundaki bir dizinin yeni bölümü yayınlandığı gün haber verir ("S2B4 bugün çıktı"). Her bölüm bir kez.'))}
         {D('platformLeave', tt('Platformdan kalkınca'), tt('İzleyeceğin bir yapım aboneliklerinden birinden kalkarsa haber verir (aboneliklerini Abonelik sayfasında seçersin).'))}
@@ -171,6 +186,7 @@ export function NotifyExtras() {
         {P('follow', tt('Oyuncu ve yönetmen takibi'), tt('Oyuncu sayfasında "Takip et"; yeni filmi duyurulunca bildirim.'))}
         {P('weekly', tt('Haftalık özet'), tt('Her Pazar akşamı haftanın özeti bildirim olarak gelir.'))}
       </SettingsSection>
+      </div>
       <SettingsSection title={tt('Otomatik bakım')} description={tt('Bu profilin ana sayfa arşivi için.')}>
         {D(
           'autoBulk',

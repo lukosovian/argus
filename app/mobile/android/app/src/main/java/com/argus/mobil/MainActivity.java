@@ -14,6 +14,10 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         // "/medya/..." görselleri telefondaki depodan / PC'den (bkz. ArgusWebViewClient)
         bridge.setWebViewClient(new ArgusWebViewClient(bridge));
+        // Fragman tam ekranı + yatay dönme (v1.27, T4; bkz. ArgusChromeClient)
+        bridge.getWebView().setWebChromeClient(new ArgusChromeClient(bridge));
+        // Telefon Ayarları'ndaki yazı boyutu (v1.27, T2; bkz. ArgusPlugin.setTextZoom)
+        bridge.getWebView().getSettings().setTextZoom(ArgusPlugin.textZoom(this));
         WifiAg.watch(this);
         // Paylaş menüsü / kısayol / ana ekran kutusu ile açıldıysa (bkz. ArgusPlugin.deliver)
         if (savedInstanceState == null) ArgusPlugin.deliver(getIntent());

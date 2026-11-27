@@ -3,6 +3,7 @@ import { PanelHeader, SettingsSection, choiceClass } from './SettingsUi'
 import ToggleSwitch from '../ToggleSwitch'
 import PhonePanel from './PhonePanel'
 import MobileConnectionPanel from '../mobile/MobileConnectionPanel'
+import PhoneLookSection from '../mobile/PhoneLookSection'
 import { isMobileApp } from '../../lib/mobile/native'
 import { useToast } from '../../hooks/useToast'
 import type { AppSettings } from '../../lib/desktopApp'
@@ -120,7 +121,11 @@ export default function AppSettingsPanel() {
       </SettingsSection>
       {mobile ? (
         // Telefondaki ARGUS: bilgisayara özel ayarlar (açılış, tepsi…) yerine PC bağlantısı
-        <MobileConnectionPanel />
+        <>
+          {/* v1.27 (T1–T2): yazı boyutu, giriş animasyonu, profil geçişi — telefona özel */}
+          <PhoneLookSection />
+          <MobileConnectionPanel />
+        </>
       ) : (
         <PhonePanel />
       )}

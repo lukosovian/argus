@@ -71,6 +71,8 @@ export async function describeOp(op: QueuedOp): Promise<OpInfo> {
       return { kind: removed ? tt('Sinema bileti silindi') : tt('Sinema bileti kaydedildi'), title: t }
     }
     if (/\/notifications\/read$/.test(path)) return { kind: tt('Bildirimler okundu sayıldı'), title: null }
+    if (/\/notifications\/restore$/.test(path)) return { kind: tt('Bildirimler geri getirildi'), title: null }
+    if (/\/notifications\/[^/?]+$/.test(path)) return { kind: tt('Bildirim silindi'), title: null }
     if (/\/notifications$/.test(path)) return { kind: tt('Bildirimler temizlendi'), title: null }
     if (/\/songs\//.test(path)) return { kind: tt('Şarkı silindi'), title: null }
     if (/\/store\/[^/?]+$/.test(path)) return { kind: tt('Ayar kaydedildi'), title: null }

@@ -268,10 +268,16 @@ export default function PickerPoolEditor({
         options={[
           { value: 'arsiv', label: tt('Arşivimden') },
           { value: 'tmdb', label: tt('TMDB\'den (arşivimde olmayanlar)') },
+          { value: 'aklimda', label: tt('Aklımdakilerden') },
         ]}
       />
 
-      {source === 'arsiv' ? (
+      {source === 'aklimda' ? (
+        // Aklımda zaten elle seçilmiş kısa bir liste — süre/yıl/platform süzgeçleri burada uygulanmıyor
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          {tt('Sadece Aklımda listendekilerden seçilir (arşivindekiler ve arşivinde olmayan TMDB yapımları). Listeyi Aklımda sayfasından düzenlersin.')}
+        </p>
+      ) : source === 'arsiv' ? (
         <div>
           <label className="block text-xs text-neutral-400 mb-1">
             {tt('Hangi havuzdan seçilsin (hiçbir filtre seçilmezse arşivdeki her şeyden rastgele seçilir)')}
@@ -292,6 +298,8 @@ export default function PickerPoolEditor({
         />
       )}
 
+      {source !== 'aklimda' && (
+      <>
       <div>
         <label className="block text-xs text-neutral-400 mb-1.5">{tt('Ne kadar vaktin var (film süresi)')}</label>
         <div className="flex flex-wrap gap-1.5">
@@ -332,6 +340,8 @@ export default function PickerPoolEditor({
           onChange={(randomPickerYears) => onSave({ ...settings, randomPickerYears })}
         />
       </div>
+      </>
+      )}
     </div>
   )
 }

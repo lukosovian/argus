@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast'
 import TmdbPreviewModal from './TmdbPreviewModal'
 import SectionTitle from './SectionTitle'
 import { regionName, tt } from '../lib/i18n'
+import { resolveRole } from '../lib/roles'
 import Icon from './Icon'
 import { LineSkeleton } from './Skeleton'
 
@@ -32,18 +33,23 @@ export default function TmdbExtras({
   row,
   part = 'all',
   providersClassName = '',
+  onOpenRow,
 }: {
   board: Board
   row: Row
   part?: 'all' | 'providers' | 'similar'
   // "Nerede İzlenir"in kendi kutusu — içerik yoksa (API anahtarı yok vb.) kutu da hiç çizilmesin diye burada.
   providersClassName?: string
+  // "✓ Arşivinde" olan bir yapıma tıklanınca TMDB önizlemesi yerine kullanıcının kendi kaydı açılsın (bkz. RowDetailModal.openRow)
+  onOpenRow?: (rowId: string) => void
 }) {
   const { notify } = useToast()
   const [data, setData] = useState<Extras | null>(null)
   const [failed, setFailed] = useState(false)
   const [adding, setAdding] = useState<number | null>(null)
   const [added, setAdded] = useState<Set<number>>(new Set())
+  // Bu pencereden "+ İzlenecek" ile eklenenlerin kayıt kimliği (sunucudaki öneri listesi bir dakika önbellekte)
+  const [addedRows, setAddedRows] = useState<Map<number, string>>(new Map())
   // Tıklanan benzer içeriğin önizleme penceresi (bkz. TmdbPreviewModal).
   const [preview, setPreview] = useState<TmdbCard | null>(null)
 
@@ -64,6 +70,7 @@ export default function TmdbExtras({
     try {
       const res = await api.addFromTmdb(board.id, { tmdbId: card.tmdbId, mediaType: card.mediaType, status: 'izlenecek' })
       setAdded((prev) => new Set(prev).add(card.tmdbId))
+      if (res.rowId) setAddedRows((prev) => new Map(prev).set(card.tmdbId, res.rowId))
       notifyDataChanged(board.id)
       notify(tt('"{0}" izlenecekler listene eklendi.', res.title))
     } catch (e) {
@@ -71,6 +78,30 @@ export default function TmdbExtras({
     } finally {
       setAdding(null)
     }
+  }
+
+  // Arşivindeki yapım: kendi kaydını aç. Sunucu kayıt kimliğini vermediyse (eski sunucu) adıyla eşleştir;
+  // bulunamazsa eskisi gibi önizleme açılır.
+  async function openCard(c: TmdbCard, inArchive: boolean) {
+    if (inArchive && onOpenRow) {
+      let rowId = c.rowId ?? addedRows.get(c.tmdbId) ?? null
+      if (!rowId) {
+        try {
+          const fold = (x: unknown) => (typeof x === 'string' ? x.trim().toLocaleLowerCase('tr') : '')
+          const names = new Set([fold(c.title), fold(c.originalTitle)].filter(Boolean))
+          const nameProps = [board.titlePropertyId, resolveRole(board, 'orjinalAdi')?.id].filter(Boolean) as string[]
+          const rows = await api.getRows(board.id)
+          rowId = rows.find((r) => r.id !== row.id && nameProps.some((pid) => names.has(fold(r.values[pid]))))?.id ?? null
+        } catch {
+          rowId = null
+        }
+      }
+      if (rowId) {
+        onOpenRow(rowId)
+        return
+      }
+    }
+    setPreview({ ...c, inArchive })
   }
 
   // API anahtarı yoksa ya da içerik TMDB'de bulunamadıysa bu bölümler hiç gösterilmiyor —
@@ -114,7 +145,7 @@ export default function TmdbExtras({
                   <div key={`${c.mediaType}-${c.tmdbId}`} className="w-28 sm:w-32 shrink-0 flex flex-col" title={c.overview}>
                     <div
                       className="relative cursor-pointer transition hover:opacity-80"
-                      onClick={() => setPreview({ ...c, inArchive })}
+                      onClick={() => void openCard(c, inArchive)}
                     >
                       {c.poster ? (
                         <img src={c.poster} alt={c.title} loading="lazy" className="w-full aspect-[2/3] object-cover rounded-lg bg-neutral-800" />
@@ -131,7 +162,7 @@ export default function TmdbExtras({
                     </div>
                     <p
                       className="text-xs text-neutral-300 hover:text-neutral-50 mt-1.5 leading-tight line-clamp-2 min-h-[2.5em] cursor-pointer"
-                      onClick={() => setPreview({ ...c, inArchive })}
+                      onClick={() => void openCard(c, inArchive)}
                     >
                       {c.title}
                     </p>

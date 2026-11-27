@@ -205,7 +205,12 @@ export default function Navbar() {
   // Görülen yama / evren eklemeleri (yeni menüdeki mavi noktalar)
   useEffect(() => {
     try {
-      if (location.pathname.startsWith('/yama-notlari')) localStorage.setItem(YAMA_SEEN_KEY, APP_VERSION)
+      if (location.pathname.startsWith('/yama-notlari')) {
+        // Yama Notları "son ziyaretinden beri gelenler"i işaretlesin diye eski değer bu oturum için saklanır (O10)
+        const prev = localStorage.getItem(YAMA_SEEN_KEY)
+        if (prev !== APP_VERSION) sessionStorage.setItem('argus_yama_onceki', prev ?? '')
+        localStorage.setItem(YAMA_SEEN_KEY, APP_VERSION)
+      }
       if (location.pathname.startsWith('/evrenler'))
         api
           .evrenOtoStatus()

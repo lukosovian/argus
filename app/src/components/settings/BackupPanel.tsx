@@ -6,7 +6,7 @@ import { SettingsSection, choiceClass } from './SettingsUi'
 import { tt, ttx, fmtDate, locale } from '../../lib/i18n'
 import { LineSkeleton } from '../Skeleton'
 import RecoveryCard from './RecoveryCard'
-import StorageCare from './StorageCare'
+import StorageCare, { fmtBytes } from './StorageCare'
 
 // Yedekleme (bkz. server/backup.js): seçilen klasöre veri + görseller. OneDrive / Google Drive klasörü
 // seçilirse yedek kendiliğinden buluta da gider. İş arka planda sürer, burada ilerlemesi görünür.
@@ -14,6 +14,15 @@ function fmtSnap(name: string): string {
   const m = name.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})$/)
   if (!m) return name
   return `${fmtDate(Number(m[1]), Number(m[2]) - 1, Number(m[3]))}, ${m[4]}:${m[5]}`
+}
+// Kilit simgesi ("Silinmesin" düğmesi)
+function LockIcon({ open }: { open?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d={open ? 'M8 11V7a4 4 0 0 1 7.5-2' : 'M8 11V7a4 4 0 0 1 8 0v4'} />
+    </svg>
+  )
 }
 function fmtTime(ms: number): string {
   return new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
@@ -73,7 +82,7 @@ export default function BackupPanel() {
     return () => clearInterval(id)
   }, [running, notify])
 
-  async function save(patch: { target?: string; auto?: 'off' | 'daily' | 'weekly'; keep?: number }) {
+  async function save(patch: { target?: string; auto?: 'off' | 'daily' | 'weekly'; keep?: number; retention?: 'count' | 'tiered' }) {
     setBusy(true)
     try {
       await api.saveBackupSettings(patch)
@@ -95,6 +104,28 @@ export default function BackupPanel() {
     }
   }
 
+  // Masaüstü uygulamasında Windows'un klasör seçme penceresi (tarayıcıda bu düğme görünmez)
+  const pickFolder = typeof window !== 'undefined' ? window.argusApp?.pickFolder : undefined
+  async function chooseFolder() {
+    if (!pickFolder) return
+    try {
+      const dir = await pickFolder(info?.settings.target || undefined)
+      if (dir) await save({ target: dir })
+    } catch {
+      notify(tt('Klasör seçme penceresi açılamadı.'), 'danger')
+    }
+  }
+
+  async function toggleLock(name: string, locked: boolean) {
+    try {
+      await api.lockBackup(name, locked)
+      await load()
+      notify(locked ? tt('Bu yedek artık silinmeyecek.') : tt('Kilit kaldırıldı; bu yedek de sırası gelince silinebilir.'))
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt('Kaydedilemedi.'), 'danger')
+    }
+  }
+
   async function restore(name: string) {
     const ok = await confirm({
       message: tt('{0} tarihli yedek geri yüklensin mi? Arşivlerin, ayarların ve geçmişin o ana döner. Şu anki verin silinmez, ARGUS klasöründe "data_geri_yukleme_oncesi" adıyla kenara alınır.', fmtSnap(name)),
@@ -113,6 +144,8 @@ export default function BackupPanel() {
   const s = info.settings
   const job = info.job
   const pct = job && job.total ? Math.round((job.done / job.total) * 100) : 0
+  const retention = s.retention ?? 'count'
+  const cur = info.current ?? null
 
   return (
     <div className="space-y-4">
@@ -151,6 +184,15 @@ export default function BackupPanel() {
                 </button>
               ))}
             </div>
+          )}
+          {pickFolder && (
+            <button
+              disabled={busy}
+              onClick={chooseFolder}
+              className="text-sm rounded-lg border border-neutral-700 text-neutral-200 hover:border-neutral-500 px-3 py-2 disabled:opacity-40"
+            >
+              {tt('Klasör seç…')}
+            </button>
           )}
           <div className="flex gap-2">
             <input
@@ -219,6 +261,23 @@ export default function BackupPanel() {
               ))}
             </div>
           </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-1.5">{tt('Eski yedekler')}</p>
+            <div className="flex flex-wrap gap-2">
+              <button disabled={busy} onClick={() => save({ retention: 'count' })} className={`text-xs rounded-full border px-3.5 py-1.5 transition ${choiceClass(retention === 'count')}`}>
+                {tt('Son birkaç yedek kalsın')}
+              </button>
+              <button disabled={busy} onClick={() => save({ retention: 'tiered' })} className={`text-xs rounded-full border px-3.5 py-1.5 transition ${choiceClass(retention === 'tiered')}`}>
+                {tt('Kademeli')}
+              </button>
+            </div>
+            {retention === 'tiered' && (
+              <p className="text-[11px] text-neutral-500 mt-1.5">
+                {tt('Son 7 günden her gün bir, ondan önceki 4 haftadan her hafta bir, ondan önceki 12 aydan her ay bir yedek kalır; gerisi silinir. Böylece hem yakın hem eski bir yedeğin olur.')}
+              </p>
+            )}
+          </div>
+          {retention === 'count' && (
           <div className="flex items-center gap-2 text-xs text-neutral-400">
             {tt('Kaç yedek saklansın')}
             <select
@@ -234,6 +293,8 @@ export default function BackupPanel() {
             </select>
             <span className="text-neutral-600">{tt('(eskiler silinir; görseller tek kopya tutulur)')}</span>
           </div>
+          )}
+          <p className="text-[11px] text-neutral-600">{tt('"Silinmesin" diye işaretlediğin yedekler hiçbir zaman silinmez ve bu sayıya katılmaz.')}</p>
         </div>
       </SettingsSection>
 
@@ -242,21 +303,62 @@ export default function BackupPanel() {
           <p className="text-sm text-neutral-500">{tt('Bu klasörde henüz yedek yok.')}</p>
         ) : (
           <ul className="space-y-1.5">
-            {info.snapshots.map((n, i) => (
-              <li key={n} className="flex items-center justify-between gap-2 rounded-lg border border-neutral-800 px-3 py-2">
-                <span className="text-sm text-neutral-200">
-                  {fmtSnap(n)}
-                  {i === 0 && <span className="ml-2 text-[11px] text-emerald-400">{tt('en yeni')}</span>}
-                </span>
-                <button
-                  disabled={running}
-                  onClick={() => restore(n)}
-                  className="text-xs rounded-full border border-neutral-700 text-neutral-300 hover:border-amber-500/60 hover:text-amber-300 px-3 py-1 transition disabled:opacity-40"
-                >
-                  {tt('Geri yükle')}
-                </button>
-              </li>
-            ))}
+            {info.snapshots.map((n, i) => {
+              const d = info.details?.[n]
+              // Şu anki veriye göre kayıt farkı — yanlış yedeğe dönmeden önce "bunda daha az kayıt var" görülsün
+              const diff = d && d.records != null && cur ? d.records - cur.records : null
+              return (
+                <li key={n} className="flex items-center justify-between gap-2 rounded-lg border border-neutral-800 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-neutral-200">
+                      {fmtSnap(n)}
+                      {i === 0 && <span className="ml-2 text-[11px] text-emerald-400">{tt('en yeni')}</span>}
+                      {d?.label === 'guncelleme' && <span className="ml-2 text-[11px] text-sky-400">{tt('Güncelleme öncesi')}</span>}
+                    </p>
+                    <p className="text-[11px] text-neutral-500">
+                      {d && d.records != null ? (
+                        <>
+                          {tt('{0} profil · {1} kayıt', d.profiles ?? 0, d.records.toLocaleString(locale()))}
+                          {d.bytes != null && <> · {fmtBytes(d.bytes)}</>}
+                          {diff !== null && (
+                            <span className={diff < 0 ? 'text-amber-400' : diff > 0 ? 'text-emerald-400' : ''}>
+                              {' · '}
+                              {diff === 0
+                                ? tt('şu ankiyle aynı sayıda kayıt')
+                                : diff < 0
+                                  ? tt('şu ankinden {0} kayıt az', (-diff).toLocaleString(locale()))
+                                  : tt('şu ankinden {0} kayıt fazla', diff.toLocaleString(locale()))}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        tt('içerik bilgisi yok')
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      disabled={running}
+                      onClick={() => toggleLock(n, !d?.locked)}
+                      title={d?.locked ? tt('Kilitli: bu yedek hiç silinmez. Kilidi kaldırmak için tıkla.') : tt('Bu yedeği kilitle; eski yedekler silinirken buna dokunulmasın.')}
+                      className={`inline-flex items-center gap-1 text-xs rounded-full border px-2.5 py-1 transition disabled:opacity-40 ${
+                        d?.locked ? 'border-amber-500/50 bg-amber-500/10 text-amber-300' : 'border-neutral-700 text-neutral-500 hover:text-neutral-200 hover:border-neutral-500'
+                      }`}
+                    >
+                      <LockIcon open={!d?.locked} />
+                      {tt('Silinmesin')}
+                    </button>
+                    <button
+                      disabled={running}
+                      onClick={() => restore(n)}
+                      className="text-xs rounded-full border border-neutral-700 text-neutral-300 hover:border-amber-500/60 hover:text-amber-300 px-3 py-1 transition disabled:opacity-40"
+                    >
+                      {tt('Geri yükle')}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </SettingsSection>

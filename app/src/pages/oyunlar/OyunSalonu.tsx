@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useArchive } from './useArchive'
 import { useProfiles } from '../../hooks/useProfiles'
-import { readDaily, readRecord, shuffle, today } from '../../lib/games'
+import { readDaily, readRecord, shuffle, today, useGameData } from '../../lib/games'
 import { useExtras } from '../../lib/extras'
 import { tt, ttx } from '../../lib/i18n'
 import PageSkeleton from '../../components/Skeleton'
@@ -47,6 +47,8 @@ export default function OyunSalonu() {
   const { profiles, activeProfileId } = useProfiles()
   const rewards = useExtras().on('rewards')
   const art = useMemo(() => shuffle(pool.filter((x) => x.poster)).slice(0, 28), [pool])
+  // Rekorlar profil deposunda (H7): bu profilin ve sıralama için diğer profillerin kayıtları yüklenir
+  useGameData([activeProfileId, ...profiles.map((p) => p.id)])
   if (loading) return <PageSkeleton />
   const pid = activeProfileId ?? ''
   const daily = pid ? readDaily<{ done: boolean; won: boolean }>(pid, 'gunluk')[today()] : undefined

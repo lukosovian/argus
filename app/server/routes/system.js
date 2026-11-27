@@ -7,6 +7,7 @@ import { buildRestartScript, launchDetachedRestart } from '../restart.js'
 import { pushNotification } from '../notifications.js'
 import { publishFile } from '../featurePublish.js'
 import { stt } from '../lang.js'
+import { quickDataBackup } from '../backup.js'
 import { DATA_DIR, MEDYA_DIR, ROOT, __dirname, localDay, rawWriteJson, readJson, readProfiles } from '../storage.js'
 import { app } from '../app.js'
 
@@ -91,7 +92,15 @@ app.get('/api/update-check', async (req, res) => {
 // güncellensin istedi. Kodu hemen çeker, yanıtı gönderir, sonra eski ARGUS'u kapatıp yerine
 // yenisini başlatır (ayrıntılar ve neden iki kademeli olduğu: bkz. restart.js). Yanıt MUTLAKA
 // süreç kapanmadan ÖNCE gönderiliyor, yoksa tarayıcı hiç cevap alamaz.
-app.post('/api/apply-update', (req, res) => {
+app.post('/api/apply-update', async (req, res) => {
+  // v1.27 (M6): yedek klasörü ayarlıysa önce verinin hızlı bir yedeği ("Güncelleme öncesi", görseller hariç) alınır.
+  // Yedek alınamasa da güncelleme durmaz; en fazla 90 sn beklenir.
+  try {
+    const r = await Promise.race([quickDataBackup('guncelleme'), new Promise((_, rej) => setTimeout(() => rej(new Error('zaman aşımı')), 90000))])
+    if (r?.snapshot) console.log('[guncelleme] guncelleme oncesi yedek alindi:', r.snapshot)
+  } catch (e) {
+    console.error('[guncelleme] guncelleme oncesi yedek alinamadi:', e?.message ?? e)
+  }
   try {
     if (fs.existsSync(path.join(ROOT, '.gelistirici'))) {
       execSync('git pull --ff-only', { cwd: ROOT, timeout: 15000, stdio: 'ignore' })

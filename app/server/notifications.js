@@ -70,4 +70,26 @@ export function registerNotificationRoutes(app) {
     writeJson(fileOf(req.params.profileId), [])
     res.json({ ok: true })
   })
+  // Tek bildirimi sil (zildeki ×) — silinen döner ki arayüz "Geri al"da geri koyabilsin
+  app.delete('/api/profiles/:profileId/notifications/:id', (req, res) => {
+    const list = readJson(fileOf(req.params.profileId), [])
+    const item = list.find((x) => x.id === req.params.id) ?? null
+    if (item) writeJson(fileOf(req.params.profileId), list.filter((x) => x.id !== req.params.id))
+    res.json({ ok: true, item })
+  })
+  // "Geri al": silinen bildirimler geri konur ({ items }). Aynı kimlikte olan atlanır, sıra zamana göre, en fazla 200.
+  app.post('/api/profiles/:profileId/notifications/restore', (req, res) => {
+    res.json({ ok: true, items: restoreNotes(readJson(fileOf(req.params.profileId), []), req.body?.items, (l) => writeJson(fileOf(req.params.profileId), l)) })
+  })
+}
+
+export function restoreNotes(list, incoming, save) {
+  const back = (Array.isArray(incoming) ? incoming : []).filter(
+    (x) => x && typeof x === 'object' && typeof x.id === 'string' && typeof x.title === 'string' && typeof x.t === 'number',
+  )
+  if (!back.length) return list
+  const ids = new Set(list.map((x) => x.id))
+  const merged = [...list, ...back.filter((x) => !ids.has(x.id))].sort((a, b) => b.t - a.t).slice(0, 200)
+  save(merged)
+  return merged
 }

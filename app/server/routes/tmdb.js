@@ -379,11 +379,15 @@ app.get('/api/profiles/:profileId/tmdb-extras/:boardId/:rowId', async (req, res)
       const sim = await tmdbGet(`/${ref.mediaType}/${ref.id}/similar`, { language: tmdbLang() }, apiKey)
       similarRaw = sim?.results ?? []
     }
-    const index = buildArchiveIndex(profileId, loaded.board, loaded.rows)
+    // rowId: arşivindeki yapıma tıklayınca önizleme yerine kendi kaydının detayı açılsın diye (v1.27)
+    const look = archiveLookup(profileId, loaded.board, loaded.rows)
     const similar = similarRaw
       .slice(0, 16)
       .map((r) => toCard(r, ref.mediaType))
-      .map((c) => ({ ...c, inArchive: index.has(c) }))
+      .map((c) => {
+        const a = look(c)
+        return { ...c, inArchive: a.inArchive, rowId: a.rowId }
+      })
 
     const tr = prov?.results?.[serverRegion()]
     res.json({

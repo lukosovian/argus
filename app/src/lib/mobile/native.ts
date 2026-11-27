@@ -44,6 +44,11 @@ interface ArgusNativePlugin {
   biometricAuth(o: { title: string; subtitle?: string; cancel: string }): Promise<{ ok: boolean; code?: number; error?: string }>
   // A8
   scanQr(): Promise<{ text?: string; cancelled?: boolean }>
+  // v1.27 T2: yazı boyutu (WebView textZoom, yüzde); T3: sesle arama (telefonun ses tanıma penceresi)
+  setTextZoom(o: { percent: number }): Promise<{ percent: number }>
+  getTextZoom(): Promise<{ percent: number }>
+  voiceAvailable(): Promise<{ available: boolean }>
+  voiceSearch(o: { lang?: string; prompt?: string }): Promise<{ text?: string; cancelled?: boolean }>
   addListener(event: 'intent', fn: () => void): Promise<PluginListenerHandle>
   addListener(event: 'prefetch', fn: (e: { done: number; total: number }) => void): Promise<PluginListenerHandle>
   addListener(event: 'update', fn: (e: { percent: number }) => void): Promise<PluginListenerHandle>

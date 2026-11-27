@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { todayIso } from '../../types'
 import { useEscape } from '../../hooks/useEscape'
 import { tt } from '../../lib/i18n'
+import DateField from '../DateField'
 
 // Seçim çubuğundaki "İzledim…" (v1.26, Y20): seçili kayıtların hepsine aynı izleme tarihini ekler (Bugün / Dün / bir
 // gün / sadece yıl), durumları İzlendi olur. Asıl iş BoardView.markWatched'da (geri alınabilir).
@@ -53,7 +54,7 @@ export default function WatchedButton({ count, disabled, onPick }: { count: numb
               </button>
             </div>
             <div className="flex items-center gap-1.5">
-              <input type="date" max={todayIso()} value={day} onChange={(e) => setDay(e.target.value)} className={`${input} flex-1`} aria-label={tt('Bir gün seç')} />
+              <DateField value={day} max={todayIso()} onChange={setDay} className="flex-1" inputClassName="text-xs" ariaLabel={tt('Bir gün seç')} onEnter={() => day && pick(day)} />
               <button disabled={!day || day > todayIso()} onClick={() => pick(day)} className="rounded-md bg-[#00c0fa] px-2.5 py-1 text-xs font-medium text-neutral-950 disabled:opacity-40">
                 {tt('Ekle')}
               </button>

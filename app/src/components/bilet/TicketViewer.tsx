@@ -6,6 +6,9 @@ import Icon from '../Icon'
 import { useEscape } from '../../hooks/useEscape'
 import { useDialogFocus } from '../../hooks/useDialogFocus'
 import { tt } from '../../lib/i18n'
+import { useToast } from '../../hooks/useToast'
+import { MOBILE } from '../../lib/mobile/ui'
+import { ticketFileName, ticketPng } from './ticketImage'
 
 // Bilete tıklayınca: bilet tıklandığı yerden ekranın ortasına büyür; fareyle oynatınca hafifçe yatar ve üstünde
 // ışık gezer; tıklayınca / Boşluk ile 3B döner (arkası); ← → ile diğer biletler; Esc ile yerine geri küçülür.
@@ -48,8 +51,50 @@ export default function TicketViewer({
   const startIndex = useRef(index)
   const closing = useRef(false)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const frontRef = useRef<HTMLDivElement>(null)
+  const backRef = useRef<HTMLDivElement>(null)
+  const [imgBusy, setImgBusy] = useState(false)
+  const { notify } = useToast()
   useDialogFocus(dialogRef)
   useEscape(true, () => close())
+
+  // O3: o an görünen yüzün PNG'si — indir (telefonda paylaş menüsü) ya da panoya kopyala
+  async function exportImage(mode: 'download' | 'copy') {
+    const face = (flipped ? backRef : frontRef).current?.firstElementChild as HTMLElement | null
+    if (!face || !b || imgBusy) return
+    setImgBusy(true)
+    try {
+      const blob = await ticketPng(face)
+      const name = ticketFileName(b.title, flipped ? 'back' : 'front')
+      if (mode === 'copy') {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+        notify(tt('Bilet görseli panoya kopyalandı, bir sohbete yapıştırabilirsin.'), 'success')
+        return
+      }
+      const file = new File([blob], name, { type: 'image/png' })
+      // Telefonda indirme bağlantısı çalışmıyor: paylaş menüsü (Galeri'ye kaydet, WhatsApp…)
+      if (MOBILE && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: b.title })
+        } catch {
+          /* vazgeçildi */
+        }
+        return
+      }
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000)
+      notify(tt('Bilet görseli İndirilenler klasörüne kaydedildi.'), 'success')
+    } catch {
+      notify(mode === 'copy' ? tt('Panoya kopyalanamadı, indirmeyi dene.') : tt('Bilet görseli oluşturulamadı.'), 'danger')
+    } finally {
+      setImgBusy(false)
+    }
+  }
 
   useEffect(() => {
     const r = () => setWidth(Math.min(920, window.innerWidth * 0.86, (window.innerHeight - 220) * TICKET_RATIO))
@@ -136,10 +181,10 @@ export default function TicketViewer({
             onClick={() => setFlipped((f) => !f)}
             style={{ transformStyle: 'preserve-3d', transition: 'transform .8s cubic-bezier(.3,1.3,.5,1)', transform: `rotateY(${flipped ? 180 : 0}deg)`, fontSize: width / 48 }}
           >
-            <div className="bilet-face absolute inset-0 drop-shadow-[0_30px_50px_rgba(0,0,0,.6)]">
+            <div ref={frontRef} className="bilet-face absolute inset-0 drop-shadow-[0_30px_50px_rgba(0,0,0,.6)]">
               <TicketFront b={b} no={b.no} glare />
             </div>
-            <div className="bilet-face absolute inset-0 drop-shadow-[0_30px_50px_rgba(0,0,0,.6)]" style={{ transform: 'rotateY(180deg)' }}>
+            <div ref={backRef} className="bilet-face absolute inset-0 drop-shadow-[0_30px_50px_rgba(0,0,0,.6)]" style={{ transform: 'rotateY(180deg)' }}>
               <TicketBack b={b} no={b.no} glare />
             </div>
           </div>
@@ -160,6 +205,15 @@ export default function TicketViewer({
         {onOpenRow && b.rowId && (
           <button onClick={() => onOpenRow(b)} className={btn}>
             {tt('Yapımı aç')}
+          </button>
+        )}
+        <button onClick={() => void exportImage('download')} disabled={imgBusy} className={`${btn} disabled:opacity-50`} title={flipped ? tt('Arka yüzün görselini indir') : tt('Ön yüzün görselini indir')}>
+          <Icon name="share" className="h-3.5 w-3.5" />
+          {imgBusy ? tt('Hazırlanıyor…') : MOBILE ? tt('Görseli paylaş') : tt('Görseli indir')}
+        </button>
+        {!MOBILE && typeof ClipboardItem !== 'undefined' && (
+          <button onClick={() => void exportImage('copy')} disabled={imgBusy} className={`${btn} disabled:opacity-50`}>
+            {tt('Kopyala')}
           </button>
         )}
         <button onClick={() => onEdit(b)} className={btn}>

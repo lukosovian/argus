@@ -10,6 +10,7 @@ import { HomeCard } from '../pages/AnaSayfa'
 import { tt, ttx } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import Icon from './Icon'
+import VoiceSearchButton from './mobile/VoiceSearchButton'
 import { useEscape } from '../hooks/useEscape'
 import { searchFold } from '../lib/search'
 import { RECENT_OPENED_EVENT, clearOpened, forgetOpened, recentOpened } from '../lib/recentOpened'
@@ -268,6 +269,8 @@ export default function GlobalSearch() {
                       ×
                     </button>
                   )}
+                  {/* v1.27 (T3): sesle arama — söylenen kutuya yazılır */}
+                  <VoiceSearchButton onText={setQ} />
                 </label>
               </div>
               <div className="flex-1 overflow-y-auto px-4 pb-10">

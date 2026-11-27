@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Row } from '../types'
 import { todayIso } from '../types'
 import Checkbox from './Checkbox'
+import DateField from './DateField'
 import { getLang, tt } from '../lib/i18n'
 import { formatEntry } from '../lib/dateRange'
 
@@ -205,13 +206,7 @@ export default function UndatedSeriesSection({
                 {tt('Kaydın izleme tarihinden')}
               </button>
               <span className="inline-flex items-center gap-1">
-                <input
-                  type="date"
-                  value={day}
-                  max={today}
-                  onChange={(e) => setDay(e.target.value)}
-                  className="rounded-md bg-neutral-950 border border-neutral-700 px-2 py-0.5 text-xs text-neutral-100 [color-scheme:dark]"
-                />
+                <DateField value={day} max={today} onChange={setDay} className="w-36" inputClassName="py-0.5 text-xs" ariaLabel={tt('Bir gün seç')} />
                 <button disabled={!selected.length || busy || !day} onClick={() => apply(day)} className={`${btn} border-neutral-700 text-neutral-300 hover:text-neutral-50 hover:border-neutral-500`}>
                   {tt('Bu gün')}
                 </button>

@@ -9,6 +9,77 @@ import { tt } from '../lib/i18n'
 const PAGE = 120
 const EMPTY = '__bos__'
 
+// "+ Yeni Kayıt" kutucuğu: tıklayınca ad soran küçük bir kutuya dönüşür (Enter = oluştur, Esc = vazgeç). Eskiden
+// adsız boş bir kayıt açıyordu; ad girilmeden kayıt oluşmasın, adı olunca da detaydaki TMDB "Güncelle" çalışsın.
+function NewTile({ open, onOpenChange, onCreate }: { open: boolean; onOpenChange: (v: boolean) => void; onCreate: (name: string) => Promise<void> | void }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const close = () => {
+    setName('')
+    onOpenChange(false)
+  }
+  async function submit() {
+    const n = name.trim()
+    if (!n || busy) return
+    setBusy(true)
+    try {
+      await onCreate(n)
+      close()
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (!open)
+    return (
+      <button
+        onClick={() => onOpenChange(true)}
+        className="aspect-[2/3] rounded-lg border border-dashed border-neutral-700 hover:border-neutral-500 text-neutral-500 hover:text-neutral-300 transition flex flex-col items-center justify-center gap-1"
+      >
+        <span className="text-3xl leading-none">+</span>
+        <span className="text-xs">{tt('Yeni Kayıt')}</span>
+      </button>
+    )
+  return (
+    <div className="aspect-[2/3] rounded-lg border border-[#00c0fa]/60 bg-neutral-900 p-2.5 flex flex-col justify-center gap-2">
+      <p className="text-xs text-neutral-400">{tt('Yeni kaydın adı')}</p>
+      <input
+        autoFocus
+        value={name}
+        disabled={busy}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            void submit()
+          } else if (e.key === 'Escape') {
+            // Sadece bu kutuyu kapat (altındaki sayfa/pencere Esc'i almasın)
+            e.preventDefault()
+            e.stopPropagation()
+            close()
+          }
+        }}
+        onBlur={() => !name.trim() && !busy && close()}
+        placeholder={tt('ör. Inception')}
+        className="w-full min-w-0 rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-neutral-100 outline-none focus:border-[#00c0fa]"
+      />
+      <div className="flex gap-1.5">
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => void submit()}
+          disabled={!name.trim() || busy}
+          className="flex-1 rounded-md bg-[#00c0fa] px-2 py-1 text-xs font-medium text-neutral-950 disabled:opacity-40"
+        >
+          {busy ? tt('Ekleniyor...') : tt('Oluştur')}
+        </button>
+        <button onMouseDown={(e) => e.preventDefault()} onClick={close} className="rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:text-neutral-50">
+          {tt('Vazgeç')}
+        </button>
+      </div>
+      <p className="text-[10px] text-neutral-600">{tt('Enter: oluştur · Esc: vazgeç')}</p>
+    </div>
+  )
+}
+
 function Card({ board, row, titleProp, onOpen }: { board: Board; row: Row; titleProp?: PropertyDef; onOpen: (row: Row) => void }) {
   const title = (titleProp ? titleText(titleProp, row.values[titleProp.id]) : '') || tt('İsimsiz')
   const poster = posterOf(board, row)
@@ -44,18 +115,34 @@ export default function BoardGallery({
   groupProp = null,
   onOpenRow,
   onAddRow,
+  addOpen,
+  onAddOpenChange,
 }: {
   board: Board
   rows: Row[]
   groupProp?: PropertyDef | null
   onOpenRow: (row: Row) => void
-  onAddRow?: () => void
+  // Ad girilince çağrılır (ad sorulmadan kayıt oluşturulmaz)
+  onAddRow?: (name: string) => Promise<void> | void
+  // Ad kutusu dışarıdan da açılabilsin (araç çubuğundaki "+ Yeni Ekle"); verilmezse kendi durumunu tutar
+  addOpen?: boolean
+  onAddOpenChange?: (v: boolean) => void
 }) {
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const [limit, setLimit] = useState(PAGE)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = addOpen ?? ownOpen
+  const setOpen = onAddOpenChange ?? setOwnOpen
   const grid = 'grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-5'
+  const tile = onAddRow ? <NewTile open={open} onOpenChange={setOpen} onCreate={onAddRow} /> : null
 
-  if (rows.length === 0) return <p className="py-16 text-center text-sm text-neutral-500">{tt('Gösterilecek kayıt yok.')}</p>
+  if (rows.length === 0)
+    return (
+      <div className="space-y-4">
+        {tile && <div className={grid}>{tile}</div>}
+        <p className="py-16 text-center text-sm text-neutral-500">{tt('Gösterilecek kayıt yok.')}</p>
+      </div>
+    )
 
   // Gruplama açıksa her seçenek kendi başlığıyla (tablodaki gibi, boşlar en sonda)
   if (groupProp && groupProp.type === 'select') {
@@ -72,6 +159,8 @@ export default function BoardGallery({
     let budget = limit
     return (
       <div className="space-y-8">
+        {/* Gruplu görünümde kutucuk sadece "+ Yeni Ekle" ile açılınca, en üstte */}
+        {tile && open && <div className={grid}>{tile}</div>}
         {groups.map((g) => {
           const opt = groupProp.options?.find((o) => o.id === g.key)
           const take = Math.max(0, Math.min(g.list.length, budget))
@@ -99,15 +188,7 @@ export default function BoardGallery({
   return (
     <div className="space-y-6">
       <div className={grid}>
-        {onAddRow && (
-          <button
-            onClick={onAddRow}
-            className="aspect-[2/3] rounded-lg border border-dashed border-neutral-700 hover:border-neutral-500 text-neutral-500 hover:text-neutral-300 transition flex flex-col items-center justify-center gap-1"
-          >
-            <span className="text-3xl leading-none">+</span>
-            <span className="text-xs">{tt('Yeni Kayıt')}</span>
-          </button>
-        )}
+        {tile}
         {rows.slice(0, limit).map((row) => (
           <Card key={row.id} board={board} row={row} titleProp={titleProp} onOpen={onOpenRow} />
         ))}

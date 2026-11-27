@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type Bilet, type BiletData } from './api'
+import { api, getApiProfileId, type Bilet, type BiletData } from './api'
+import { readStore, writeStore } from './profileStore'
+import { searchFold } from './search'
 import { isWatchedStatus, resolveRole, resolveStatusOption } from './roles'
 import { entryEnd, isFullDate, isUnknownDate, isYearOnly } from './dateRange'
 import { notifyDataChanged } from './dataEvents'
@@ -71,6 +73,8 @@ export async function saveBilet(id: string, b: Partial<Record<keyof Bilet, strin
 export async function markBiletWatched(b: Bilet): Promise<'eklendi' | 'tekrar' | null> {
   const date = b.date?.slice(0, 10)
   if (!b.rowId || !b.boardId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayIso()) return null
+  // Kiminle izlediğin de o günün izlemesine yazılsın (O1); olmazsa izleme işareti yine yapılır
+  await linkBiletKiminle(b).catch(() => false)
   const [boards, rows] = await Promise.all([api.getBoards(), api.getRows(b.boardId)])
   const board = boards.find((x) => x.id === b.boardId)
   const row = rows.find((x) => x.id === b.rowId)
@@ -95,6 +99,41 @@ export async function markBiletWatched(b: Bilet): Promise<'eklendi' | 'tekrar' |
   await api.updateRow(board.id, row.id, { values: { ...row.values, ...patch }, createdAt: row.createdAt, updatedAt: Date.now() }, Object.keys(patch))
   notifyDataChanged(board.id)
   return (tarihProp.type === 'multidate' ? base.length : list.length) ? 'tekrar' : 'eklendi'
+}
+
+// Biletteki "Kiminle" metni → kişiler ("Ece, Can" ya da "Ece ve Can")
+export function splitPeople(s?: string | null): string[] {
+  return (s ?? '')
+    .split(/,| ve /)
+    .map((x) => x.trim().slice(0, 40))
+    .filter(Boolean)
+}
+
+// O1 (v1.27): biletteki kişiler, o yapımın o günkü izlemesine detaydaki "Kiminle izledin?" etiketi olarak da eklenir
+// (profilin 'birlikte-izledik' deposu, bkz. koleksiyon/KiminleIzledin). Zaten olan isim tekrar eklenmez; ileri
+// tarihli (henüz izlenmemiş) bilette bir şey yapılmaz — seans bitince markBiletWatched yine çağırır.
+// Birlikte izle sayfası "… ile birlikte izlediklerin"i bu kayıttan saydığı için sinema gezileri oraya da düşer.
+export async function linkBiletKiminle(b: Bilet): Promise<boolean> {
+  const pid = getApiProfileId()
+  const date = b.date?.slice(0, 10)
+  const names = splitPeople(b.withWho)
+  if (!pid || !b.rowId || !names.length || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayIso()) return false
+  const store = 'birlikte-izledik'
+  const cur = await readStore<Record<string, Record<string, string[]>>>(pid, store)
+  const row = { ...(cur[b.rowId] ?? {}) }
+  const list = Array.isArray(row[date]) ? [...row[date]] : []
+  const seen = new Set(list.map(searchFold))
+  for (const n of names) {
+    if (seen.has(searchFold(n))) continue
+    seen.add(searchFold(n))
+    list.push(n)
+  }
+  if (list.length === (row[date]?.length ?? 0)) return false
+  row[date] = list.slice(0, 12)
+  await writeStore(pid, store, { ...cur, [b.rowId]: row })
+  // useStore('birlikte-izledik') kullanan açık ekranlar yenilensin (bkz. lib/useProfileStore)
+  window.dispatchEvent(new CustomEvent('argus-store-degisti', { detail: store }))
+  return true
 }
 
 // Biletler eskiden yeniye sıralı (seri numarası bu sıraya göre)

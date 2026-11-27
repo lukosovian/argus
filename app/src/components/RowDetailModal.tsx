@@ -15,7 +15,7 @@ import type { Board, PropertyDef, PropertyValue, Row, SelectOption } from '../ty
 import { titleText, episodeKey, todayIso, ratingAverage } from '../types'
 import { parseYouTubeUrl } from '../lib/youtube'
 import { formatRuntime } from '../lib/rowMeta'
-import { resolveRole, resolveStatusOption, isWatchedStatus } from '../lib/roles'
+import { resolveRole, resolveStatusOption, isWatchedStatus, rolesOfProperty } from '../lib/roles'
 import { notifyDataChanged } from '../lib/dataEvents'
 import { normalizeAgeRating } from '../lib/ageRating'
 import { BRAND_TEXT } from '../lib/theme'
@@ -109,6 +109,25 @@ function DetailValue({
 }) {
   if (property.type === 'checkbox') return <span className="text-neutral-300 text-base">{value ? tt('Evet') : tt('Hayır')}</span>
   if (property.type === 'date') return <span className="text-neutral-300 text-base">{formatDate(value as string)}</span>
+  // Ek puan sütunları (ana "Puan" dışındakiler): kriterlerin ortalaması
+  if (property.type === 'rating') {
+    const avg = ratingAverage(value, property)
+    return avg === null ? null : (
+      <span className="inline-flex items-center gap-1 text-amber-300 text-base tabular-nums">
+        <Icon name="star" className="h-[0.9em] w-[0.9em]" /> {avg.toFixed(1)}
+      </span>
+    )
+  }
+  // Bağlantılar tıklanabilir; Electron'da target=_blank kullanıcının tarayıcısında açılır (bkz. desktop/main.cjs)
+  if (property.type === 'url' && typeof value === 'string') {
+    const href = /^https?:\/\//i.test(value) ? value : /^[\w-]+(\.[\w-]+)+/.test(value) ? `https://${value}` : ''
+    if (!href) return <span className="text-neutral-300 text-base break-all">{value}</span>
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className="text-[#7fdcff] hover:underline text-sm break-all">
+        {value.replace(/^https?:\/\/(www\.)?/i, '')}
+      </a>
+    )
+  }
   if (property.type === 'multidate') {
     const dates = (Array.isArray(value) ? (value as string[]) : []).slice().sort()
     if (dates.length === 0) return null
@@ -137,7 +156,8 @@ function DetailValue({
       </div>
     )
   }
-  return <span className="text-neutral-300 text-base">{String(value)}</span>
+  // Uzun metinde kullanıcının satır sonları korunsun
+  return <span className="text-neutral-300 text-base whitespace-pre-line break-words">{String(value)}</span>
 }
 
 export default function RowDetailModal({
@@ -147,6 +167,10 @@ export default function RowDetailModal({
   editable = false,
   onFetchTmdb,
   onEdit,
+  onPrev,
+  onNext,
+  prevTitle,
+  nextTitle,
 }: {
   board: Board
   row: Row
@@ -158,6 +182,11 @@ export default function RowDetailModal({
   editable?: boolean
   // Telefonda kaydın bütün alanlarını düzenleme formu (masaüstündeki tablo hücreleri yerine) — bkz. BoardView
   onEdit?: () => void
+  // Arşivde görünen sıradaki önceki/sonraki kayda geçiş (kenardaki oklar ve ← → tuşları; telefonda yok)
+  onPrev?: () => void
+  onNext?: () => void
+  prevTitle?: string
+  nextTitle?: string
   // BoardTable.tsx'in satır menüsündeki "Güncelle" ile birebir aynı işlev — sadece
   // BoardView'dan (editable=true) geçiriliyor, kullanıcı bu pencereden de erişmek istedi
   // ("tmdb den doldur özelliğini veritabanından girdiğim detay penceresine de ekle").
@@ -235,6 +264,34 @@ export default function RowDetailModal({
       body.style.overflow = prev.overflow
       window.scrollTo(0, scrollY)
     }
+  }, [])
+
+  // ← → ile önceki/sonraki kayıt. Yazı kutusunda, açık bir liste/menüdeyken ya da bu pencerenin üstünde başka bir
+  // pencere (oyuncu sayfası, bilet, alt kayıt…) açıkken çalışmaz — onların kendi ok tuşu kullanımı bozulmasın.
+  const navRef = useRef({ onPrev, onNext })
+  navRef.current = { onPrev, onNext }
+  useEffect(() => {
+    if (MOBILE) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      const me = dialogRef.current
+      if (!me || document.querySelector('[data-popover]')) return
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [aria-modal="true"], .fixed.inset-0'))) {
+        if (el === me || !el.getClientRects().length) continue
+        const cs = getComputedStyle(el)
+        if (cs.pointerEvents === 'none' || cs.visibility === 'hidden') continue
+        if (me.contains(el) || me.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) return
+      }
+      const go = e.key === 'ArrowLeft' ? navRef.current.onPrev : navRef.current.onNext
+      if (!go) return
+      e.preventDefault()
+      go()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   // Bir çoklu-seçim değerine (ör. bir oyuncu rozetine) tıklayınca, ana sayfada o değere göre
@@ -334,9 +391,15 @@ export default function RowDetailModal({
 
   // Seçim/tarih tipindeki değerler ("Dizi", "2026" gibi) üstte kompakt bir satırda
   // özetlenir; geri kalanı (çoklu seçim, metin vb.) aşağıdaki ızgarada listelenir.
+  // Tarih ve puan sütunlarından görevi olanlar (Vizyon, İzleme Tarihi, Puan) kendi yerlerinde gösteriliyor;
+  // kullanıcının eklediği görevsiz ek tarih/puan sütunları bilgi kartında görünsün. Seçimler üstteki etiketlerde.
   const gridProps = board.properties.filter(
     // Görseller yazı olarak ("/medya/…jpg") listelenmesin — kapak işaretlenmemiş arşivlerde Banner yolu görünüyordu
-    (p) => !usedIds.has(p.id) && p.type !== 'select' && p.type !== 'date' && p.type !== 'rating' && p.type !== 'image',
+    (p) =>
+      !usedIds.has(p.id) &&
+      p.type !== 'select' &&
+      p.type !== 'image' &&
+      ((p.type !== 'date' && p.type !== 'rating') || rolesOfProperty(board, p.id).length === 0),
   )
 
   const actorIds = oyuncularProp && Array.isArray(row.values[oyuncularProp.id]) ? (row.values[oyuncularProp.id] as string[]) : []
@@ -380,18 +443,42 @@ export default function RowDetailModal({
     saveRowWatched(row.id, next)
   }
 
+  // Bölümlerde çoklu seçim (A8): birden çok anahtar tek kayıtta (tek tek çağırmak eski haritayı ezerdi)
+  function setManyEpisodeDates(changes: Record<string, string[]>) {
+    const next = { ...rowWatched }
+    for (const [key, dates] of Object.entries(changes)) {
+      if (dates.length === 0) delete next[key]
+      else next[key] = dates
+    }
+    saveRowWatched(row.id, next)
+  }
+
   // "Sezonu İzlendi İşaretle" — sadece henüz hiç tarihi olmayan bölümlere seçilen tarihi (bugün, bir gün,
   // yıl ya da "?" = hatırlamıyorum) ekler, zaten işaretli (ör. daha önce farklı bir tarihte tekli tiklenmiş) bölümlere
   // dokunmaz — mevcut tekil kayıtları ezmeden toplu ilerleme sağlar.
-  function markSeasonWatched(seasonNumber: number, date: string) {
+  // Yayın tarihi henüz gelmemiş bölümler atlanır (izlenmiş olamazlar). `upTo` verilirse ("Buraya kadar izledim")
+  // sadece sezonun başından o bölüme kadarkiler işaretlenir.
+  function markSeasonWatched(seasonNumber: number, date: string, upTo?: number) {
     const targetSeason = seasons?.find((s) => s.seasonNumber === seasonNumber)
     if (!targetSeason) return
+    const today = todayIso()
     const next = { ...rowWatched }
+    let count = 0
     for (const ep of targetSeason.episodes) {
+      if (ep.airDate && ep.airDate > today) continue
+      if (upTo !== undefined && ep.episodeNumber > upTo) continue
       const key = episodeKey(seasonNumber, ep.episodeNumber)
-      if (!next[key] || next[key].length === 0) next[key] = [date]
+      if (!next[key] || next[key].length === 0) {
+        next[key] = [date]
+        count++
+      }
+    }
+    if (count === 0) {
+      notify(tt('İşaretlenecek yayınlanmış bölüm yok.'), 'info')
+      return
     }
     saveRowWatched(row.id, next)
+    if (upTo !== undefined) notify(tt('{0} bölüm izlendi olarak işaretlendi.', count), 'success')
   }
 
   // Tersi — sezondaki TÜM bölümlerin izlenme (ve varsa tekrar izleme) tarihlerini siler.
@@ -517,14 +604,47 @@ export default function RowDetailModal({
       .map((id) => turProp?.options?.find((o) => o.id === id)?.label ?? '')
       .filter(Boolean)
     const dv = tarihProp ? row.values[tarihProp.id] : undefined
-    const days = (Array.isArray(dv) ? dv : dv ? [dv] : []).map((x) => entryEnd(String(x))).filter((x) => /^d{4}-d{2}-d{2}$/.test(x)).sort()
-    const watchedOn = days.length ? longDate(days[days.length - 1]) : lastEpisode ? longDate(lastEpisode.date) : ''
+    const entries = (Array.isArray(dv) ? dv : dv ? [dv] : []).map((x) => entryEnd(String(x)))
+    // Kaydın kendi tarihi ile (dizide) son izlenen bölümün tarihinden hangisi daha yeniyse o
+    const days = [...entries.filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)), ...(lastEpisode ? [lastEpisode.date] : [])].sort()
+    // Tam gün yoksa yalnızca yılı girilmiş izleme ("2019") yine de yazılsın
+    const yearOnly = entries.filter((x) => /^\d{4}$/.test(x)).sort()
+    const watchedOn = days.length ? longDate(days[days.length - 1]) : yearOnly.length ? yearOnly[yearOnly.length - 1] : ''
     return { poster, cover, logo: titleImage, title, score: avgScore, year: vizyonRaw.slice(0, 4), runtime, genres, watchedOn }
   }
 
   return (
     // Telefonda tam ekran: görsel durum çubuğunun arkasına kadar uzanır (üstteki boşluk yok, düğmeler aşağı kayar)
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={title || tt('Kayıt')} className={`fixed inset-0 z-50 bg-black/85 backdrop-blur-sm overflow-y-auto ${MOBILE ? '' : 'py-6 px-3 sm:px-8 md:px-14'}`} onClick={onClose} style={MOBILE ? { paddingTop: 0 } : undefined}>
+      {/* Önceki/sonraki kayıt okları (PC) — pencerenin iki yanında. Kök katmandaki backdrop-blur "fixed"i kaydırma
+          kabına bağladığı için body'ye taşınıyor; üstte başka bir pencere açıkken gizli. */}
+      {!MOBILE &&
+        !person && !subRow && !detailOption && !ticketView && !ticketForm && !shareOpen &&
+        createPortal(
+        <>{([
+          ['prev', onPrev, prevTitle, 'left-1 sm:left-2', 'M15 18l-6-6 6-6', tt('Önceki kayıt')],
+          ['next', onNext, nextTitle, 'right-1 sm:right-2', 'M9 18l6-6-6-6', tt('Sonraki kayıt')],
+        ] as const).map(([k, fn, name, pos, d, label]) =>
+          fn ? (
+            <button
+              key={k}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                fn()
+              }}
+              title={name ? `${label}: ${name} (${k === 'prev' ? '←' : '→'})` : label}
+              aria-label={label}
+              className={`fixed ${pos} top-1/2 -translate-y-1/2 z-50 h-11 w-11 flex items-center justify-center rounded-full bg-black/55 hover:bg-black/85 text-neutral-200 hover:text-white ring-1 ring-white/10 backdrop-blur-sm transition`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                <path d={d} />
+              </svg>
+            </button>
+          ) : null,
+        )}</>,
+        document.body,
+      )}
       {/* Telefonda tam ekran */}
       <div
         className={MOBILE ? 'relative bg-neutral-900 w-full min-h-full' : 'relative bg-neutral-900 rounded-3xl w-full max-w-6xl mx-auto shadow-2xl shadow-black/60 ring-1 ring-white/5'}
@@ -771,6 +891,7 @@ export default function RowDetailModal({
                   onSetEpisodeDates={setEpisodeDates}
                   onMarkSeasonWatched={markSeasonWatched}
                   onUnmarkSeasonWatched={unmarkSeasonWatched}
+                  onSetManyEpisodeDates={setManyEpisodeDates}
                   editable={editable}
                 />
               </section>
@@ -815,7 +936,7 @@ export default function RowDetailModal({
 
             <CollectionSection boardId={board.id} rowId={row.id} onOpenRow={openRow} />
 
-            <TmdbExtras board={board} row={row} part="similar" />
+            <TmdbExtras board={board} row={row} part="similar" onOpenRow={openRow} />
           </div>
 
           {/* Sağ: bilgi sütunu */}

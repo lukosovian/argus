@@ -4,9 +4,11 @@ import { useToast } from '../../hooks/useToast'
 import { useStore } from '../../lib/useProfileStore'
 import { fold } from '../../lib/games'
 import { tt } from '../../lib/i18n'
+import { splitPeople, useBiletler, type Bilet } from '../../lib/bilet'
 
 // "Birlikte izledik" (v1.25): bir yapımı kiminle izlediğin, her izleyiş için ayrı. Biletlerim'deki "Kiminle" alanı
-// gibi serbest isim; öneri olarak ARGUS'taki diğer profiller ve daha önce yazdığın isimler gelir.
+// gibi serbest isim; öneri olarak ARGUS'taki diğer profiller, biletlerdeki kişiler ve daha önce yazdığın isimler gelir.
+// Bilet kaydedilince biletteki kişiler o günün izlemesine buraya da eklenir (lib/bilet › linkBiletKiminle).
 // Kayıt: profilin 'birlikte-izledik' deposu → { [rowId]: { [izleme tarihi ya da 'genel']: string[] } }.
 // Birlikte izle sayfası seçili profille izlediklerini buradan sayar.
 
@@ -17,21 +19,40 @@ export function useBirlikte(enabled = true) {
   return useStore<BirlikteStore>(BIRLIKTE_STORE, enabled)
 }
 
-export default function KiminleIzledin({ rowId, dates, label }: { rowId: string; dates: string[]; label: (d: string) => string }) {
+// İsim önerileri (O1, v1.27): bilet formundaki "Kiminle" ile buradaki kutu aynı listeyi gösterir — diğer profiller,
+// biletlerde yazılan kişiler ve "Kiminle izledin?" kayıtları (harf farkı önemsiz, tekrarsız).
+export function namesFrom(profiles: { id: string; username?: string }[], activeProfileId: string | null | undefined, birlikte: BirlikteStore | null | undefined, biletler: Bilet[], extra: string[] = []) {
+  const out = new Map<string, string>()
+  const put = (n: string) => {
+    const k = fold(n)
+    if (k && !out.has(k)) out.set(k, n)
+  }
+  for (const p of profiles) if (p.id !== activeProfileId && p.username) put(p.username)
+  for (const b of biletler) for (const n of splitPeople(b.withWho)) put(n)
+  for (const byDate of Object.values(birlikte ?? {})) for (const names of Object.values(byDate ?? {})) for (const n of names ?? []) put(n)
+  for (const n of extra) put(n)
+  return [...out.values()]
+}
+export function usePeopleSuggestions(extra?: string[]) {
   const { profiles, activeProfileId } = useProfiles()
+  const { data } = useBirlikte()
+  const { data: biletler } = useBiletler()
+  const key = JSON.stringify(extra ?? [])
+  return useMemo(
+    () => namesFrom(profiles, activeProfileId, data, Object.values(biletler?.items ?? {}), JSON.parse(key) as string[]),
+    [profiles, activeProfileId, data, biletler, key],
+  )
+}
+
+export default function KiminleIzledin({ rowId, dates, label }: { rowId: string; dates: string[]; label: (d: string) => string }) {
   const { notify } = useToast()
   const { data, update } = useBirlikte()
   const [open, setOpen] = useState<string | null>(null)
   const [text, setText] = useState('')
   const keys = dates.length ? dates : ['genel']
   const mine = data?.[rowId] ?? {}
-  // Öneriler: diğer profiller + başka kayıtlarda yazılmış isimler
-  const suggestions = useMemo(() => {
-    const out = new Map<string, string>()
-    for (const p of profiles) if (p.id !== activeProfileId && p.username) out.set(fold(p.username), p.username)
-    for (const byDate of Object.values(data ?? {})) for (const names of Object.values(byDate ?? {})) for (const n of names ?? []) if (!out.has(fold(n))) out.set(fold(n), n)
-    return [...out.values()]
-  }, [profiles, activeProfileId, data])
+  // Öneriler: diğer profiller + biletlerdeki kişiler + başka kayıtlarda yazılmış isimler
+  const suggestions = usePeopleSuggestions()
 
   async function save(key: string, names: string[]) {
     try {

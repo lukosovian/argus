@@ -6,7 +6,7 @@
 // (v1.6 → v1.6.1 → v1.6.2). `version` alanı lib/version.ts'teki
 // APP_VERSION ile elle senkron tutulur (kullanıcı "versiyon numarası ekleyelim güncellendiği
 // anlaşılmıyo" dedi).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { APP_VERSION } from '../lib/version'
 import { BRAND_GRADIENT, BRAND_TEXT } from '../lib/theme'
 import {
@@ -116,9 +116,14 @@ import {
   TelefonYeniVisual,
   BiletSeansVisual,
   ElleTarihVisual,
+  DetayGezinVisual,
+  SecenekAracVisual,
+  YedekKilitVisual,
 } from '../components/PatchVisuals'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttc } from '../lib/i18n'
+import { searchFold } from '../lib/search'
+import { YAMA_SEEN_KEY } from '../components/ProfileMenuV2'
 // Madde türü (v1.23.3, öneri N1): Yeni / İyileştirme / Düzeltme. Yeni maddelerde başına "yeni:", "iyi:" ya da
 // "duz:" yazılabilir; yazılmayan eski maddelerin türü cümlesinden tahmin edilir.
 type ItemKind = 'yeni' | 'iyi' | 'duz'
@@ -151,11 +156,62 @@ const ENTRIES: PatchEntry[] = [
   {
     version: 'v1.27',
     date: tt('28 Kasım 2026'),
-    title: tt('Tarihi elle yazma'),
+    title: tt('Büyük güncelleme: tarihleri elle yazma, çoklu bölüm seçimi, detayda önceki/sonraki, seçenek araçları, yedek kilidi, telefonda sesle arama'),
     items: [
       tt("yeni: Tarih seçicide takvimin üstünde bir yazma kutusu: takvimde ay ay gezmeden tarihi direkt yaz (ör. 12.03.2024), Enter ya da Ekle. Noktaları kendisi koyuyor; Bitiş tarihi açıksa başlangıç ve bitiş için iki kutu çıkıyor. Bölüm tiklerindeki tarih seçicide de var."),
+      tt("duz: Paylaş kartında izleme tarihi artık görünüyor (dizilerde en son izlediğin gün)."),
+      tt("duz: Sezonu izlendi işaretlemek henüz yayınlanmamış bölümleri işaretlemiyor."),
+      tt("duz: Galeride yeni kayıt önce adını soruyor, adsız boş kayıt açılmıyor."),
+      tt("duz: Yedekten geri yükleyince bağlı telefonların kopmuyor, eski yedekle kaldırdığın telefon geri gelmiyor."),
+      tt("duz: Takvim'de arşiv değiştirince eski filtre takılı kalmıyor; her arşivin filtresi ayrı hatırlanıyor."),
+      tt("duz: Panoda da \"+ Yeni Ekle\" önce adını soruyor."),
+      tt("yeni: Sütun menüsünde her seçeneğin kaç kayıtta kullanıldığı görünüyor; seçenekleri sürükleyerek sıralayabilir, birini ötekiyle birleştirebilir (geri alınabilir) ve kullanılmayanları tek tıkla temizleyebilirsin."),
+      tt("yeni: Filtrede çoklu seçim sütununda birden fazla ✓ seçince \"biri / hepsi\" seçebilirsin; ör. hem Komedi hem Dram olanlar."),
+      tt("yeni: Detay penceresinde ‹ › oklarıyla ya da ← → tuşlarıyla önceki/sonraki kayda geç."),
+      tt("yeni: Bölümlerde \"Buraya kadar izledim\" — öncesindeki izlemediğin bölümleri tek seferde işaretler."),
+      tt("yeni: Bölümlerde birden çok bölüm seçip hepsine tek seferde tarih gir ya da izlenmedi yap."),
+      tt("yeni: Önemli bir yedeği \"Silinmesin\" diye kilitleyebilir, eski yedekler için \"Kademeli\" saklamayı seçebilirsin (son 7 gün her gün, 4 hafta haftada bir, 12 ay ayda bir)."),
+      tt("yeni: ARGUS güncellenmeden önce verinin hızlı bir yedeği kendiliğinden alınır (\"Güncelleme öncesi\")."),
+      tt("yeni: Yedek klasörünü \"Klasör seç…\" ile Windows penceresinden seçebilirsin."),
+      tt("yeni: Yazı kutularında sağ tıkla Kes / Kopyala / Yapıştır / Tümünü seç menüsü."),
+      tt("yeni: F11 ile tam ekran (tekrar F11 ile çıkılır)."),
+      tt("yeni: Telefonda da giriş animasyonu ve profil seçince avatar geçişi; telefon Ayarları'ndan açıp kapatabilirsin."),
+      tt("yeni: Telefonda yazı boyutu seçilebiliyor (%90–%125)."),
+      tt("yeni: Telefonda aramada mikrofon: söylediğin arama kutusuna yazılır."),
+      tt("yeni: Uygulama dikey sabit; fragmanı tam ekran yapınca video yatay döner (eskiden telefonda tam ekran hiç olmuyordu)."),
+      tt("yeni: Kaldığın yerden kartındaki ✓ ile sıradaki bölümü tek tıkla izledim say."),
+      tt("yeni: İstatistiklerde bir dilime ya da oyuncuya tıklayınca o kayıtlar açılıyor."),
+      tt("yeni: Ne İzlesem artık sadece Aklımdakilerden de seçebiliyor."),
+      tt("yeni: Keşfet'te ve Ne İzlesem sonucunda 'Aklımda tut' düğmesi."),
+      tt("yeni: Zilde tek bildirimi silme (×), Temizle'den sonra Geri al ve ayarlara giden dişli."),
+      tt("yeni: Biletteki \"Kiminle\" kişileri, o günkü izlemeye detaydaki \"Kiminle izledin?\" etiketi olarak da ekleniyor; iki kutu da aynı isimleri öneriyor, sinema gezilerin Birlikte izle'de de görünüyor."),
+      tt("yeni: Biletlerim'de arama ve sinema / kişi / format süzgeçleri; Sinema yılın'daki sinemaya ya da kişiye tıklayınca duvar ona göre süzülüyor."),
+      tt("yeni: Büyüttüğün bileti görsel olarak indirebilir ya da panoya kopyalayabilirsin (ön ya da arka yüz); telefonda paylaş menüsü açılıyor."),
+      tt("yeni: Koleksiyon raflarını en üste sabitleyebilir, yukarı/aşağı taşıyabilir, kendiliğinden oluşan rafları gizleyebilirsin; gizlenenler en altta geri getirilebiliyor."),
+      tt("yeni: Ödüller'de büyüttüğün kartta \"Yapımı aç\" ile yapımın detayına gidebilirsin."),
+      tt("yeni: Kart albümünde ada göre arama, sıralama (Yeni gelen / Ada göre / Puana göre / Nadirlik) ve henüz çıkmamış kartları soluk gösteren \"Eksikleri göster\"."),
+      tt("yeni: Yama Notları'nda arama kutusu; son ziyaretinden beri gelen sürümler \"YENİ\" diye işaretleniyor, tür süzgeci telefonda da var."),
+      tt("iyi: Puanlama kriteri eklemeden de tek bir genel puan verebilirsin; içe aktarılmış eski genel puan artık görünüyor ve temizlenebiliyor."),
+      tt("iyi: Tek tarihli alanlarda ve filtredeki tarih aralığında tarihi elle GG.AA.YYYY olarak yazabilirsin."),
+      tt("iyi: Detaydaki bilgi kartında eklediğin ek tarih ve puan sütunları da görünüyor, bağlantılar tıklanabilir."),
+      tt("iyi: Bölümler kaldığın sezondan ve bölümden açılıyor."),
+      tt("iyi: Benzer İçerikler'de arşivindeki bir yapıma tıklayınca kendi kaydın açılıyor."),
+      tt("iyi: Bölüm ve toplu izleme tarihlerini artık klavyeyle yazabiliyorsun."),
+      tt("iyi: Yedek listesinde her yedekte kaç profil ve kayıt olduğu, boyutu ve şu ankinden kaç kayıt eksik/fazla olduğu görünüyor."),
+      tt("iyi: Isı haritasında güne tıklayınca Takvim'de o günün paneli açık geliyor."),
+      tt("iyi: 'Bu akşam' sorularında kendi kurduğun modlar seçenek olarak geliyor."),
+      tt("iyi: Kısayol listesinde sayfa geçişleri, Ctrl+, ve Alt+1…9 da yazıyor."),
+      tt("iyi: Takvim, İstatistikler, Evrenler, Keşfet ve Ne İzlesem'de tarih elle yazılabiliyor; İzledim formlarında 'Sadece yıl' da var."),
+      tt("iyi: Oyun rekorların, son skorların, Günün yapımı serin ve rozetlerin kazanıldığı günler artık profilinde saklanıyor: telefonla eşitleniyor ve yedeğe giriyor; eski kayıtların kendiliğinden aktarılıyor."),
+      tt("iyi: Abonelik sayfasındaki küçük afişlere tıklayınca yapımın detayı (arşivde yoksa TMDB önizlemesi) açılıyor."),
+      tt("iyi: Bilet eklerken tarihi elle yazabiliyorsun (ileri tarih de olur)."),
     ],
-    visuals: [{ caption: tt('1 takvimin üstündeki yazma kutusu · 2 yazıp Ekle'), Visual: ElleTarihVisual }],
+    visuals: [
+      { caption: tt('1 takvimin üstündeki yazma kutusu · 2 yazıp Ekle'), Visual: ElleTarihVisual },
+      { caption: tt('1 ‹ › önceki / sonraki kayıt · 2 seçili bölümlere tek seferde tarih · 3 Buraya kadar izledim'), Visual: DetayGezinVisual },
+      { caption: tt('1 seçenek sayıları ve sürükleyerek sıralama · 2 birleştir · 3 kullanılmayanları temizle'), Visual: SecenekAracVisual },
+      { caption: tt('1 yedeğin içeriği · 2 Silinmesin kilidi · 3 kademeli saklama'), Visual: YedekKilitVisual },
+    ],
   },
   {
     version: 'v1.26',
@@ -1487,6 +1543,8 @@ function EntryCard({
   onToggle,
   onZoom,
   kindFilter,
+  query = '',
+  fresh = false,
 }: {
   entry: PatchEntry
   latest: boolean
@@ -1494,7 +1552,12 @@ function EntryCard({
   onToggle: () => void
   onZoom: (v: Visual) => void
   kindFilter: ItemKind | null
+  // O10: arama (searchFold'dan geçmiş) — başlık eşleşmiyorsa sadece eşleşen maddeler görünür
+  query?: string
+  // Son ziyaretinden beri gelen sürüm
+  fresh?: boolean
 }) {
+  const titleHit = Boolean(query) && searchFold(entry.title).includes(query)
   const visuals = entry.visuals ?? []
   const summary = [tt('{0} değişiklik', entry.items.length), visuals.length ? tt('{0} çizim', visuals.length) : ''].filter(Boolean).join(' · ')
   return (
@@ -1505,6 +1568,7 @@ function EntryCard({
       }`}
     >
       {latest && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: BRAND_GRADIENT }} />}
+      {fresh && <div aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: BRAND_GRADIENT }} />}
       <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-start gap-3">
         <span
           className={`text-xs font-semibold px-2.5 py-1 rounded-lg shrink-0 ${latest ? 'text-white' : 'bg-neutral-800 text-neutral-300'}`}
@@ -1515,8 +1579,11 @@ function EntryCard({
         <span className="flex-1 min-w-0">
           <span className="flex items-center gap-2 flex-wrap">
             <span className="text-[15px] font-semibold text-neutral-50">{entry.title}</span>
-            {latest && (
-              <span className="text-[10px] font-bold tracking-wide text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5">
+            {(latest || fresh) && (
+              <span
+                className="text-[10px] font-bold tracking-wide text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5"
+                title={fresh ? tt('Son ziyaretinden beri geldi') : undefined}
+              >
                 {tt('YENİ')}
               </span>
             )}
@@ -1533,7 +1600,7 @@ function EntryCard({
           <ul className="space-y-2">
             {entry.items
               .map((item) => itemKind(item))
-              .filter((it) => !kindFilter || it.kind === kindFilter)
+              .filter((it) => (!kindFilter || it.kind === kindFilter) && (!query || titleHit || searchFold(it.text).includes(query)))
               .map((it, j) => (
                 <li key={j} className="flex gap-3 text-sm text-neutral-300 leading-relaxed">
                   <span className={`shrink-0 mt-0.5 h-fit w-[82px] text-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${KIND_STYLE[it.kind]}`}>{KIND_LABEL[it.kind]}</span>
@@ -1566,6 +1633,17 @@ function EntryCard({
   )
 }
 
+// "v1.26.3" > "v1.26" > "v1.25.10" gibi sürüm karşılaştırması
+function versionCmp(a: string, b: string) {
+  const pa = a.replace(/^v/, '').split('.').map(Number)
+  const pb = b.replace(/^v/, '').split('.').map(Number)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0)
+    if (d) return d
+  }
+  return 0
+}
+
 export default function YamaNotlari() {
   const [openSet, setOpenSet] = useState<Set<string>>(() => new Set(ENTRIES.slice(0, OPEN_BY_DEFAULT).map((e) => e.version)))
   const [zoom, setZoom] = useState<Visual | null>(null)
@@ -1573,9 +1651,52 @@ export default function YamaNotlari() {
   const allOpen = openSet.size === ENTRIES.length
   const latest = ENTRIES[0]
   const [kindFilter, setKindFilter] = useState<ItemKind | null>(null)
-  const shownGroups = kindFilter
-    ? groups.map((g) => ({ ...g, entries: g.entries.filter((e) => e.items.some((i) => itemKind(i).kind === kindFilter)) })).filter((g) => g.entries.length)
-    : groups
+  // O10 (v1.27): metin araması (başlık ve maddeler, Türkçe harf farkı önemsiz); eşleşmeyen sürümler gizlenir
+  const [search, setSearch] = useState('')
+  const query = searchFold(search.trim())
+  const shownGroups =
+    kindFilter || query
+      ? groups
+          .map((g) => ({
+            ...g,
+            entries: g.entries.filter((e) => {
+              const titleHit = Boolean(query) && searchFold(e.title).includes(query)
+              return e.items.some((i) => {
+                const it = itemKind(i)
+                return (!kindFilter || it.kind === kindFilter) && (!query || titleHit || searchFold(it.text).includes(query))
+              })
+            }),
+          }))
+          .filter((g) => g.entries.length)
+      : groups
+  const shownCount = shownGroups.reduce((n, g) => n + g.entries.length, 0)
+  // Son ziyaretten beri gelen sürümler: Navbar sayfa açılınca "görüldü" yazmadan önce eski değeri bu oturum için
+  // sessionStorage'a koyuyor (argus_yama_onceki). Hiç görülmemişse (ilk kez) işaret konmaz.
+  const [prevSeen] = useState<string | null>(() => {
+    try {
+      const s = sessionStorage.getItem('argus_yama_onceki')
+      if (s !== null) return s
+      const l = localStorage.getItem(YAMA_SEEN_KEY)
+      return l && l !== APP_VERSION ? l : null
+    } catch {
+      return null
+    }
+  })
+  const freshSet = useMemo(() => {
+    if (!prevSeen) return new Set<string>()
+    const at = ENTRIES.findIndex((e) => e.version === prevSeen)
+    return new Set((at >= 0 ? ENTRIES.slice(0, at) : ENTRIES.filter((e) => versionCmp(e.version, prevSeen) > 0)).map((e) => e.version))
+  }, [prevSeen])
+  // Yeni gelenler açık başlasın
+  useEffect(() => {
+    if (freshSet.size) setOpenSet((prev) => new Set([...prev, ...freshSet]))
+  }, [freshSet])
+  // Arama yapılınca eşleşen sürümler açılsın
+  useEffect(() => {
+    if (!query) return
+    setOpenSet((prev) => new Set([...prev, ...shownGroups.flatMap((g) => g.entries.map((e) => e.version))]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
 
   function toggle(version: string) {
     setOpenSet((prev) => {
@@ -1629,7 +1750,31 @@ export default function YamaNotlari() {
               </button>
             ))}
           </div>
-          <div className="hidden sm:flex shrink-0 gap-1">
+          <button
+            onClick={() => setOpenSet(allOpen ? new Set([latest.version]) : new Set(ENTRIES.map((e) => e.version)))}
+            className="shrink-0 text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-full px-3 py-1.5 transition"
+          >
+            {allOpen ? tt('Hepsini kapat') : ttc('notlar', 'Hepsini aç')}
+          </button>
+        </div>
+        {/* Arama ve tür süzgeci (telefonda da görünür) */}
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <div className="relative flex-1 min-w-[12rem]">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setSearch('')}
+              placeholder={tt('Yama notlarında ara…')}
+              aria-label={tt('Yama notlarında ara')}
+              className="w-full rounded-full border border-neutral-800 bg-neutral-900 px-3.5 py-1.5 text-xs text-neutral-100 outline-none focus:border-[#00c0fa]"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} aria-label={tt('Aramayı temizle')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-100">
+                ×
+              </button>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-1">
             {(['yeni', 'iyi', 'duz'] as ItemKind[]).map((k) => (
               <button
                 key={k}
@@ -1643,14 +1788,23 @@ export default function YamaNotlari() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setOpenSet(allOpen ? new Set([latest.version]) : new Set(ENTRIES.map((e) => e.version)))}
-            className="shrink-0 text-xs text-neutral-400 hover:text-neutral-50 border border-neutral-800 hover:border-neutral-600 rounded-full px-3 py-1.5 transition"
-          >
-            {allOpen ? tt('Hepsini kapat') : ttc('notlar', 'Hepsini aç')}
-          </button>
         </div>
       </div>
+
+      {freshSet.size > 0 && !query && !kindFilter && (
+        <p className="mb-6 rounded-2xl border border-[#00c0fa]/30 bg-[#00c0fa]/[0.06] px-4 py-3 text-sm text-neutral-200">
+          ✨ {freshSet.size > 1 ? tt('Son ziyaretinden beri {0} güncelleme geldi; "YENİ" yazanlar onlar.', freshSet.size) : tt('Son ziyaretinden beri 1 güncelleme geldi.')}
+        </p>
+      )}
+      {query && (
+        <p className="mb-4 text-xs text-neutral-500">{shownCount ? tt('"{0}" için {1} sürüm bulundu.', search.trim(), shownCount) : ''}</p>
+      )}
+      {(query || kindFilter) && shownCount === 0 && (
+        <div className="rounded-2xl border border-dashed border-neutral-800 px-6 py-12 text-center">
+          <p className="text-neutral-200 font-semibold">{tt('Bu aramaya uyan bir not yok')}</p>
+          <p className="text-sm text-neutral-500 mt-1">{tt('Başka bir kelime dene ya da süzgeci kaldır.')}</p>
+        </div>
+      )}
 
       {/* Güne göre zaman çizelgesi: günler dikey bir çizgiyle birbirine bağlı, en yenisi parlıyor */}
       <div className="relative space-y-10">
@@ -1666,8 +1820,8 @@ export default function YamaNotlari() {
               <div className="relative md:sticky md:top-32 self-start mb-3 md:mb-0 flex md:block items-baseline gap-2">
                 <span
                   aria-hidden
-                  className={`hidden md:block absolute -right-[19px] top-2 h-3.5 w-3.5 rounded-full border-2 ${gi === 0 && !kindFilter ? 'border-[#00c0fa] bg-[#00c0fa]' : 'border-neutral-600 bg-neutral-950'}`}
-                  style={gi === 0 && !kindFilter ? { boxShadow: '0 0 0 4px rgba(0,192,250,.18), 0 0 14px rgba(0,192,250,.7)' } : undefined}
+                  className={`hidden md:block absolute -right-[19px] top-2 h-3.5 w-3.5 rounded-full border-2 ${gi === 0 && !kindFilter && !query ? 'border-[#00c0fa] bg-[#00c0fa]' : 'border-neutral-600 bg-neutral-950'}`}
+                  style={gi === 0 && !kindFilter && !query ? { boxShadow: '0 0 0 4px rgba(0,192,250,.18), 0 0 14px rgba(0,192,250,.7)' } : undefined}
                 />
                 {day && <p className="text-2xl md:text-3xl font-bold text-neutral-100 leading-none">{day}</p>}
                 <p className="text-xs text-neutral-500 md:mt-1">{rest}</p>
@@ -1683,6 +1837,8 @@ export default function YamaNotlari() {
                     onToggle={() => toggle(entry.version)}
                     onZoom={setZoom}
                     kindFilter={kindFilter}
+                    query={query}
+                    fresh={freshSet.has(entry.version)}
                   />
                 ))}
               </div>

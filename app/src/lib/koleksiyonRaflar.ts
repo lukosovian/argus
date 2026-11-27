@@ -146,3 +146,51 @@ export function shelfSetMembers(shelf: KoleksiyonShelf): string[] {
   const films = shelf.items.filter((it) => !it.isSeries && it.autoKey === shelf.key && it.poster)
   return films.length >= 2 ? films.map((it) => it.row.id) : []
 }
+
+// ---- Raf düzeni (O4, v1.27): sabitle, yukarı / aşağı taşı, gizle --------------------------------------------
+// Profilin 'koleksiyon-raflar' deposunda. pinned: en üstte duranlar (bu sırayla); order: elle taşınanların sırası;
+// hidden: gizlenen (kendiliğinden oluşan) raflar — içindekiler "Tek başına olanlar"a düşer, hiçbir şey kaybolmaz.
+export const SHELF_PREFS_STORE = 'koleksiyon-raflar'
+export interface ShelfPrefs {
+  pinned?: string[]
+  order?: string[]
+  hidden?: string[]
+}
+
+// Kendiliğinden sıralanmış raf listesine tercihleri uygular. order'da olmayan (sonradan oluşan) raflar kendiliğinden
+// sıradaki yerlerine yakın durur: kendinden önceki ilk sıralı rafın hemen arkasına.
+export function arrangeShelves<T extends { key: string }>(list: T[], prefs: ShelfPrefs | null | undefined): { shown: T[]; hidden: T[] } {
+  const hiddenSet = new Set(prefs?.hidden ?? [])
+  const pinned = (prefs?.pinned ?? []).filter((k) => !hiddenSet.has(k))
+  const pinIdx = new Map(pinned.map((k, i) => [k, i]))
+  const ord = new Map((prefs?.order ?? []).map((k, i) => [k, i]))
+  const visible = list.filter((s) => !hiddenSet.has(s.key))
+  let last = -1
+  const rank = new Map<string, number>()
+  visible.forEach((s, i) => {
+    const o = ord.get(s.key)
+    if (o !== undefined) last = o
+    rank.set(s.key, o !== undefined ? o : last + 0.001 * (i + 1))
+  })
+  const top = visible.filter((s) => pinIdx.has(s.key)).sort((a, b) => pinIdx.get(a.key)! - pinIdx.get(b.key)!)
+  const rest = visible.filter((s) => !pinIdx.has(s.key)).sort((a, b) => rank.get(a.key)! - rank.get(b.key)!)
+  return { shown: [...top, ...rest], hidden: list.filter((s) => hiddenSet.has(s.key)) }
+}
+
+// Bir rafı bir basamak yukarı (-1) / aşağı (+1) taşır: sabitliyse sabitlerin, değilse diğerlerinin içinde
+export function moveShelf(shown: { key: string }[], prefs: ShelfPrefs, key: string, dir: -1 | 1): ShelfPrefs {
+  const pinned = (prefs.pinned ?? []).filter((k) => shown.some((s) => s.key === k))
+  if (pinned.includes(key)) {
+    const i = pinned.indexOf(key)
+    const j = i + dir
+    if (j < 0 || j >= pinned.length) return prefs
+    ;[pinned[i], pinned[j]] = [pinned[j], pinned[i]]
+    return { ...prefs, pinned }
+  }
+  const rest = shown.map((s) => s.key).filter((k) => !pinned.includes(k))
+  const i = rest.indexOf(key)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= rest.length) return prefs
+  ;[rest[i], rest[j]] = [rest[j], rest[i]]
+  return { ...prefs, order: rest }
+}

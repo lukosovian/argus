@@ -6,7 +6,9 @@ import { useToast } from '../hooks/useToast'
 import Checkbox from './Checkbox'
 import AnchoredMenu from './AnchoredMenu'
 import DateChipEditor from './DateChipEditor'
+import DateField from './DateField'
 import { isoDate, tt, ttx } from '../lib/i18n'
+import { MOBILE } from '../lib/mobile/ui'
 
 function formatAirDate(v: string) {
   return isoDate(v) ?? v
@@ -74,6 +76,11 @@ function EpisodeRow({
   onSetDates,
   onUntick,
   editable,
+  upToCount = 0,
+  onUpTo,
+  selecting = false,
+  selected = false,
+  onSelect,
 }: {
   episodeNumber: number
   name: string
@@ -85,6 +92,13 @@ function EpisodeRow({
   // Tik kaldırılırken: birden çok tarih varsa onay sorar, sonra "Geri al"lı bildirim gösterir (bkz. SeasonsBrowser)
   onUntick: (dates: string[]) => void
   editable: boolean
+  // "Buraya kadar izledim": sezonun başından bu bölüme kadar işaretsiz ve yayınlanmış kaç bölüm var (0 = düğme yok)
+  upToCount?: number
+  onUpTo?: (anchor: HTMLElement) => void
+  // Çoklu seçim modu (A8): satıra tıklamak seçer/bırakır, Shift+tık aralık seçer; izleme tiki o sırada gizli
+  selecting?: boolean
+  selected?: boolean
+  onSelect?: (shift: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
@@ -96,8 +110,22 @@ function EpisodeRow({
   }
 
   return (
-    <div className="flex gap-3">
-      {editable && (
+    <div
+      className={`group flex gap-3 ${selecting ? `cursor-pointer select-none rounded-lg -mx-1.5 px-1.5 py-1 transition ${selected ? 'bg-[#00c0fa]/10 ring-1 ring-[#00c0fa]/50' : 'hover:bg-white/5'}` : ''}`}
+      data-ep={episodeNumber}
+      onClick={selecting ? (e) => onSelect?.(e.shiftKey) : undefined}
+    >
+      {editable && selecting && (
+        <span
+          role="checkbox"
+          aria-checked={selected}
+          aria-label={tt('Bölümü seç')}
+          className={`mt-1.5 shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center text-[11px] ${selected ? 'border-[#00c0fa] bg-[#00c0fa] text-neutral-950' : 'border-neutral-500'}`}
+        >
+          {selected ? '✓' : ''}
+        </span>
+      )}
+      {editable && !selecting && (
         <Checkbox checked={watched} onChange={toggle} label={tt('Bölümü izlendi olarak işaretle')} className="mt-1.5 shrink-0" />
       )}
       <div className="w-28 sm:w-36 aspect-video rounded-md overflow-hidden bg-neutral-800 shrink-0">
@@ -118,7 +146,7 @@ function EpisodeRow({
             {ttx('✓ İzlendi: {0}{1}', dates.slice().sort().map(formatShort).join(', '), dates.length > 1 ? ` (${dates.length}x)` : '')}
           </p>
         )}
-        {editable && (
+        {editable && !selecting && (
           <button
             ref={anchorRef}
             type="button"
@@ -128,6 +156,17 @@ function EpisodeRow({
           >
             <PlusIcon />
             {watched ? tt('Tarih ekle') : tt('Tarih gir')}
+          </button>
+        )}
+        {/* PC'de üzerine gelince görünür; telefonda (fare yok) hep görünür */}
+        {editable && !selecting && onUpTo && upToCount > 1 && (
+          <button
+            type="button"
+            onClick={(e) => onUpTo(e.currentTarget)}
+            title={tt('Sezonun başından bu bölüme kadar izlemediğin {0} bölümü işaretle', upToCount)}
+            className={`mt-1 ml-3 inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-50 transition ${MOBILE ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+          >
+            {tt('✓ Buraya kadar izledim')}
           </button>
         )}
         {editable && open && (
@@ -149,14 +188,18 @@ export default function SeasonsBrowser({
   onSetEpisodeDates,
   onMarkSeasonWatched,
   onUnmarkSeasonWatched,
+  onSetManyEpisodeDates,
   editable = false,
 }: {
   seasons: Season[]
   // O kaydın bölüm bazlı izleme haritası: { [episodeKey(sezon, bölüm)]: ISO tarih dizisi }
   watched: Record<string, string[]>
   onSetEpisodeDates: (key: string, dates: string[]) => void
-  onMarkSeasonWatched: (seasonNumber: number, date: string) => void
+  // upTo: "Buraya kadar izledim" — sezonun başından o bölüme kadar (dahil)
+  onMarkSeasonWatched: (seasonNumber: number, date: string, upTo?: number) => void
   onUnmarkSeasonWatched: (seasonNumber: number) => void
+  // Birden çok bölümün tarihlerini tek kayıtta değiştir ({ anahtar: yeni tarihler }, boş dizi = sil) — A8 çoklu seçim
+  onSetManyEpisodeDates?: (changes: Record<string, string[]>) => void
   // Sadece BoardView'ın "Detayı Gör"üyle açılan pencerede true — bkz. EpisodeRow'un başındaki not.
   editable?: boolean
 }) {
@@ -167,6 +210,10 @@ export default function SeasonsBrowser({
   useEffect(() => {
     setDatesRef.current = onSetEpisodeDates
   }, [onSetEpisodeDates])
+  const setManyRef = useRef(onSetManyEpisodeDates)
+  useEffect(() => {
+    setManyRef.current = onSetManyEpisodeDates
+  }, [onSetManyEpisodeDates])
 
   // Bir bölümün tikini kaldırmak bütün izleme tarihlerini (tekrar izlemeler dahil) siler — kullanıcı yanlışlıkla
   // tıklarsa kaybolmasın: birden çok tarih varsa önce sorulur, her durumda "Geri al" düğmeli bildirim çıkar.
@@ -185,25 +232,129 @@ export default function SeasonsBrowser({
       action: { label: tt('Geri al'), onClick: () => setDatesRef.current(key, prev) },
     })
   }
-  const [activeSeason, setActiveSeason] = useState(seasons[0]?.seasonNumber)
+  const today = todayIso()
+  const aired = (ep: { airDate: string }) => !ep.airDate || ep.airDate <= today
+  // Kaldığın yerden aç: ilk izlenmemiş (yayınlanmış) bölümün sezonu seçili gelir ve listede o bölüme kaydırılır.
+  // Özel bölümler (0. sezon) çoğu zaman izlenmediği için atlanır. Hepsi izlendiyse son sezon (en yenisi).
+  const [start] = useState(() => {
+    const regular = seasons.filter((s) => s.seasonNumber > 0)
+    const list = regular.length ? regular : seasons
+    for (const s of list) {
+      const ep = s.episodes.find((e) => aired(e) && !watched[episodeKey(s.seasonNumber, e.episodeNumber)]?.length)
+      if (ep) return { season: s.seasonNumber, episode: ep.episodeNumber as number | null }
+    }
+    return { season: list[list.length - 1]?.seasonNumber, episode: null as number | null }
+  })
+  const [activeSeason, setActiveSeason] = useState(start.season)
   const season = seasons.find((s) => s.seasonNumber === activeSeason) ?? seasons[0]
-  const seasonEpisodeDates = season
-    ? season.episodes.map((ep) => watched[episodeKey(season.seasonNumber, ep.episodeNumber)]?.length ?? 0)
-    : []
-  const seasonAllWatched = seasonEpisodeDates.length > 0 && seasonEpisodeDates.every((n) => n > 0)
+  // Sadece bölüm listesinin kendi kabı kaydırılır (scrollIntoView pencerenin tamamını zıplatırdı)
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const box = listRef.current
+    if (!box || !start.episode) return
+    const el = box.querySelector<HTMLElement>(`[data-ep="${start.episode}"]`)
+    if (el) box.scrollTop = Math.max(0, el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8)
+  }, [start.episode])
+  // Yayın tarihi gelmemiş bölümler "tamamı izlendi" hesabına girmez (işaretlenemezler)
+  const airedEps = season ? season.episodes.filter(aired) : []
+  const seasonAllWatched =
+    airedEps.length > 0 && airedEps.every((ep) => (watched[episodeKey(season!.seasonNumber, ep.episodeNumber)]?.length ?? 0) > 0)
 
   // Sezonu izlendi yaparken hangi tarih: kullanıcı "bugünün tarihini atıyor, tarih sorsun, hatırlamıyorum
   // da olsun" dedi. Bugün, bir gün, yalnızca yıl ya da "?" (hatırlamıyorum — takvimde bir güne düşmez).
+  // Aynı tarih menüsü "Buraya kadar izledim" için de açılır (upTo = o bölüm; menü o düğmenin yanında).
   const toggleRef = useRef<HTMLButtonElement>(null)
-  const [dateMenu, setDateMenu] = useState(false)
+  const menuAnchor = useRef<HTMLElement | null>(null)
+  const [dateMenu, setDateMenu] = useState<false | { upTo?: number; count?: number; bulk?: boolean }>(false)
   const [day, setDay] = useState('')
   const [year, setYear] = useState('')
   const markWith = (date: string) => {
+    const upTo = dateMenu ? dateMenu.upTo : undefined
     setDateMenu(false)
     setDay('')
     setYear('')
-    if (season) onMarkSeasonWatched(season.seasonNumber, date)
+    if (dateMenu && dateMenu.bulk) {
+      bulkAdd(date)
+      return
+    }
+    if (season) onMarkSeasonWatched(season.seasonNumber, date, upTo)
   }
+
+  // ---- Çoklu seçim (A8): "Seç" ile açılır; seçim sezon sekmesi değişince de kalır ----
+  const [selecting, setSelecting] = useState(false)
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const lastPick = useRef<{ season: number; episode: number } | null>(null)
+  const bulkRef = useRef<HTMLButtonElement>(null)
+  function stopSelecting() {
+    setSelecting(false)
+    setSel(new Set())
+    lastPick.current = null
+  }
+  function pickEpisode(seasonNumber: number, episodeNumber: number, shift: boolean) {
+    const key = episodeKey(seasonNumber, episodeNumber)
+    setSel((prev) => {
+      const next = new Set(prev)
+      const from = lastPick.current
+      if (shift && from && from.season === seasonNumber && season) {
+        // Shift+tık: son seçilenden buna kadar hepsi seçilir (aynı sezonda)
+        const [a, b] = [Math.min(from.episode, episodeNumber), Math.max(from.episode, episodeNumber)]
+        for (const ep of season.episodes) if (ep.episodeNumber >= a && ep.episodeNumber <= b) next.add(episodeKey(seasonNumber, ep.episodeNumber))
+      } else if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+    lastPick.current = { season: seasonNumber, episode: episodeNumber }
+  }
+  // Seçili bölümlere tarihi EKLER (aynı tarih zaten varsa tekrar eklemez); "Geri al" eski hallerine döndürür
+  function bulkAdd(date: string) {
+    const changes: Record<string, string[]> = {}
+    const prev: Record<string, string[]> = {}
+    for (const key of sel) {
+      const cur = watched[key] ?? []
+      if (cur.includes(date)) continue
+      prev[key] = [...cur]
+      changes[key] = [...cur, date]
+    }
+    const n = Object.keys(changes).length
+    if (n === 0) {
+      notify(tt('Seçili bölümlerde bu tarih zaten var.'), 'info')
+      return
+    }
+    setManyRef.current?.(changes)
+    stopSelecting()
+    notify(tt('{0} bölüme izleme tarihi eklendi.', n), 'success', {
+      action: { label: tt('Geri al'), onClick: () => setManyRef.current?.(prev) },
+    })
+  }
+  async function bulkUnmark() {
+    const keys = [...sel].filter((k) => (watched[k] ?? []).length > 0)
+    if (keys.length === 0) {
+      notify(tt('Seçili bölümlerin hiçbiri izlenmiş değil.'), 'info')
+      return
+    }
+    const ok = await confirm({
+      message: tt('Seçili {0} bölümün izleme tarihleri (tekrar izlemeler dahil) silinsin mi?', keys.length),
+      confirmLabel: tt('İzlenmedi Yap'),
+      tone: 'danger',
+    })
+    if (!ok) return
+    const prev: Record<string, string[]> = {}
+    const changes: Record<string, string[]> = {}
+    for (const k of keys) {
+      prev[k] = [...(watched[k] ?? [])]
+      changes[k] = []
+    }
+    setManyRef.current?.(changes)
+    stopSelecting()
+    notify(tt('{0} bölüm izlenmedi yapıldı.', keys.length), 'info', {
+      action: { label: tt('Geri al'), onClick: () => setManyRef.current?.(prev) },
+    })
+  }
+  const yesterday = (() => {
+    const t = new Date()
+    t.setDate(t.getDate() - 1)
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+  })()
 
   // Tek buton, iki anlamdan birini alır: sezon henüz tam izlenmediyse "izlendi işaretle"
   // (önce tarihi sorar), tamamı zaten izlendiyse "izlenmedi işaretle" (yıkıcı,
@@ -219,11 +370,11 @@ export default function SeasonsBrowser({
       if (!ok) return
       onUnmarkSeasonWatched(season.seasonNumber)
     } else {
-      setDateMenu(true)
+      menuAnchor.current = toggleRef.current
+      setDateMenu({})
     }
   }
   const opt = 'block w-full text-left px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-800'
-  const today = todayIso()
 
   return (
     <div>
@@ -253,7 +404,17 @@ export default function SeasonsBrowser({
             </button>
           ))}
         </div>
-        {editable && season && season.episodes.length > 0 && (
+        {editable && onSetManyEpisodeDates && (
+          <button
+            type="button"
+            onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+            title={tt('Birden çok bölüm seç, hepsine tek seferde tarih gir')}
+            className={`shrink-0 h-8 px-2.5 text-xs rounded-lg border transition ${selecting ? 'border-[#00c0fa] text-[#7fdcff] bg-[#00c0fa]/10' : 'border-neutral-700 text-neutral-400 hover:text-neutral-50 hover:border-neutral-500'}`}
+          >
+            {selecting ? tt('Bitti') : tt('Seç')}
+          </button>
+        )}
+        {editable && !selecting && season && airedEps.length > 0 && (
           <button
             ref={toggleRef}
             type="button"
@@ -269,12 +430,17 @@ export default function SeasonsBrowser({
           </button>
         )}
         {dateMenu && (
-          <AnchoredMenu anchorRef={toggleRef} align="right" width={248} onClose={() => setDateMenu(false)}>
+          <AnchoredMenu anchorRef={menuAnchor} align={dateMenu.upTo !== undefined ? 'left' : 'right'} width={248} onClose={() => setDateMenu(false)}>
             <div className="py-1 rounded-xl border border-neutral-700 bg-neutral-900 shadow-xl overflow-hidden">
               <p className="px-3 pt-1 pb-1 text-[11px] uppercase tracking-wider text-neutral-500">{tt('Ne zaman izledin?')}</p>
+              {dateMenu.upTo !== undefined && (
+                <p className="px-3 pb-1 text-[11px] text-neutral-400">{tt('{0}. bölüme kadar {1} bölüm işaretlenecek', dateMenu.upTo, dateMenu.count ?? 0)}</p>
+              )}
+              {dateMenu.bulk && <p className="px-3 pb-1 text-[11px] text-neutral-400">{tt('{0} seçili bölüme eklenecek', sel.size)}</p>}
               <button className={opt} onClick={() => markWith(today)}>{tt('Bugün')}</button>
+              <button className={opt} onClick={() => markWith(yesterday)}>{tt('Dün')}</button>
               <div className="flex gap-1.5 px-3 py-1">
-                <input type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} className="min-w-0 flex-1 rounded-md bg-neutral-950 border border-neutral-700 px-2 py-1 text-sm text-neutral-100 [color-scheme:dark]" />
+                <DateField value={day} max={today} onChange={setDay} className="flex-1" ariaLabel={tt('Bir gün seç')} onEnter={() => day && markWith(day)} />
                 <button disabled={!day} onClick={() => markWith(day)} className="rounded-md bg-neutral-800 hover:bg-neutral-700 px-2 text-sm text-neutral-100 disabled:opacity-40">{tt('Ekle')}</button>
               </div>
               <div className="flex gap-1.5 px-3 py-1">
@@ -286,9 +452,53 @@ export default function SeasonsBrowser({
           </AnchoredMenu>
         )}
       </div>
-      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+      {selecting && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-[#00c0fa]/40 bg-[#00c0fa]/5 px-3 py-2 text-xs">
+          <span className="text-neutral-200 mr-1">
+            {sel.size ? tt('{0} bölüm seçildi', sel.size) : MOBILE ? tt('Bölümlere dokunarak seç') : tt('Bölümlere tıklayarak seç (Shift+tık: aralık)')}
+          </span>
+          {sel.size > 0 && (
+            <>
+              <button
+                ref={bulkRef}
+                type="button"
+                onClick={() => {
+                  menuAnchor.current = bulkRef.current
+                  setDateMenu({ bulk: true })
+                }}
+                className="rounded-md bg-[#00c0fa] px-2.5 py-1 font-medium text-neutral-950"
+              >
+                {tt('Tarih gir')}
+              </button>
+              <button type="button" onClick={() => void bulkUnmark()} className="rounded-md border border-rose-500/40 px-2.5 py-1 text-rose-300 hover:bg-rose-500/10">
+                {tt('İzlenmedi yap')}
+              </button>
+            </>
+          )}
+          {season && (
+            <button
+              type="button"
+              onClick={() => setSel((prev) => new Set([...prev, ...season.episodes.filter(aired).map((e) => episodeKey(season.seasonNumber, e.episodeNumber))]))}
+              className="rounded-md border border-neutral-700 px-2.5 py-1 text-neutral-300 hover:text-neutral-50"
+            >
+              {tt('Sezonun hepsini seç')}
+            </button>
+          )}
+          <button type="button" onClick={stopSelecting} className="ml-auto rounded-md px-2 py-1 text-neutral-400 hover:text-neutral-50">
+            {tt('Seçimi bırak')}
+          </button>
+        </div>
+      )}
+      <div ref={listRef} className="space-y-3 max-h-96 overflow-y-auto pr-1">
         {season?.episodes.map((ep) => {
           const key = episodeKey(season!.seasonNumber, ep.episodeNumber)
+          // Bu bölüme kadar (dahil) işaretsiz ve yayınlanmış bölüm sayısı
+          const upToCount =
+            editable && aired(ep)
+              ? season!.episodes.filter(
+                  (e) => e.episodeNumber <= ep.episodeNumber && aired(e) && !watched[episodeKey(season!.seasonNumber, e.episodeNumber)]?.length,
+                ).length
+              : 0
           return (
             <EpisodeRow
               key={ep.episodeNumber}
@@ -301,6 +511,14 @@ export default function SeasonsBrowser({
               onSetDates={(dates) => onSetEpisodeDates(key, dates)}
               onUntick={(dates) => untickEpisode(key, String(ep.episodeNumber), dates)}
               editable={editable}
+              upToCount={upToCount}
+              selecting={selecting}
+              selected={sel.has(key)}
+              onSelect={(shift) => pickEpisode(season!.seasonNumber, ep.episodeNumber, shift)}
+              onUpTo={(anchor) => {
+                menuAnchor.current = anchor
+                setDateMenu({ upTo: ep.episodeNumber, count: upToCount })
+              }}
             />
           )
         })}

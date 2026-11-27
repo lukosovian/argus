@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Board, Row } from '../types'
+import type { Board, Mood, Row } from '../types'
 import { titleText } from '../types'
 import { resolveRole } from '../lib/roles'
 import { normalizeAgeRating } from '../lib/ageRating'
 import { tt } from '../lib/i18n'
+import { hasActiveFilter } from '../lib/filters'
+import { rowsForFilter } from '../lib/rowMeta'
 
 // Ne İzlesem ekstraları (v1.23.4, Ayarlar › Ekstralar): "üç aday" ekranı ve "bu akşam" soruları.
 
@@ -32,7 +34,14 @@ const MOOD: { id: string; label: string; genres: string[] }[] = [
   { id: 'buyu', label: tt('Büyülenmek'), genres: ['fantastik', 'fantasy', 'bilim', 'science', 'animasyon', 'animation', 'aile', 'family'] },
 ]
 
-export function applyWizard(board: Board, rows: Row[], a: WizardAnswers): Row[] {
+// K6: kullanıcının Ana Sayfa'da kurduğu modlar (Ayarlar › Modlar) — açık ve filtresi olanlar. Varsa sabit ruh hali
+// listesinin yerine bunlar sorulur (kendi adı ve görseliyle), seçilince havuz o modun filtresiyle süzülür.
+const USER_MOOD = 'u:'
+export function wizardMoods(moods: Mood[] | undefined): Mood[] {
+  return (moods ?? []).filter((m) => m.enabled !== false && m.name && hasActiveFilter(m))
+}
+
+export function applyWizard(board: Board, rows: Row[], a: WizardAnswers, moods?: Mood[]): Row[] {
   const tur = resolveRole(board, 'tur')
   const sure = resolveRole(board, 'sure')
   const kategori = resolveRole(board, 'kategori')
@@ -42,6 +51,8 @@ export function applyWizard(board: Board, rows: Row[], a: WizardAnswers): Row[] 
   const t = TIME.find((x) => x.id === a.time)
   if (t?.id === 'bolum') out = out.filter(isSeries)
   else if (t?.max && sure) out = out.filter((r) => !(typeof r.values[sure.id] === 'number' && (r.values[sure.id] as number) > t.max!) && !isSeries(r))
+  const um = a.mood?.startsWith(USER_MOOD) ? wizardMoods(moods).find((x) => USER_MOOD + x.id === a.mood) : undefined
+  if (um) out = rowsForFilter(um, out)
   const m = MOOD.find((x) => x.id === a.mood)
   if (m && tur) {
     const labels = new Map((tur.options ?? []).map((o) => [o.id, o.label.toLocaleLowerCase('tr')]))
@@ -55,11 +66,27 @@ export function applyWizard(board: Board, rows: Row[], a: WizardAnswers): Row[] 
   return out
 }
 
-export function PickWizard({ board, rows, covers, onGo, onCancel }: { board: Board; rows: Row[]; covers: (r: Row) => string; onGo: (a: WizardAnswers) => void; onCancel: () => void }) {
+export function PickWizard({
+  board,
+  rows,
+  covers,
+  moods,
+  onGo,
+  onCancel,
+}: {
+  board: Board
+  rows: Row[]
+  covers: (r: Row) => string
+  moods?: Mood[]
+  onGo: (a: WizardAnswers) => void
+  onCancel: () => void
+}) {
   const [a, setA] = useState<WizardAnswers>({ who: null, time: null, mood: null })
-  const pool = useMemo(() => applyWizard(board, rows, a), [board, rows, a])
+  const pool = useMemo(() => applyWizard(board, rows, a, moods), [board, rows, a, moods])
+  const own = wizardMoods(moods)
+  const moodOpts: { id: string; label: string; image?: string }[] = own.length ? own.map((m) => ({ id: USER_MOOD + m.id, label: m.name, image: m.image })) : MOOD
   const sample = useMemo(() => [...pool].sort(() => Math.random() - 0.5).filter((r) => covers(r)).slice(0, 7), [pool])
-  const q = (key: keyof WizardAnswers, title: string, n: number, opts: { id: string; label: string }[]) => (
+  const q = (key: keyof WizardAnswers, title: string, n: number, opts: { id: string; label: string; image?: string }[]) => (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
       <p className="text-sm font-semibold text-neutral-100 mb-3">
         <span className="text-neutral-500 font-normal mr-1.5">{n}/3</span>
@@ -70,8 +97,9 @@ export function PickWizard({ board, rows, covers, onGo, onCancel }: { board: Boa
           <button
             key={o.id}
             onClick={() => setA((p) => ({ ...p, [key]: p[key] === o.id ? null : o.id }))}
-            className={`text-sm rounded-full px-3.5 py-1.5 border transition ${a[key] === o.id ? 'border-[#00c0fa]/70 bg-[#00c0fa]/15 text-[#bdeeff]' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'}`}
+            className={`inline-flex items-center gap-2 text-sm rounded-full ${o.image ? 'pl-1 pr-3.5 py-1' : 'px-3.5 py-1.5'} border transition ${a[key] === o.id ? 'border-[#00c0fa]/70 bg-[#00c0fa]/15 text-[#bdeeff]' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'}`}
           >
+            {o.image && <img src={o.image} alt="" className="h-7 w-7 rounded-full object-cover bg-neutral-800" />}
             {o.label}
           </button>
         ))}
@@ -86,7 +114,7 @@ export function PickWizard({ board, rows, covers, onGo, onCancel }: { board: Boa
         <div className="w-full max-w-5xl grid gap-4 md:grid-cols-3">
           {q('who', tt('Kiminle?'), 1, WHO)}
           {q('time', tt('Ne kadar vaktin var?'), 2, TIME)}
-          {q('mood', tt('Nasıl hissetmek istiyorsun?'), 3, MOOD)}
+          {q('mood', own.length ? tt('Hangi moddasın?') : tt('Nasıl hissetmek istiyorsun?'), 3, moodOpts)}
         </div>
         <div className="w-full max-w-5xl mt-5 flex flex-wrap items-center gap-4 rounded-2xl border border-[#00c0fa]/30 bg-[#00c0fa]/[0.06] px-5 py-4">
           <span className="text-3xl font-black tabular-nums text-neutral-50">{pool.length}</span>

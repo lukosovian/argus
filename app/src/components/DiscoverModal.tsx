@@ -9,6 +9,8 @@ import GenreTriPicker from './GenreTriPicker'
 import { useEscape } from '../hooks/useEscape'
 import { tt, ttx } from '../lib/i18n'
 import Icon from './Icon'
+import DateField from './DateField'
+import AklimdaButton from './AklimdaButton'
 
 // Arşiv tablosunun araç çubuğundaki pusula — "Keşfet". Kullanıcının fikri: "sayısını
 // belirliycez dizi mi film mi... türünü belirliycez... bizde olmayan tablomuzda olmayan
@@ -54,6 +56,67 @@ function Segmented<T extends string | number>({
   )
 }
 
+// İzleme tarihi kutusu (A1): GG.AA.YYYY yazılır ya da takvimden seçilir; "Sadece yıl" ile gün hatırlanmıyorsa yalnız yıl
+// ("2019") kaydedilir — DateChipEditor'daki gibi (bkz. lib/dateRange.ts isYearOnly). value: ISO gün ya da 4 haneli yıl.
+export function WatchDateInput({
+  value,
+  onChange,
+  allowYear = true,
+  small = false,
+}: {
+  value: string
+  onChange: (v: string) => void
+  allowYear?: boolean
+  small?: boolean
+}) {
+  const yearMode = /^\d{4}$/.test(value)
+  const thisYear = new Date().getFullYear()
+  const [yearText, setYearText] = useState(yearMode ? value : '')
+  const txt = small ? 'text-[11px]' : 'text-xs'
+  return (
+    <div className="mt-1 space-y-1">
+      {yearMode ? (
+        <input
+          autoFocus
+          inputMode="numeric"
+          maxLength={4}
+          value={yearText}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '')
+            setYearText(v)
+            const n = Number(v)
+            if (/^\d{4}$/.test(v) && n >= 1900 && n <= thisYear) onChange(v)
+          }}
+          aria-label={tt('İzlediğin yıl')}
+          placeholder={tt('ör. {0}', thisYear - 5)}
+          className={`w-24 rounded-md bg-neutral-950 border px-2 py-1 text-sm text-neutral-100 outline-none focus:border-[#00c0fa] ${
+            yearText.length === 4 && (Number(yearText) < 1900 || Number(yearText) > thisYear) ? 'border-red-500/70' : 'border-neutral-700'
+          }`}
+        />
+      ) : (
+        <DateField value={value} max={todayIso()} allowEmpty={false} onChange={(d) => d && onChange(d)} className="w-full" ariaLabel={tt('İzleme tarihi')} />
+      )}
+      {allowYear && (
+        <button
+          type="button"
+          onClick={() => {
+            if (yearMode) onChange(todayIso())
+            else {
+              const y = value.slice(0, 4) || String(thisYear)
+              setYearText(y)
+              onChange(y)
+            }
+          }}
+          title={tt('Gününü hatırlamıyorsan sadece yılını yaz')}
+          className={`${txt} text-neutral-400 hover:text-[#7fdcff] transition`}
+        >
+          {yearMode ? tt('Günü seç') : tt('Sadece yıl')}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // "İzledim" formu (isteğe bağlı tarih + isteğe bağlı puan) — Ne İzlesem'in TMDB önizlemesi de
 // kullanıyor. Tarih zorunlu değil: kullanıcı "izleme tarihi hatırlamıyosam girmeyebileyim" dedi —
 // "Hatırlamıyorum" ile kaldırılınca kayıt tarihsiz eklenir.
@@ -75,15 +138,8 @@ export function WatchedForm({ onSave, onCancel, busy }: { onSave: (date: string 
             </button>
           )}
         </div>
-        {date !== null && (
-          <input
-            type="date"
-            value={date}
-            max={todayIso()}
-            onChange={(e) => setDate(e.target.value || null)}
-            className="mt-0.5 w-full rounded-md bg-neutral-900 border border-neutral-700 px-2 py-1 text-xs text-neutral-100 outline-none focus:border-neutral-500"
-          />
-        )}
+        {/* Sunucu (addFromTmdb) İzleme Tarihi'ne gün ya da sadece yıl yazabiliyor */}
+        {date !== null && <WatchDateInput value={date} onChange={setDate} small />}
       </div>
       <div>
         <div className="flex items-center justify-between">
@@ -373,6 +429,10 @@ export default function DiscoverModal({ boardId, exclude, onClose }: { boardId: 
                         </button>
                       </div>
                     )}
+                    {/* K5: arşive eklemeden "bir ara bakarım" — Aklımda listesine TMDB yapımı olarak */}
+                    <div className="mt-1.5">
+                      <AklimdaButton target={{ kind: 'tmdb', tmdb: { id: c.tmdbId, mediaType: c.mediaType, title: c.title, poster: c.poster ?? null, year: c.year ?? '' } }} title={c.title} />
+                    </div>
                   </div>
                 )
               })}

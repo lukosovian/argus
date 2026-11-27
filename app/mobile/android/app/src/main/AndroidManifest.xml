@@ -16,6 +16,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
 
             <intent-filter>
@@ -68,6 +69,10 @@
     <queries>
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <!-- T3: sesle arama — telefonun ses tanıma penceresi var mı (Android 11+ ancak bu bildirimle görür) -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
         </intent>
     </queries>
 

@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useProfiles } from '../hooks/useProfiles'
-import { api, type Evren, type EvrenPrefs, type PlatformOzet } from '../lib/api'
+import { api, type Evren, type EvrenPrefs, type PlatformOzet, type TmdbCard } from '../lib/api'
+import { useBoard } from '../hooks/useBoard'
+import { useRows } from '../hooks/useRows'
+import type { Row } from '../types'
+import RowDetailModal from '../components/RowDetailModal'
+import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import { tt, ttx, getLang, regionName } from '../lib/i18n'
 import { MyPlatformsPicker } from '../components/PickerPool'
 import SubscriptionCost from '../components/home/SubscriptionCost'
@@ -12,6 +17,9 @@ import SubscriptionCost from '../components/home/SubscriptionCost'
 // izleme süresini karşılayan platform en üstte, en iyi ikili ayrıca yazılır (bkz. server/evrenler.js platform-ozet).
 
 const hours = (min: number) => Math.round(min / 60)
+
+// Küçük afiş (O9): sunucu v1.27'den beri arşivdeki yapımın rowId'sini de gönderiyor; yoksa key = "movie:123"
+type OzetItem = { title: string; poster: string | null; key: string; rowId?: string | null }
 
 // Bilinen platformların marka renkleri (planda ve kıyas çubuklarında); bilinmeyen platform ARGUS mavisi
 const BRAND: [RegExp, string][] = [
@@ -48,6 +56,17 @@ export default function Abonelik() {
   const [error, setError] = useState<string | null>(null)
   // Adresteki evren bulunamadıysa (silinmiş, yanlış bağlantı ya da evrenler alınamadı) izlenecekler listesine dönülür
   const [missingEvren, setMissingEvren] = useState(false)
+  // O9: afişe tıklayınca arşivdeyse detayı, değilse TMDB önizlemesi
+  const { board } = useBoard(boardId)
+  const { rows } = useRows(boardId)
+  const [detail, setDetail] = useState<Row | null>(null)
+  const [preview, setPreview] = useState<TmdbCard | null>(null)
+  function openItem(it: OzetItem) {
+    const row = it.rowId ? rows.find((r) => r.id === it.rowId) : undefined
+    if (row) return setDetail(row)
+    const m = /^(movie|tv):(\d+)$/.exec(it.key)
+    if (m) setPreview({ tmdbId: Number(m[2]), mediaType: m[1] as 'movie' | 'tv', title: it.title, originalTitle: it.title, year: '', poster: it.poster, overview: '', rating: null })
+  }
 
   useEffect(() => {
     if (!boardId || !activeProfileId) return
@@ -252,9 +271,16 @@ export default function Abonelik() {
                       </p>
                       <div className="mt-3 flex">
                         {step.items.map((it, k) => (
-                          <span key={it.key} className="h-14 aspect-[2/3] rounded-md overflow-hidden bg-neutral-800 ring-2 ring-neutral-950" style={{ marginLeft: k ? -10 : 0 }} title={it.title}>
+                          <button
+                            key={it.key}
+                            onClick={() => openItem(it)}
+                            className="relative h-14 aspect-[2/3] rounded-md overflow-hidden bg-neutral-800 ring-2 ring-neutral-950 transition hover:z-10 hover:-translate-y-1"
+                            style={{ marginLeft: k ? -10 : 0 }}
+                            title={it.title}
+                            aria-label={it.title}
+                          >
                             {it.poster && <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -303,9 +329,9 @@ export default function Abonelik() {
                   </div>
                   <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                     {p.items.map((it) => (
-                      <div key={it.key} className="w-14 shrink-0" title={it.title}>
+                      <button key={it.key} onClick={() => openItem(it)} className="w-14 shrink-0 transition hover:-translate-y-0.5" title={it.title} aria-label={it.title}>
                         <div className="aspect-[2/3] rounded-md overflow-hidden bg-neutral-800">{it.poster && <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />}</div>
-                      </div>
+                      </button>
                     ))}
                     {p.count > p.items.length && <span className="self-center text-xs text-neutral-500 shrink-0 px-2">{tt('+{0} daha', p.count - p.items.length)}</span>}
                   </div>
@@ -327,6 +353,8 @@ export default function Abonelik() {
           )}
         </>
       )}
+      {detail && board && <RowDetailModal board={board} row={detail} onClose={() => setDetail(null)} />}
+      {preview && <TmdbPreviewModal boardId={boardId} card={preview} onClose={() => setPreview(null)} />}
     </div>
   )
 }

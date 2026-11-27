@@ -22,7 +22,8 @@ function top<T extends string>(list: T[]): [T, number][] {
 
 const money = (n: number) => `${new Intl.NumberFormat(locale(), { maximumFractionDigits: n < 100 ? 2 : 0 }).format(n)} ₺`
 
-export default function SinemaYilin({ list }: { list: BiletItem[] }) {
+// onPick (O2): sinema / kişi satırına tıklayınca Biletlerim duvarı ona göre süzülür
+export default function SinemaYilin({ list, onPick, picked }: { list: BiletItem[]; onPick?: (kind: 'cinema' | 'person', v: string) => void; picked?: { cinema: string | null; person: string | null } }) {
   const years = useMemo(() => [...new Set(list.map((b) => (b.date ?? '').slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))].sort().reverse(), [list])
   const [year, setYear] = useState<string | null>(null)
   const y = year && years.includes(year) ? year : years[0]
@@ -108,10 +109,19 @@ export default function SinemaYilin({ list }: { list: BiletItem[] }) {
           {s.cinemas.length ? (
             <ol className="space-y-1.5">
               {s.cinemas.map(([c, n], i) => (
-                <li key={c} className="flex items-center gap-2.5 text-sm">
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-300 text-black' : 'bg-neutral-800 text-neutral-300'}`}>{i + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-neutral-100">{c}</span>
-                  <span className="text-xs text-neutral-500">{tt('{0} seans', n)}</span>
+                <li key={c}>
+                  <button
+                    type="button"
+                    disabled={!onPick}
+                    onClick={() => onPick?.('cinema', c)}
+                    aria-pressed={picked?.cinema === c}
+                    title={onPick ? tt('Bu sinemanın biletlerini göster') : undefined}
+                    className={`-mx-1.5 flex w-[calc(100%+12px)] items-center gap-2.5 rounded-lg px-1.5 py-0.5 text-left text-sm transition enabled:hover:bg-white/[0.05] ${picked?.cinema === c ? 'bg-amber-300/10 ring-1 ring-amber-300/40' : ''}`}
+                  >
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-300 text-black' : 'bg-neutral-800 text-neutral-300'}`}>{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate text-neutral-100">{c}</span>
+                    <span className="text-xs text-neutral-500">{tt('{0} seans', n)}</span>
+                  </button>
                 </li>
               ))}
             </ol>
@@ -119,7 +129,22 @@ export default function SinemaYilin({ list }: { list: BiletItem[] }) {
             <p className="text-sm text-neutral-500">{tt('Biletlerde sinema adı yazılmamış.')}</p>
           )}
           <p className="mt-3 text-xs text-neutral-400">
-            {s.who ? tt('En çok {0} ile gittin ({1} kez).', s.who[0], s.who[1]) : ''} {s.alone ? tt('{0} seansa tek başına.', s.alone) : ''}
+            {s.who && onPick ? (
+              <button
+                type="button"
+                onClick={() => onPick('person', s.who![0])}
+                aria-pressed={picked?.person === s.who[0]}
+                title={tt('Bu kişiyle gittiğin biletleri göster')}
+                className={`underline decoration-dotted underline-offset-2 hover:text-neutral-100 ${picked?.person === s.who[0] ? 'text-amber-200' : ''}`}
+              >
+                {tt('En çok {0} ile gittin ({1} kez).', s.who[0], s.who[1])}
+              </button>
+            ) : s.who ? (
+              tt('En çok {0} ile gittin ({1} kez).', s.who[0], s.who[1])
+            ) : (
+              ''
+            )}{' '}
+            {s.alone ? tt('{0} seansa tek başına.', s.alone) : ''}
           </p>
         </div>
         <div className={tile}>

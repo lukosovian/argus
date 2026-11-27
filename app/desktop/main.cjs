@@ -3,7 +3,7 @@
 // Bu süreç ARGUS'un sunucusunu (start.mjs: arayüzü paketler + API) kendisi başlatır, kendi penceresini
 // açar; pencere kapanınca sunucuyu da kapatır. Başlatan: ARGUS.bat (bkz. :launch) ya da açılış
 // penceresi (launcher/baslat.ps1). Masaüstü simgesine ikinci kez basılırsa açık pencere öne gelir.
-const { app, BaseWindow, WebContentsView, shell, session, nativeTheme, Menu, screen, Tray, ipcMain, globalShortcut, Notification } = require('electron')
+const { app, BaseWindow, WebContentsView, shell, session, nativeTheme, Menu, screen, Tray, ipcMain, globalShortcut, Notification, dialog } = require('electron')
 const { spawn, execFileSync } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -135,6 +135,14 @@ const DESKTOP_EN = {
   "ARGUS'a ulaşılamadı, biraz sonra tekrar dene.": "Couldn't reach ARGUS, try again in a moment.",
   'Sessiz saatlerde {0} haber geldi': '{0} updates arrived during quiet hours',
   've {0} haber daha': 'and {0} more',
+  Kes: 'Cut',
+  Kopyala: 'Copy',
+  Yapıştır: 'Paste',
+  'Tümünü seç': 'Select all',
+  'Geri al': 'Undo',
+  'Yinele': 'Redo',
+  'Yedeklerin konacağı klasörü seç': 'Choose the folder for backups',
+  'Bu klasörü seç': 'Select this folder',
 }
 const dt = (s, ...a) => String(uiLang() === 'en' ? (DESKTOP_EN[s] ?? s) : s).replace(/\{(\d+)\}/g, (_m, i) => String(a[Number(i)] ?? ''))
 let trayLang = null
@@ -262,6 +270,16 @@ ipcMain.handle('ayarlar:yaz', (_e, patch) => {
   applyHotkey()
   applyZoom()
   return publicSettings()
+})
+// Ayarlar › Yedekleme › "Klasör seç…": Windows'un klasör seçme penceresi (v1.27, M3). Vazgeçilirse null.
+ipcMain.handle('klasor:sec', async (_e, opts) => {
+  const r = await dialog.showOpenDialog(win ?? undefined, {
+    title: dt('Yedeklerin konacağı klasörü seç'),
+    buttonLabel: dt('Bu klasörü seç'),
+    defaultPath: typeof opts?.defaultPath === 'string' && opts.defaultPath && fs.existsSync(opts.defaultPath) ? opts.defaultPath : undefined,
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  return r.canceled || !r.filePaths?.[0] ? null : r.filePaths[0]
 })
 // Sayfa, seçili profili bildiriyor — Windows bildirimleri o profilin haberlerinden çıkar
 ipcMain.on('profil', (_e, id) => {
@@ -538,13 +556,18 @@ function createWindow({ errorKind = null } = {}) {
   const layout = () => {
     if (!win) return
     const [w, h] = win.getContentSize()
-    bar.setBounds({ x: 0, y: 0, width: w, height: TITLEBAR })
-    view.setBounds({ x: 0, y: TITLEBAR, width: w, height: Math.max(0, h - TITLEBAR) })
+    // Tam ekranda (F11) ARGUS'un başlık çubuğu gizlenir, sayfa bütün ekranı kaplar
+    const top = win.isFullScreen() ? 0 : TITLEBAR
+    bar.setVisible(top > 0)
+    bar.setBounds({ x: 0, y: 0, width: w, height: top })
+    view.setBounds({ x: 0, y: top, width: w, height: Math.max(0, h - top) })
   }
   layout()
   win.on('resize', layout)
   win.on('maximize', layout)
   win.on('unmaximize', layout)
+  win.on('enter-full-screen', layout)
+  win.on('leave-full-screen', layout)
   if (st.maximized || settings.buyukBasla) win.maximize()
   // Bilgisayar açılırken "tepside başla" seçildiyse (ARGUS.exe --arka-plan) pencere gösterilmez
   const hidden = process.env.ARGUS_ARKA_PLAN === '1' && settings.tepsi
@@ -616,8 +639,33 @@ function createWindow({ errorKind = null } = {}) {
     else if (i.alt && i.key === 'ArrowLeft' && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack()
     else if (i.alt && i.key === 'ArrowRight' && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward()
     else if (i.key === 'F12' && DEV_MACHINE) wc.toggleDevTools()
+    // F11: tam ekran aç / kapat (v1.27, M2). Esc'e bağlanmadı — Esc uygulamada pencere kapatmak için kullanılıyor.
+    else if (i.key === 'F11' && !ctrl && !i.alt) win.setFullScreen(!win.isFullScreen())
     else return
     e.preventDefault()
+  })
+  // Sağ tık menüsü (v1.27, M1): menü çubuğu olmadığı için yazı kutularında Kes/Kopyala/Yapıştır hiç yoktu. Sadece
+  // yazı kutusunda ya da seçili yazıda açılır; kendi sağ tık menüsü olan yerler (tablo satırı vb.) olayı sayfada
+  // durdurduğu için buraya hiç gelmez.
+  view.webContents.on('context-menu', (_e, p) => {
+    const f = p.editFlags || {}
+    const items = []
+    if (p.isEditable) {
+      items.push(
+        { label: dt('Geri al'), role: 'undo', enabled: f.canUndo },
+        { label: dt('Yinele'), role: 'redo', enabled: f.canRedo },
+        { type: 'separator' },
+        { label: dt('Kes'), role: 'cut', enabled: f.canCut },
+        { label: dt('Kopyala'), role: 'copy', enabled: f.canCopy },
+        { label: dt('Yapıştır'), role: 'paste', enabled: f.canPaste },
+        { type: 'separator' },
+        { label: dt('Tümünü seç'), role: 'selectAll', enabled: f.canSelectAll },
+      )
+    } else if (p.selectionText && p.selectionText.trim()) {
+      items.push({ label: dt('Kopyala'), role: 'copy' })
+    }
+    if (!items.length || !win) return
+    Menu.buildFromTemplate(items).popup({ window: win })
   })
   // Farenin geri / ileri tuşları
   win.on('app-command', (_e, cmd) => {

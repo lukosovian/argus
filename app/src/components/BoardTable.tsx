@@ -802,6 +802,13 @@ const BoardTable = forwardRef<
     // "Eklendi" / "Düzenlendi" sütunu (G7): kaydın eklenme ya da son değişme zamanı ("3 gün önce")
     addedColumn?: 'created' | 'updated' | null
     onHideAddedColumn?: () => void
+    // A6 (v1.27): sütun menüsünde seçenek başına kayıt sayısı (BÜTÜN kayıtlar, filtrelenmiş değil), sürükleyerek
+    // sıralama ve birleştirme — olduğu gibi ColumnMenu'ye geçer.
+    optionTools?: {
+      allRows?: Row[]
+      onReorderOptions: (propertyId: string, orderedIds: string[]) => void
+      onMergeOption: (propertyId: string, fromId: string, toId: string) => void
+    }
     // TMDB'den doldur/yenile butonu — sadece bu tıklama anında TMDB'ye çıkar, ARGUS'un geri
     // kalanı internetsiz kalır. Sadece başlığa bakarak film/dizi olduğunu kendisi bulur.
     onFetchTmdb: (
@@ -855,6 +862,7 @@ const BoardTable = forwardRef<
     onPasteCells,
     addedColumn = null,
     onHideAddedColumn,
+    optionTools,
   },
   ref,
 ) {
@@ -2045,6 +2053,9 @@ const BoardTable = forwardRef<
               : undefined
           }
           onChangeStatusOption={(key, optionId) => onSetStatusOption(key as StatusKey, optionId)}
+          rows={optionTools?.allRows}
+          onReorderOptions={optionTools ? (ids) => optionTools.onReorderOptions(menuProp.id, ids) : undefined}
+          onMergeOption={optionTools ? (fromId, toId) => optionTools.onMergeOption(menuProp.id, fromId, toId) : undefined}
         />
       )}
 
