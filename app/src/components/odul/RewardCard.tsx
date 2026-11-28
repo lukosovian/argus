@@ -3,6 +3,7 @@ import type { OdulReward } from '../../lib/api'
 import { catalogItem, frameStyle, KIND_LABEL, RARITY_NAMES } from '../../lib/oduller'
 import { useProfiles } from '../../hooks/useProfiles'
 import { tt } from '../../lib/i18n'
+import Icon from '../Icon'
 import './odul.css'
 
 // Ödül kartı (v1.24): arka yüz (seçilen kart arkası) ve ön yüz. Film kartında yapımın afişi tam boy, altta adı, yılı
@@ -110,7 +111,7 @@ export function RewardCard({
                   <span>
                     {[reward.year, reward.foil ? tt('Parlak') : '', no ? `#${String(no).padStart(3, '0')}` : ''].filter(Boolean).join(' · ')}
                   </span>
-                  {reward.rating != null && <i>★ {Number.isInteger(reward.rating) ? reward.rating : reward.rating.toFixed(1)}</i>}
+                  {reward.rating != null && <i><Icon name="star" className="h-[0.9em] w-[0.9em] inline -mt-0.5" /> {Number.isInteger(reward.rating) ? reward.rating : reward.rating.toFixed(1)}</i>}
                 </small>
               </div>
             </>

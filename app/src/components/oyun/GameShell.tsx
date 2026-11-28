@@ -61,7 +61,8 @@ export function SoundToggle() {
       aria-pressed={m !== 'kapali'}
       className={`h-10 w-10 rounded-xl border flex items-center justify-center transition ${m === 'kapali' ? 'border-neutral-700 text-neutral-500' : 'border-[#00c0fa]/60 text-[#7fdcff] bg-[#00c0fa]/10'}`}
     >
-      <span className="text-lg leading-none">{m === 'kapali' ? '🔇' : m === 'sonuc' ? '🔉' : '🔊'}</span>
+      {/* kapalı: sessiz; sadece sonuç: soluk hoparlör; hepsi: tam hoparlör */}
+      <Icon name={m === 'kapali' ? 'mute' : 'volume'} className={`h-5 w-5 ${m === 'sonuc' ? 'opacity-60' : ''}`} />
     </button>
   )
 }

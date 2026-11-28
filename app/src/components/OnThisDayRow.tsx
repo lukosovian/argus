@@ -6,7 +6,7 @@ import { titleText } from '../types'
 import { api } from '../lib/api'
 import { onDataChanged } from '../lib/dataEvents'
 import { resolveRole } from '../lib/roles'
-import { tt } from '../lib/i18n'
+import { tt, locale } from '../lib/i18n'
 
 // "Geçmiş yıllarda bugün" — takvimle birlikte gelen ana sayfa satırı: bugünün ayı-günü, önceki
 // yıllarda ne izlemişsin (izleme tarihi ya da bölüm işaretleri). Hiçbir şey yoksa satır hiç görünmez.
@@ -72,6 +72,67 @@ export default function OnThisDayRow({
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const bannerProp = resolveRole(board, 'banner')
   const posterProp = resolveRole(board, 'poster')
+  const coverProp = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+
+  // Masaüstünde fotoğraf albümü (öneri A5): beyaz çerçeveli, hafif eğik "polaroid"ler, köşede turuncu tarih
+  // damgası. Renkler temadan bağımsız sabit (eski fotoğraf kâğıdı açık temada da aynı durur).
+  if (!MOBILE) {
+    const ROT = [-4, 2.5, -1.5, 3, -2.5, 1.5]
+    const LIFT = [0, 10, 2, 8, -2, 6]
+    const dayLabel = now.toLocaleDateString(locale(), { day: 'numeric', month: 'long' })
+    return (
+      <div>
+        <div className="flex items-baseline gap-3 mb-2">
+          <h2 className={titleClass ?? 'text-xl font-semibold text-neutral-200'}>{tt('Geçmiş yıllarda bugün')}</h2>
+          <span className="text-xs text-neutral-500">{dayLabel}</span>
+          <button onClick={() => navigate(calendarLink(hits[0].year))} className="text-xs text-neutral-500 hover:text-[#00c0fa] transition">
+            {tt('Takvimde gör ›')}
+          </button>
+        </div>
+        <div className="no-scrollbar flex gap-7 overflow-x-auto -mx-4 px-6 pt-4 pb-8">
+          {hits.map(({ row, year, episodes }, i) => {
+            const title = titleProp ? titleText(titleProp, row.values[titleProp.id]) : ''
+            const image = [coverProp, bannerProp, posterProp].map((p) => (p ? (row.values[p.id] as string) : '')).find(Boolean) ?? ''
+            const ago = thisYear - year
+            const stamp = `'${String(year).slice(2)} ${md.slice(0, 2)} ${md.slice(3)}`
+            return (
+              <div
+                key={`${row.id}-${year}`}
+                className="group w-[240px] shrink-0 rounded-[4px] p-2.5 pb-3.5 transition duration-300 hover:-translate-y-1.5"
+                style={{
+                  background: '#f4f1ea',
+                  color: '#1b1b1b',
+                  transform: `rotate(${ROT[i % ROT.length]}deg) translateY(${LIFT[i % LIFT.length]}px)`,
+                  boxShadow: '0 22px 40px -16px rgba(0,0,0,.65), 0 2px 6px rgba(0,0,0,.18)',
+                }}
+              >
+                <button onClick={() => onOpenDetail(row)} className="block w-full text-left">
+                  <span className="relative block aspect-[4/3] overflow-hidden bg-[#d9d4c7]">
+                    {image && <img src={image} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover" style={{ filter: 'saturate(.92) contrast(1.03)' }} />}
+                    <span
+                      className="absolute right-1.5 bottom-1.5 font-mono text-xs font-bold"
+                      style={{ color: '#ffb347', textShadow: '0 0 6px rgba(255,140,0,.85)' }}
+                    >
+                      {stamp}
+                    </span>
+                  </span>
+                  <b className="mt-2.5 block truncate text-sm">{title}</b>
+                </button>
+                <small className="block truncate text-xs" style={{ color: '#555' }}>
+                  {ago === 1 ? tt('1 yıl önce bugün') : tt('{0} yıl önce bugün', ago)}
+                  {episodes > 0 ? tt(' · {0} bölüm izledin', episodes) : ''}
+                  {' · '}
+                  <button onClick={() => navigate(calendarLink(year))} className="hover:text-[#0077a8] transition">
+                    {tt('takvimde gör')}
+                  </button>
+                </small>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>

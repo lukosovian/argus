@@ -70,11 +70,11 @@ export async function saveBilet(id: string, b: Partial<Record<keyof Bilet, strin
 // Kullanıcı "bugün tarihli bilet girdim, izlendi yazması, puan sorması gerekmez mi; o tarihte zaten izlenmişse yazmasın"
 // dedi: bilet arşivdeki bir yapıma bağlıysa ve tarihi geçmişte/bugünse, o gün izleme tarihlerine eklenir ve durum
 // İzlendi olur. Puan sorusu sunucudan gelir (İzlendi'ye geçip puanı boşsa). O gün zaten yazılıysa hiçbir şey yapılmaz.
-export async function markBiletWatched(b: Bilet): Promise<'eklendi' | 'tekrar' | null> {
+export async function markBiletWatched(b: Bilet, prev?: Pick<Bilet, 'date' | 'withWho' | 'rowId'> | null): Promise<'eklendi' | 'tekrar' | null> {
   const date = b.date?.slice(0, 10)
+  // Kiminle izlediğin de o günün izlemesine yazılsın (O1); düzenlemede çıkarılanlar da çıkar. Olmazsa izleme işareti yine yapılır
+  await linkBiletKiminle(b, prev).catch(() => false)
   if (!b.rowId || !b.boardId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayIso()) return null
-  // Kiminle izlediğin de o günün izlemesine yazılsın (O1); olmazsa izleme işareti yine yapılır
-  await linkBiletKiminle(b).catch(() => false)
   const [boards, rows] = await Promise.all([api.getBoards(), api.getRows(b.boardId)])
   const board = boards.find((x) => x.id === b.boardId)
   const row = rows.find((x) => x.id === b.rowId)
@@ -113,27 +113,70 @@ export function splitPeople(s?: string | null): string[] {
 // (profilin 'birlikte-izledik' deposu, bkz. koleksiyon/KiminleIzledin). Zaten olan isim tekrar eklenmez; ileri
 // tarihli (henüz izlenmemiş) bilette bir şey yapılmaz — seans bitince markBiletWatched yine çağırır.
 // Birlikte izle sayfası "… ile birlikte izlediklerin"i bu kayıttan saydığı için sinema gezileri oraya da düşer.
-export async function linkBiletKiminle(b: Bilet): Promise<boolean> {
+// Bilet düzenlenince (`prev` = biletin önceki hali) biletten çıkarılan kişiler o günün kaydından da çıkar; tarih
+// değiştiyse eski günün kaydındaki bilet kişileri yeni güne taşınır. Detaydan eklenen isimler bilete de yazılır
+// (bkz. KiminleIzledin) — böylece ikisi aynı listeyi gösterir.
+export async function linkBiletKiminle(b: Bilet, prev?: Pick<Bilet, 'date' | 'withWho' | 'rowId'> | null): Promise<boolean> {
   const pid = getApiProfileId()
-  const date = b.date?.slice(0, 10)
-  const names = splitPeople(b.withWho)
-  if (!pid || !b.rowId || !names.length || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayIso()) return false
+  const okDay = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= todayIso() ? d : null)
+  const date = okDay(b.date?.slice(0, 10))
+  const names = date && b.rowId ? splitPeople(b.withWho) : []
+  const pDate = prev?.rowId ? okDay(prev.date?.slice(0, 10)) : null
+  const pNames = pDate ? splitPeople(prev?.withWho) : []
+  if (!pid || (!names.length && !pNames.length)) return false
   const store = 'birlikte-izledik'
   const cur = await readStore<Record<string, Record<string, string[]>>>(pid, store)
-  const row = { ...(cur[b.rowId] ?? {}) }
-  const list = Array.isArray(row[date]) ? [...row[date]] : []
-  const seen = new Set(list.map(searchFold))
-  for (const n of names) {
-    if (seen.has(searchFold(n))) continue
-    seen.add(searchFold(n))
-    list.push(n)
+  const next = { ...cur }
+  let changed = false
+  // Önce eski halin artık bilette olmayan kişilerini (ya da tarih/yapım değiştiyse hepsini) eski günden çıkar
+  if (pDate && prev?.rowId && pNames.length) {
+    const keep = new Set(prev.rowId === b.rowId && pDate === date ? names.map(searchFold) : [])
+    const drop = new Set(pNames.map(searchFold).filter((n) => !keep.has(n)))
+    const row = { ...(next[prev.rowId] ?? {}) }
+    const list = Array.isArray(row[pDate]) ? row[pDate] : []
+    const left = list.filter((n) => !drop.has(searchFold(n)))
+    if (left.length !== list.length) {
+      changed = true
+      if (left.length) row[pDate] = left
+      else delete row[pDate]
+      if (Object.keys(row).length) next[prev.rowId] = row
+      else delete next[prev.rowId]
+    }
   }
-  if (list.length === (row[date]?.length ?? 0)) return false
-  row[date] = list.slice(0, 12)
-  await writeStore(pid, store, { ...cur, [b.rowId]: row })
+  if (date && b.rowId && names.length) {
+    const row = { ...(next[b.rowId] ?? {}) }
+    const list = Array.isArray(row[date]) ? [...row[date]] : []
+    const before = list.length
+    const seen = new Set(list.map(searchFold))
+    for (const n of names) {
+      if (seen.has(searchFold(n))) continue
+      seen.add(searchFold(n))
+      list.push(n)
+    }
+    if (list.length !== before) {
+      changed = true
+      row[date] = list.slice(0, 12)
+      next[b.rowId] = row
+    }
+  }
+  if (!changed) return false
+  await writeStore(pid, store, next)
   // useStore('birlikte-izledik') kullanan açık ekranlar yenilensin (bkz. lib/useProfileStore)
   window.dispatchEvent(new CustomEvent('argus-store-degisti', { detail: store }))
   return true
+}
+
+// Bir yapımın geçmiş (izlenmiş) biletleri, gün → biletteki kişiler. Eski biletler (v1.27 öncesi) kişilerini
+// 'birlikte-izledik' deposuna hiç yazmadığı için detaydaki "Kiminle izledin?" bunları okurken birleştirir.
+export function biletPeopleByDay(items: Record<string, Bilet> | undefined, rowId: string) {
+  const out: { id: string; day: string; names: string[]; withWho: string }[] = []
+  const today = todayIso()
+  for (const [id, b] of Object.entries(items ?? {})) {
+    const day = b.date?.slice(0, 10) ?? ''
+    if (b.rowId !== rowId || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today) continue
+    out.push({ id, day, names: splitPeople(b.withWho), withWho: b.withWho ?? '' })
+  }
+  return out.sort((a, b) => a.day.localeCompare(b.day))
 }
 
 // Biletler eskiden yeniye sıralı (seri numarası bu sıraya göre)

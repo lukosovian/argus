@@ -10,6 +10,7 @@ import { tt, ttx, locale } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
 import EmptyState from './EmptyState'
 import Icon, { type IconName } from './Icon'
+import { resolveRole } from '../lib/roles'
 
 // Üst menüdeki zil — kullanıcı "bildirimler için bir yer olsun" dedi. Dizi kendiliğinden İzlendi olunca,
 // bitmiş bir diziye yeni bölüm gelince ya da yeni sezon tarihi açıklanınca burada birikir. Okunmamış
@@ -60,6 +61,29 @@ function noteTab(type: string | undefined): Exclude<NoteTab, 'all'> {
   return 'diger'
 }
 
+// Z1 (Arayüz Önerileri 3): afişin köşesindeki küçük rozetin dolu rengi (üstünde koyu ikon)
+const TYPE_BADGE: Record<string, string> = {
+  watched: '#34d399',
+  newSeason: '#38bdf8',
+  announce: '#f59e0b',
+  feature: '#e879f9',
+  platform: '#a78bfa',
+  collection: '#38bdf8',
+  achievement: '#f59e0b',
+  weekly: '#38bdf8',
+  follow: '#a78bfa',
+}
+
+// Bugün / Bu hafta (son 7 gün) / Daha eski
+function dayBucket(t: number): 'today' | 'week' | 'older' {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  if (t >= start.getTime()) return 'today'
+  if (t >= start.getTime() - 6 * 86400000) return 'week'
+  return 'older'
+}
+const BUCKET_LABEL = { today: () => tt('Bugün'), week: () => tt('Bu hafta'), older: () => tt('Daha eski') }
+
 function BellIcon() {
   return (
     <Icon name="bell" className="h-5 w-5" />
@@ -75,6 +99,10 @@ export default function NotificationBell() {
   // Türe göre sekme (v1.26, A14) ve "artık izlenebilir" grubunun açıklığı
   const [tab, setTab] = useState<NoteTab>('all')
   const [groupOpen, setGroupOpen] = useState(false)
+  // Aynı yapımın bildirimleri tek satırda; açılan grupların anahtarları
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // Bildirimdeki kaydın afişi: zil açılınca kayıtlardan çekilir (boardId:rowId → afiş)
+  const [posters, setPosters] = useState<Map<string, string>>(new Map())
   useEscape(open, () => setOpen(false))
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -87,6 +115,8 @@ export default function NotificationBell() {
     setItems([])
     setTab('all')
     setGroupOpen(false)
+    setExpanded(new Set())
+    setPosters(new Map())
   }
 
   const load = useCallback(() => {
@@ -143,6 +173,33 @@ export default function NotificationBell() {
     }
   }, [load])
 
+  // Zil açılınca bildirimlerdeki arşivlerin afişleri çekilir (boardId:rowId → afiş)
+  const boardKey = [...new Set(items.map((n) => n.boardId).filter(Boolean))].sort().join(',')
+  useEffect(() => {
+    if (!open || !boardKey) return
+    let alive = true
+    const ids = boardKey.split(',')
+    api
+      .getBoards()
+      .then(async (boards) => {
+        const m = new Map<string, string>()
+        for (const b of boards.filter((x) => ids.includes(x.id))) {
+          const p = resolveRole(b, 'poster') ?? b.properties.find((x) => x.id === b.coverPropertyId && x.type === 'image')
+          if (!p) continue
+          const rows = await api.getRows(b.id).catch(() => [])
+          for (const row of rows) {
+            const v = row.values[p.id]
+            if (typeof v === 'string' && v) m.set(`${b.id}:${row.id}`, v)
+          }
+        }
+        if (alive) setPosters(m)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [open, boardKey])
+
   const unread = items.filter((n) => !n.read).length
 
   // Sekmeler: sadece içinde bildirim olan türler görünür, her birinde okunmamış sayısı
@@ -156,13 +213,30 @@ export default function NotificationBell() {
   // "Artık şurada izlenebilir" haberleri listede tek bir satırda toplanır (en yenisinin yerinde);
   // tıklayınca açılır, her biri ayrı ayrı görünür ve tıklanınca o kaydın detayı açılır.
   const platformItems = visible.filter((n) => n.type === 'platform')
-  type ListEntry = { kind: 'item'; item: AppNotification } | { kind: 'group'; items: AppNotification[] }
+  // Z1: aynı yapımın (arşiv + kayıt) bildirimleri de tek satırda toplanır — en yenisi üstte, "+2 değişiklik" ile açılır
+  type ItemEntry = { kind: 'item'; key: string; items: AppNotification[] }
+  type ListEntry = ItemEntry | { kind: 'group'; items: AppNotification[] }
   const listEntries: ListEntry[] = []
+  const byTitle = new Map<string, ItemEntry>()
   for (const n of visible) {
-    if (n.type !== 'platform') listEntries.push({ kind: 'item', item: n })
-    else if (platformItems.length === 1) listEntries.push({ kind: 'item', item: n })
-    else if (n === platformItems[0]) listEntries.push({ kind: 'group', items: platformItems })
+    if (n.type === 'platform' && platformItems.length > 1) {
+      if (n === platformItems[0]) listEntries.push({ kind: 'group', items: platformItems })
+      continue
+    }
+    const k = n.boardId && n.rowId ? `${n.boardId}:${n.rowId}` : ''
+    const same = k ? byTitle.get(k) : undefined
+    if (same) {
+      same.items.push(n)
+      continue
+    }
+    const e: ItemEntry = { kind: 'item', key: k || n.id, items: [n] }
+    if (k) byTitle.set(k, e)
+    listEntries.push(e)
   }
+  // Satırlar en yeni bildirimlerine göre sıralı
+  const newest = (e: ListEntry) => Math.max(...e.items.map((n) => n.t))
+  for (const e of listEntries) e.items.sort((a, b) => b.t - a.t)
+  listEntries.sort((a, b) => newest(b) - newest(a))
 
   async function toggleGroup(g: AppNotification[]) {
     const opening = !groupOpen
@@ -240,6 +314,25 @@ export default function NotificationBell() {
         ×
       </button>
     )
+  }
+
+  function toggleExpanded(key: string) {
+    setExpanded((cur) => {
+      const next = new Set(cur)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  // Grup satırı: en yeni bildirimin kaydını açar, gruptakilerin hepsi okundu sayılır
+  async function openGroupItem(n: AppNotification, list: AppNotification[]) {
+    const ids = list.filter((x) => !x.read).map((x) => x.id)
+    setOpen(false)
+    if (ids.length) await api.markNotificationsRead(ids).catch(() => {})
+    load()
+    if (n.boardId && n.rowId) navigate(`/board/${n.boardId}?detay=${n.rowId}`)
+    else if (n.link) navigate(n.link)
   }
 
   async function openItem(n: AppNotification) {
@@ -337,7 +430,16 @@ export default function NotificationBell() {
                 {items.length === 0 ? (
                   <EmptyState compact art="bildirim" title={tt('Henüz bildirim yok.')} text={tt('Bir diziyi bitirince ya da izlediğin bir diziye yeni sezon gelince burada görünür.')} />
                 ) : (
-                  listEntries.map((entry) => {
+                  listEntries.flatMap((entry, idx) => {
+                    // Z1: Bugün / Bu hafta / Daha eski başlıkları
+                    const bucket = dayBucket(newest(entry))
+                    const head =
+                      idx === 0 || dayBucket(newest(listEntries[idx - 1])) !== bucket ? (
+                        <p key={`h-${bucket}`} className="px-4 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                          {BUCKET_LABEL[bucket]()}
+                        </p>
+                      ) : null
+                    const body = (() => {
                     if (entry.kind === 'group') {
                       const g = entry.items
                       const gUnread = g.filter((n) => !n.read).length
@@ -380,27 +482,89 @@ export default function NotificationBell() {
                         </div>
                       )
                     }
-                    const n = entry.item
+                    const list = entry.items
+                    const n = list[0]
+                    const rest = list.slice(1)
+                    const isOpen = expanded.has(entry.key)
+                    const anyUnread = list.some((x) => !x.read)
                     const look = TYPE_ICON[n.type] ?? { icon: 'sparkle' as IconName, cls: 'bg-neutral-800 text-neutral-300' }
+                    const poster = n.boardId && n.rowId ? posters.get(`${n.boardId}:${n.rowId}`) : undefined
                     return (
-                      <div key={n.id} className="group/not relative">
-                      <button
-                        onClick={() => openItem(n)}
-                        className={`w-full flex items-start gap-3 text-left pl-4 pr-10 py-3 border-b border-neutral-800/60 hover:bg-neutral-800/60 transition ${n.read ? '' : 'bg-[#00c0fa]/[0.04]'}`}
-                      >
-                        <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}><Icon name={look.icon} className={MOBILE ? 'h-5 w-5' : 'h-4 w-4'} /></span>
-                        <span className="flex-1 min-w-0">
-                          <span className="flex items-center gap-2">
-                            <span className={`text-sm truncate ${n.read ? 'text-neutral-300' : 'text-neutral-50 font-medium'}`}>{n.title}</span>
-                            {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-[#00c0fa] shrink-0" />}
-                          </span>
-                          <span className="block text-xs text-neutral-400 mt-0.5 leading-snug">{n.text}</span>
-                          <span className="block text-[11px] text-neutral-600 mt-1">{ago(n.t)}</span>
-                        </span>
-                      </button>
-                      {deleteBtn([n])}
+                      <div key={entry.key} className="border-b border-neutral-800/60">
+                        <div className="group/not relative">
+                          <button
+                            onClick={() => openGroupItem(n, list)}
+                            className={`w-full flex items-start gap-3 text-left pl-4 pr-10 py-3 hover:bg-neutral-800/60 transition ${anyUnread ? 'bg-[#00c0fa]/[0.04]' : ''}`}
+                          >
+                            {poster ? (
+                              // Z1: afiş + köşede türünü anlatan küçük renkli rozet
+                              <span className={`relative shrink-0 ${MOBILE ? 'h-[60px] w-10' : 'h-12 w-8'}`}>
+                                <img src={poster} alt="" loading="lazy" className="h-full w-full rounded-md object-cover bg-neutral-800" />
+                                <span className="absolute -right-1.5 -bottom-1.5 h-5 w-5 rounded-full flex items-center justify-center ring-2 ring-neutral-900" style={{ background: TYPE_BADGE[n.type] ?? '#a3a3a3', color: '#0b0b0f' }}>
+                                  <Icon name={look.icon} className="h-3 w-3" />
+                                </span>
+                              </span>
+                            ) : (
+                              <span className={`${MOBILE ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'} shrink-0 rounded-full flex items-center justify-center ${look.cls}`}>
+                                <Icon name={look.icon} className={MOBILE ? 'h-5 w-5' : 'h-4 w-4'} />
+                              </span>
+                            )}
+                            <span className="flex-1 min-w-0">
+                              <span className="flex items-center gap-2">
+                                <span className={`text-sm truncate ${anyUnread ? 'text-neutral-50 font-medium' : 'text-neutral-300'}`}>{n.title}</span>
+                                {anyUnread && <span className="h-1.5 w-1.5 rounded-full bg-[#00c0fa] shrink-0" />}
+                              </span>
+                              <span className="block text-xs text-neutral-400 mt-0.5 leading-snug">{n.text}</span>
+                              <span className="flex items-center gap-2 mt-1">
+                                <span className="text-[11px] text-neutral-600">{ago(n.t)}</span>
+                                {rest.length > 0 && (
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleExpanded(entry.key)
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        toggleExpanded(entry.key)
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] text-neutral-300 hover:border-neutral-500 hover:text-neutral-50"
+                                  >
+                                    {tt('+{0} değişiklik', rest.length)}
+                                    <Icon name="caret" className={`h-2.5 w-2.5 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                          </button>
+                          {deleteBtn(list)}
+                        </div>
+                        {isOpen &&
+                          rest.map((x) => {
+                            const lk = TYPE_ICON[x.type] ?? { icon: 'sparkle' as IconName, cls: 'bg-neutral-800 text-neutral-300' }
+                            return (
+                              <div key={x.id} className="group/not relative">
+                                <button onClick={() => openItem(x)} className={`w-full flex items-start gap-2.5 text-left ${MOBILE ? 'pl-[4.25rem]' : 'pl-[3.75rem]'} pr-10 py-2 hover:bg-neutral-800/60 transition`}>
+                                  <span className={`h-5 w-5 mt-0.5 shrink-0 rounded-full flex items-center justify-center ${lk.cls}`}>
+                                    <Icon name={lk.icon} className="h-3 w-3" />
+                                  </span>
+                                  <span className="flex-1 min-w-0">
+                                    <span className={`block text-xs leading-snug ${x.read ? 'text-neutral-400' : 'text-neutral-200'}`}>{x.text}</span>
+                                    <span className="block text-[11px] text-neutral-600">{ago(x.t)}</span>
+                                  </span>
+                                </button>
+                                {deleteBtn([x])}
+                              </div>
+                            )
+                          })}
                       </div>
                     )
+                    })()
+                    return head ? [head, body] : [body]
                   })
                 )}
               </div>

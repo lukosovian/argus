@@ -5,7 +5,8 @@ import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
 import type { Board, PropertyDef, Row, SelectOption } from '../types'
-import { titleText } from '../types'
+import { ratingAverage, titleText } from '../types'
+import { resolveRole } from '../lib/roles'
 import { HomeCard } from '../pages/AnaSayfa'
 import { tt, ttx } from '../lib/i18n'
 import { MOBILE } from '../lib/mobile/ui'
@@ -402,10 +403,18 @@ export default function GlobalSearch() {
           )}
         </div>
       )}
-      {open && !query && board && opened.length > 0 && <DesktopRecent board={board} rows={opened} onOpen={(id) => {
-        close()
-        openResult(id)
-      }} />}
+      {open && !query && board && (
+        <DesktopBrowse
+          board={board}
+          rows={rows}
+          recent={opened}
+          onOpen={(id) => {
+            close()
+            openResult(id)
+          }}
+          onTag={openTag}
+        />
+      )}
       <button
         onClick={() => setOpen((v) => !v)}
         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-neutral-900 text-neutral-50 hover:text-[#00c0fa] transition relative z-40"
@@ -493,33 +502,97 @@ export default function GlobalSearch() {
   )
 }
 
-// Bilgisayarda arama kutusu açık ama boşken altında açılan küçük liste: son açtıkların (v1.26, Y21)
-function DesktopRecent({ board, rows, onOpen }: { board: Board; rows: Row[]; onOpen: (rowId: string) => void }) {
+// S1 (Arayüz Önerileri 3): bilgisayarda arama kutusu açık ama boşken altında göz atma ekranı — önce son açtıkların
+// afiş şeridi (v1.26, Y21), altında arşivin Tür sütunundaki türler renkli kutular hâlinde (kayıt sayısı, köşede o
+// türün en yüksek puanlı yapımının eğik afişi). Bir tür kutusu, oyuncu/etiket tıklamasıyla aynı filtreli listeyi açar.
+const GENRE_COLORS = ['#e11d48', '#7c3aed', '#0891b2', '#ea580c', '#16a34a', '#db2777', '#2563eb', '#ca8a04', '#0d9488', '#9333ea', '#dc2626', '#4f46e5']
+
+function DesktopBrowse({ board, rows, recent, onOpen, onTag }: { board: Board; rows: Row[]; recent: Row[]; onOpen: (rowId: string) => void; onTag: (propertyId: string, optionId: string) => void }) {
   const titleP = board.properties.find((p) => p.id === board.titlePropertyId)
-  const poster = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+  const poster = resolveRole(board, 'poster')
+  const cover = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+  const img = (r: Row) => String((poster && r.values[poster.id]) || (cover && r.values[cover.id]) || '')
+  const genres = useMemo(() => {
+    const tur = resolveRole(board, 'tur')
+    if (!tur) return { tur, list: [] as { opt: SelectOption; count: number; poster: string }[] }
+    const puan = resolveRole(board, 'puan')
+    const by = new Map<string, { count: number; best: number; poster: string }>()
+    for (const r of rows) {
+      const v = r.values[tur.id]
+      const pic = poster ? String(r.values[poster.id] ?? '') : ''
+      const score = puan ? (ratingAverage(r.values[puan.id], puan) ?? 0) : 0
+      for (const id of Array.isArray(v) ? (v as string[]) : typeof v === 'string' && v ? [v] : []) {
+        const g = by.get(id) ?? { count: 0, best: -1, poster: '' }
+        g.count++
+        if (pic && score > g.best) {
+          g.best = score
+          g.poster = pic
+        }
+        by.set(id, g)
+      }
+    }
+    const list = (tur.options ?? [])
+      .map((opt) => ({ opt, count: by.get(opt.id)?.count ?? 0, poster: by.get(opt.id)?.poster ?? '' }))
+      .filter((g) => g.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12)
+    return { tur, list }
+  }, [board, rows, poster])
+
+  if (!recent.length && !genres.list.length) return null
   return (
-    <div className="absolute right-11 top-12 z-40 w-72 sm:w-80 rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl shadow-black/50 overflow-hidden" style={{ animation: 'argus-toast-in .15s ease-out' }}>
-      <div className="flex items-center justify-between px-3.5 pt-3 pb-1.5">
-        <p className="text-[11px] uppercase tracking-wide text-neutral-500">{tt('Son açtıkların')}</p>
-        <button onClick={clearOpened} className="text-[11px] text-neutral-500 hover:text-neutral-200 transition">
-          {tt('Temizle')}
-        </button>
-      </div>
-      <div className="pb-1.5 max-h-[60vh] overflow-y-auto">
-        {rows.map((r) => {
-          const img = poster ? (r.values[poster.id] as string) : ''
-          return (
-            <div key={r.id} className="group flex items-center gap-1 mx-1.5 rounded-lg hover:bg-neutral-800 transition">
-              <button onClick={() => onOpen(r.id)} className="flex-1 min-w-0 flex items-center gap-2.5 px-2 py-1.5 text-left">
-                <span className="h-9 w-16 shrink-0 rounded-md overflow-hidden bg-neutral-800">{img ? <img src={img} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}</span>
-                <span className="truncate text-sm text-neutral-200 group-hover:text-neutral-50">{titleP ? titleText(titleP, r.values[titleP.id]) : ''}</span>
-              </button>
-              <button onClick={() => forgetOpened(r.id)} title={tt('Listeden çıkar')} className="h-7 w-7 mr-1 shrink-0 flex items-center justify-center rounded-full text-neutral-500 opacity-0 group-hover:opacity-100 hover:text-neutral-50 hover:bg-neutral-700 transition">
-                ×
+    <div className="absolute right-11 top-12 z-40 w-[min(92vw,600px)] rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl shadow-black/50 overflow-hidden" style={{ animation: 'argus-toast-in .15s ease-out' }}>
+      <div className="max-h-[72vh] overflow-y-auto p-4 space-y-5">
+        {recent.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] uppercase tracking-wide text-neutral-500">{tt('Son açtıkların')}</p>
+              <button onClick={clearOpened} className="text-[11px] text-neutral-500 hover:text-neutral-200 transition">
+                {tt('Temizle')}
               </button>
             </div>
-          )
-        })}
+            <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+              {recent.map((r) => {
+                const t = titleP ? titleText(titleP, r.values[titleP.id]) : ''
+                const src = img(r)
+                return (
+                  <div key={r.id} className="group relative w-[76px] shrink-0">
+                    <button onClick={() => onOpen(r.id)} title={t} className="block w-full text-left">
+                      <span className="block aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-md shadow-black/40 group-hover:-translate-y-0.5 transition">
+                        {src ? <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+                      </span>
+                      <span className="mt-1 block truncate text-[11px] text-neutral-300 group-hover:text-neutral-50">{t}</span>
+                    </button>
+                    <button onClick={() => forgetOpened(r.id)} title={tt('Listeden çıkar')} className="absolute right-1 top-1 h-5 w-5 flex items-center justify-center rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 transition">
+                      <Icon name="close" className="h-3 w-3" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+        {genres.tur && genres.list.length > 0 && (
+          <section>
+            <p className="text-[11px] uppercase tracking-wide text-neutral-500 mb-2">{tt('Türlere göz at')}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {genres.list.map((g, i) => (
+                <button
+                  key={g.opt.id}
+                  onClick={() => onTag(genres.tur!.id, g.opt.id)}
+                  className="group relative h-[72px] overflow-hidden rounded-xl px-3 py-2.5 text-left text-white transition hover:brightness-110"
+                  style={{ background: GENRE_COLORS[i % GENRE_COLORS.length] }}
+                >
+                  <span className="relative z-10 block max-w-[70%] text-sm font-bold leading-tight line-clamp-2">{g.opt.label}</span>
+                  <span className="relative z-10 block text-[11px] text-white/75 mt-0.5">{tt('{0} yapım', g.count)}</span>
+                  {g.poster && (
+                    <img src={g.poster} alt="" loading="lazy" className="absolute -right-2 -bottom-3 h-[70px] w-[48px] rounded-md object-cover rotate-[22deg] shadow-lg shadow-black/40 group-hover:rotate-[14deg] transition" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

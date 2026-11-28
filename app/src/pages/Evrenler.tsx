@@ -271,7 +271,14 @@ export default function Evrenler() {
       ) : (
         <UniverseList universes={data.universes} prefs={data.prefs} onNew={newUniverse} onChanged={load} />
       )}
-      {id && !current && <p className="text-center text-neutral-500 py-20">{tt('Bu evren bulunamadı.')}</p>}
+      {id && !current && (
+        <EmptyState art="evren" title={tt('Bu evren bulunamadı.')}>
+          <Link to="/evrenler" className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-100 hover:border-[#00c0fa] transition">
+            <Icon name="planet" className="h-4 w-4" />
+            {tt('Bütün evrenler')}
+          </Link>
+        </EmptyState>
+      )}
       {editing && (
         <UniverseEditor
           id={editing.id}
@@ -437,20 +444,31 @@ function UniverseList({ universes, prefs, onNew, onChanged }: { universes: Evren
             <Link
               key={u.id}
               to={`/evrenler/${u.id}`}
-              className="group rounded-3xl border border-neutral-800 bg-neutral-900/60 overflow-hidden transition duration-300 hover:-translate-y-1 hover:[border-color:var(--evren)] hover:shadow-[0_20px_44px_-14px_var(--evren)]"
-              style={{ ['--evren' as string]: `${u.color}99` }}
+              className="group rounded-3xl border [border-color:var(--evren0)] bg-neutral-900/60 overflow-hidden transition duration-300 hover:-translate-y-1 hover:[border-color:var(--evren)] hover:shadow-[0_20px_44px_-14px_var(--evren)]"
+              style={{ ['--evren' as string]: `${u.color}99`, ['--evren0' as string]: `color-mix(in srgb, ${u.color} 30%, var(--color-neutral-800))`, background: `radial-gradient(ellipse at 50% 20%, ${u.color}26, transparent 70%), color-mix(in srgb, var(--color-neutral-900) 60%, transparent)` }}
             >
-              <div className="relative h-36 overflow-hidden" style={{ background: `linear-gradient(135deg, ${u.color}55, #0a0a0a 75%)` }}>
-                <div className="absolute inset-0 flex justify-end gap-1.5 pr-3 pt-3 opacity-80 group-hover:opacity-100 transition">
-                  {posters.map((i, n) => (
-                    <img key={i.key} src={i.poster!} alt="" loading="lazy" decoding="async" className="h-32 aspect-[2/3] object-cover rounded-md shadow-lg" style={{ transform: `translateY(${n % 2 ? 10 : 0}px)` }} />
-                  ))}
+              {/* E1 (Arayüz Önerileri 3): afişler ortada üst üste bir deste; üzerine gelince yelpaze gibi açılır, zemin evrenin renginde parlar */}
+              <div className="relative h-52 overflow-hidden" style={{ background: `radial-gradient(ellipse at 50% 38%, ${u.color}66, transparent 68%), linear-gradient(180deg, ${u.color}1a, transparent)` }}>
+                {u.short && <p className="absolute left-4 top-3 z-10 text-[10px] font-black tracking-[0.18em]" style={{ color: u.color }}>{u.short}</p>}
+                <div className="absolute left-1/2 top-5 h-36 w-0">
+                  {posters.map((i, n) => {
+                    const off = n - (posters.length - 1) / 2
+                    return (
+                      <img
+                        key={i.key}
+                        src={i.poster!}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute -left-[43px] w-[86px] max-w-none aspect-[2/3] object-cover rounded-[7px] shadow-[0_14px_30px_rgba(0,0,0,0.6)] origin-[50%_120%] transition-transform duration-[450ms] ease-[cubic-bezier(.2,.9,.2,1.15)] [transform:rotate(var(--r0))] group-hover:[transform:rotate(var(--r1))]"
+                        style={{ ['--r0' as string]: `${off * 4}deg`, ['--r1' as string]: `${off * 18}deg` }}
+                      />
+                    )
+                  })}
+                  {!posters.length && <Icon name="planet" className="absolute -left-10 top-6 h-20 w-20 opacity-60" style={{ color: u.color }} />}
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/50 to-transparent" />
-                <div className="absolute left-4 bottom-3 right-4">
-                  {u.short && <p className="text-xs font-black tracking-widest" style={{ color: u.color }}>{u.short}</p>}
-                  <p className="text-xl font-black text-neutral-50 leading-tight">{u.name}</p>
-                </div>
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-neutral-950/90 to-transparent" />
+                <p className="absolute left-4 right-4 bottom-2.5 text-xl font-black text-neutral-50 leading-tight truncate">{u.name}</p>
               </div>
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-3.5">
@@ -505,7 +523,7 @@ function UniverseList({ universes, prefs, onNew, onChanged }: { universes: Evren
           onClick={onNew}
           className="rounded-3xl border-2 border-dashed border-neutral-800 hover:border-[#00c0fa]/60 text-neutral-500 hover:text-[#7fdcff] min-h-56 flex flex-col items-center justify-center gap-1 transition"
         >
-          <span className="text-4xl leading-none">＋</span>
+          <Icon name="plus" className="h-9 w-9" />
           <span className="font-semibold">{tt('Kendi evrenini oluştur')}</span>
           <span className="text-xs text-neutral-600 max-w-56 text-center">{tt('Bir yönetmenin filmleri, bir korku evreni… istediğin yapımları ekle, istediğin gibi sırala.')}</span>
         </button>

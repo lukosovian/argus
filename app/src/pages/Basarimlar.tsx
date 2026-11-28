@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { Board, Row, WatchedMap } from '../types'
-import { titleText } from '../types'
+import { ratingAverage, titleText } from '../types'
+import PosterWallHero from '../components/PosterWallHero'
 import { useHomeSettings } from '../hooks/useHomeSettings'
 import { useBoard } from '../hooks/useBoard'
 import { useRows } from '../hooks/useRows'
@@ -63,6 +64,19 @@ export default function Basarimlar() {
     const legacy = activeProfileId ? legacyBasarim(activeProfileId) : null
     return (legacy ? mergeBasarim(stored, legacy) : stored).dates ?? {}
   }, [activeProfileId, stored, list])
+  // H3: başlığın arkasında en yüksek puan verdiğin yapımların afişleri (puan yoksa son eklenenler)
+  const heroPosters = useMemo(() => {
+    if (!board) return []
+    const poster = resolveRole(board, 'poster')
+    const puan = resolveRole(board, 'puan')
+    if (!poster) return []
+    return rows
+      .map((r, i) => ({ src: typeof r.values[poster.id] === 'string' ? (r.values[poster.id] as string) : '', score: puan ? (ratingAverage(r.values[puan.id], puan) ?? -1) : -1, i }))
+      .filter((x) => x.src)
+      .sort((a, b) => b.score - a.score || b.i - a.i)
+      .slice(0, 14)
+      .map((x) => x.src)
+  }, [board, rows])
   if (loading || !board) return <PageSkeleton kind="posters" />
 
   const levels = list.reduce((s, a) => s + a.level, 0)
@@ -81,10 +95,7 @@ export default function Basarimlar() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-      <section
-        className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-7 sm:px-9"
-        style={{ background: 'radial-gradient(ellipse at 10% 0%, rgba(250,204,21,.14), transparent 55%), radial-gradient(ellipse at 95% 110%, rgba(0,192,250,.12), transparent 60%), var(--color-neutral-950)' }}
-      >
+      <PosterWallHero posters={heroPosters} tint="rgba(250,204,21,.14)">
         <div className="flex flex-wrap items-center gap-8">
           <div className="relative h-36 w-36 shrink-0">
             <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
@@ -118,7 +129,7 @@ export default function Basarimlar() {
             <div className="w-full lg:w-80 space-y-2.5">
               <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{tt('Yakında')}</p>
               {next.map(({ a, p }) => (
-                <button key={a.id} onClick={() => setOpenId(a.id)} className="flex w-full items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-left hover:border-neutral-600 transition">
+                <button key={a.id} onClick={() => setOpenId(a.id)} className="flex w-full items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/85 backdrop-blur-sm px-3 py-2 text-left hover:border-neutral-600 transition">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white" style={{ background: `linear-gradient(135deg,${a.colors[0]},${a.colors[1]})` }}>
                     <Icon name={a.icon} className="h-4 w-4" />
                   </span>
@@ -138,7 +149,7 @@ export default function Basarimlar() {
             </div>
           )}
         </div>
-      </section>
+      </PosterWallHero>
 
       <div className="flex gap-1 rounded-xl border border-neutral-800 bg-neutral-900/70 p-1 w-fit">
         {(

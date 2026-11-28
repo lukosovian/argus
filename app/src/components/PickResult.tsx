@@ -160,7 +160,8 @@ function EndTimeWhy({ board, row, tmdbRuntime, isSeries, allRows }: { board: Boa
     <div className="space-y-2">
       {end && (
         <p className="inline-flex items-center gap-2 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3.5 py-2 text-sm text-violet-100">
-          🌙 {series ? tt('2 bölüm izlersen bitiş:') : tt('Şimdi başlarsan bitiş:')} <b className="text-white">{end}</b>
+          <Icon name="moon" className="h-4 w-4 shrink-0" />
+          {series ? tt('2 bölüm izlersen bitiş:') : tt('Şimdi başlarsan bitiş:')} <b className="text-white">{end}</b>
         </p>
       )}
       {why.length > 0 && <p className="text-sm text-[#7fdcff]">{tt('Neden bu?')} · {why.join(' · ')}</p>}

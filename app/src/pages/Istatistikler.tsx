@@ -23,6 +23,7 @@ import type { WatchedMap } from '../types'
 import { useProfiles } from '../hooks/useProfiles'
 import PersonModal from '../components/PersonModal'
 import DateField from '../components/DateField'
+import PosterWallHero from '../components/PosterWallHero'
 
 // Kullanıcı "istatistikleri güzelleştir" dedi (26 Eylül 2026). Renkler dataviz becerisindeki doğrulanmış
 // varsayılan paletten — artık uygulamada açık tema da olduğu için İKİ mod da seçili: her mod kendi
@@ -159,6 +160,48 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
   const izlendiRows = durumProp && izlendiId ? scope.filter((r) => doneIds.has(r.values[durumProp.id] as string)) : []
   const izlenecekCount = durumProp && izlenecekId ? scope.filter((r) => r.values[durumProp.id] === izlenecekId).length : 0
 
+  // Sayı kartlarının arkasındaki afişler (Arayüz Önerileri 3 · I2, v1.27.2): her kartta o sayıya en çok katkı veren
+  // yapım. Afiş Poster görevindeki sütundan, yoksa kapak görselinden.
+  const posterRole = resolveRole(board, 'poster')
+  const coverRole = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+  const titleRole = board.properties.find((p) => p.id === board.titlePropertyId)
+  const posterOf = (r: Row | undefined): string => (r ? ((posterRole && (r.values[posterRole.id] as string)) || (coverRole && (r.values[coverRole.id] as string)) || '') : '')
+  const titleOf = (r: Row | undefined): string => (r && titleRole ? titleText(titleRole, r.values[titleRole.id]) : '')
+  // Satırın en son (günü belli) izleme günü: İzleme Tarihi ve bölüm tikleri; aralık seçiliyse aralığın içinden
+  const lastWatch = (r: Row): string => {
+    let best = ''
+    if (tarihProp)
+      for (const e of toEntries(r.values[tarihProp.id])) {
+        const d = entryEnd(e)
+        if (isFullDate(d) && (!win || entryInWindow(e, win)) && d > best) best = d.slice(0, 10)
+      }
+    for (const list of Object.values(watched[r.id] ?? {}))
+      for (const d of list ?? []) if (d && isFullDate(d) && (!win || (d.slice(0, 10) >= win.from && d.slice(0, 10) <= win.to)) && d.slice(0, 10) > best) best = d.slice(0, 10)
+    return best
+  }
+  // Aynı afiş birden çok kartta tekrar etmesin diye kullanılanlar atlanır
+  const latestOf = (list: Row[], prefix: string, used: Set<string>): Row | undefined => {
+    let pick: Row | undefined
+    let at = ''
+    for (const r of list) {
+      if (!posterOf(r) || used.has(posterOf(r))) continue
+      const d = lastWatch(r)
+      if (d && d.startsWith(prefix) && d > at) {
+        at = d
+        pick = r
+      }
+    }
+    return pick
+  }
+  const maxBy = (list: Row[], score: (r: Row) => number): { row: Row; score: number } | undefined => {
+    let pick: { row: Row; score: number } | undefined
+    for (const r of list) {
+      const v = score(r)
+      if (v > 0 && (!pick || v > pick.score || (v === pick.score && !posterOf(pick.row) && posterOf(r)))) pick = { row: r, score: v }
+    }
+    return pick
+  }
+
   let totalMinutes = 0
   // Dizilerde Süre bölüm süresi (v1.24) — toplam süreye sadece filmler girer
   if (sureProp) for (const r of izlendiRows) if (typeof r.values[sureProp.id] === 'number' && !isSeriesRow(board, r)) totalMinutes += r.values[sureProp.id] as number
@@ -171,6 +214,16 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
     }
   }
   const avgRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null
+  // En yüksek puanın ve o puanı alan yapım sayısı; ortalama kartının arkasına ortalamana en yakın puanlı yapım
+  const rated = puanProp ? scope.map((r) => ({ r, v: ratingAverage(r.values[puanProp.id], puanProp) })).filter((x): x is { r: Row; v: number } => x.v !== null) : []
+  const topValue = rated.length ? Math.max(...rated.map((x) => x.v)) : null
+  const topRatedAll = topValue !== null ? rated.filter((x) => Math.abs(x.v - topValue) < 0.05) : []
+  const topRatedRow = topRatedAll.find((x) => posterOf(x.r))?.r ?? topRatedAll[0]?.r
+  const nearAvg = avgRating !== null ? rated.filter((x) => posterOf(x.r)).sort((a, b) => Math.abs(a.v - avgRating) - Math.abs(b.v - avgRating))[0]?.r : undefined
+  // En uzun takip ettiğin dizi: en çok bölüm tiki olan (aralık seçiliyse aralıktaki tikler)
+  const epCount = (r: Row) =>
+    win ? episodeDatesInWindow(watched, r.id, win).length : Object.values(watched[r.id] ?? {}).filter((l) => (l ?? []).length > 0).length
+  const longest = maxBy(scope, epCount)
   // 0-1, 1-2 … 9-10 dilimleri (10 tam puan son dilime girer).
   const ratingBins = Array.from({ length: 10 }, (_, i) => ({ from: i, count: 0 }))
   for (const v of ratings) ratingBins[Math.min(Math.floor(v), 9)].count++
@@ -229,6 +282,9 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
 
   // Aralıktaki izleme özeti: film izlemeleri, bölümler, yaklaşık süre (film süresi + bölüm × bölüm süresi), aktif gün
   let windowSummary: { films: number; episodes: number; minutes: number; activeDays: number } | null = null
+  // Aralık kartlarının afişleri: en çok izlenen film, en çok süre tutan yapım
+  let topFilm: { row: Row; n: number } | undefined
+  let topMinutes: { row: Row; n: number } | undefined
   if (win) {
     let films = 0
     let episodes = 0
@@ -238,6 +294,10 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
       const m = minutesInWindow(board, r, watched, win, false)
       episodes += m.episodes
       minutes += m.minutes
+      if (posterOf(r)) {
+        if (!isSeriesRow(board, r) && m.views > (topFilm?.n ?? 0)) topFilm = { row: r, n: m.views }
+        if (m.minutes > (topMinutes?.n ?? 0)) topMinutes = { row: r, n: m.minutes }
+      }
       if (!isSeriesRow(board, r)) films += m.views
       for (const e of rowEntriesInWindow(board, r, win, true)) days.add(entryEnd(e).slice(0, 10))
       for (const d of episodeDatesInWindow(watched, r.id, win)) days.add(d)
@@ -294,6 +354,40 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
     rewatched.splice(5)
   }
 
+  const izlenecekRows = durumProp && izlenecekId ? scope.filter((r) => r.values[durumProp.id] === izlenecekId && posterOf(r)) : []
+  const newestTodo = izlenecekRows.reduce<Row | undefined>((a, r) => (!a || (r.createdAt ?? 0) > (a.createdAt ?? 0) ? r : a), undefined)
+  const longestFilm = sureProp ? maxBy(izlendiRows.filter((r) => !isSeriesRow(board, r) && posterOf(r)), (r) => (typeof r.values[sureProp.id] === 'number' ? (r.values[sureProp.id] as number) : 0)) : undefined
+  // Önce anlamı belli olanlar (en uzun film, en çok bölüm…), sonra "en son izlenen"e dayananlar kalanlardan seçilir
+  const used = new Set<string>()
+  const take = (r: Row | undefined) => {
+    const pp = posterOf(r)
+    if (pp) used.add(pp)
+    return pp
+  }
+  const fixed = {
+    izlenecek: take(newestTodo),
+    time: take(longestFilm?.row),
+    avg: take(nearAvg),
+    films: take(topFilm?.row),
+    episodes: take(longest?.row),
+    minutes: take(topMinutes?.row),
+  }
+  // Aynı en yüksek puanı alan birden çok yapım varsa başka kartta kullanılmayanın afişi
+  const topPick = topRatedAll.find((x) => posterOf(x.r) && !used.has(posterOf(x.r)))?.r ?? topRatedRow
+  take(topPick)
+  const thisYear = take(latestOf(rows, String(now.getFullYear()), used))
+  const izlendi = take(latestOf(izlendiRows, '', used))
+  const cardPosters = { ...fixed, thisYear, izlendi, total: take(latestOf(scope, '', used)) }
+  const topRated = topValue !== null && topPick ? { value: topValue, title: titleOf(topPick), poster: posterOf(topPick), others: topRatedAll.length - 1 } : null
+  const longestSeries = longest && longest.score > 0 ? { count: longest.score, title: titleOf(longest.row), poster: posterOf(longest.row) } : null
+  // Başlıktaki afiş duvarı (H3): en yüksek puanlıların afişleri, yetmezse en son izlediklerin
+  const heroPosters: string[] = []
+  for (const x of [...rated].sort((a, b) => b.v - a.v)) {
+    const pp = posterOf(x.r)
+    if (pp && !heroPosters.includes(pp)) heroPosters.push(pp)
+    if (heroPosters.length >= 14) break
+  }
+
   return {
     total: scope.length,
     izlendiCount: izlendiRows.length,
@@ -320,6 +414,10 @@ function computeStats(board: Board, rows: Row[], watched: WatchedMap, win: DateW
     decadeBreakdown,
     undated,
     rewatched,
+    cardPosters,
+    topRated,
+    longestSeries,
+    heroPosters,
   }
 }
 type Stats = ReturnType<typeof computeStats>
@@ -451,6 +549,7 @@ function StatTile({
   color,
   spark,
   delta,
+  poster,
 }: {
   label: string
   value: string
@@ -463,10 +562,24 @@ function StatTile({
   color?: string
   spark?: number[]
   delta?: { text: string; up: boolean }
+  // I2 (v1.27.2): kartın arkasında, sağdan soluklaşan ilgili afiş
+  poster?: string
 }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 md:p-5 min-w-0">
+      {poster && (
+        <img
+          src={poster}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          draggable={false}
+          className="pointer-events-none absolute -right-2 -top-2 h-[115%] w-[58%] object-cover opacity-45"
+          style={{ maskImage: 'linear-gradient(90deg, transparent, #000 75%)', WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 75%)' }}
+        />
+      )}
       {spark && color && spark.some((n) => n > 0) && <Spark points={spark} color={color} />}
+      <div className="relative">
       {icon && color && (
         <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `${color}22`, color }}>
           <Icon name={icon} className="h-4 w-4" />
@@ -481,7 +594,8 @@ function StatTile({
       </p>
       {delta && (
         <p className={`relative text-xs font-semibold mt-0.5 truncate ${delta.up ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {delta.up ? '▲' : '▼'} {delta.text}
+          <Icon name="caret" className={`h-3 w-3 mr-0.5 align-[-0.15em] ${delta.up ? '-rotate-90' : 'rotate-90'}`} />
+          {delta.text}
         </p>
       )}
       {sub && <p className="relative text-xs text-neutral-500 mt-0.5 truncate">{sub}</p>}
@@ -490,7 +604,22 @@ function StatTile({
           <div className="h-full rounded-full" style={{ width: `${Math.round(progress * 100)}%`, background: BRAND_GRADIENT }} />
         </div>
       )}
+      </div>
     </div>
+  )
+}
+
+// "En yüksek puanın" kartı (I2): en yüksek ortalama ve o puanı alan yapımlar
+function TopRatedTile({ top }: { top: Stats['topRated'] }) {
+  return (
+    <StatTile
+      icon="trophy"
+      color="#fbbf24"
+      label={tt('En yüksek puanın')}
+      value={top ? (Number.isInteger(top.value) ? String(top.value) : top.value.toFixed(1)) : '—'}
+      sub={top ? (top.others > 0 ? tt('{0} ve {1} yapım daha', top.title, top.others) : top.title) : undefined}
+      poster={top?.poster}
+    />
   )
 }
 
@@ -875,7 +1004,10 @@ function MappingPanel({ board, onSave }: { board: Board; onSave: (patch: Partial
           <span className="block font-medium">{tt('Sütunları Eşleştir')}</span>
           <span className="block text-xs text-neutral-500 mt-0.5">{tt('Grafikler yanlış ya da boş görünüyorsa hangi sütundan beslendiklerini buradan seç.')}</span>
         </span>
-        <span className="text-neutral-500 text-xs shrink-0">{open ? tt('Gizle ▲') : tt('Göster ▼')}</span>
+        <span className="text-neutral-500 text-xs shrink-0 inline-flex items-center gap-1">
+          {open ? tt('Gizle') : tt('Göster')}
+          <Icon name="caret" className={`h-3 w-3 ${open ? '-rotate-90' : 'rotate-90'}`} />
+        </span>
       </button>
       {open && (
         <div className="px-5 pb-5 border-t border-neutral-800 pt-4 space-y-3">
@@ -1370,12 +1502,8 @@ export default function Istatistikler() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/60 px-6 py-8 md:px-8">
-        <div
-          className="pointer-events-none absolute -top-28 -right-20 h-64 w-[36rem] max-w-[140%] rounded-full blur-3xl opacity-20"
-          style={{ background: BRAND_GRADIENT }}
-        />
-        <div className="relative flex flex-wrap items-end justify-between gap-4">
+      <PosterWallHero posters={stats.heroPosters} tint="rgba(0,192,250,0.14)">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-neutral-50 tracking-tight">{tt('İstatistikler')}</h1>
             <p className="text-sm text-neutral-400 mt-1.5">
@@ -1389,7 +1517,7 @@ export default function Istatistikler() {
             </div>
           )}
         </div>
-      </section>
+      </PosterWallHero>
 
       {selectedBoardId === settings.boardId && <GoalRow titleClass="text-lg font-semibold text-neutral-100" />}
 
@@ -1405,11 +1533,19 @@ export default function Istatistikler() {
       {compare && <YearCompare board={board} rows={rows} watched={watched} years={years} a={range.a} b={range.b} setA={(a) => updateRange({ a })} setB={(b) => updateRange({ b })} palette={palette} />}
 
       {!compare && ws && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatTile label={tt('Aralıkta izlenen')} value={String(stats.total)} sub={tt('yapım')} accent icon="table" color="#3fa9ff" />
-          <StatTile icon="film" color="#22c55e" label={tt('Film izleme')} value={String(ws.films)} sub={tt('tekrar izlemeler dahil')} />
-          <StatTile icon="tv" color="#f97316" label={tt('Bölüm')} value={String(ws.episodes)} sub={tt('işaretlenen bölüm tikleri')} />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <StatTile label={tt('Aralıkta izlenen')} value={String(stats.total)} sub={tt('yapım')} accent icon="table" color="#3fa9ff" poster={stats.cardPosters.total} />
+          <StatTile icon="film" color="#22c55e" label={tt('Film izleme')} value={String(ws.films)} sub={tt('tekrar izlemeler dahil')} poster={stats.cardPosters.films} />
           <StatTile
+            icon="tv"
+            color="#f97316"
+            label={tt('Bölüm')}
+            value={String(ws.episodes)}
+            sub={stats.longestSeries ? tt('en çok: {0} ({1})', stats.longestSeries.title, stats.longestSeries.count) : tt('işaretlenen bölüm tikleri')}
+            poster={stats.cardPosters.episodes}
+          />
+          <StatTile
+            poster={stats.cardPosters.minutes}
             icon="clock"
             color="#a78bfa"
             label={tt('Yaklaşık süre')}
@@ -1423,14 +1559,17 @@ export default function Istatistikler() {
             label={tt('Ortalama puan')}
             value={stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—'}
             sub={stats.avgRating !== null ? tt('10 üzerinden · {0} kayıt', stats.ratedCount) : undefined}
+            poster={stats.cardPosters.avg}
           />
+          <TopRatedTile top={stats.topRated} />
         </div>
       )}
 
       {!compare && !ws && (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatTile label={tt('Toplam kayıt')} value={String(stats.total)} accent icon="table" color="#3fa9ff" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatTile label={tt('Toplam kayıt')} value={String(stats.total)} accent icon="table" color="#3fa9ff" poster={stats.cardPosters.total} />
         <StatTile
+          poster={stats.cardPosters.izlendi}
           icon="check"
           color="#22c55e"
           label={tt('İzlenen')}
@@ -1438,8 +1577,9 @@ export default function Istatistikler() {
           sub={stats.hasDurum && stats.total ? tt('arşivinin %{0}\'i', Math.round(izlendiShare * 100)) : undefined}
           progress={stats.hasDurum ? izlendiShare : undefined}
         />
-        <StatTile icon="clock" color="#f97316" label={tt('İzlenecek')} value={stats.hasDurum ? String(stats.izlenecekCount) : '—'} sub={tt('listende bekliyor')} />
+        <StatTile icon="clock" color="#f97316" label={tt('İzlenecek')} value={stats.hasDurum ? String(stats.izlenecekCount) : '—'} sub={tt('listende bekliyor')} poster={stats.cardPosters.izlenecek} />
         <StatTile
+          poster={stats.cardPosters.thisYear}
           icon="calendar"
           color="#00c0fa"
           spark={stats.hasDates ? monthSeries : undefined}
@@ -1450,6 +1590,7 @@ export default function Istatistikler() {
           hint={stats.hasDates ? undefined : tt('Bu sayı için kayıtlarda İzleme Tarihi dolu olmalı.')}
         />
         <StatTile
+          poster={stats.cardPosters.time}
           icon="tv"
           color="#a78bfa"
           label={tt('Toplam süre')}
@@ -1467,6 +1608,17 @@ export default function Istatistikler() {
           label={tt('Ortalama puan')}
           value={stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—'}
           sub={stats.avgRating !== null ? tt('10 üzerinden · {0} kayıt', stats.ratedCount) : undefined}
+          poster={stats.cardPosters.avg}
+        />
+        <TopRatedTile top={stats.topRated} />
+        <StatTile
+          icon="repeat"
+          color="#38bdf8"
+          label={tt('En uzun takip')}
+          value={stats.longestSeries ? String(stats.longestSeries.count) : '—'}
+          sub={stats.longestSeries ? tt('bölüm · {0}', stats.longestSeries.title) : undefined}
+          hint={stats.longestSeries ? tt('En çok bölümünü işaretlediğin dizi.') : tt('Bir dizinin bölümlerini işaretleyince burada görünür.')}
+          poster={stats.longestSeries?.poster}
         />
       </div>
       )}

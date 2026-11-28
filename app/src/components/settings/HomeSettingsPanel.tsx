@@ -23,6 +23,7 @@ import { BRAND_TEXT } from '../../lib/theme'
 import { PanelHeader, SettingsSection, SettingsTabs, choiceClass } from './SettingsUi'
 import { tt } from '../../lib/i18n'
 import { PickerExtras } from './ExtraSettings'
+import { SERIES_SPOT_DEFAULTS, SERIES_SPOT_EVERY } from '../home/SeriesSpotlight'
 
 const TABS = [
   { id: 'gorunum', label: tt('Görünüm') },
@@ -540,6 +541,48 @@ export default function HomeSettingsPanel() {
                   />
                 </div>
               )}
+
+              {/* Seri vitrini (öneri A4): ara sıra vitrinin yerine Koleksiyon'dan bir seri bandı */}
+              {(() => {
+                const spot = { ...SERIES_SPOT_DEFAULTS, ...settings.seriesSpot }
+                const save = (patch: Partial<typeof spot>) => saveSettings({ ...settings, seriesSpot: { ...spot, ...patch } })
+                return (
+                  <div className="space-y-2 border-t border-neutral-800 pt-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm text-neutral-300">
+                        {tt('Seri vitrini')}
+                        <span className="block text-xs text-neutral-600 mt-0.5">
+                          {tt('Ara sıra vitrinin yerine Koleksiyon\'daki serilerinden biri büyük bir bantta gelir: kaçını izlediğin, ortalama puanın ve bütün filmlerin afişleri.')}
+                        </span>
+                      </span>
+                      <ToggleSwitch checked={spot.enabled} onChange={(v) => save({ enabled: v })} label={tt('Seri vitrini')} />
+                    </div>
+                    {spot.enabled && (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-neutral-400">{tt('Ne sıklıkla')}</span>
+                          {SERIES_SPOT_EVERY.map((n) => (
+                            <button
+                              key={n}
+                              onClick={() => save({ every: n })}
+                              className={`text-xs rounded-lg border px-3 py-1.5 transition ${choiceClass(spot.every === n)}`}
+                            >
+                              {n === 1 ? tt('Her açılışta') : tt('{0} açılışta bir', n)}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-neutral-300">
+                            {tt('Sadece bitmemiş seriler')}
+                            <span className="block text-xs text-neutral-600 mt-0.5">{tt('Hepsini izlediğin seriler gelmez, sadece izlemediğin filmi kalanlar.')}</span>
+                          </span>
+                          <ToggleSwitch checked={spot.onlyUnfinished} onChange={(v) => save({ onlyUnfinished: v })} label={tt('Sadece bitmemiş seriler')} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </SettingsSection>
 

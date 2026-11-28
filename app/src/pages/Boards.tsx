@@ -96,6 +96,8 @@ const SEARCH: { label: string; tab: Tab; alt?: string; tur?: string; where: stri
   { label: tt('Yedekten geri yükle'), tab: 'veritabani', alt: 'yedek', where: tt('Veritabanı › Yedekleme'), words: 'yedek geri restore' },
   { label: tt('Vitrin ve vitrin görünümü'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'vitrin sinema slayt klasik fragman' },
   { label: tt('Vitrin süsleri'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'vitrin süs özet aklımda' },
+  { label: tt('Seri vitrini'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm › Vitrin'), words: 'seri koleksiyon raf film serisi bant vitrin açılış sıklık' },
+  { label: tt('Seri vitrini: ne sıklıkla, sadece bitmemiş seriler'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm › Vitrin'), words: 'seri her açılışta sıklık bitmemiş izlenmemiş koleksiyon' },
   { label: tt('Kart boyutu ve bilgileri her zaman göster'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'kart boyut' },
   { label: tt('Satırlar ve sıraları'), tab: 'ana-sayfa', alt: 'gorunum', where: tt('Ana Sayfa › Görünüm'), words: 'satır sıra kaldığın yerden aklında yeni bölümler unuttukların en iyi' },
   { label: tt('Üst menüdeki sayfalar'), tab: 'ana-sayfa', alt: 'sayfalar', where: tt('Ana Sayfa › Sayfalar'), words: 'diziler filmler sayfa menü' },

@@ -1,8 +1,10 @@
 import { useId } from 'react'
+import Icon, { type IconName } from './Icon'
 
 // Boş sayfalar için (henüz arşiv yok, kayıt yok, bildirim yok…) düz "boş" yazısı yerine küçük bir çizim, başlık,
 // açıklama ve varsa ne yapılacağını gösteren düğme. Yeni profil açan biri ilk gördüğünde ne yapacağını bilsin.
-export type EmptyArt = 'arsiv' | 'kayit' | 'bildirim' | 'evren' | 'istatistik' | 'ara'
+// 'afis': kesik çizgili afiş yuvaları + ortada (varsa) soluk bir afiş ve simge (Arayüz Önerileri 3 · H4)
+export type EmptyArt = 'arsiv' | 'kayit' | 'bildirim' | 'evren' | 'istatistik' | 'ara' | 'afis'
 
 export default function EmptyState({
   art,
@@ -10,19 +12,43 @@ export default function EmptyState({
   text,
   children,
   compact = false,
+  poster,
+  icon,
 }: {
   art: EmptyArt
   title: string
   text?: React.ReactNode
   children?: React.ReactNode // düğme(ler)
   compact?: boolean // pencere/panel içinde daha küçük
+  poster?: string // art='afis': ortadaki soluk afiş
+  icon?: IconName // art='afis': ortadaki simge
 }) {
   return (
     <div className={`flex flex-col items-center text-center ${compact ? 'px-4 py-8' : 'px-4 py-16'}`} style={{ animation: 'argus-fade-in .5s ease-out' }}>
-      <Art kind={art} size={compact ? 72 : 112} />
+      {art === 'afis' ? <GhostPosters poster={poster} icon={icon ?? 'plus'} compact={compact} /> : <Art kind={art} size={compact ? 72 : 112} />}
       <h2 className={`${compact ? 'text-sm mt-3' : 'text-xl mt-5'} font-semibold text-neutral-100`}>{title}</h2>
       {text && <p className={`${compact ? 'text-xs' : 'text-sm'} text-neutral-500 max-w-md mt-1.5 leading-relaxed`}>{text}</p>}
       {children && <div className={`flex flex-wrap justify-center gap-2 ${compact ? 'mt-4' : 'mt-6'}`}>{children}</div>}
+    </div>
+  )
+}
+
+// Üç eğik afiş yuvası: yanlar kesik çizgili boş, ortadaki soluk afiş (yoksa koyu kutu) ve üstünde marka renkli simge
+function GhostPosters({ poster, icon, compact }: { poster?: string; icon: IconName; compact: boolean }) {
+  const w = compact ? 56 : 84
+  return (
+    <div aria-hidden className="relative" style={{ width: w * 2.6, height: w * 1.75 }}>
+      <span className="absolute rounded-[9px] border-[1.5px] border-dashed border-neutral-700 bg-neutral-900" style={{ width: w, aspectRatio: '2/3', left: w * 0.12, top: w * 0.12, transform: 'rotate(-10deg)' }} />
+      <span className="absolute rounded-[9px] border-[1.5px] border-dashed border-neutral-700 bg-neutral-900" style={{ width: w, aspectRatio: '2/3', right: w * 0.12, top: w * 0.12, transform: 'rotate(10deg)' }} />
+      <span className="absolute z-[2] overflow-hidden rounded-[9px] bg-neutral-800 shadow-2xl shadow-black/60" style={{ width: w, aspectRatio: '2/3', left: w * 0.8, top: 0 }}>
+        {poster && <img src={poster} alt="" className="h-full w-full object-cover" style={{ filter: 'grayscale(.6) brightness(.55)' }} />}
+      </span>
+      <span
+        className="absolute z-[3] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 grid place-items-center rounded-full text-white"
+        style={{ width: compact ? 34 : 44, height: compact ? 34 : 44, background: 'linear-gradient(135deg,#00c0fa,#0a6cff)', boxShadow: '0 6px 20px rgba(0,192,250,.5)' }}
+      >
+        <Icon name={icon} className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
+      </span>
     </div>
   )
 }

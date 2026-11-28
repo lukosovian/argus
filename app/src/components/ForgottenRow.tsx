@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Board, Row, WatchedMap } from '../types'
-import { titleText } from '../types'
+import type { Board, EpisodesMap, Row, WatchedMap } from '../types'
+import { titleText, episodeKey, todayIso } from '../types'
 import { api } from '../lib/api'
 import { resolveRole, resolveStatusOption } from '../lib/roles'
 import { isName, STATUS_NAMES } from '../lib/names'
 import { notifyDataChanged, onDataChanged } from '../lib/dataEvents'
 import { useToast } from '../hooks/useToast'
 import { tt, ttx } from '../lib/i18n'
+import { MOBILE } from '../lib/mobile/ui'
+import { useAmbientTint } from '../hooks/useAmbientTint'
+import Icon from './Icon'
 
 // "Unuttukların" satırı — kullanıcı önerilen "unutulanlar hatırlatması"nı istedi: İzleniyor'da olup 2 aydır hiç
 // izlenmemiş içerikler ("Devam mı, bırakalım mı?") ve İzlenecek listesinde 6 aydan uzun bekleyenler. Yarım'dakiler
@@ -41,7 +44,41 @@ function ageLabel(days: number): string {
 
 type Item = { row: Row; days: number; kind: 'stale' | 'waiting' }
 
-export default function ForgottenRow({ board, rows, onOpenDetail, titleClass }: { board: Board; rows: Row[]; onOpenDetail: (row: Row) => void; titleClass: string }) {
+// Dizide nerede kaldın: izlenmemiş ilk (yayınlanmış) bölüm ve izlenen / toplam bölüm
+function progressOf(row: Row, episodes: EpisodesMap | undefined, watched: WatchedMap | null): { season: number; episode: number; seen: number; total: number } | null {
+  const seasons = (episodes?.[row.id] ?? []).filter((s) => s.seasonNumber > 0)
+  if (!seasons.length) return null
+  const w = watched?.[row.id] ?? {}
+  const today = todayIso()
+  let seen = 0
+  let total = 0
+  let next: { season: number; episode: number } | null = null
+  for (const s of seasons)
+    for (const e of s.episodes) {
+      const done = Boolean(w[episodeKey(s.seasonNumber, e.episodeNumber)]?.length)
+      if (!done && e.airDate && e.airDate > today) continue
+      total++
+      if (done) seen++
+      else if (!next) next = { season: s.seasonNumber, episode: e.episodeNumber }
+    }
+  if (!total || !next) return null
+  return { ...next, seen, total }
+}
+
+export default function ForgottenRow({
+  board,
+  rows,
+  onOpenDetail,
+  titleClass,
+  episodes,
+}: {
+  board: Board
+  rows: Row[]
+  onOpenDetail: (row: Row) => void
+  titleClass: string
+  // Dizilerde "nerede kaldın" ve ilerleme çubuğu için (verilmezse sadece süre etiketi)
+  episodes?: EpisodesMap
+}) {
   const { notify } = useToast()
   const [watched, setWatched] = useState<WatchedMap | null>(null)
   const [hidden, setHidden] = useState<string[]>(hiddenIds)
@@ -71,6 +108,7 @@ export default function ForgottenRow({ board, rows, onOpenDetail, titleClass }: 
   const dateProp = resolveRole(board, 'izlemeTarihi')
   const posterProp = resolveRole(board, 'poster')
   const coverProp = board.properties.find((p) => p.id === board.coverPropertyId)
+  const bannerProp = resolveRole(board, 'banner')
   const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
   const izleniyor = resolveStatusOption(board, 'izleniyor')
   const yarim = durumProp?.options?.find((o) => isName(o.label, STATUS_NAMES.yarim))?.id
@@ -188,6 +226,34 @@ export default function ForgottenRow({ board, rows, onOpenDetail, titleClass }: 
         </div>
       )}
       {items.length === 0 && !hiddenOpen && <p className="text-xs text-neutral-600 pb-3">{tt('Şu an hatırlatılacak bir şey yok.')}</p>}
+      {!MOBILE && items.length > 0 && (
+        // Geniş kartlar (öneri A2): yapımın yatay görseli, logo, "N aydır izlemedin", nerede kaldığın ve ilerleme
+        // çubuğu; "Devam et" / "Bırak" kartın içinde (davranışları eskisiyle aynı). Telefonda eski küçük afişler.
+        <div className="no-scrollbar flex gap-3.5 overflow-x-auto -mx-4 px-4 pt-1 pb-3">
+          {items.map(({ row, days, kind }) => {
+            const isWatching = Boolean(durumProp && row.values[durumProp.id] === izleniyor)
+            const wide = [coverProp, bannerProp, posterProp].map((p) => (p ? ((row.values[p.id] as string) ?? '') : '')).find(Boolean) ?? ''
+            const logoVal = board.titleImagePropertyId ? row.values[board.titleImagePropertyId] : ''
+            return (
+              <ForgottenCard
+                key={row.id}
+                name={nameOf(row)}
+                image={wide}
+                logo={typeof logoVal === 'string' ? logoVal : ''}
+                chip={kind === 'stale' ? ttx('{0} izlemedin', ageLabel(days)) : ttx('{0} bekliyor', ageLabel(days))}
+                stale={kind === 'stale'}
+                progress={kind === 'stale' ? progressOf(row, episodes, watched) : null}
+                primary={kind === 'stale' ? tt('Devam et') : tt('Bak')}
+                secondary={isWatching ? tt('Bırak') : tt('Gizle')}
+                secondaryTitle={isWatching ? tt('Yarım olarak işaretle') : tt('Bu satırda bir daha gösterme')}
+                onOpen={() => onOpenDetail(row)}
+                onSecondary={() => (isWatching ? drop(row) : hideWithUndo(row))}
+              />
+            )
+          })}
+        </div>
+      )}
+      {MOBILE && (
       <div className="no-scrollbar flex gap-3 overflow-x-auto -mx-4 px-4 pt-1 pb-3">
         {items.map(({ row, days, kind }) => {
           const img = (posterProp && (row.values[posterProp.id] as string)) || (coverProp && (row.values[coverProp.id] as string)) || ''
@@ -224,6 +290,122 @@ export default function ForgottenRow({ board, rows, onOpenDetail, titleClass }: 
             </div>
           )
         })}
+      </div>
+      )}
+    </div>
+  )
+}
+
+function ForgottenCard({
+  name,
+  image,
+  logo,
+  chip,
+  stale,
+  progress,
+  primary,
+  secondary,
+  secondaryTitle,
+  onOpen,
+  onSecondary,
+}: {
+  name: string
+  image: string
+  logo: string
+  chip: React.ReactNode
+  stale: boolean
+  progress: { season: number; episode: number; seen: number; total: number } | null
+  primary: string
+  secondary: string
+  secondaryTitle: string
+  onOpen: () => void
+  onSecondary: () => void
+}) {
+  // Kartın altı yapımın kendi renginde koyulaşır (yazılar hep beyaz, açık temada da)
+  const tint = useAmbientTint(image, { lightness: 0.1, maxSat: 0.6, inLight: true })
+  const fade = tint ?? '#000000'
+  const pct = progress ? Math.round((progress.seen / progress.total) * 100) : null
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+        e.preventDefault()
+        onOpen()
+      }}
+      title={name}
+      className="group relative w-[340px] shrink-0 aspect-[16/10] rounded-2xl overflow-hidden bg-neutral-800 border border-white/[0.06] shadow-lg shadow-black/40 cursor-pointer text-left transition duration-300 hover:-translate-y-1"
+      style={tint ? { boxShadow: `0 14px 34px -16px ${tint}` } : undefined}
+    >
+      {image && (
+        <img src={image} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+      )}
+      <span className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(to top, ${fade}f0 8%, ${fade}66 52%, rgba(0,0,0,.35))` }} />
+      <div className="absolute inset-0 flex flex-col px-3.5 py-3">
+        <span
+          className={`self-start inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+            stale ? 'bg-amber-400/95 text-[#1a1000]' : 'bg-black/60 text-white border border-white/15 backdrop-blur-sm'
+          }`}
+        >
+          <Icon name="clock" className="h-3 w-3" />
+          {chip}
+        </span>
+        <div className="mt-auto">
+          {logo ? (
+            <img
+              src={logo}
+              alt={name}
+              loading="lazy"
+              decoding="async"
+              className="max-h-10 max-w-[60%] object-contain object-left-bottom"
+              style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.8))' }}
+            />
+          ) : (
+            <p className="text-lg font-bold text-white truncate" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
+              {name}
+            </p>
+          )}
+          {progress && pct !== null && (
+            <>
+              <div className="mt-2 mb-1.5 flex justify-between gap-2 text-xs text-white/80">
+                <span className="truncate">{ttx('{0}. Sezon · {1}. bölümde kaldın', progress.season, progress.episode)}</span>
+                <span className="shrink-0">
+                  {progress.seen} / {progress.total}
+                </span>
+              </div>
+              <div className="h-[3px] rounded-full bg-white/20 overflow-hidden">
+                <span className="block h-full rounded-full" style={{ width: `${Math.max(3, pct)}%`, background: 'linear-gradient(90deg,#015eea,#00c0fa)' }} />
+              </div>
+            </>
+          )}
+          <div className="mt-2.5 flex gap-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpen()
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12.5px] font-bold text-black hover:bg-white/85 transition"
+            >
+              <Icon name="play" className="h-3.5 w-3.5" />
+              {primary}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onSecondary()
+              }}
+              title={secondaryTitle}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-[12.5px] font-bold text-white backdrop-blur-sm hover:bg-rose-500/30 hover:border-rose-400/50 transition"
+            >
+              <Icon name="close" className="h-3.5 w-3.5" />
+              {secondary}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

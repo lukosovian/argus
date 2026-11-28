@@ -6,19 +6,20 @@ import { readDaily, readRecord, shuffle, today, useGameData } from '../../lib/ga
 import { useExtras } from '../../lib/extras'
 import { tt, ttx } from '../../lib/i18n'
 import PageSkeleton from '../../components/Skeleton'
-import Icon from '../../components/Icon'
+import Icon, { type IconName } from '../../components/Icon'
+import GameCardArt from './GameCardArt'
 import { SoundToggle } from '../../components/oyun/GameShell'
 
 // O1 Oyun salonu (v1.24): bütün oyunlar tek sayfada — her kartta rekorun, günlük oyunun bugün bitip bitmediği, altta
 // profiller arası toplam sıralama. Menüdeki "Oyunlar" buraya gelir.
 
-export const GAMES: { id: string; to: string; title: string; text: string; emoji: string; rec: (pid: string) => number }[] = [
+export const GAMES: { id: string; to: string; title: string; text: string; icon: IconName; color: string; rec: (pid: string) => number }[] = [
   {
     id: 'sahne',
     to: '/sahneden-bil',
     title: tt('Sahneden bil'),
     text: tt('Gerçek bir sahne gelir, hangi yapım? Soru sayısını, süreyi, efektleri sen ayarla.'),
-    emoji: '🎬',
+    icon: 'clapper', color: '#f43f5e',
     rec: (pid) => {
       try {
         return Number(localStorage.getItem(`argus_sahne_rekor_${pid}`) ?? 0) || 0
@@ -27,23 +28,23 @@ export const GAMES: { id: string; to: string; title: string; text: string; emoji
       }
     },
   },
-  { id: 'gunluk', to: '/oyunlar/gunluk', title: tt('Günün yapımı'), text: tt('Her gün gizli bir yapım; 8 tahminde ipuçlarıyla bul.'), emoji: '📅', rec: (pid) => readRecord(pid, 'gunluk') },
+  { id: 'gunluk', to: '/oyunlar/gunluk', title: tt('Günün yapımı'), text: tt('Her gün gizli bir yapım; 8 tahminde ipuçlarıyla bul.'), icon: 'calendar', color: '#38bdf8', rec: (pid) => readRecord(pid, 'gunluk') },
   {
     id: 'yuksek',
     to: '/oyunlar/yuksek',
     title: tt('Hangisi daha yüksek?'),
     text: tt('İki yapım: hangisine daha yüksek puan verdin, hangisi daha yeni, hangisi daha uzun?'),
-    emoji: '⚖️',
+    icon: 'scale', color: '#f59e0b',
     rec: (pid) => Math.max(readRecord(pid, 'yuksek_puan'), readRecord(pid, 'yuksek_yil'), readRecord(pid, 'yuksek_sure')),
   },
-  { id: 'sinopsis', to: '/oyunlar/sinopsis', title: tt('Sinopsisten bil'), text: tt('Ad ve isimleri karartılmış sinopsisten yapımı bul.'), emoji: '📜', rec: (pid) => readRecord(pid, 'sinopsis') },
-  { id: 'zaman', to: '/oyunlar/zaman', title: tt('Zaman çizelgesi'), text: tt('Yapımları çıkış yılına göre eskiden yeniye diz.'), emoji: '⏳', rec: (pid) => readRecord(pid, 'zaman') },
-  { id: 'oyuncu', to: '/oyunlar/oyuncu', title: tt('Oyuncuyu bil'), text: tt('Bulanık fotoğraf netleşir; karşına en çok çıkan oyunculardan kim?'), emoji: '🎭', rec: (pid) => readRecord(pid, 'oyuncu') },
-  { id: 'zincir', to: '/oyunlar/zincir', title: tt('Oyuncu zinciri'), text: tt('İki oyuncuyu ortak yapımlar üzerinden en kısa yoldan bağla.'), emoji: '🔗', rec: (pid) => readRecord(pid, 'zincir') },
+  { id: 'sinopsis', to: '/oyunlar/sinopsis', title: tt('Sinopsisten bil'), text: tt('Ad ve isimleri karartılmış sinopsisten yapımı bul.'), icon: 'doc', color: '#eab308', rec: (pid) => readRecord(pid, 'sinopsis') },
+  { id: 'zaman', to: '/oyunlar/zaman', title: tt('Zaman çizelgesi'), text: tt('Yapımları çıkış yılına göre eskiden yeniye diz.'), icon: 'hourglass', color: '#a78bfa', rec: (pid) => readRecord(pid, 'zaman') },
+  { id: 'oyuncu', to: '/oyunlar/oyuncu', title: tt('Oyuncuyu bil'), text: tt('Bulanık fotoğraf netleşir; karşına en çok çıkan oyunculardan kim?'), icon: 'person', color: '#fb7185', rec: (pid) => readRecord(pid, 'oyuncu') },
+  { id: 'zincir', to: '/oyunlar/zincir', title: tt('Oyuncu zinciri'), text: tt('İki oyuncuyu ortak yapımlar üzerinden en kısa yoldan bağla.'), icon: 'link', color: '#22d3ee', rec: (pid) => readRecord(pid, 'zincir') },
 ]
 
 export default function OyunSalonu() {
-  const { pool, loading } = useArchive()
+  const { pool, loading, board: archive } = useArchive()
   const { profiles, activeProfileId } = useProfiles()
   const rewards = useExtras().on('rewards')
   const art = useMemo(() => shuffle(pool.filter((x) => x.poster)).slice(0, 28), [pool])
@@ -71,7 +72,7 @@ export default function OyunSalonu() {
             <p className="text-sm font-semibold tracking-[0.3em] text-[#7fdcff]">ARGUS</p>
             <h1 className="text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Oyun salonu')}</h1>
             <p className="text-neutral-300 mt-2 max-w-xl">{tt('Hepsi kendi arşivinle oynanıyor: sahneler, puanların, oyuncular, sinopsisler.')}</p>
-            {rewards && <p className="text-sm text-amber-200 mt-2">🃏 {tt('Oyun bitirmek Bronz (günde 3), rekor kırmak Gümüş, günün yapımında 7 gün seri Altın paket kazandırır.')}</p>}
+            {rewards && <p className="text-sm text-amber-200 mt-2 flex items-center gap-1.5"><Icon name="cards" className="h-4 w-4 shrink-0" />{tt('Oyun bitirmek Bronz (günde 3), rekor kırmak Gümüş, günün yapımında 7 gün seri Altın paket kazandırır.')}</p>}
           </div>
           <div className="ml-auto">
             <SoundToggle />
@@ -80,17 +81,18 @@ export default function OyunSalonu() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {GAMES.map((g, i) => {
+        {GAMES.map((g) => {
           const rec = pid ? g.rec(pid) : 0
-          const poster = art[i * 3]?.poster
           return (
             <Link key={g.id} to={g.to} className="group relative overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/60 hover:border-[#00c0fa]/60 transition">
-              <div className="relative h-32 overflow-hidden">
-                {poster && <img src={poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35 blur-[1px] scale-110 group-hover:scale-125 transition duration-700" />}
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent" />
-                <span className="absolute left-5 bottom-3 text-4xl drop-shadow-lg">{g.emoji}</span>
+              <div className="relative h-36 overflow-hidden bg-neutral-950">
+                {/* O1: kartın üstü oyunun kendisini gösterir (arşivdeki gerçek afiş/sahne/oyuncularla) */}
+                <GameCardArt game={g.id} pool={pool} board={archive} />
+                <span className="absolute left-4 bottom-3 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg shadow-black/50" style={{ background: g.color, color: '#0b0b0f' }}>
+                  <Icon name={g.icon} className="h-5 w-5" />
+                </span>
                 {g.id === 'gunluk' && (
-                  <span className={`absolute right-4 top-4 rounded-full px-2.5 py-1 text-xs font-bold ${daily?.won ? 'bg-emerald-500/25 text-emerald-200' : daily?.done ? 'bg-rose-500/20 text-rose-200' : 'bg-amber-500/20 text-amber-200'}`}>
+                  <span className={`absolute right-4 top-4 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur ${daily?.won ? 'bg-emerald-500/30 text-emerald-100' : daily?.done ? 'bg-rose-500/30 text-rose-100' : 'bg-amber-500/30 text-amber-100'}`}>
                     {daily?.won ? tt('Bugün bildin ✓') : daily?.done ? tt('Bugün bitti') : tt('Bugün oynanmadı')}
                   </span>
                 )}

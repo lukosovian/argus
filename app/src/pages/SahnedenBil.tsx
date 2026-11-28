@@ -417,10 +417,18 @@ export default function SahnedenBil() {
       right={
         phase === 'play' ? (
           <div className="flex items-end gap-3">
-            {!set.rounds && <span className="text-lg">{'❤️'.repeat(Math.max(0, lives))}{'🖤'.repeat(Math.max(0, 3 - lives))}</span>}
+            {!set.rounds && (
+              // Canlar: dolu kalpler kırmızı, gidenler soluk
+              <span className="inline-flex items-center gap-0.5" aria-label={tt('{0} can', Math.max(0, lives))}>
+                {[0, 1, 2].map((i) => (
+                  <Icon key={i} name="heart" className={`h-5 w-5 ${i < lives ? 'text-rose-500' : 'text-neutral-700'}`} />
+                ))}
+              </span>
+            )}
             {streak >= 2 && (
               <span className="rounded-full bg-amber-500/15 border border-amber-400/40 px-3 py-1 text-sm font-bold text-amber-200">
-                🔥 {tt('{0} seri', streak)} · ×{(1 + Math.min(streak, 4) * 0.25).toString().replace('.', ',')}
+                <Icon name="flame" className="h-4 w-4 mr-1" />
+                {tt('{0} seri', streak)} · ×{(1 + Math.min(streak, 4) * 0.25).toString().replace('.', ',')}
               </span>
             )}
           </div>
@@ -521,7 +529,8 @@ export default function SahnedenBil() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button onClick={() => save({ ...set, jokers: !set.jokers })} className={`${chip(set.jokers)} inline-flex items-center gap-2`}>
-                🃏 {set.jokers ? tt('Jokerler açık') : tt('Jokerler kapalı')}
+                <Icon name="cards" className="h-4 w-4" />
+                {set.jokers ? tt('Jokerler açık') : tt('Jokerler kapalı')}
               </button>
               <span className="text-xs text-neutral-500">{tt('%50, Yıl, Tür, Oyuncu — her oyunda birer tane, kullanınca o sorunun puanı düşer.')}</span>
             </div>
@@ -560,8 +569,8 @@ export default function SahnedenBil() {
               </span>
               {/* joker ipuçları */}
               <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 max-w-[75%]">
-                {jokersNow.includes('yil') && <span className="rounded-full bg-black/75 border border-white/20 px-2.5 py-1 text-xs font-bold text-white">📅 {q.ans.year ?? '?'}</span>}
-                {jokersNow.includes('tur') && <span className="rounded-full bg-black/75 border border-white/20 px-2.5 py-1 text-xs font-bold text-white">🎭 {q.ans.genres.slice(0, 2).join(' · ') || '?'}</span>}
+                {jokersNow.includes('yil') && <span className="rounded-full bg-black/75 border border-white/20 px-2.5 py-1 text-xs font-bold text-white"><Icon name="calendar" className="h-3.5 w-3.5 mr-1" />{q.ans.year ?? '?'}</span>}
+                {jokersNow.includes('tur') && <span className="rounded-full bg-black/75 border border-white/20 px-2.5 py-1 text-xs font-bold text-white"><Icon name="sparkle" className="h-3.5 w-3.5 mr-1" />{q.ans.genres.slice(0, 2).join(' · ') || '?'}</span>}
                 {jokersNow.includes('oyuncu') && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-black/75 border border-white/20 pl-1 pr-2.5 py-0.5 text-xs font-bold text-white">
                     {q.ans.actors[0]?.image && <img src={q.ans.actors[0].image} alt="" className="h-6 w-6 rounded-full object-cover" />}

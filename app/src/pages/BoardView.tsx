@@ -73,6 +73,8 @@ import {
   SortIcon,
 } from '../components/toolbarIcons'
 import { useEscape } from '../hooks/useEscape'
+import Icon from '../components/Icon'
+import RowPeek, { readPeekOpen, writePeekOpen } from '../components/table/RowPeek'
 import { tt, ttx } from '../lib/i18n'
 import { COLUMN_NAMES, nameOf } from '../lib/names'
 import EmptyState from '../components/EmptyState'
@@ -167,7 +169,7 @@ const FETCHABLE_FIELDS: { key: string; label: string }[] = [
 // Bir sütuna yazmayan alanlar (sütun seçimi yok)
 const NO_COLUMN_FIELDS = new Set(['sezonlar', 'turkceAdi'])
 
-// "API eşitle" (tek satır 🔄 ve toplu "Genel Güncelleme") hangi alanları doldursun — kullanıcı
+// "API eşitle" (tek satır yenile düğmesi ve toplu "Genel Güncelleme") hangi alanları doldursun — kullanıcı
 // kimi sütunu TMDB'nin hiç ellememesini isteyebilir (ör. elle özenle yazdığı bir Sinopsis'in
 // yerine TMDB'ninkinin gelmesini istemeyebilir, ya da o sütunu hiç kullanmıyordur). Aynı
 // localStorage deseni (bkz. ColumnVisibilityPopover): arşive özel, kalıcı.
@@ -237,7 +239,14 @@ function TmdbFieldsPopover({
               </p>
               <div className="flex items-center gap-3 mt-2 text-xs">
                 <span className={closedCount ? 'text-amber-400' : 'text-emerald-400'}>
-                  {closedCount ? tt('{0} alan kapalı', closedCount) : tt('✓ Hepsi açık')}
+                  {closedCount ? (
+                    tt('{0} alan kapalı', closedCount)
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="check" className="h-3.5 w-3.5" />
+                      {tt('Hepsi açık')}
+                    </span>
+                  )}
                 </span>
                 {unmapped.length > 0 && <span className="text-amber-400">{ttx('{0} alanın sütunu yok', unmapped.length)}</span>}
                 {closedCount > 0 && (
@@ -999,6 +1008,18 @@ export default function BoardView() {
   // Altı-noktalı tutamacın yanındaki göz ikonu — ana sayfadaki kart tıklamasıyla açılan aynı
   // RowDetailModal'ı tablo görünümünden de açabilmek için.
   const [detailRow, setDetailRow] = useState<Row | null>(null)
+  // Tablonun sağındaki önizleme paneli (T1): açık/kapalı hatırlanır; hangi satırı gösterdiği hatırlanmaz
+  const [peekOpen, setPeekOpen] = useState(readPeekOpen)
+  const [peekRowId, setPeekRowId] = useState<string | null>(null)
+  const peekOpenRef = useRef(peekOpen)
+  peekOpenRef.current = peekOpen
+  const onPeekRow = useCallback((row: Row, explicit: boolean) => {
+    if (explicit) {
+      setPeekOpen(true)
+      writePeekOpen(true)
+    } else if (!peekOpenRef.current) return
+    setPeekRowId(row.id)
+  }, [])
   // Telefonda kayıt düzenleme / yeni kayıt formu (masaüstündeki tablo hücreleri yerine)
   const [editRow, setEditRow] = useState<Row | 'new' | null>(null)
 
@@ -1307,7 +1328,7 @@ export default function BoardView() {
     })
   }
 
-  // "Genel Güncelleme" — tek tek satırlardaki 🔄 butonunun toplu hali: eksik görünen (poster/
+  // "Genel Güncelleme" — tek tek satırlardaki yenile butonunun toplu hali: eksik görünen (poster/
   // sinopsis/ülke/yönetmen/fragmanından biri boş) her kaydı sırayla TMDB'den doldurur.
   // Tek seferde tüm satırları paralel çağırmak yerine sırayla gidiyor (TMDB'yi yormamak için,
   // Python scriptlerindeki `time.sleep` mantığıyla aynı sebep) — bu yüzden uzun sürebilir,
@@ -2462,7 +2483,7 @@ export default function BoardView() {
     notifyDeleted(deleted)
   }
 
-  // Tablo satırındaki 🔄 butonu — sadece başlığa bakıp TMDB'den film/dizi bilgilerini
+  // Tablo satırındaki yenile butonu — sadece başlığa bakıp TMDB'den film/dizi bilgilerini
   // (poster, banner, ülke, yönetmen, sinopsis, oyuncular, diziyse sezon/bölüm) doldurur/
   // yeniler. Sadece bu tıklama anında TMDB'ye çıkar, sonucu board/rows'a yazar ve
   // buradaki state'i tazeler.
@@ -3062,6 +3083,8 @@ export default function BoardView() {
           <p className="py-16 text-center text-sm text-neutral-500">{tt('Pano için bir Seçim sütunu gerekiyor (ör. Durum).')}</p>
         )
       ) : (
+        <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
         <BoardTable
           ref={boardTableRef}
           board={board}
@@ -3114,7 +3137,23 @@ export default function BoardView() {
             onReorderOptions: optionTools.reorderOptions,
             onMergeOption: (pid, from, to) => void optionTools.mergeOption(pid, from, to),
           }}
+          onPeekRow={onPeekRow}
+          peekRowId={peekOpen ? peekRowId : null}
         />
+        </div>
+        {peekOpen && (
+          <RowPeek
+            board={board}
+            row={filteredRows.find((r) => r.id === peekRowId) ?? filteredRows[0] ?? null}
+            onClose={() => {
+              setPeekOpen(false)
+              writePeekOpen(false)
+            }}
+            onOpen={setDetailRow}
+            onWatchedToday={(row) => void markWatched([row.id], todayIso())}
+          />
+        )}
+        </div>
       )}
       {!rowsLoading && !MOBILE && (
         <ScrollEndsButtons

@@ -12,7 +12,7 @@ import HoverPreviewVideo from './HoverPreviewVideo'
 import { gradientBorderStyle, BRAND_GRADIENT } from '../lib/theme'
 import { conditionsKey, filterConditions, rowMatchesConditions } from '../lib/filters'
 import { tt } from '../lib/i18n'
-import { IconText } from './Icon'
+import Icon, { IconText } from './Icon'
 
 // Uygulamayla gelen 10 varsayılan mod görseli koyu temada duracak şekilde (beyaz ikon,
 // saydam arka plan) hazırlandı. CSS `filter: invert()` denendi ama güvenilir çalışmadı
@@ -347,6 +347,9 @@ export default function MoodRow({
 
   if (items.length === 0) return null
 
+  // Masaüstünde renkli mod kutuları (öneri A3); telefonda eski görünüm
+  if (!MOBILE) return <MoodTiles title={title} items={items} board={board} rows={rows} onOpenDetail={onOpenDetail} titleClass={titleClass} />
+
   return (
     <div className="group/row">
       {title && <h2 className={`${titleClass ?? 'text-xl font-semibold text-neutral-200'} mb-2`}>{title}</h2>}
@@ -404,6 +407,122 @@ export default function MoodRow({
             <ChevronRightIcon />
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Mod kutularının renkleri: uygulamayla gelen 10 mod kendi renginde (görsel dosya adına göre, bkz.
+// DEFAULT_MOOD_FILENAMES), kullanıcının eklediği modlar adından türeyen sabit bir renkte.
+const BUILTIN_MOOD_COLORS = ['#f97316', '#eab308', '#ec4899', '#3b82f6', '#ef4444', '#14b8a6', '#8b5cf6', '#22c55e', '#b45309', '#e11d48']
+const EXTRA_MOOD_COLORS = ['#06b6d4', '#a855f7', '#f59e0b', '#10b981', '#6366f1', '#f43f5e', '#84cc16', '#0ea5e9']
+function moodColor(mood: Mood): string {
+  const file = mood.image.split('/').pop()
+  const i = BUILTIN_MOODS.findIndex((m) => m.image.split('/').pop() === file)
+  if (i >= 0) return BUILTIN_MOOD_COLORS[i % BUILTIN_MOOD_COLORS.length]
+  let h = 0
+  for (const ch of mood.name) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return EXTRA_MOOD_COLORS[h % EXTRA_MOOD_COLORS.length]
+}
+
+const FAN_STYLES: React.CSSProperties[] = [
+  { right: 62, bottom: -6, transform: 'rotate(-14deg)' },
+  { right: 32, bottom: 4, transform: 'rotate(-2deg)', zIndex: 2 },
+  { right: 4, bottom: -4, transform: 'rotate(12deg)' },
+]
+
+// Renkli mod kutuları: modun kendi görseli küçük bir dairede, adı, kaç yapım olduğu ve köşede yelpaze gibi
+// açılmış üç afiş. Kutuya tıklamak eskisi gibi o modun günlük seçtiği yapımı açar; afişler kendi yapımını açar.
+function MoodTiles({
+  title,
+  items,
+  board,
+  rows,
+  onOpenDetail,
+  titleClass,
+}: {
+  title: string
+  items: { mood: Mood; row: Row }[]
+  board: Board
+  rows: Row[]
+  onOpenDetail: (row: Row) => void
+  titleClass?: string
+}) {
+  const posterProp = resolveRole(board, 'poster')
+  const coverProp = board.properties.find((p) => p.id === board.coverPropertyId && p.type === 'image')
+  const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+  const imgOf = (r: Row) => (posterProp && (r.values[posterProp.id] as string)) || (coverProp && (r.values[coverProp.id] as string)) || ''
+  const nameOf = (r: Row) => (titleProp ? titleText(titleProp, r.values[titleProp.id]) : '')
+
+  // Her mod için havuz büyüklüğü ve yelpazedeki üç afiş (günün seçimi en önde)
+  const tiles = useMemo(
+    () =>
+      items.map(({ mood, row }) => {
+        const pool = rows.filter((r) => rowMatchesConditions(r, filterConditions(mood)))
+        const withImg = pool.filter((r) => r.id !== row.id && imgOf(r))
+        const start = Math.max(0, pool.findIndex((r) => r.id === row.id))
+        const others = [...withImg.slice(start), ...withImg.slice(0, start)].slice(0, 2)
+        return { mood, row, count: pool.length, fan: [...others.slice(0, 1), row, ...others.slice(1)].filter((r) => imgOf(r)) }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, rows, posterProp?.id, coverProp?.id],
+  )
+
+  return (
+    <div>
+      {title && <h2 className={`${titleClass ?? 'text-xl font-semibold text-neutral-200'} mb-2`}>{title}</h2>}
+      <div className="no-scrollbar flex gap-3 overflow-x-auto -mx-4 px-4 pt-2 pb-3">
+        {tiles.map(({ mood, row, count, fan }) => {
+          const k = moodColor(mood)
+          return (
+            <div
+              key={mood.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpenDetail(row)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+                e.preventDefault()
+                onOpenDetail(row)
+              }}
+              title={nameOf(row)}
+              className="group relative h-[150px] w-[250px] shrink-0 cursor-pointer overflow-hidden rounded-2xl p-3.5 text-left text-white transition duration-300 hover:-translate-y-1"
+              style={{
+                background: `linear-gradient(135deg, color-mix(in srgb, ${k} 72%, #000), color-mix(in srgb, ${k} 22%, #0a0a0a))`,
+                border: `1px solid color-mix(in srgb, ${k} 45%, transparent)`,
+                boxShadow: `0 12px 28px -16px ${k}`,
+              }}
+            >
+              <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/15">
+                {mood.image ? (
+                  <img src={mood.image} alt="" loading="lazy" decoding="async" className="h-7 w-7 object-contain" />
+                ) : (
+                  <Icon name="smile" className="h-5 w-5" />
+                )}
+              </span>
+              <b className="mt-2.5 block max-w-[52%] truncate text-[17px] leading-tight">{mood.name}</b>
+              <small className="text-[11.5px] text-white/75">{tt('{0} yapım', count)}</small>
+              <div className="absolute -right-1.5 -bottom-3.5 h-[120px] w-[124px]">
+                {fan.map((r, i) => (
+                  <img
+                    key={r.id}
+                    src={imgOf(r)}
+                    alt={nameOf(r)}
+                    title={nameOf(r)}
+                    loading="lazy"
+                    decoding="async"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenDetail(r)
+                    }}
+                    className="absolute w-[58px] aspect-[2/3] rounded-md object-cover shadow-[0_8px_20px_rgba(0,0,0,.5)] transition-transform duration-300 hover:!z-10 group-hover:-translate-y-1"
+                    style={FAN_STYLES[fan.length === 3 ? i : i + 1] ?? FAN_STYLES[1]}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

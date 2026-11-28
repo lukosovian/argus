@@ -145,6 +145,45 @@ app.post('/api/profiles/:profileId/boards/:id/series-finale', (req, res) => {
   res.json({ ok: true, changed: n, final: list.filter((x) => x.to === 'final').length, sezonFinali: list.filter((x) => x.to === 'sezonFinali').length })
 })
 
+// Bir dizinin "tarihsiz" sayılacak bölümleri (sezon → bölüm sırasıyla anahtarlar). Kullanıcı: "Percy Jackson'ın yeni
+// sezonu çıktı, henüz izlemediğim halde Sağlık Kontrolü 'tarihsiz bölüm var' diyor". Son izlediğin bölümden SONRA
+// yayınlanan bölümler sadece henüz izlenmemiştir, eksik değildir:
+// - bölümleri işaretliyse: yalnızca en ileri işaretli bölümden önceki işaretsizler (aradaki gerçek boşluklar);
+// - hiç işaretli bölüm yoksa: kaydın son bilinen izleme gününden (yıl yazılıysa o yılın sonundan) sonra yayınlananlar sayılmaz.
+// `want`: yalnızca bu sezonlar (null = hepsi).
+export function undatedEpisodeKeys(row, seasons, seen, dateProp, today, want = null) {
+  const order = []
+  for (const s of [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber)) {
+    if (!(s.seasonNumber >= 1)) continue
+    for (const e of [...(s.episodes ?? [])].sort((a, b) => a.episodeNumber - b.episodeNumber)) {
+      const k = `${s.seasonNumber}-${e.episodeNumber}`
+      order.push({ k, season: s.seasonNumber, airDate: e.airDate, dated: (seen[k] ?? []).some((d) => d) })
+    }
+  }
+  let last = -1
+  order.forEach((x, i) => {
+    if (x.dated) last = i
+  })
+  let until = null
+  if (last < 0) {
+    const v = dateProp ? row.values[dateProp.id] : null
+    for (const d of (Array.isArray(v) ? v : v ? [v] : []).map(String)) {
+      const parts = d.split('/')
+      const end = parts[parts.length - 1]
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(end) ? end : /^\d{4}$/.test(end) ? `${end}-12-31` : null
+      if (day && (!until || day > until)) until = day
+    }
+  }
+  return order
+    .filter((x, i) => {
+      if (x.dated || !x.airDate || x.airDate > today) return false
+      if (want && !want.has(x.season)) return false
+      if (last >= 0) return i < last
+      return !until || x.airDate <= until
+    })
+    .map((x) => x.k)
+}
+
 // "İzlendi" olan ama bölümlerinin izleme tarihi olmayan diziler (Sağlık Kontrolü). Kullanıcı "diziyi izlemişim,
 // izlendi işaretli ama bölümlerinde tarih yok, bunları göstersin, toplu ya da tek tek tarihleyebileyim" dedi.
 // Yayınlanmış ama hiç işaretlenmemiş (ya da boş tarihli) bölümler sayılır; "?" (hatırlamıyorum) tarih sayılır.
@@ -172,10 +211,11 @@ export function findUndatedSeries(profileId, board, rows) {
     if (!Array.isArray(seasons) || !seasons.length) continue
     const seen = watched[row.id] ?? {}
     const list = []
+    const keys = new Set(undatedEpisodeKeys(row, seasons, seen, dateProp, today))
     for (const s of seasons) {
       if (!(s.seasonNumber >= 1)) continue
       const aired = (s.episodes ?? []).filter((e) => e.airDate && e.airDate <= today)
-      const undated = aired.filter((e) => !(seen[`${s.seasonNumber}-${e.episodeNumber}`] ?? []).some((d) => d)).length
+      const undated = aired.filter((e) => keys.has(`${s.seasonNumber}-${e.episodeNumber}`)).length
       if (undated) list.push({ season: s.seasonNumber, total: aired.length, undated })
     }
     if (list.length) out.push({ rowId: row.id, seasons: list, ...(todo ? { todo: true } : {}) })
@@ -212,16 +252,8 @@ app.post('/api/profiles/:profileId/boards/:id/date-episodes', (req, res) => {
     if (!Array.isArray(seasons)) continue
     const want = Array.isArray(it.seasons) && it.seasons.length ? new Set(it.seasons.map(Number)) : null
     const seen = { ...(all[row.id] ?? {}) }
-    const keys = []
-    for (const s of [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber)) {
-      if (!(s.seasonNumber >= 1) || (want && !want.has(s.seasonNumber))) continue
-      for (const e of [...(s.episodes ?? [])].sort((a, b) => a.episodeNumber - b.episodeNumber)) {
-        if (!e.airDate || e.airDate > today) continue
-        const k = `${s.seasonNumber}-${e.episodeNumber}`
-        if ((seen[k] ?? []).some((d) => d)) continue
-        keys.push(k)
-      }
-    }
+    // Sağlık Kontrolü'nün saydığı bölümlerin aynısı: son izlenenden sonra çıkan (henüz izlenmemiş) bölümlere tarih yazılmaz
+    const keys = undatedEpisodeKeys(row, seasons, seen, dateProp, today, want)
     if (!keys.length) continue
     let dates = keys.map(() => date)
     if (date === 'kayit') {

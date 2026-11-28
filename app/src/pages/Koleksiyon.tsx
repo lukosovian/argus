@@ -23,6 +23,8 @@ import { PRIMARY_BUTTON, primaryButtonStyle } from '../lib/theme'
 import { averageColor } from '../lib/imageColor'
 import { tt, ttx } from '../lib/i18n'
 import Icon from '../components/Icon'
+import PosterWallHero from '../components/PosterWallHero'
+import EmptyState from '../components/EmptyState'
 import { useSearchParams } from 'react-router-dom'
 import Biletlerim from './Biletlerim'
 import Oduller from './Oduller'
@@ -48,6 +50,13 @@ type Item = KoleksiyonItem
 type Editing = { kind: 'item'; item: Item } | { kind: 'shelf'; key: string; name: string; symbol: string | null; fallback: string | null }
 
 const SPOT = 'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.09), transparent 70%), #0a0a0a'
+// R1 (Arayüz Önerileri 3): raf tahtasının kalınlığı ve afişlerin altında yansımaya kalan yer
+const PLANK_H = 14
+const SHELF_GAP = 46
+const BOOK_STYLE: React.CSSProperties = {
+  boxShadow: '0 -4px 22px rgba(0,0,0,0.4), 6px 0 14px rgba(0,0,0,0.5)',
+  WebkitBoxReflect: `below ${PLANK_H}px linear-gradient(transparent 70%, rgba(255,255,255,0.16))`,
+}
 
 function Raflar() {
   const { settings } = useHomeSettings()
@@ -59,6 +68,10 @@ function Raflar() {
   const [editing, setEditing] = useState<Editing | null>(null)
   const [detail, setDetail] = useState<Row | null>(null)
   const [kind, setKind] = useState<'hepsi' | 'film' | 'dizi'>('hepsi')
+  // Ana sayfadaki Seri vitrininden "Seriyi aç" ile gelince (?raf=<anahtar>) o rafa kaydır ve kısa süre vurgula
+  const [rafSp] = useSearchParams()
+  const rafParam = rafSp.get('raf')
+  const [flashRaf, setFlashRaf] = useState<string | null>(null)
   const [onlySymbols, setOnlySymbols] = useState(false)
   const [q, setQ] = useState('')
   // "+ Yapım ekle" penceresi, "+ Yeni raf" adı, koleksiyon görseli (açılınca o anki raflar donduruluyor)
@@ -93,6 +106,8 @@ function Raflar() {
   }, [info, load])
 
   const items = useMemo<Item[]>(() => (board && info ? buildKoleksiyonItems(board, rows, info) : []), [board, rows, info])
+  // H3: başlığın arkasında son izlediklerinin afişleri
+  const heroPosters = useMemo(() => [...items].sort((a, b) => b.lastWatched.localeCompare(a.lastWatched)).map((it) => it.poster).filter(Boolean).slice(0, 14), [items])
 
   // Raflar: en az 2 yapımı olanlar, elle oluşturulanlar ya da adı / sembolü değiştirilenler (bkz. lib/koleksiyonRaflar)
   const { shelves, loose } = useMemo(() => buildShelves(items, info), [items, info])
@@ -123,8 +138,9 @@ function Raflar() {
 
   // Her rafta henüz izlemediğin (İzlenecek'teki) yapımlar: sembolün çevresindeki halka "kaçını izledin"i gösterir
   // (v1.23.3, öneri K1). Raf anahtarı koleksiyondakilerle aynı yolla bulunuyor.
+  // R1: rafta gri afiş olarak da duruyorlar
   const laterByShelf = useMemo(() => {
-    const out = new Map<string, number>()
+    const out = new Map<string, { row: Row; title: string; poster: string }[]>()
     if (!board || !info) return out
     const durum = resolveRole(board, 'durum')
     const later = resolveStatusOption(board, 'izlenecek')
@@ -132,6 +148,7 @@ function Raflar() {
     const tp = board.properties.find((p) => p.id === board.titlePropertyId)
     const orig = resolveRole(board, 'orjinalAdi')
     const kategori = resolveRole(board, 'kategori')
+    const posterProp = resolveRole(board, 'poster')
     for (const r of rows) {
       if (r.values[durum.id] !== later) continue
       const title = tp ? titleText(tp, r.values[tp.id]) : ''
@@ -140,7 +157,8 @@ function Raflar() {
       const col = info.laterCollections?.[r.id]
       const isSeries = info.mediaTypes[r.id] ? info.mediaTypes[r.id] === 'tv' : /dizi/i.test(kategori?.options?.find((o) => o.id === r.values[kategori.id])?.label ?? '')
       const k = autoShelf(col?.name ?? original, isSeries, Boolean(col)).key
-      if (k) out.set(k, (out.get(k) ?? 0) + 1)
+      const poster = posterProp && typeof r.values[posterProp.id] === 'string' ? (r.values[posterProp.id] as string) : ''
+      if (k) out.set(k, [...(out.get(k) ?? []), { row: r, title, poster }])
     }
     return out
   }, [board, rows, info])
@@ -169,6 +187,16 @@ function Raflar() {
     .map((s) => ({ ...s, shown: s.items.filter(match) }))
     .filter((s) => s.shown.length > 0 || (onlySymbols && s.custom && !q.trim()) || (noFilter && s.items.length === 0))
   const filteredLoose = looseAll.filter(match)
+  const rafReady = filteredShelves.some((x) => x.key === rafParam)
+  useEffect(() => {
+    if (!rafParam || !rafReady) return
+    const el = document.getElementById(`raf-${rafParam}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setFlashRaf(rafParam)
+    const t = setTimeout(() => setFlashRaf(null), 2200)
+    return () => clearTimeout(t)
+  }, [rafParam, rafReady])
   const symbolCount = items.filter((it) => it.symbol).length
 
   // "+ Yapım ekle" penceresinde işaretlenenler bu rafa; işareti kaldırılanlar raftan çıkar (kendiliğinden
@@ -264,6 +292,39 @@ function Raflar() {
     </button>
   )
 
+  // R1: rafta ayakta duran afiş. Afişi yoksa eski sembol/logo kutusu; kendi sembolü varsa köşede küçük rozet.
+  const Book = ({ it }: { it: Item }) => (
+    <button
+      onClick={() => setEditing({ kind: 'item', item: it })}
+      className="group/b relative shrink-0 w-24 sm:w-28 text-left origin-bottom transition-transform duration-300 hover:-translate-y-2.5 hover:-rotate-1"
+      title={tt('{0} — sembolünü değiştirmek için tıkla', it.title)}
+    >
+      <div className="relative aspect-[2/3] overflow-hidden rounded-t-[4px] rounded-b-[2px] bg-neutral-900" style={{ ...BOOK_STYLE, ...(it.poster ? {} : { background: SPOT }) }}>
+        {it.poster ? (
+          <img src={it.poster} alt="" loading="lazy" className="h-full w-full object-cover" />
+        ) : it.symbol || it.logo ? (
+          <span className="absolute inset-0 flex items-center justify-center p-3">
+            <img src={(it.symbol || it.logo) as string} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
+          </span>
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-bold text-neutral-300 line-clamp-4">{it.title}</span>
+        )}
+        {it.poster && it.symbol && (
+          <span className="absolute bottom-1.5 left-1.5 h-8 w-8 rounded-full bg-black/75 p-1 ring-1 ring-white/15 backdrop-blur-sm">
+            <img src={it.symbol} alt="" className="h-full w-full object-contain" />
+          </span>
+        )}
+        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1.5 pt-6 text-[11px] font-semibold leading-tight text-white opacity-0 transition group-hover/b:opacity-100 line-clamp-2">
+          {it.title}
+          {it.year && <span className="font-normal text-neutral-300"> · {it.year}</span>}
+        </span>
+        <span className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/70 text-neutral-200 flex items-center justify-center opacity-0 group-hover/b:opacity-100 transition">
+          <Icon name="pencil" className="h-3 w-3" />
+        </span>
+      </div>
+    </button>
+  )
+
   const shelfOptions = [
     { value: '__auto', label: tt('Kendiliğinden bulunan raf') },
     { value: '', label: tt('Rafsız') },
@@ -272,7 +333,7 @@ function Raflar() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10" style={{ background: 'radial-gradient(ellipse at 20% 0%, rgba(0,192,250,0.14), transparent 60%), radial-gradient(ellipse at 90% 100%, rgba(120,60,200,0.12), transparent 60%), var(--color-neutral-950)' }}>
+      <PosterWallHero posters={heroPosters} tint="rgba(0,192,250,0.14)">
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
         <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Koleksiyon')}</h1>
         <p className="text-neutral-300 mt-2 max-w-2xl">
@@ -284,7 +345,7 @@ function Raflar() {
           ) : null}
           {tt('. Bir yapıma ya da rafın büyük sembolüne tıklayıp sembolünü koyabilirsin.')}
         </p>
-      </section>
+      </PosterWallHero>
 
       {info.pending && (
         <BackgroundProgress
@@ -325,14 +386,16 @@ function Raflar() {
 
       {filteredShelves.map((s) => {
         const tint = s.symbol ? tints[s.symbol] : undefined
-        const missing = s.manual ? 0 : (laterByShelf.get(s.key) ?? 0)
+        const later = s.manual ? [] : (laterByShelf.get(s.key) ?? [])
+        const missing = later.length
         const total = s.items.length + missing
         const ratio = total ? s.items.length / total : 0
         const ringColor = tint ? `rgb(${tint})` : '#00c0fa'
         return (
         <section
           key={s.key}
-          className="relative overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 flex flex-col sm:flex-row gap-5"
+          id={`raf-${s.key}`}
+          className={`relative overflow-hidden rounded-3xl border transition-shadow duration-500 ${flashRaf === s.key ? 'border-[#00c0fa] shadow-[0_0_0_3px_rgba(0,192,250,0.35)]' : 'border-neutral-800'} bg-neutral-900/50 p-4 sm:p-5 flex flex-col sm:flex-row gap-5`}
           style={tint ? { background: `radial-gradient(ellipse at 8% 50%, rgba(${tint},0.13), transparent 55%), color-mix(in srgb, var(--color-neutral-900) 50%, transparent)` } : undefined}
         >
           <button
@@ -340,9 +403,13 @@ function Raflar() {
             className="group shrink-0 w-32 sm:w-48 text-left"
             title={tt('Rafın sembolünü ve adını değiştir')}
           >
+            {/* R1: sembol kendi renginde parlar */}
             <div
               className="relative aspect-square rounded-2xl border border-neutral-800 group-hover:border-neutral-600 flex items-center justify-center p-9 sm:p-11 transition"
-              style={{ background: tint ? `radial-gradient(circle at 50% 45%, rgba(${tint},0.16), #0a0a0a 72%)` : SPOT }}
+              style={{
+                background: tint ? `radial-gradient(circle at 50% 45%, rgba(${tint},0.22), #0a0a0a 72%)` : SPOT,
+                ...(tint ? { borderColor: `rgba(${tint},0.45)`, boxShadow: `0 0 34px rgba(${tint},0.28), inset 0 0 26px rgba(${tint},0.18)` } : {}),
+              }}
             >
               {/* İlerleme halkası: bu raftaki serinin kaçını izledin (İzlenecek'tekiler eksik sayılır) */}
               {s.items.length > 0 && (
@@ -371,7 +438,7 @@ function Raflar() {
                 />
               ) : (
                 <span className="text-center">
-                  <span className="block text-3xl text-neutral-700">＋</span>
+                  <Icon name="plus" className="mx-auto h-8 w-8 text-neutral-700" />
                   <span className="block text-xs text-neutral-500 mt-1">{tt('Rafa sembol ekle')}</span>
                 </span>
               )}
@@ -380,7 +447,7 @@ function Raflar() {
             <p className="text-lg font-bold text-neutral-50 mt-2 leading-tight">{s.name}</p>
             {doneSets.has(s.key) && (
               <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300" title={tt('Bu serinin bütün film kartlarını topladın')}>
-                ✦ {tt('Set tamam')}
+                <Icon name="sparkle" className="h-3 w-3" /> {tt('Set tamam')}
               </span>
             )}
             {/* A18: Ödüller açıksa set ilerlemesi ("3 / 5 kart") */}
@@ -401,26 +468,51 @@ function Raflar() {
               {missing > 0 ? tt('{0} yapımın {1} tanesini izledin', total, s.items.length) : ttx('{0} yapım', s.items.length)}
             </p>
           </button>
-          <div className="min-w-0 flex-1">
-            <div className="flex gap-3 overflow-x-auto pb-3">
+          {/* R1: afişler ışıklı ahşap rafın üstünde ayakta; altta hafif yansıma. İzlemediklerin (İzlenecek) gri. */}
+          <div className="relative min-w-0 flex-1 self-end">
+            <div className="flex items-end gap-3 overflow-x-auto overflow-y-hidden px-1 pt-4" style={{ paddingBottom: SHELF_GAP }}>
               {s.shown.map((it) => (
-                <Exhibit key={it.row.id} it={it} big />
+                <Book key={it.row.id} it={it} />
               ))}
+              {noFilter &&
+                later.map((l) => (
+                  <button
+                    key={l.row.id}
+                    onClick={() => setDetail(l.row)}
+                    className="group/b relative shrink-0 w-24 sm:w-28 origin-bottom transition-transform duration-300 hover:-translate-y-2.5 hover:-rotate-1"
+                    title={tt('{0} — henüz izlemedin', l.title)}
+                  >
+                    <div className="relative aspect-[2/3] overflow-hidden rounded-t-[4px] rounded-b-[2px] bg-neutral-900" style={BOOK_STYLE}>
+                      {l.poster ? (
+                        <img src={l.poster} alt="" loading="lazy" className="h-full w-full object-cover grayscale brightness-[.35] transition duration-300 group-hover/b:brightness-[.6]" />
+                      ) : (
+                        <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-[11px] font-semibold text-neutral-600 line-clamp-4">{l.title}</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
               <button
                 onClick={() => setPicking({ key: s.key, name: s.name })}
-                className="shrink-0 w-36 sm:w-40 text-left group"
+                className="group/b shrink-0 w-24 sm:w-28 text-left"
                 title={tt('Bu rafa yapım ekle ya da çıkar')}
               >
-                <div className="aspect-square rounded-2xl border-2 border-dashed border-neutral-800 group-hover:border-[#00c0fa]/60 flex flex-col items-center justify-center text-neutral-500 group-hover:text-[#7fdcff] transition">
-                  <span className="text-3xl leading-none">＋</span>
+                <div className="aspect-[2/3] rounded-t-[4px] border-2 border-dashed border-neutral-700/80 group-hover/b:border-[#00c0fa]/60 flex flex-col items-center justify-center text-neutral-500 group-hover/b:text-[#7fdcff] transition">
+                  <Icon name="plus" className="h-7 w-7" />
                   <span className="text-xs mt-1.5">{tt('Yapım ekle')}</span>
                 </div>
               </button>
             </div>
-            {/* cam raf — sembolün renginde hafif ışıklı */}
+            {/* rafın üstüne vuran sıcak ışık + ahşap tahta */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 h-12" style={{ bottom: SHELF_GAP, background: `linear-gradient(0deg, ${tint ? `rgba(${tint},0.10)` : 'rgba(255,200,120,0.10)'}, transparent)` }} />
             <div
-              className="h-1.5 rounded-full shadow-[0_6px_14px_rgba(0,0,0,0.6)]"
-              style={{ background: `linear-gradient(90deg, transparent, ${tint ? `rgba(${tint},0.45)` : 'rgba(255,255,255,0.15)'}, transparent)` }}
+              aria-hidden
+              className="pointer-events-none absolute -inset-x-2 rounded-[3px]"
+              style={{
+                bottom: SHELF_GAP - PLANK_H,
+                height: PLANK_H,
+                background: 'linear-gradient(180deg,#4a3522,#2a1d12 55%,#1d140c)',
+                boxShadow: 'inset 0 1px 0 rgba(255,220,170,0.28), 0 10px 26px rgba(0,0,0,0.75)',
+              }}
             />
           </div>
         </section>
@@ -439,7 +531,29 @@ function Raflar() {
         </section>
       )}
 
-      {!filteredShelves.length && !filteredLoose.length && <p className="text-sm text-neutral-500 text-center py-10">{tt('Bu seçime uyan bir şey yok.')}</p>}
+      {!filteredShelves.length && !filteredLoose.length &&
+        (noFilter ? (
+          <EmptyState art="afis" icon="layers" title={tt('Koleksiyonun henüz boş')} text={tt('İzlediğin, izlemekte olduğun ya da yarım bıraktığın yapımlar burada kendiliğinden raflara dizilir.')}>
+            <button onClick={() => setNewShelf('')} className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-100 hover:border-[#00c0fa] transition">
+              <Icon name="plus" className="h-4 w-4" />
+              {tt('Yeni raf')}
+            </button>
+          </EmptyState>
+        ) : (
+          <EmptyState art="ara" compact title={tt('Bu seçime uyan bir şey yok.')}>
+            <button
+              onClick={() => {
+                setKind('hepsi')
+                setOnlySymbols(false)
+                setQ('')
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-100 hover:border-[#00c0fa] transition"
+            >
+              <Icon name="close" className="h-4 w-4" />
+              {tt('Süzgeci temizle')}
+            </button>
+          </EmptyState>
+        ))}
 
       {/* O4: gizlenen raflar — geri getirmek için */}
       {arranged.hidden.length > 0 && (
@@ -549,7 +663,8 @@ function Raflar() {
                       )
                     }
                   >
-                    📌 {pinned ? tt('Sabitlemeyi kaldır') : tt('En üste sabitle')}
+                    <Icon name="pin" className="h-3.5 w-3.5 inline -mt-0.5 mr-1" />
+                    {pinned ? tt('Sabitlemeyi kaldır') : tt('En üste sabitle')}
                   </button>
                   <button className={b} disabled={gi <= 0} onClick={() => void setShelfPrefs((p) => moveShelf(arranged.shown, p, key, -1))}>
                     ↑ {tt('Yukarı taşı')}

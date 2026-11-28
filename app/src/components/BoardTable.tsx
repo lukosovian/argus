@@ -521,7 +521,7 @@ function Cell({
     return null
   }
 
-  if (property.type === 'checkbox') return <span className="text-neutral-300">{value ? '✓' : ''}</span>
+  if (property.type === 'checkbox') return <span className="text-neutral-300">{value ? <Icon name="check" className="h-3.5 w-3.5" /> : ''}</span>
 
   if (property.type === 'date') {
     const formatted = formatDateShort(value as string)
@@ -802,6 +802,9 @@ const BoardTable = forwardRef<
     // "Eklendi" / "Düzenlendi" sütunu (G7): kaydın eklenme ya da son değişme zamanı ("3 gün önce")
     addedColumn?: 'created' | 'updated' | null
     onHideAddedColumn?: () => void
+    // Önizleme paneli (T1): afişe tıklayınca `explicit` true (paneli açar); açıkken etkin hücre başka satıra geçince false
+    onPeekRow?: (row: Row, explicit: boolean) => void
+    peekRowId?: string | null
     // A6 (v1.27): sütun menüsünde seçenek başına kayıt sayısı (BÜTÜN kayıtlar, filtrelenmiş değil), sürükleyerek
     // sıralama ve birleştirme — olduğu gibi ColumnMenu'ye geçer.
     optionTools?: {
@@ -863,6 +866,8 @@ const BoardTable = forwardRef<
     addedColumn = null,
     onHideAddedColumn,
     optionTools,
+    onPeekRow,
+    peekRowId = null,
   },
   ref,
 ) {
@@ -1260,6 +1265,15 @@ const BoardTable = forwardRef<
     navByKey.current = false
     setActiveCell({ rowId, propertyId })
   }
+  // Önizleme açıkken (T1) etkin hücre başka satıra geçince (tık ya da ↑/↓) panel o satırı göstersin
+  const onPeekRef = useRef(onPeekRow)
+  onPeekRef.current = onPeekRow
+  const activeRowId = activeCell?.rowId
+  useEffect(() => {
+    if (!activeRowId) return
+    const r = rows.find((x) => x.id === activeRowId)
+    if (r) onPeekRef.current?.(r, false)
+  }, [activeRowId, rows])
   // Tablonun dışına (açılır menüler/pencereler hariç) tıklanınca etkin hücre bırakılır
   useEffect(() => {
     if (!activeCell) return
@@ -1765,7 +1779,7 @@ const BoardTable = forwardRef<
                   <td colSpan={totalColumns} className="p-0">
                     {/* Yatay kaydırınca grup adı solda kalsın */}
                     <div className="h-9 flex items-center gap-2 text-sm sticky left-0 w-max" style={{ paddingLeft: HANDLE_PAD_LEFT + 6 }}>
-                      <span className={`text-neutral-500 text-xs transition-transform ${isClosed ? '-rotate-90' : ''}`}>▾</span>
+                      <Icon name="caret" className={`h-3 w-3 text-neutral-500 transition-transform ${isClosed ? '' : 'rotate-90'}`} />
                       {opt ? <OptionBadge label={opt.label} colorIndex={opt.colorIndex} image={opt.image} /> : <span className="text-neutral-400 italic">{tt('(boş)')}</span>}
                       <span className="text-xs text-neutral-500 tabular-nums">{item.count}</span>
                     </div>
@@ -1805,7 +1819,7 @@ const BoardTable = forwardRef<
                     }
                   : undefined
               }
-              className={`group border-t border-neutral-800 hover:bg-neutral-900 ${isSelected ? 'bg-sky-500/5' : ''} ${dragRowId === row.id ? 'opacity-40' : ''} ${dropLine}`}
+              className={`group border-t border-neutral-800 hover:bg-neutral-900 ${isSelected ? 'bg-sky-500/5' : ''} ${peekRowId === row.id ? '[&>td]:shadow-[inset_0_1px_0_#00c0fa,inset_0_-1px_0_#00c0fa]' : ''} ${dragRowId === row.id ? 'opacity-40' : ''} ${dropLine}`}
             >
               <td
                 className={`px-1.5 ${stickyBg(isSelected)}`}
@@ -1895,13 +1909,40 @@ const BoardTable = forwardRef<
                     >
                       <div className={`${cellH} flex items-center gap-2.5 overflow-hidden`}>
                         {thumbProp && (
-                          <span className={`${roomy ? 'h-12 w-8' : 'h-7 w-5'} shrink-0 rounded overflow-hidden bg-neutral-800`}>
+                          // Afişe tıklamak adı düzenlemeye açmaz, sağdaki önizleme panelini açar (T1)
+                          <span
+                            onClick={
+                              onPeekRow
+                                ? (e) => {
+                                    e.stopPropagation()
+                                    activate(row.id, titleProp.id)
+                                    onPeekRow(row, true)
+                                  }
+                                : undefined
+                            }
+                            title={onPeekRow ? tt('Önizle') : undefined}
+                            className={`${roomy ? 'h-12 w-8' : 'h-7 w-5'} shrink-0 rounded overflow-hidden bg-neutral-800 ${onPeekRow ? 'cursor-zoom-in hover:ring-2 hover:ring-[#00c0fa]/70 transition' : ''}`}
+                          >
                             {typeof row.values[thumbProp.id] === 'string' && row.values[thumbProp.id] ? (
                               <img src={row.values[thumbProp.id] as string} alt="" loading="lazy" className="h-full w-full object-cover" />
                             ) : null}
                           </span>
                         )}
-                        <span className={roomy ? 'break-words line-clamp-2' : 'block truncate'}>{titleText(titleProp, row.values[titleProp.id])}</span>
+                        <span className={`${roomy ? 'break-words line-clamp-2' : 'block truncate'} ${onPeekRow && !thumbProp ? 'flex-1 min-w-0' : ''}`}>{titleText(titleProp, row.values[titleProp.id])}</span>
+                        {onPeekRow && !thumbProp && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              activate(row.id, titleProp.id)
+                              onPeekRow(row, true)
+                            }}
+                            title={tt('Önizle')}
+                            aria-label={tt('Önizle')}
+                            className="h-6 w-6 shrink-0 flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-100 hover:bg-neutral-800 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition"
+                          >
+                            <Icon name="eye" className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   )

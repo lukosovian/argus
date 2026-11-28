@@ -27,6 +27,7 @@ import ShowcaseBanner from './ShowcaseBanner'
 import OptionBadge from './OptionBadge'
 import OptionDetailModal from './OptionDetailModal'
 import SeasonsBrowser from './SeasonsBrowser'
+import ScoreRing, { criterionColor } from './ScoreRing'
 import ResumeRecap from './ResumeRecap'
 import TmdbExtras from './TmdbExtras'
 import SectionTitle from './SectionTitle'
@@ -560,6 +561,8 @@ export default function RowDetailModal({
       ? (row.values[puanProp.id] as Record<string, number>)
       : {}
   const scoredCriteria = (puanProp?.criteria ?? []).filter((c) => typeof scores[c.id] === 'number')
+  // Halka ve sağ sütun aynı rengi kullansın: renk, kriterin Puan sütunundaki sırasına göre
+  const ringItems = scoredCriteria.map((c) => ({ id: c.id, name: c.name, score: scores[c.id], color: criterionColor((puanProp?.criteria ?? []).indexOf(c)) }))
   const avgScore = puanProp ? ratingAverage(row.values[puanProp.id], puanProp) : null
   const watchDates = (() => {
     if (!tarihProp) return [] as string[]
@@ -863,7 +866,7 @@ export default function RowDetailModal({
                       title={tt('İzleme tarihine bugünü ekler (daha önce izlediysen tekrar izleme olarak) ve durumu İzlendi yapar')}
                       className="text-xs rounded-full px-3 py-1.5 border border-emerald-500/50 text-emerald-300 bg-black/20 hover:bg-emerald-500/10 transition disabled:opacity-50"
                     >
-                      {tt('✓ Bugün izledim')}
+                      <Icon name="check" className="h-[0.95em] w-[0.95em]" /> {tt('Bugün izledim')}
                     </button>
                   )}
                   {onEdit && (
@@ -885,6 +888,12 @@ export default function RowDetailModal({
                 </button>
               )}
             </div>
+            {/* D1: kriter puanları görselin üstünde, logonun karşısında halka olarak (dar ekranda sağ sütunda) */}
+            {!MOBILE && avgScore !== null && ringItems.length > 0 && (
+              <div className="hidden lg:block shrink-0 self-start lg:mt-2">
+                <ScoreRing items={ringItems} avg={avgScore} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -920,6 +929,15 @@ export default function RowDetailModal({
                   onMarkSeasonWatched={markSeasonWatched}
                   onUnmarkSeasonWatched={unmarkSeasonWatched}
                   onSetManyEpisodeDates={setManyEpisodeDates}
+                  onSaveManyWithUndo={(changes, message) => {
+                    // Seçili bölümler: Geri al bölümlerle birlikte Durum'u ve İzleme Tarihi'ni de geri döndürür
+                    const next = { ...rowWatched }
+                    for (const [key, dates] of Object.entries(changes)) {
+                      if (dates.length === 0) delete next[key]
+                      else next[key] = dates
+                    }
+                    void saveSeasonWithUndo(next, message)
+                  }}
                   editable={editable}
                 />
               </section>
@@ -982,15 +1000,16 @@ export default function RowDetailModal({
                     </p>
                   </div>
                 </div>
-                <div className={scoredCriteria.length ? 'space-y-2' : 'hidden'}>
-                  {scoredCriteria.map((c) => (
+                {/* Geniş ekranda kriterler zaten görselin üstündeki halkada — burada tekrar çubuk gösterme */}
+                <div className={ringItems.length ? `space-y-2 ${MOBILE ? '' : 'lg:hidden'}` : 'hidden'}>
+                  {ringItems.map((c) => (
                     <div key={c.id}>
                       <div className="flex justify-between text-xs mb-1">
                         <span className="text-neutral-400 truncate">{c.name}</span>
-                        <span className="text-neutral-200 tabular-nums">{scores[c.id]}</span>
+                        <span className="text-neutral-200 tabular-nums">{c.score}</span>
                       </div>
                       <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
-                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${(scores[c.id] / 10) * 100}%` }} />
+                        <div className="h-full rounded-full" style={{ width: `${(c.score / 10) * 100}%`, background: c.color }} />
                       </div>
                     </div>
                   ))}

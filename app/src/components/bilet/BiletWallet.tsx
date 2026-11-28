@@ -182,7 +182,7 @@ export default function BiletWallet({ items, onEdit, onOpenRow, onDelete }: { it
                 </button>
               )}
               <button onClick={() => onDelete(cur)} className="rounded-xl bg-neutral-800 px-3.5 py-2.5 text-sm text-red-300" aria-label={tt('Sil')}>
-                🗑
+                {tt('Sil')}
               </button>
             </div>
           </div>

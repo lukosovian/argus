@@ -17,6 +17,8 @@ import { CardBack, ItemArt, RewardCard } from '../components/odul/RewardCard'
 import '../components/odul/odul.css'
 import RowDetailModal from '../components/RowDetailModal'
 import { searchFold } from '../lib/search'
+import Icon from '../components/Icon'
+import EmptyState from '../components/EmptyState'
 import type { Row } from '../types'
 
 // Koleksiyon › Ödüller (v1.24): kart paketleri, film kartı albümü, avatar çerçeveleri, kart arkaları ve bilet tasarımı.
@@ -259,7 +261,7 @@ export default function Oduller() {
           </div>
           {MOBILE && <HapticToggle />}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-sm font-semibold text-amber-300" title={tt('Kopyalardan biriken makarayla paket alabilirsin')}>
-            🎞️ {tt('{0} makara', data.makara)}
+            <Icon name="film" className="h-3.5 w-3.5" /> {tt('{0} makara', data.makara)}
           </span>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
@@ -298,7 +300,7 @@ export default function Oduller() {
                       className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition enabled:hover:border-neutral-500 disabled:opacity-40"
                       title={tt('{0} makarayla al', t.price)}
                     >
-                      🎞️ {t.price}
+                      <Icon name="film" className="h-3.5 w-3.5 inline -mt-0.5 mr-0.5" />{t.price}
                     </button>
                   </div>
                 </div>
@@ -405,8 +407,20 @@ export default function Oduller() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-neutral-800 py-10 text-center text-sm text-neutral-500">
-            {!cards.length ? tt('Henüz kart yok. İlk paketini aç!') : q.trim() ? tt('Bu ada uyan kart yok.') : tt('Bu nadirlikte kartın yok.')}
+          // H4: boş yer resimli ve tek düğmeli (ilk paket ya da süzgeci temizle)
+          <div className="rounded-2xl border border-dashed border-neutral-800">
+            <EmptyState art="afis" icon="cards" compact title={!cards.length ? tt('Henüz kart yok. İlk paketini aç!') : q.trim() ? tt('Bu ada uyan kart yok.') : tt('Bu nadirlikte kartın yok.')}>
+              {!cards.length ? (
+                (() => {
+                  const t = TIERS.find((x) => available[x.id] > 0)
+                  return t ? (
+                    <button disabled={busy} onClick={() => void open(t.id)} className={`rounded-lg px-4 py-1.5 text-sm ${PRIMARY_BUTTON}`} style={primaryButtonStyle}>
+                      {tt('{0} aç', t.label())}
+                    </button>
+                  ) : null
+                })()
+              ) : null}
+            </EmptyState>
           </div>
         )}
       </section>
@@ -512,7 +526,7 @@ function HapticToggle() {
       className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${on ? 'border-[#00c0fa]/50 text-[#7fd8ff]' : 'border-neutral-700 text-neutral-500'}`}
       aria-pressed={on}
     >
-      📳 {on ? tt('Titreşim açık') : tt('Titreşim kapalı')}
+      <Icon name="bell" className="h-3.5 w-3.5" /> {on ? tt('Titreşim açık') : tt('Titreşim kapalı')}
     </button>
   )
 }
@@ -543,7 +557,7 @@ function SetStrip({ shelves, cards, done, doneCount }: { shelves: KoleksiyonShel
           <h2 className="text-lg font-semibold">{tt('Setlerin')}</h2>
           <p className="text-xs text-neutral-500">{tt('Bir serinin bütün film kartlarını topla, bir kerelik paket kazan. Soluk afişe dokun: hangi kart eksik?')}</p>
         </div>
-        {doneCount > 0 && <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">✦ {tt('{0} set tamam', doneCount)}</span>}
+        {doneCount > 0 && <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300 inline-flex items-center gap-1"><Icon name="sparkle" className="h-3 w-3" /> {tt('{0} set tamam', doneCount)}</span>}
       </div>
       <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
         {sets.map((s) => {
@@ -556,7 +570,7 @@ function SetStrip({ shelves, cards, done, doneCount }: { shelves: KoleksiyonShel
                 </div>
                 <div className="min-w-0 flex-1">
                   <b className="block truncate text-sm">{s.name}</b>
-                  <span className={`text-[11px] ${s.complete ? 'font-semibold text-amber-300' : 'text-neutral-400'}`}>{s.complete ? `✦ ${tt('Set tamam')}` : tt('{0} / {1} kart', s.have, s.films.length)}</span>
+                  <span className={`text-[11px] ${s.complete ? 'font-semibold text-amber-300' : 'text-neutral-400'}`}>{s.complete ? <><Icon name="sparkle" className="h-3 w-3 inline -mt-0.5" /> {tt('Set tamam')}</> : tt('{0} / {1} kart', s.have, s.films.length)}</span>
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: setTierFor(s.films.length) === 'altin' ? '#ffbf1f' : '#9aa4bf' }}>
                   {setTierFor(s.films.length) === 'altin' ? tt('Altın') : tt('Gümüş')}

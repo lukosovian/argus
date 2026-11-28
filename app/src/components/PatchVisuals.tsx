@@ -5179,3 +5179,149 @@ export function YedekKilitVisual() {
     </Frame>
   )
 }
+
+// ---- v1.27.2 (Arayüz Önerileri 3) ------------------------------------------------------------
+
+export function SeriVitriniVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={304} h={120} r={8} strong />
+      <rect x={9} y={9} width={302} height={118} rx={8} className="fill-neutral-800" opacity={0.6} />
+      <text x={20} y={26} fontSize={6.5} fontWeight={700} fill="#fcd34d" style={{ fontFamily: 'inherit' }}>
+        {tt('SERİ · {0} FİLM', 8)}
+      </text>
+      <rect x={20} y={32} width={90} height={16} rx={3} className="fill-neutral-500" />
+      <text x={20} y={60} fontSize={7} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        {tt('{0} / {1} izledin.', 5, 8)}
+      </text>
+      <MiniButton x={20} y={67} w={46} text={tt('Seriyi aç')} accent />
+      <MiniButton x={70} y={67} w={52} text={tt('Sıradakini aç')} />
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <g key={i}>
+          <rect x={20 + i * 22} y={86} width={18} height={27} rx={2} className={i < 5 ? 'fill-neutral-600' : 'fill-neutral-700'} stroke={i === 5 ? ACCENT : undefined} strokeWidth={i === 5 ? 1.2 : 0} />
+          {i < 5 && <circle cx={36 + i * 22} cy={88} r={3} fill="#22c55e" />}
+        </g>
+      ))}
+      <Pin x={300} y={20} n={1} />
+      <Box x={8} y={136} w={304} h={36} r={6} />
+      <Label x={18} y={152} size={7}>
+        {tt('Seri vitrini')}
+      </Label>
+      <text x={18} y={163} fontSize={6} className="fill-neutral-500" style={{ fontFamily: 'inherit' }}>
+        {tt('{0} açılışta bir', 3)} · {tt('Sadece bitmemiş seriler')}
+      </text>
+      <rect x={270} y={146} width={22} height={12} rx={6} fill={ACCENT} />
+      <circle cx={286} cy={152} r={4.5} fill="#fff" />
+      <Pin x={300} y={140} n={2} />
+    </Frame>
+  )
+}
+
+export function SezonSeridiVisual() {
+  const seasons = [10, 8, 8]
+  const seen = [10, 8, 2]
+  return (
+    <Frame viewBox={VB}>
+      {seasons.map((n, s) => (
+        <g key={s}>
+          <rect x={10 + s * 100} y={10} width={94} height={30} rx={5} className="fill-neutral-900" stroke={s === 2 ? ACCENT : undefined} strokeWidth={s === 2 ? 1.2 : 0} />
+          <text x={16 + s * 100} y={22} fontSize={6.5} fontWeight={700} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+            {`${s + 1}. ${tt('Sezon')} ${seen[s]}/${n}`}
+          </text>
+          {Array.from({ length: n }, (_, i) => (
+            <circle key={i} cx={18 + s * 100 + i * 8} cy={32} r={2.4} fill={i < seen[s] ? ACCENT : i === seen[s] ? '#fff' : undefined} className={i <= seen[s] ? undefined : 'fill-neutral-700'} />
+          ))}
+        </g>
+      ))}
+      <Pin x={300} y={14} n={1} />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <rect x={10} y={50 + i * 28} width={300} height={24} rx={4} className={i === 0 ? 'fill-neutral-800' : 'fill-neutral-900'} stroke={i === 0 ? ACCENT : undefined} strokeWidth={i === 0 ? 0.8 : 0} />
+          <rect x={16} y={56 + i * 28} width={11} height={11} rx={2.5} fill={i < 2 ? ACCENT : 'none'} className={i < 2 ? undefined : 'stroke-neutral-500'} strokeWidth={0.8} />
+          <rect x={33} y={53 + i * 28} width={30} height={18} rx={2} className="fill-neutral-700" />
+          <Line x={70} y={58 + i * 28} w={110} />
+          <Line x={70} y={65 + i * 28} w={80} light />
+        </g>
+      ))}
+      <Pin x={8} y={48} n={2} />
+      <Box x={10} y={138} w={300} h={32} r={6} strong />
+      <rect x={20} y={147} width={54} height={14} rx={3} className="fill-neutral-800" />
+      <text x={26} y={157} fontSize={6.5} className="fill-neutral-300" style={{ fontFamily: 'inherit' }}>
+        28.11.2026
+      </text>
+      <MiniButton x={80} y={148} w={54} text={tt('İzlendi yap')} accent />
+      <MiniButton x={140} y={148} w={60} text={tt('İzlenmedi yap')} />
+      <MiniButton x={206} y={148} w={60} text={tt('Seçimi temizle')} />
+      <Pin x={300} y={132} n={3} />
+    </Frame>
+  )
+}
+
+export function PuanHalkasiVisual() {
+  const colors = ['#38bdf8', '#a78bfa', '#34d399', '#f59e0b', '#f472b6']
+  const vals = [9, 8, 10, 7, 9]
+  const R = 34
+  const C = 2 * Math.PI * R
+  const seg = C / 5
+  return (
+    <Frame viewBox={VB}>
+      <rect x={8} y={8} width={304} height={164} rx={8} className="fill-neutral-800" opacity={0.55} />
+      <rect x={20} y={40} width={50} height={75} rx={4} className="fill-neutral-600" />
+      <rect x={80} y={84} width={80} height={14} rx={3} className="fill-neutral-500" />
+      <Line x={80} y={106} w={60} light />
+      <rect x={176} y={30} width={128} height={100} rx={8} className="fill-neutral-900" />
+      {vals.map((v, i) => (
+        <g key={i}>
+          <circle cx={216} cy={80} r={R} fill="none" className="stroke-neutral-800" strokeWidth={7} strokeDasharray={`${seg - 4} ${C}`} transform={`rotate(${-90 + i * 72 + 1} 216 80)`} />
+          <circle cx={216} cy={80} r={R} fill="none" stroke={colors[i]} strokeWidth={7} strokeDasharray={`${((seg - 4) * v) / 10} ${C}`} transform={`rotate(${-90 + i * 72 + 1} 216 80)`} />
+          <rect x={258} y={56 + i * 11} width={6} height={4} rx={1} fill={colors[i]} />
+          <rect x={267} y={57 + i * 11} width={26} height={2.5} rx={1} className="fill-neutral-600" />
+        </g>
+      ))}
+      <text x={216} y={84} fontSize={13} fontWeight={800} textAnchor="middle" className="fill-neutral-50" style={{ fontFamily: 'inherit' }}>
+        8.6
+      </text>
+      <Pin x={300} y={30} n={1} />
+    </Frame>
+  )
+}
+
+export function OnizlemeGunlukVisual() {
+  return (
+    <Frame viewBox={VB}>
+      <Box x={8} y={8} w={190} h={78} r={6} />
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i}>
+          {i === 1 && <rect x={9} y={14 + i * 17} width={188} height={15} className="fill-neutral-800" />}
+          <rect x={14} y={16 + i * 17} width={8} height={11} rx={1.5} className="fill-neutral-600" stroke={i === 1 ? ACCENT : undefined} strokeWidth={i === 1 ? 1 : 0} />
+          <Line x={28} y={22 + i * 17} w={70} />
+          <Chip x={110} y={17 + i * 17} w={30} color="#22c55e" />
+        </g>
+      ))}
+      <Box x={204} y={8} w={108} h={78} r={6} strong />
+      <rect x={205} y={9} width={106} height={36} rx={5} className="fill-neutral-600" />
+      <Line x={212} y={54} w={80} light />
+      <Line x={212} y={61} w={70} light />
+      <MiniButton x={212} y={68} w={50} text={tt('Bugün izledim')} accent />
+      <MiniButton x={266} y={68} w={36} text={tt('Aç')} />
+      <Pin x={300} y={14} n={1} />
+      <Box x={8} y={94} w={304} h={78} r={6} />
+      <text x={16} y={106} fontSize={7} fontWeight={700} className="fill-neutral-200" style={{ fontFamily: 'inherit' }}>
+        {tt('Günlük')}
+      </text>
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <text x={24} y={124 + i * 18} fontSize={10} fontWeight={800} textAnchor="middle" className="fill-neutral-100" style={{ fontFamily: 'inherit' }}>
+            {28 - i * 2}
+          </text>
+          <rect x={38} y={113 + i * 18} width={10} height={15} rx={1.5} className="fill-neutral-600" />
+          <Line x={54} y={119 + i * 18} w={110} />
+          {[0, 1, 2, 3, 4].map((s) => (
+            <path key={s} d={`M${226 + s * 9} ${116 + i * 18}l1.6 3.2 3.5.5-2.5 2.5.6 3.5-3.2-1.7-3.2 1.7.6-3.5-2.5-2.5 3.5-.5z`} fill={s < (i === 2 ? 3 : 4) ? '#fbbf24' : '#404040'} />
+          ))}
+        </g>
+      ))}
+      <Pin x={300} y={98} n={2} />
+    </Frame>
+  )
+}

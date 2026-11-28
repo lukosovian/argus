@@ -267,7 +267,7 @@ export default function OyuncuZinciri() {
           ) : (
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-3">
               <p className={`font-bold ${state === 'win' ? 'text-emerald-300' : 'text-rose-300'}`}>
-                {state === 'win' ? (steps === target.best ? tt('En kısa yoldan buldun! 🎯') : tt('Bağladın! ({0} yapımda)', steps)) : tt('Olmadı. En kısa yol şuydu:')}
+                {state === 'win' ? (steps === target.best ? <span className="inline-flex items-center gap-1.5"><Icon name="target" className="h-4 w-4" />{tt('En kısa yoldan buldun!')}</span> : tt('Bağladın! ({0} yapımda)', steps)) : tt('Olmadı. En kısa yol şuydu:')}
               </p>
               {best && (
                 <div className="flex items-center gap-1.5 overflow-x-auto">

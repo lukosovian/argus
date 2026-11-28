@@ -3,6 +3,7 @@ import { ratingAverage, titleText, type Board, type PropertyDef, type Row } from
 import { resolveRole } from '../../lib/roles'
 import OptionBadge from '../OptionBadge'
 import { tt } from '../../lib/i18n'
+import Icon from '../Icon'
 
 // Durum panosu (v1.26, A9): seçilen Seçim sütununun (varsayılan Durum) her seçeneği bir sütun, kayıtlar afişli kart.
 // Kartı başka sütuna sürükleyip bırakınca o kaydın değeri değişir (İzlendi'ye bırakınca bugünün tarihi eklenir, puanı
@@ -136,7 +137,7 @@ export default function BoardKanban({
                         <span className="block text-sm font-medium text-neutral-100 line-clamp-2 leading-snug">{title}</span>
                         <span className="mt-1 flex items-center gap-2 text-[11px] text-neutral-500">
                           {year && <span className="tabular-nums">{year}</span>}
-                          {rating !== null && <span className="text-amber-300 tabular-nums">★ {rating.toFixed(1)}</span>}
+                          {rating !== null && <span className="inline-flex items-center gap-0.5 text-amber-300 tabular-nums"><Icon name="star" className="h-3 w-3" /> {rating.toFixed(1)}</span>}
                         </span>
                       </span>
                     </button>

@@ -510,6 +510,9 @@ export interface HomeSettings {
   aklimdaRow?: { enabled: boolean; position: number }
   // "Kaldığın yerden" satırı (İzleniyor/Yarım olanlar, geniş kart + ilerleme çizgisi; bkz. ContinueRow). Yoksa kapalı.
   continueRow?: { enabled: boolean; position: number }
+  // Seri vitrini (öneri A4): ara sıra vitrinin yerine Koleksiyon'daki bir serinin büyük bandı. every: her kaç
+  // açılışta bir (profil başına sayılır); onlyUnfinished: sadece izlemediğin filmi kalan seriler. Yoksa açık, 3, açık.
+  seriesSpot?: { enabled: boolean; every: number; onlyUnfinished: boolean }
   // Vitrin süsleri (v1.23.3): kısa özet, Aklımda tut düğmesi, yavaş yakınlaşan görsel, dolan slayt çizgileri,
   // fragman durunca görsele dönüş, satırların vitrine binmesi. Yoksa kapalı (eski vitrin).
   showcaseExtras?: boolean

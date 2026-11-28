@@ -3,6 +3,7 @@ import { titleText, type Board, type PropertyDef, type Row } from '../types'
 import OptionBadge from './OptionBadge'
 import { posterOf, ratingOf, yearOf } from './table/BoardKanban'
 import { tt } from '../lib/i18n'
+import Icon from './Icon'
 
 // Arşivin afiş galerisi görünümü (v1.26, A10): tablodaki filtre, arama, sıralama ve gruplama aynen geçerli; afişe
 // tıklayınca detay penceresi açılır. Çok kayıtlı arşivde sayfa ağırlaşmasın diye afişler parça parça eklenir.
@@ -98,8 +99,8 @@ function Card({ board, row, titleProp, onOpen }: { board: Board; row: Row; title
           <div className="flex h-full w-full items-center justify-center px-3 text-center text-xs text-neutral-500">{title}</div>
         )}
         {rating !== null && (
-          <span className="absolute right-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-300 backdrop-blur-sm">
-            ★ {rating.toFixed(1)}
+          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-300 backdrop-blur-sm">
+            <Icon name="star" className="h-3 w-3" /> {rating.toFixed(1)}
           </span>
         )}
       </div>

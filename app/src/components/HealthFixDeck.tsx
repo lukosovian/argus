@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Icon from './Icon'
 import type { Row } from '../types'
 import { tt } from '../lib/i18n'
 
@@ -121,7 +122,7 @@ export default function HealthFixDeck({ issues, poster, onOpenRow, onExit }: { i
 
       {doneAll ? (
         <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 px-6 py-12 text-center">
-          <p className="text-4xl">✓</p>
+          <Icon name="check" className="mx-auto h-10 w-10 text-emerald-400" />
           <p className="mt-3 text-lg font-semibold text-neutral-50">{fixed ? tt('{0} sorun düzeldi!', fixed) : tt('Tur bitti')}</p>
           <p className="mt-1 text-sm text-neutral-400">{skipped.size ? tt('{0} sorunu atladın; listeden ya da yeni bir turla bakabilirsin.', skipped.size) : tt('Bu turda sorulacak başka bir şey kalmadı.')}</p>
           <button onClick={onExit} className="mt-5 rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-200 hover:border-[#00c0fa]">

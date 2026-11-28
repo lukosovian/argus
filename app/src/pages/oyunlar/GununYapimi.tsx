@@ -5,6 +5,7 @@ import { fold, preferWatched, readDaily, seeded, sfx, today, useGameData, writeD
 import { tt, ttx } from '../../lib/i18n'
 import PageSkeleton from '../../components/Skeleton'
 import EmptyState from '../../components/EmptyState'
+import Icon from '../../components/Icon'
 import { FinishInfo, GameShell, useFinish, type Finish } from '../../components/oyun/GameShell'
 
 // G6 Günün yapımı (v1.24): her gün arşivinden gizli bir yapım. Bir tahmin yazarsın; her sütun ipucu verir: yıl (daha
@@ -162,7 +163,7 @@ export default function GununYapimi() {
       game="gunluk"
       title={tt('Günün yapımı')}
       subtitle={tt('Arşivinden gizli bir yapım. 8 tahminde bul; her tahmin ipucu verir.')}
-      right={<span className="rounded-full bg-amber-500/15 border border-amber-400/40 px-3 py-1 text-sm font-bold text-amber-200">🔥 {ttx('{0} gün seri', streak)}</span>}
+      right={<span className="rounded-full bg-amber-500/15 border border-amber-400/40 px-3 py-1 text-sm font-bold text-amber-200 inline-flex items-center gap-1"><Icon name="flame" className="h-4 w-4" />{ttx('{0} gün seri', streak)}</span>}
     >
       <div className="grid gap-5 lg:grid-cols-[1fr_260px] items-start">
         <div className="space-y-4">
@@ -194,7 +195,7 @@ export default function GununYapimi() {
             <div className={`flex items-center gap-4 rounded-2xl border p-4 ${st.won ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-rose-500/40 bg-rose-500/10'}`}>
               {secret.poster && <img src={secret.poster} alt="" className="h-24 w-16 rounded-lg object-cover" />}
               <div className="flex-1 min-w-0">
-                <p className={`font-bold ${st.won ? 'text-emerald-300' : 'text-rose-300'}`}>{st.won ? ttx('{0} tahminde buldun! 🎉', st.guesses.length) : tt('Bugün olmadı. Gizli yapım:')}</p>
+                <p className={`font-bold ${st.won ? 'text-emerald-300' : 'text-rose-300'}`}>{st.won ? <span className="inline-flex items-center gap-1.5"><Icon name="party" className="h-4 w-4" />{ttx('{0} tahminde buldun!', st.guesses.length)}</span> : tt('Bugün olmadı. Gizli yapım:')}</p>
                 <p className="text-2xl font-black text-white truncate">{secret.title}</p>
                 <p className="text-sm text-neutral-400">{tt('Yarın yeni bir yapım gelecek.')}</p>
               </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from './Icon'
 import type { Season } from '../types'
 import { episodeKey, todayIso } from '../types'
 import { useProfiles } from '../hooks/useProfiles'
@@ -70,7 +71,7 @@ export default function SeriesPlan({ rowId, seasons, watched }: { rowId: string;
     return (
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-violet-400/25 bg-violet-500/[0.06] px-4 py-3">
         <span className="text-sm text-neutral-200">
-          🗓️ {tt('{0} bölüm kaldı.', remaining)} {tt('Bitirme planı yap:')}
+          <Icon name="calendar" className="mr-1 inline h-[1em] w-[1em] -translate-y-px text-violet-300" />{tt('{0} bölüm kaldı.', remaining)} {tt('Bitirme planı yap:')}
         </span>
         <span className="flex gap-1">
           {[3, 7, 14, 30].map((d) => (
@@ -91,9 +92,9 @@ export default function SeriesPlan({ rowId, seasons, watched }: { rowId: string;
   return (
     <div className="rounded-2xl border border-violet-400/30 bg-violet-500/[0.07] p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-semibold text-neutral-100">🗓️ {tt('Bitirme planı')}</p>
+        <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-100"><Icon name="calendar" className="h-[1em] w-[1em] text-violet-300" />{tt('Bitirme planı')}</p>
         <p className="text-xs text-neutral-400">
-          {remaining === 0 ? tt('Bitti! 🎉') : late ? tt('Plan süresi doldu, {0} bölüm kaldı', remaining) : tt('{0} bölüm kaldı · {1} tarihinde biter', remaining, plan.end.split('-').reverse().join('.'))}
+          {remaining === 0 ? <span className="inline-flex items-center gap-1">{tt('Bitti!')}<Icon name="party" className="h-[1.1em] w-[1.1em] text-violet-300" /></span> : late ? tt('Plan süresi doldu, {0} bölüm kaldı', remaining) : tt('{0} bölüm kaldı · {1} tarihinde biter', remaining, plan.end.split('-').reverse().join('.'))}
         </p>
         <button onClick={() => save(null)} className="ml-auto text-xs text-neutral-500 hover:text-rose-300">
           {tt('Planı kaldır')}

@@ -13,7 +13,9 @@ import { tt } from '../lib/i18n'
 import EmptyState from '../components/EmptyState'
 import PageSkeleton from '../components/Skeleton'
 import { useBirlikte } from '../components/koleksiyon/KiminleIzledin'
-import { entryEnd } from '../lib/dateRange'
+import { entryEnd, toEntries } from '../lib/dateRange'
+import Icon, { type IconName } from '../components/Icon'
+import PosterWallHero from '../components/PosterWallHero'
 import { longDay } from '../lib/bilet'
 
 // Birlikte izle + Zevk uyumu (v1.23.4, Ayarlar › Ekstralar). İki profilin arşivleri yapımın orijinal adı + çıkış yılıyla
@@ -68,8 +70,41 @@ async function loadOther(pid: string): Promise<Side | null> {
   }
 }
 
-function Posters({ list, onOpen, action }: { list: Info[]; onOpen: (i: Info) => void; action?: (i: Info) => React.ReactNode }) {
-  if (!list.length) return <p className="text-sm text-neutral-500">{tt('Burada bir şey yok.')}</p>
+// H4 Boş bölüm: resimli (kesik çizgili afiş yuvaları ya da iki profil + film şeridi), tek cümle ve tek düğme
+function EmptyBlock({ art, title, text, action }: { art: React.ReactNode; title: string; text: string; action?: { label: string; icon: IconName; onClick: () => void } }) {
+  return (
+    <div className="flex flex-col items-center text-center rounded-2xl border border-dashed border-neutral-800 bg-neutral-900/30 px-6 py-7">
+      {art}
+      <p className="mt-4 font-bold text-neutral-100">{title}</p>
+      <p className="mt-1 max-w-md text-sm text-neutral-400">{text}</p>
+      {action && (
+        <button onClick={action.onClick} className="mt-4 inline-flex items-center gap-2 rounded-full border border-violet-400/50 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-100 hover:bg-violet-500/20 transition">
+          <Icon name={action.icon} className="h-4 w-4" />
+          {action.label}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Üç kesik çizgili afiş yuvası; ortadaki varsa gerçek bir afiş gösterir, önünde küçük ikon
+function GhostPosters({ poster, icon }: { poster?: string; icon: IconName }) {
+  return (
+    <div className="relative flex items-end justify-center h-28" aria-hidden>
+      <span className="h-20 w-[54px] rounded-lg border-2 border-dashed border-neutral-700 -rotate-6 translate-x-2" />
+      <span className="relative z-10 h-24 w-16 overflow-hidden rounded-lg border-2 border-dashed border-neutral-600 bg-neutral-900">
+        {poster && <img src={poster} alt="" className="h-full w-full object-cover opacity-60" />}
+      </span>
+      <span className="h-20 w-[54px] rounded-lg border-2 border-dashed border-neutral-700 rotate-6 -translate-x-2" />
+      <span className="absolute z-20 -bottom-2 left-1/2 -translate-x-1/2 h-8 w-8 rounded-full bg-violet-500 text-white flex items-center justify-center shadow-lg">
+        <Icon name={icon} className="h-4 w-4" />
+      </span>
+    </div>
+  )
+}
+
+function Posters({ list, onOpen, action, empty }: { list: Info[]; onOpen: (i: Info) => void; action?: (i: Info) => React.ReactNode; empty?: React.ReactNode }) {
+  if (!list.length) return <>{empty ?? <p className="text-sm text-neutral-500">{tt('Burada bir şey yok.')}</p>}</>
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
       {list.map((i) => (
@@ -100,6 +135,8 @@ export default function Birlikte() {
   const [busy, setBusy] = useState(true)
   const [pick, setPick] = useState<Info | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
+  // Boş bölümdeki "izleyeceklerine bak" düğmesi öbür profilin İzlenecek listesini açar
+  const [showTheirs, setShowTheirs] = useState(false)
   useEffect(() => {
     if (!oid) return
     // Profil hızlı değiştirilirse geç gelen eski cevap yenisinin üstüne yazılmasın
@@ -175,6 +212,38 @@ export default function Birlikte() {
     }
   }, [board, rows, side])
 
+  // Öbür profilin İzlenecek listesi (bizim arşivde de varsa bizim kaydımız, detayı açılabilsin)
+  const theirTodo = useMemo(() => {
+    if (!side) return []
+    const mine = board ? index({ board, rows }) : new Map<string, Info>()
+    return [...index(side).values()].filter((t) => t.todo).map((t) => mine.get(t.key) ?? t)
+  }, [side, board, rows])
+
+  // Başlık duvarı (H3): iki profilin listelerinden sırayla birer afiş
+  const wall = useMemo(() => {
+    const pick = (b: Board, rs: Row[]) => {
+      const p = resolveRole(b, 'poster')
+      return p ? rs.map((r) => String(r.values[p.id] ?? '')).filter(Boolean).slice(0, 7) : []
+    }
+    const a = board ? pick(board, rows) : []
+    const b = side ? pick(side.board, side.rows) : []
+    return Array.from({ length: Math.max(a.length, b.length) }, (_, i) => [a[i], b[i]]).flat().filter((x): x is string => Boolean(x))
+  }, [board, rows, side])
+
+  // En son izlediğin yapım: "Kiminle?" kısmı onun detayında, izleme tarihinin altında
+  const lastWatched = useMemo(() => {
+    const dp = board ? resolveRole(board, 'izlemeTarihi') : undefined
+    if (!dp) return null
+    let best: { row: Row; d: string } | null = null
+    for (const r of rows) {
+      for (const e of toEntries(r.values[dp.id])) {
+        const d = entryEnd(e)
+        if (/^\d{4}/.test(d) && (!best || d > best.d)) best = { row: r, d }
+      }
+    }
+    return best?.row ?? null
+  }, [board, rows])
+
   async function suggest(it: { me: Info; them: Info }) {
     if (!oid || !side) return
     try {
@@ -213,7 +282,7 @@ export default function Birlikte() {
   )
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10" style={{ background: 'radial-gradient(ellipse at 20% 0%, rgba(239,68,68,.16), transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(139,92,246,.18), transparent 60%), var(--color-neutral-950)' }}>
+      <PosterWallHero posters={wall} tint="rgba(236,72,153,0.16)">
         <p className="text-sm font-semibold tracking-widest text-[#7fdcff]">{tt('ARGUS')}</p>
         <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight mt-1">{tt('Birlikte izle')}</h1>
         <div className="mt-6 flex flex-wrap items-center gap-6">
@@ -233,7 +302,7 @@ export default function Birlikte() {
             </div>
           )}
         </div>
-      </section>
+      </PosterWallHero>
 
       {busy || !data ? (
         <PageSkeleton kind="posters" />
@@ -244,7 +313,8 @@ export default function Birlikte() {
               <h2 className="text-xl font-bold text-neutral-50">{tt('İkinizin de izleyecekleri')}</h2>
               {data.shared.length > 0 && (
                 <button onClick={pickForUs} className="ml-auto text-sm font-semibold rounded-full px-4 py-2 text-white" style={{ background: 'linear-gradient(90deg,#ef4444,#8b5cf6)' }}>
-                  🎲 {tt('İkimiz için seç')}
+                  <Icon name="dice" className="h-4 w-4 mr-1.5" />
+                  {tt('İkimiz için seç')}
                 </button>
               )}
             </div>
@@ -258,12 +328,52 @@ export default function Birlikte() {
                 </span>
               </button>
             )}
-            <Posters list={data.shared} onOpen={open} />
+            <Posters
+              list={data.shared}
+              onOpen={open}
+              empty={
+                <EmptyBlock
+                  art={<GhostPosters poster={theirTodo[0]?.poster} icon="users" />}
+                  title={tt('Henüz ortak bir yapım yok')}
+                  text={tt('İkinizin de İzlenecek listesinde olan yapımlar burada toplanır. {0} profilinin listesine bakıp beğendiğini kendi listene ekleyebilirsin.', other?.username ?? '')}
+                  action={theirTodo.length ? { label: showTheirs ? tt('Listeyi gizle') : tt('{0} profilinin izleyeceklerine bak', other?.username ?? ''), icon: 'eye', onClick: () => setShowTheirs((v) => !v) } : undefined}
+                />
+              }
+            />
+            {showTheirs && !data.shared.length && theirTodo.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-wider text-neutral-500 mb-2">{tt('{0} izleyecek ({1})', other?.username ?? '', theirTodo.length)}</p>
+                <Posters list={theirTodo.slice(0, 36)} onOpen={(i) => (rows.some((r) => r.id === i.row.id) ? open(i) : undefined)} />
+              </div>
+            )}
           </section>
           <section>
             <h2 className="text-xl font-bold text-neutral-50 mb-1">{tt('{0} ile birlikte izlediklerin', other?.username ?? '')}</h2>
             {!together?.list.length ? (
-              <p className="text-sm text-neutral-500">{tt('Henüz yok. Bir yapımın detayında, izleme tarihlerinin altındaki "Kiminle?" ile {0} adını eklersen burada toplanır.', other?.username ?? '')}</p>
+              <div className="mt-2">
+                <EmptyBlock
+                  art={
+                    <div className="flex flex-col items-center gap-3" aria-hidden>
+                      <div className="flex -space-x-3">
+                        {[activeProfile, other].map((p, i) => (
+                          <span key={i} className="h-12 w-12 overflow-hidden rounded-full bg-neutral-800 flex items-center justify-center text-lg font-bold text-neutral-300" style={{ boxShadow: `0 0 0 3px var(--color-neutral-950), 0 0 0 5px ${i ? '#8b5cf6' : '#ef4444'}` }}>
+                            {p?.photo ? <img src={p.photo} alt="" className="h-full w-full object-cover" /> : p?.username?.slice(0, 1)}
+                          </span>
+                        ))}
+                      </div>
+                      {/* boş film şeridi */}
+                      <div className="flex gap-1.5 rounded-md bg-neutral-800/80 px-2 py-1.5">
+                        {[0, 1, 2, 3, 4].map((i) => (
+                          <span key={i} className="h-7 w-10 rounded-sm border border-dashed border-neutral-600" />
+                        ))}
+                      </div>
+                    </div>
+                  }
+                  title={tt('Birlikte izlediğiniz bir şey işaretlenmemiş')}
+                  text={tt('Bir yapımın detayında, izleme tarihinin altındaki "Kiminle?" kısmına {0} adını eklersen burada sıralanır.', other?.username ?? '')}
+                  action={lastWatched ? { label: tt('En son izlediğini aç'), icon: 'play', onClick: () => navigate(`/?detay=${lastWatched.id}`) } : undefined}
+                />
+              </div>
             ) : (
               <>
                 <div className="mb-4 flex flex-wrap gap-2 text-sm">
@@ -281,7 +391,19 @@ export default function Birlikte() {
           </section>
           <section>
             <h2 className="text-xl font-bold text-neutral-50 mb-3">{tt('{0} çok sevdi, sen izlemedin', other?.username ?? '')}</h2>
-            <Posters list={data.theyLoved} onOpen={(i) => (rows.some((r) => r.id === i.row.id) ? open(i) : undefined)} action={(i) => i.score !== null && <p className="text-[11px] text-amber-400">★ {i.score.toFixed(1)}</p>} />
+            <Posters
+              list={data.theyLoved}
+              onOpen={(i) => (rows.some((r) => r.id === i.row.id) ? open(i) : undefined)}
+              action={(i) => i.score !== null && <p className="text-[11px] text-amber-400">★ {i.score.toFixed(1)}</p>}
+              empty={
+                <EmptyBlock
+                  art={<GhostPosters icon="heart" />}
+                  title={tt('Şimdilik bir şey yok')}
+                  text={tt('{0} profilinin 8 ve üstü puan verdiği, senin izlemediğin yapımlar burada çıkar.', other?.username ?? '')}
+                  action={theirTodo.length && !data.shared.length && !showTheirs ? { label: tt('{0} profilinin izleyeceklerine bak', other?.username ?? ''), icon: 'eye', onClick: () => setShowTheirs(true) } : undefined}
+                />
+              }
+            />
           </section>
           {ext.taste && (
             <section className="rounded-3xl border border-neutral-800 bg-neutral-900/40 p-6">

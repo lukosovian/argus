@@ -9,6 +9,7 @@ import { tt, EP } from '../lib/i18n'
 import Icon from './Icon'
 import { useToast } from '../hooks/useToast'
 import { MOBILE } from '../lib/mobile/ui'
+import { useAmbientTint } from '../hooks/useAmbientTint'
 
 // Ana sayfadaki "Kaldığın yerden" satırı (v1.23.3, öneri A2; Ana Sayfa Ayarları › Satırlar'dan açılır):
 // durumu İzleniyor ya da Yarım olanlar, en son dokunduğun en başta. Dikey afiş yerine yatay görsel + logo,
@@ -166,75 +167,127 @@ export default function ContinueRow({
           // Dizide sıradaki bölümün kendi karesi; yoksa (ya da yüklenemezse) eski görsel
           const image = (still && !brokenStill.has(row.id) ? still : '') || fallback
           return (
-            // Kart ve ✓ düğmesi kardeş: düğme kartın içinde olsaydı iç içe <button> olurdu; tıklaması kartı açmıyor
-            <div key={row.id} className="group/kart relative w-[300px] shrink-0">
-            <button
-              onClick={() => onOpenDetail(row)}
+            <ContinueCard
+              key={row.id}
               title={title}
-              className="group w-full text-left rounded-xl overflow-hidden bg-neutral-900 shadow-lg shadow-black/40 transition duration-300 hover:-translate-y-1 hover:shadow-black/70"
-            >
-              <span className="relative block aspect-video bg-neutral-800">
-                {image && (
-                  <img
-                    src={image}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    onError={() => image !== fallback && setBrokenStill((b) => new Set(b).add(row.id))}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                )}
-                <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                {logo ? (
-                  <img src={logo} alt={title} loading="lazy" decoding="async" className="absolute left-3 bottom-3 max-h-[38%] max-w-[60%] object-contain" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.8))' }} />
-                ) : (
-                  <span className="absolute left-3 bottom-2.5 right-3 text-base font-bold text-white truncate" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
-                    {title}
-                  </span>
-                )}
-                <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                  <span className="h-12 w-12 rounded-full border-2 border-white bg-black/50 flex items-center justify-center text-white">
-                    <Icon name="play" className="h-5 w-5 ml-0.5" />
-                  </span>
-                </span>
-              </span>
-              <span className="block h-[3px] bg-neutral-800">
-                {pct !== null && <span className="block h-full" style={{ width: `${Math.max(3, Math.round(pct * 100))}%`, background: 'linear-gradient(90deg,#015eea,#00c0fa)' }} />}
-              </span>
-              {episode ? (
-                <span className="block px-3 py-2 text-xs">
-                  <span className="block font-semibold text-neutral-100 truncate">{title}</span>
-                  <span className="block text-neutral-400 truncate mt-0.5">{episode}</span>
-                </span>
-              ) : (
-                <span className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                  <span className="font-semibold text-neutral-100 truncate">{title}</span>
-                  <span className="shrink-0 text-neutral-400">{text}</span>
-                </span>
-              )}
-            </button>
-            {nextKey && nextLabel && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  markNext(row, nextKey, nextLabel)
-                }}
-                disabled={busy === row.id}
-                title={tt('{0} izledim', nextLabel)}
-                aria-label={tt('{0} izledim', nextLabel)}
-                // Telefonda üzerine gelme yok — düğme hep görünür
-                className={`absolute top-2 right-2 z-10 h-9 w-9 rounded-full border-2 border-white/80 bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition hover:bg-[#00c0fa] hover:border-[#00c0fa] hover:text-neutral-950 focus-visible:opacity-100 disabled:opacity-50 ${
-                  MOBILE ? '' : 'opacity-0 group-hover/kart:opacity-100'
-                }`}
-              >
-                <Icon name="check" className="h-4 w-4" />
-              </button>
-            )}
-            </div>
+              image={image}
+              fallback={fallback}
+              logo={logo}
+              pct={pct}
+              text={text}
+              episode={episode}
+              nextLabel={nextKey && nextLabel ? nextLabel : undefined}
+              busy={busy === row.id}
+              onOpen={() => onOpenDetail(row)}
+              onMark={() => nextKey && nextLabel && markNext(row, nextKey, nextLabel)}
+              onStillError={() => image !== fallback && setBrokenStill((b) => new Set(b).add(row.id))}
+            />
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// Tek kart: alt şerit yapımın kendi renginde (detay penceresindeki gibi, bkz. useAmbientTint; açık temada düz)
+function ContinueCard({
+  title,
+  image,
+  fallback,
+  logo,
+  pct,
+  text,
+  episode,
+  nextLabel,
+  busy,
+  onOpen,
+  onMark,
+  onStillError,
+}: {
+  title: string
+  image: string
+  fallback: string
+  logo: string
+  pct: number | null
+  text: string
+  episode?: string
+  nextLabel?: string
+  busy: boolean
+  onOpen: () => void
+  onMark: () => void
+  onStillError: () => void
+}) {
+  const tint = useAmbientTint(fallback || image, { lightness: 0.14, maxSat: 0.6 })
+  return (
+    // Kart ve ✓ düğmesi kardeş: düğme kartın içinde olsaydı iç içe <button> olurdu; tıklaması kartı açmıyor
+    <div className="group/kart relative w-[300px] shrink-0">
+      <button
+        onClick={onOpen}
+        title={title}
+        style={tint ? { background: tint, boxShadow: `0 10px 30px -12px ${tint}` } : undefined}
+        className="group w-full text-left rounded-xl overflow-hidden bg-neutral-900 shadow-lg shadow-black/40 transition duration-300 hover:-translate-y-1 hover:shadow-black/70"
+      >
+        <span className="relative block aspect-video bg-neutral-800">
+          {image && (
+            <img
+              src={image}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onError={onStillError}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          )}
+          <span
+            className={`absolute inset-0 ${tint ? '' : 'bg-gradient-to-t from-black/75 via-black/10 to-transparent'}`}
+            style={tint ? { background: `linear-gradient(to top, ${tint} 0%, ${tint}99 22%, transparent 60%)` } : undefined}
+          />
+          {logo ? (
+            <img src={logo} alt={title} loading="lazy" decoding="async" className="absolute left-3 bottom-3 max-h-[38%] max-w-[60%] object-contain" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.8))' }} />
+          ) : (
+            <span className="absolute left-3 bottom-2.5 right-3 text-base font-bold text-white truncate" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
+              {title}
+            </span>
+          )}
+          <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+            <span className="h-12 w-12 rounded-full border-2 border-white bg-black/50 flex items-center justify-center text-white">
+              <Icon name="play" className="h-5 w-5 ml-0.5" />
+            </span>
+          </span>
+        </span>
+        <span className={`block h-[3px] ${tint ? 'bg-white/10' : 'bg-neutral-800'}`}>
+          {pct !== null && <span className="block h-full" style={{ width: `${Math.max(3, Math.round(pct * 100))}%`, background: 'linear-gradient(90deg,#015eea,#00c0fa)' }} />}
+        </span>
+        {episode ? (
+          <span className="block px-3 py-2 text-xs">
+            <span className="block font-semibold text-neutral-100 truncate">{title}</span>
+            <span className={`block truncate mt-0.5 ${tint ? 'text-white/65' : 'text-neutral-400'}`}>{episode}</span>
+          </span>
+        ) : (
+          <span className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+            <span className="font-semibold text-neutral-100 truncate">{title}</span>
+            <span className={`shrink-0 ${tint ? 'text-white/65' : 'text-neutral-400'}`}>{text}</span>
+          </span>
+        )}
+      </button>
+      {nextLabel && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onMark()
+          }}
+          disabled={busy}
+          title={tt('{0} izledim', nextLabel)}
+          aria-label={tt('{0} izledim', nextLabel)}
+          // Telefonda üzerine gelme yok — düğme hep görünür
+          className={`absolute top-2 right-2 z-10 h-9 w-9 rounded-full border-2 border-white/80 bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition hover:bg-[#00c0fa] hover:border-[#00c0fa] hover:text-neutral-950 focus-visible:opacity-100 disabled:opacity-50 ${
+            MOBILE ? '' : 'opacity-0 group-hover/kart:opacity-100'
+          }`}
+        >
+          <Icon name="check" className="h-4 w-4" />
+        </button>
+      )}
     </div>
   )
 }

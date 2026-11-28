@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Icon from '../Icon'
 import { searchFold } from '../../lib/search'
 import { createPortal } from 'react-dom'
 import { api, type BiletGorsel } from '../../lib/api'
@@ -197,7 +198,8 @@ export default function TicketForm({
       if (noArt) notify(tt('Seçtiğin görsel indirilemedi, bilet görselsiz kaydedildi. İnternete bağlıyken yeniden seçebilirsin.'))
       // Arşivdeki yapıma bağlı bilet: o gün izleme tarihlerine yazılsın (zaten yazılıysa dokunulmaz)
       try {
-        const w = await markBiletWatched(full)
+        // Düzenlemede biletin önceki hali de gider: biletten çıkarılan kişiler detaydaki "Kiminle"den de çıkar
+        const w = await markBiletWatched(full, editing ? initial : null)
         if (w) notify(w === 'tekrar' ? tt('Bilet tarihi izleme tarihlerine eklendi.') : tt('İzlendi olarak işaretlendi.'), 'success')
       } catch {
         notify(tt('Bilet kaydedildi ama izleme tarihi eklenemedi.'), 'danger')
@@ -264,7 +266,7 @@ export default function TicketForm({
           {/* Y27: e-bilet SMS / e-posta metnini yapıştır */}
           <div className="rounded-xl border border-dashed border-neutral-700 bg-neutral-900/50">
             <button onClick={() => setPasteOpen((o) => !o)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-neutral-200 hover:text-white">
-              <span aria-hidden>📋</span>
+              <Icon name="doc" className="h-4 w-4 text-neutral-400" />
               <span className="flex-1">{tt('Biletin mesajını yapıştır')}</span>
               <span className="text-[11px] text-neutral-500">{pasteOpen ? '▴' : tt('SMS ya da e-postadan doldur ▾')}</span>
             </button>
@@ -407,7 +409,7 @@ export default function TicketForm({
           {/* Y26: ileri tarihli bilet "Yaklaşan seans" olur */}
           {isUpcoming(b) && (
             <p className="-mt-1 flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-snug text-amber-200">
-              <span aria-hidden>⏳</span>
+              <Icon name="hourglass" className="mt-px h-3.5 w-3.5 shrink-0" />
               {tt('Yaklaşan seans olarak kaydedilecek: seans günü hatırlatılır, seans bitince izlendi işaretlenip puanı sorulur.')}
             </p>
           )}
@@ -466,10 +468,10 @@ export default function TicketForm({
               <div className="mt-1.5 space-y-2">
                 {(['front', 'back'] as const).map((w) => (
                   <div key={w} className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-800 p-2">
-                    {b[w] ? <img src={b[w]} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-lg text-neutral-600">🎫</span>}
+                    {b[w] ? <img src={b[w]} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-lg text-neutral-600"><Icon name="ticket" className="h-5 w-5" /></span>}
                     <span className="min-w-0 flex-1 truncate text-xs text-neutral-300">{uploading === w ? tt('Hazırlanıyor…') : w === 'front' ? tt('Ön yüz') : tt('Arka yüz')}</span>
                     <button onClick={() => (w === 'front' ? camFrontRef : camBackRef).current?.click()} className="rounded-lg bg-[#00c0fa] px-3 py-2 text-xs font-semibold text-black">
-                      📷 {tt('Çek')}
+                      <Icon name="camera" className="mr-1 inline h-[1.1em] w-[1.1em] -translate-y-px" />{tt('Çek')}
                     </button>
                     <button onClick={() => (w === 'front' ? frontRef : backRef).current?.click()} className="rounded-lg border border-neutral-700 px-3 py-2 text-xs text-neutral-200">
                       {tt('Galeri')}

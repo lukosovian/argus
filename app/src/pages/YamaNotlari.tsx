@@ -10,6 +10,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { APP_VERSION } from '../lib/version'
 import { BRAND_GRADIENT, BRAND_TEXT } from '../lib/theme'
 import {
+  SeriVitriniVisual,
+  SezonSeridiVisual,
+  PuanHalkasiVisual,
+  OnizlemeGunlukVisual,
   SecenekAramaVisual,
   TabloYenilikVisual,
   AyPaylasVisual,
@@ -153,6 +157,41 @@ interface PatchEntry {
 }
 
 const ENTRIES: PatchEntry[] = [
+  {
+    version: 'v1.27.2',
+    date: tt('28 Kasım 2026'),
+    title: tt('Arayüz yenilemesi: seri vitrini, puan halkası, sezon şeridi, tablo önizlemesi, Günlük görünümü'),
+    items: [
+      tt("yeni: Seri vitrini: ara sıra ana sayfanın en üstünde Koleksiyon'daki serilerinden biri büyük bir bantta gelir (kaçını izlediğin, ortalama puanın, bütün afişler, Seriyi aç / Sıradakini aç). Ana Sayfa Ayarları › Vitrin'den açıp kapatabilir, kaç açılışta bir geleceğini ve sadece bitmemiş serilerin gelmesini seçebilirsin."),
+      tt("yeni: Detay penceresinde puanın büyük görselin üstünde halka olarak: her kriter ayrı renkte, ortada ortalama."),
+      tt("yeni: Bölümler: her sezon bir kutu, bölümler nokta nokta (izlenen mavi, sıradaki parlıyor). Soldaki kutucuklar artık seçim yapıyor; tıklayınca bugünün tarihi atılmıyor. Seçince İzlendi yap (tarihli) / İzlenmedi yap / Bu sezonun hepsini seç çıkıyor. Seç düğmesi kalktı, çok sezonlu dizilerde kayma yok."),
+      tt("yeni: Arşiv Tablosu'nda bir satırın afişine tıklayınca sağda önizleme paneli: görsel, durum, puan, özet, Bugün izledim ve Aç. ↑ ↓ ile satır değiştikçe güncellenir."),
+      tt("yeni: Takvim'de üçüncü görünüm \"Günlük\": izlediklerin ay ay, gün gün defter gibi alt alta; puanın yıldız, tekrar izlediklerin işaretli."),
+      tt("yeni: Ana sayfada az yapımlı satırlar (ör. tek yapımlı ülkeler) tek satırda toplanıyor: ülkeler için \"Dünyanın dört bir yanından\", kartlarda bayrak ve ülke adı, altta ülkeye göre süzme."),
+      tt("yeni: Aramaya tıklayınca son açtıkların afiş olarak, altında renkli \"Türlere göz at\" kutuları."),
+      tt("yeni: Aklımda'da boş kutular yerine \"Arşivinden öneriler\": İzlenecek listenden soluk afişler, + ile aklına ekle."),
+      tt("yeni: Bir bilete yazdığın Kiminle kişileri, eski biletler dahil, detay penceresindeki Kiminle izledin? kısmında görünüyor; detaydan ekleyip kaldırdıkların biletle de eşleşiyor."),
+      tt("iyi: Unuttukların geniş görselli kartlar oldu: kaç aydır izlemediğin, nerede kaldığın ve Devam et / Bırak kartın içinde."),
+      tt("iyi: Mod satırı (Bunları da izle) büyük yüzler yerine renkli küçük mod kutuları ve köşede afiş yelpazesi."),
+      tt("iyi: Geçmiş yıllarda bugün eski fotoğraf albümü gibi: çerçeveli, eğik kartlar ve tarih damgası."),
+      tt("iyi: Vitrin ve Kaldığın yerden kartları yapımın kendi rengini alıyor (detay penceresindeki gibi)."),
+      tt("iyi: Koleksiyon rafları gerçek raf gibi: afişler ışıklı bir rafın üstünde, izlemediklerin gri; sembol kendi renginde parlıyor."),
+      tt("iyi: Evren kartlarında afişler deste halinde, üzerine gelince yelpaze gibi açılıyor; kart evrenin renginde parlıyor."),
+      tt("iyi: Oyun salonu kartları oyunun kendisini gösteriyor (iki afiş ve VS, yıllı zaman çizgisi, adı kapalı özet, bulanık sahne…)."),
+      tt("iyi: Aklımda, Koleksiyon, Birlikte izle, Başarımlar ve İstatistikler başlıklarının arkasında o sayfanın kendi afişleri."),
+      tt("iyi: İstatistik kartlarının arkasında ilgili afiş; yeni kartlar: En yüksek puanın, En uzun takip."),
+      tt("iyi: Bildirimler aynı yapıma göre gruplu, afişli ve Bugün / Bu hafta / Daha eski diye ayrılmış."),
+      tt("iyi: Birlikte izle'de boş bölümler resimli, ne yapman gerektiğini söyleyen bir düğmeyle."),
+      tt("iyi: Emojiler kalktı; oyunlarda, bilet formunda, bitirme planında ve başka yerlerde uygulamanın kendi dolgulu ikonları kullanılıyor."),
+      tt("duz: Yeni sezonu çıkmış ama henüz izlemediğin diziler Sağlık Kontrolü'nde \"tarihsiz bölüm\" diye uyarı vermiyor."),
+    ],
+    visuals: [
+      { caption: tt('1 ara sıra vitrinin yerine gelen seri bandı · 2 Ana Sayfa Ayarları’nda açıp kapat, sıklığını seç'), Visual: SeriVitriniVisual },
+      { caption: tt('1 her sezon bir kutu, bölümler nokta nokta · 2 soldaki kutucuk seçer · 3 seçilenlere tarihli İzlendi yap'), Visual: SezonSeridiVisual },
+      { caption: tt('1 her kriter ayrı renkte puan halkası'), Visual: PuanHalkasiVisual },
+      { caption: tt('1 tabloda afişe tıkla, sağda önizleme · 2 Takvim’de Günlük görünümü'), Visual: OnizlemeGunlukVisual },
+    ],
+  },
   {
     version: 'v1.27.1',
     date: tt('28 Kasım 2026'),

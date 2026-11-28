@@ -11,6 +11,9 @@ import { notifyDataChanged } from '../lib/dataEvents'
 import { MOBILE } from '../lib/mobile/ui'
 import { tt } from '../lib/i18n'
 import type { Row } from '../types'
+import { titleText } from '../types'
+import { Link } from 'react-router-dom'
+import PosterWallHero from '../components/PosterWallHero'
 import RowDetailModal from '../components/RowDetailModal'
 import TmdbPreviewModal from '../components/TmdbPreviewModal'
 import { aklimdaCard } from '../components/AklimdaRow'
@@ -95,6 +98,50 @@ export default function Aklimda() {
     return [...base].sort((a, b) => (min(a) === min(b) ? 0 : min(a) - min(b)))
   }, [all, filter, sort, board])
 
+  // Arşivinden öneriler (Arayüz Önerileri 3 · M1): arşivde İzlenecek durumunda olup Aklımda'da olmayan, afişi olan
+  // yapımlar. Sıra gün boyu aynı kalır (her gün başka bir karışım), en fazla 12 tane.
+  const suggestions = useMemo(() => {
+    if (!board) return []
+    const durum = resolveRole(board, 'durum')
+    const izlenecek = resolveStatusOption(board, 'izlenecek')
+    if (!durum || !izlenecek) return []
+    const titleProp = board.properties.find((p) => p.id === board.titlePropertyId)
+    const posterProp = resolveRole(board, 'poster')
+    const coverProp = board.properties.find((p) => p.id === board.coverPropertyId)
+    const day = new Date().toDateString()
+    const hash = (s: string) => {
+      let h = 2166136261
+      for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619)
+      return h >>> 0
+    }
+    return rows
+      .filter((r) => r.values[durum.id] === izlenecek && !akl.items[r.id])
+      .map((r) => ({
+        row: r,
+        title: titleProp ? titleText(titleProp, r.values[titleProp.id]) : '',
+        poster: (posterProp && (r.values[posterProp.id] as string)) || (coverProp && (r.values[coverProp.id] as string)) || '',
+        h: hash(r.id + day),
+      }))
+      .filter((x) => x.poster)
+      .sort((a, b) => a.h - b.h)
+      .slice(0, 12)
+  }, [board, rows, akl.items])
+  const [adding, setAdding] = useState<string | null>(null)
+  async function addSuggestion(s: { row: Row; title: string }) {
+    if (!board) return
+    setAdding(s.row.id)
+    try {
+      await akl.addRow(board.id, s.row.id)
+      notify(tt('"{0}" aklına eklendi.', s.title), 'success')
+    } catch (err) {
+      notify(err instanceof Error ? err.message : tt('Kaydedilemedi.'), 'danger')
+    } finally {
+      setAdding(null)
+    }
+  }
+  // Başlığın arkasındaki afiş duvarı: önce Aklımda'dakiler, az ise önerilerle tamamlanır
+  const heroPosters = useMemo(() => [...all.map((e) => e.poster), ...suggestions.map((s) => s.poster)].filter(Boolean).slice(0, 14), [all, suggestions])
+
   async function remove(e: AklimdaEntry) {
     try {
       await akl.remove(e.key)
@@ -142,16 +189,13 @@ export default function Aklimda() {
   return (
     <div className={`max-w-6xl mx-auto px-4 ${MOBILE ? 'pt-2 pb-8' : 'py-8'} space-y-6`}>
       {!MOBILE && (
-        <section
-          className="relative overflow-hidden rounded-3xl border border-neutral-800 px-6 py-8 sm:px-10"
-          style={{ background: 'radial-gradient(ellipse at 15% 0%, rgba(139,92,246,0.16), transparent 60%), radial-gradient(ellipse at 90% 100%, rgba(0,192,250,0.10), transparent 60%), var(--color-neutral-950)' }}
-        >
+        <PosterWallHero posters={heroPosters} tint="rgba(139,92,246,0.18)">
           <h1 className="text-4xl sm:text-5xl font-black text-neutral-50 tracking-tight flex items-center gap-3">
             <Icon name="bookmark" className="h-9 w-9 text-violet-300" />
             {tt('Aklımda')}
           </h1>
           <p className="text-neutral-300 mt-2 max-w-2xl">{tt('"Bunu izlesem mi?" dediğin her şey burada. Bir yapımın detayında "Aklımda tut"a basman yeter.')}</p>
-        </section>
+        </PosterWallHero>
       )}
 
       {/* Sınır: liste dolunca yeni ekleme yapılmaz (bkz. useAklimda) */}
@@ -188,10 +232,28 @@ export default function Aklimda() {
 
       {all.length === 0 ? (
         <EmptyState
-          art="kayit"
+          art="afis"
+          icon="bookmark"
+          poster={suggestions[0]?.poster}
           title={tt('Aklında henüz bir şey yok')}
           text={tt('Ana sayfada ya da arşivde bir yapımı açıp "Aklımda tut"a bas; Benzer İçerikler ve Ne İzlesem önerilerinde de var. Eklediklerin burada ve ana sayfada "Aklında kalanlar" satırında görünür.')}
-        />
+        >
+          {suggestions.length > 0 ? (
+            <button
+              onClick={() => addSuggestion(suggestions[Math.floor(Math.random() * suggestions.length)])}
+              disabled={!!adding}
+              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50"
+            >
+              <Icon name="dice" className="h-4 w-4" />
+              {tt('İzleneceklerinden birini ekle')}
+            </button>
+          ) : (
+            <Link to={`/board/${board.id}`} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition">
+              <Icon name="table" className="h-4 w-4" />
+              {tt('Arşivini aç')}
+            </Link>
+          )}
+        </EmptyState>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -292,15 +354,49 @@ export default function Aklimda() {
               </div>
               )
             })}
-            {/* Sınıra kadar boş yuvalar: sayfa boş görünmez, kaç yer kaldığı belli olur (en fazla 2 sıra) */}
-            {!MOBILE && filter === 'hepsi' && akl.limit > 0 &&
-              Array.from({ length: Math.min(Math.max(0, akl.limit - akl.count), 16) }, (_, i) => (
-                <div key={`bos-${i}`} className="aspect-[2/3] rounded-lg border-[1.5px] border-dashed border-neutral-800 flex items-center justify-center text-2xl text-neutral-700" title={tt('Boş yer')}>
-                  +
-                </div>
-              ))}
           </div>
         </>
+      )}
+
+      {/* Arşivinden öneriler: soluk durur, üzerine gelince renklenir; "+" ile Aklımda'ya eklenir (M1) */}
+      {suggestions.length > 0 && (
+        <section className="pt-2">
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <h2 className="text-base font-bold text-neutral-100 flex items-center gap-2">
+              <Icon name="sparkle" className="h-4 w-4 text-violet-300" />
+              {tt('Arşivinden öneriler')}
+            </h2>
+            <span className="text-xs text-neutral-500">{akl.full ? tt('Aklın dolu — eklemek için birini çıkar') : tt('İzlenecek listenden')}</span>
+          </div>
+          <div className={`grid gap-3 ${MOBILE ? 'grid-cols-3' : 'grid-cols-4 sm:grid-cols-6'}`}>
+            {suggestions.map((s) => (
+              <div key={s.row.id} className="min-w-0">
+                <div className="group relative aspect-[2/3] rounded-lg overflow-hidden bg-neutral-800 shadow-md shadow-black/40">
+                  <button onClick={() => setDetail(s.row)} className="absolute inset-0" title={s.title}>
+                    <img
+                      src={s.poster}
+                      alt={s.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover [filter:grayscale(.6)_brightness(.45)] transition duration-300 group-hover:[filter:none] group-hover:scale-105"
+                    />
+                  </button>
+                  <button
+                    onClick={() => addSuggestion(s)}
+                    disabled={akl.full || adding === s.row.id}
+                    title={akl.full ? tt('Aklın dolu') : tt('Aklımda tut')}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 grid place-items-center h-10 w-10 rounded-full border-[1.5px] border-white/50 bg-white/15 text-white backdrop-blur-sm transition hover:bg-violet-500 hover:border-violet-300 disabled:opacity-40 disabled:hover:bg-white/15"
+                  >
+                    <Icon name="plus" className="h-5 w-5" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-1 truncate" title={s.title}>
+                  {s.title}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {detail && <RowDetailModal board={board} row={rows.find((r) => r.id === detail.id) ?? detail} onClose={() => setDetail(null)} />}

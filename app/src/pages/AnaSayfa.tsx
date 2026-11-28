@@ -26,6 +26,11 @@ import OnThisDayRow from '../components/OnThisDayRow'
 import ForgottenRow from '../components/ForgottenRow'
 import AklimdaRow from '../components/AklimdaRow'
 import ContinueRow from '../components/ContinueRow'
+import SeriesSpotlight, { useSeriesSpot } from '../components/home/SeriesSpotlight'
+import { useAmbientTint } from '../hooks/useAmbientTint'
+import { useThemeMode } from '../hooks/useThemeMode'
+import MixedGroupRow, { type MixedGroup } from '../components/home/MixedGroupRow'
+import { countryFlagCode } from '../lib/countryFlag'
 import YariYilCard from '../components/flashback/YariYil'
 import { useAklimda } from '../hooks/useAklimda'
 import { useToast } from '../hooks/useToast'
@@ -303,6 +308,7 @@ function FeaturedOverlay({
   extras = false,
   rowId,
   boardId,
+  tint,
 }: {
   title: string
   titleImage: string
@@ -315,6 +321,8 @@ function FeaturedOverlay({
   extras?: boolean
   rowId?: string
   boardId?: string
+  // Klasik vitrinde soldaki koyu perde yapımın renginde (bkz. heroTint)
+  tint?: string | null
 }) {
   // Sinopsis 10 saniye ekranda kaldıktan sonra aşağı kayarak kayboluyor — vitrin uzun
   // süre açık kalırsa afiş sadeleşsin diye. Öne çıkan kayıt değiştiğinde (yeni sinopsis
@@ -330,8 +338,9 @@ function FeaturedOverlay({
   return (
     <div
       className={`absolute inset-0 flex items-end bg-gradient-to-r pointer-events-none ${
-        cinematic ? 'z-[5]' : 'from-black/60 via-black/5 to-transparent rounded-xl'
+        cinematic ? 'z-[5]' : `${tint ? '' : 'from-black/60 via-black/5 to-transparent'} rounded-xl`
       }`}
+      style={!cinematic && tint ? { background: `linear-gradient(to right, ${tint}c7 0%, ${tint}40 40%, transparent 70%)` } : undefined}
     >
       <div
         className={`${cinematic ? (extras ? 'pl-6 sm:pl-10 md:pl-16 pb-36 md:pb-44' : 'pl-6 sm:pl-10 md:pl-16 pb-24 md:pb-32') : 'pl-6 md:pl-10 pb-10 md:pb-12'} max-w-2xl pointer-events-auto`}
@@ -507,6 +516,52 @@ function buildAutoFillPool(board: Board, rows: Row[], filter?: AutoFillSettings)
     }
   }
   return candidates
+}
+
+// Rastgele satırların son hali: 3'ten az yapımı olan değerler (Hollanda, Kenya, Pembe Dizi…) tek tek satır olup
+// ekranı boş bırakmasın diye aynı sütundakilerle tek bir satırda toplanır (öneri A1) — bu birleşik satır da bir
+// satır sayılır ve sütunun ilk küçük değerinin çıktığı yerde durur. Telefonda eskisi gibi ayrı satırlar.
+const MIXED_MIN_ROWS = 3
+const MIXED_MAX_GROUPS = 24
+type AutoFillEntry =
+  | { kind: 'row'; c: AutoFillCandidate }
+  | { kind: 'mixed'; propertyId: string; title: string; subtitle: string; groups: MixedGroup[] }
+
+function pickAutoFill(board: Board, shuffled: AutoFillCandidate[], count: number): AutoFillEntry[] {
+  if (MOBILE) return shuffled.slice(0, count).map((c) => ({ kind: 'row', c }))
+  const smallByProp = new Map<string, AutoFillCandidate[]>()
+  for (const c of shuffled) if (c.rows.length < MIXED_MIN_ROWS) smallByProp.set(c.propertyId, [...(smallByProp.get(c.propertyId) ?? []), c])
+  const ulke = resolveRole(board, 'ulke')
+  const out: AutoFillEntry[] = []
+  const mixedDone = new Set<string>()
+  for (const c of shuffled) {
+    if (out.length >= count) break
+    if (c.rows.length >= MIXED_MIN_ROWS) {
+      out.push({ kind: 'row', c })
+      continue
+    }
+    if (mixedDone.has(c.propertyId)) continue
+    mixedDone.add(c.propertyId)
+    const small = (smallByProp.get(c.propertyId) ?? []).slice(0, MIXED_MAX_GROUPS)
+    // Tek bir küçük değer varsa birleştirecek bir şey yok — eskisi gibi kendi satırı
+    if (small.length < 2) {
+      out.push({ kind: 'row', c })
+      continue
+    }
+    const prop = board.properties.find((p) => p.id === c.propertyId)
+    const isCountry = Boolean(ulke && ulke.id === c.propertyId)
+    out.push({
+      kind: 'mixed',
+      propertyId: c.propertyId,
+      title: isCountry ? tt('Dünyanın dört bir yanından') : tt('Karışık {0}', prop?.name ?? ''),
+      subtitle: isCountry ? tt('az yapımlı ülkeler tek satırda') : tt('az yapımlı değerler tek satırda'),
+      groups: small.map((g) => {
+        const raw = prop?.options?.find((o) => o.id === g.optionId)?.label ?? g.label
+        return { optionId: g.optionId, label: g.label, flag: isCountry ? countryFlagCode(raw) : null, rows: g.rows }
+      }),
+    })
+  }
+  return out
 }
 
 function ChevronLeftIcon() {
@@ -836,9 +891,9 @@ export default function AnaSayfa() {
   const autoFillFilterKey = [settings.autoFill?.include, settings.autoFill?.exclude, settings.autoFill?.excludeProps]
     .map((a) => (a ?? []).join(','))
     .join('|')
-  const autoFillPicks = useMemo(() => {
+  const autoFillPicks = useMemo<AutoFillEntry[]>(() => {
     if (!autoFillEnabled || !board || autoFillCount === 0) return []
-    return shuffle(buildAutoFillPool(board, visibleRows, settings.autoFill)).slice(0, autoFillCount)
+    return pickAutoFill(board, shuffle(buildAutoFillPool(board, visibleRows, settings.autoFill)), autoFillCount)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFillEnabled, autoFillCount, board?.id, visibleRowsKey, autoFillFilterKey])
 
@@ -937,6 +992,13 @@ export default function AnaSayfa() {
   // ambiyans da arşivdeki kapak görseline geri döner.
   const videoThumbnail = featuredYt ? `https://img.youtube.com/vi/${featuredYt.id}/hqdefault.jpg` : ''
   const ambientSource = videoShowing && videoThumbnail ? videoThumbnail : featuredImage
+  // Vitrin de yapımın kendi rengine bürünür (detay penceresindeki gibi): sol taraftaki koyu perde ve sinema
+  // görünümünde alttaki geçiş o rengin koyu tonuyla. Yazılar görselin üstünde, hep beyaz — açık temada da renkli.
+  const heroTint = useAmbientTint(featuredImage, { lightness: 0.11, maxSat: 0.6, inLight: true })
+  const { theme } = useThemeMode()
+
+  // Seri vitrini (öneri A4): açıksa ve sırası geldiyse vitrinin yerine Koleksiyon'dan bir seri bandı
+  const seriesSpot = useSeriesSpot(board, kindRows, activeProfileId, settings, !MOBILE && !adHocRequested && !bolumId && !settingsLoading)
 
   const detayParam = searchParams.get('detay')
   const openRow = detailRow ?? (detayParam ? (rows.find((r) => r.id === detayParam) ?? null) : null)
@@ -991,7 +1053,7 @@ export default function AnaSayfa() {
   // Vitrin görünümü "Sinema": kenardan kenara, menünün arkasına kadar uzanan büyük vitrin.
   const cinematic = (settings.showcaseStyle ?? 'klasik') === 'sinema'
   const showcaseExtras = Boolean(settings.showcaseExtras)
-  const heroPeek = showcaseExtras && cinematic && Boolean(featured) && !adHocRequested && !MOBILE
+  const heroPeek = showcaseExtras && cinematic && Boolean(featured) && !adHocRequested && !MOBILE && seriesSpot.status === 'off'
   // Telefonda satırlar hep dikey afiş, ekrana 3 tane sığacak genişlikte (Netflix uygulamasındaki gibi)
   const landscape = MOBILE ? false : settings.layout !== 'izgara'
   // Telefonda satır başlıkları Netflix uygulamasındaki gibi küçük ve kalın
@@ -1098,7 +1160,7 @@ export default function AnaSayfa() {
   if (settings.continueRow?.enabled)
     rowNodes.set('continue', <ContinueRow key="continue" board={board} rows={kindRows} episodes={episodes} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.forgotten?.enabled ?? true)
-    rowNodes.set('forgotten', <ForgottenRow key="forgotten" board={board} rows={kindRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
+    rowNodes.set('forgotten', <ForgottenRow key="forgotten" board={board} rows={kindRows} episodes={episodes} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (settings.topRated?.enabled)
     rowNodes.set('top-rated', <TopRatedRow key="top-rated" board={board} rows={visibleRows} onOpenDetail={setDetailRow} titleClass={titleClass} />)
   if (moodEnabled && settings.moodRow)
@@ -1126,19 +1188,31 @@ export default function AnaSayfa() {
   if (autoFillPicks.length > 0) {
     defaultViewRows = [
       ...defaultViewRows,
-      ...autoFillPicks.map((c) => (
-        <HomeRow
-          key={`autofill-${c.optionId}`}
-          title={c.label}
-          board={board}
-          rows={c.rows}
-          landscape={landscape}
-          onOpenDetail={setDetailRow}
-          cardWidth={cardWidth}
-          showInfoAlways={showInfoAlways}
-          titleClass={titleClass}
-        />
-      )),
+      ...autoFillPicks.map((e) =>
+        e.kind === 'mixed' ? (
+          <MixedGroupRow
+            key={`autofill-mix-${e.propertyId}`}
+            board={board}
+            title={e.title}
+            subtitle={e.subtitle}
+            groups={e.groups}
+            onOpenDetail={setDetailRow}
+            titleClass={titleClass}
+          />
+        ) : (
+          <HomeRow
+            key={`autofill-${e.c.optionId}`}
+            title={e.c.label}
+            board={board}
+            rows={e.c.rows}
+            landscape={landscape}
+            onOpenDetail={setDetailRow}
+            cardWidth={cardWidth}
+            showInfoAlways={showInfoAlways}
+            titleClass={titleClass}
+          />
+        ),
+      ),
     ]
   }
 
@@ -1158,7 +1232,8 @@ export default function AnaSayfa() {
           onNext={showcasePool.length > 1 ? () => setFeatured(shuffle(showcasePool.filter((r) => r.id !== featured.id))[0]) : undefined}
         />
       )}
-      {featured && !adHocRequested && !MOBILE && (
+      {seriesSpot.status === 'ready' && seriesSpot.spot && <SeriesSpotlight spot={seriesSpot.spot} onOpenDetail={setDetailRow} />}
+      {featured && !adHocRequested && !MOBILE && seriesSpot.status === 'off' && (
         // Sinema: kenar boşluğu yok, menünün arkasına kadar uzanıyor (sayfanın px-4 / py-6 payı +
         // 64px'lik menü yüksekliği kadar yukarı ve yanlara taşıyor).
         <div
@@ -1220,9 +1295,19 @@ export default function AnaSayfa() {
           />
           {cinematic && (
             <>
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/75 via-black/20 to-transparent z-[3]" />
+              <div
+                className={`pointer-events-none absolute inset-0 z-[3] transition-[background] duration-700 ${heroTint ? '' : 'bg-gradient-to-r from-black/75 via-black/20 to-transparent'}`}
+                style={heroTint ? { background: `linear-gradient(to right, ${heroTint}d9 0%, ${heroTint}66 32%, transparent 62%)` } : undefined}
+              />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-neutral-950/70 to-transparent z-[4]" />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent z-[4]" />
+              <div
+                className={`pointer-events-none absolute inset-x-0 bottom-0 h-56 z-[4] ${heroTint && theme !== 'light' ? '' : 'bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent'}`}
+                style={
+                  heroTint && theme !== 'light'
+                    ? { background: `linear-gradient(to top, var(--color-neutral-950) 0%, color-mix(in srgb, ${heroTint} 70%, var(--color-neutral-950)) 38%, transparent 100%)` }
+                    : undefined
+                }
+              />
             </>
           )}
           <FeaturedOverlay
@@ -1236,6 +1321,7 @@ export default function AnaSayfa() {
             extras={showcaseExtras}
             rowId={featured.id}
             boardId={board.id}
+            tint={heroTint}
           />
           {slideshow && slides.length > 1 && (
             <div className={`absolute z-10 flex gap-1.5 ${cinematic ? 'bottom-24 right-8' : 'bottom-4 right-5'}`}>
